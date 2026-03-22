@@ -1,0 +1,26 @@
+<Project>
+
+    <PropertyGroup>
+        <ProductName>Proxyfan</ProductName>
+        <RootNamespace>$(ProductName).$(MSBuildProjectName)</RootNamespace>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <Environment Condition=" '$(Environment)' == '' ">Development</Environment>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Environment)' != '' ">
+        <DefineConstants>$(DefineConstants);ENVIRONMENT_$(Environment.ToUpper())</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+    </ItemGroup>
+
+</Project>
