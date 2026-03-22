@@ -65,6 +65,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Cleanup.ps1
 
 ## Rules for Agents
 
+- **CRITICAL**: **Never run `git commit` or `git push`.** Staging, committing, and pushing changes to the repository is strictly reserved for the human developer. Prepare your changes and stop — do not commit or push under any circumstances, even when asked to "finish" or "complete" a task.
+
 - **CRITICAL**: **Always use `docs/api/` as the primary source of truth for any public API.**
   Before reading any source file under `src/` to understand a type's public interface, check
   `docs/api/` first. The index at `docs/api/index.md` lists every documented namespace;

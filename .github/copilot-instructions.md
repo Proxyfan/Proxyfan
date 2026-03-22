@@ -2,6 +2,10 @@
 
 Proxyfan is an HTTP debugging proxy for inspecting, capturing, and modifying network traffic in real time on Windows, built with .NET.
 
+## Git Operations
+
+**Never run `git commit` or `git push`.** Staging, committing, and pushing is strictly reserved for the human developer. Prepare your changes and stop — do not commit or push under any circumstances, even when asked to "finish" or "complete" a task.
+
 ## Development Environment
 
 All scripts must be written in **PowerShell 7 (`pwsh`)** — never bash, batch files (`.cmd`/`.bat`), or legacy `powershell.exe`.

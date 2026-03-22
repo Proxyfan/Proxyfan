@@ -1,0 +1,9 @@
+{
+  "preToolUse": [
+    {
+      "type": "command",
+      "powershell": ".github/hooks/block-git.ps1",
+      "timeoutSec": 10
+    }
+  ]
+}
