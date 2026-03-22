@@ -1,0 +1,16 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/CodeStyle/XamlStyler/AttributeOrderingRuleGroups/@EntryValue">x:Class
+xmlns, xmlns:x
+xmlns:*
+x:Key, Key, x:Name, Name, x:Uid, Uid, Title
+Grid.Row, Grid.RowSpan, Grid.Column, Grid.ColumnSpan, Canvas.Left, Canvas.Top, Canvas.Right, Canvas.Bottom
+Width, Height, MinWidth, MinHeight, MaxWidth, MaxHeight
+Margin, Padding, HorizontalAlignment, VerticalAlignment, HorizontalContentAlignment, VerticalContentAlignment, Panel.ZIndex
+*:*, *
+PageSource, PageIndex, Offset, Color, TargetName, Property, Value, StartPoint, EndPoint
+mc:Ignorable, d:IsDataSource, d:LayoutOverrides, d:IsStaticText
+Storyboard.*, From, To, Duration</s:String>
+	<s:String x:Key="/Default/CodeStyle/XamlStyler/ConfigPath/@EntryValue"></s:String>
+	<s:Boolean x:Key="/Default/CodeStyle/XamlStyler/FormatOnSave/@EntryValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/CodeStyle/XamlStyler/KeepFirstAttributeOnSameLine/@EntryValue">True</s:Boolean>
+	<s:String x:Key="/Default/CustomTools/CustomToolsData/@EntryValue"></s:String></wpf:ResourceDictionary>

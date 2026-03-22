@@ -1,0 +1,20 @@
+<Solution>
+
+  <Project Path="src/Domain/Domain.csproj" />
+  <Project Path="src/Framework/Framework.csproj" />
+  <Project Path="src/DependencyInjection/DependencyInjection.csproj" />
+  <Project Path="src/Presentation/Presentation.csproj" />
+
+  <Folder Name="/Clients/">
+    <Project Path="src/Clients/Client/Client.csproj" />
+    <Project Path="src/Clients/Client.Desktop/Client.Desktop.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/">
+    <Project Path="tests/Domain.Tests/Domain.Tests.csproj" />
+    <Project Path="tests/Framework.Tests/Framework.Tests.csproj" />
+    <Project Path="tests/DependencyInjection.Tests/DependencyInjection.Tests.csproj" />
+    <Project Path="tests/Presentation.Tests/Presentation.Tests.csproj" />
+  </Folder>
+
+</Solution>
