@@ -60,7 +60,7 @@ public static class ServiceCollectionExtensions
         ///     and options validation.
         /// </summary>
         /// <param name="configuration">The configuration used to bind <see cref="ProxyOptions" />.</param>
-        /// <returns>The <paramref name="serviceCollection" /> for chaining.</returns>
+        /// <returns>The service collection, for chaining.</returns>
         public IServiceCollection AddProxyListener(IConfiguration configuration)
         {
             serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));

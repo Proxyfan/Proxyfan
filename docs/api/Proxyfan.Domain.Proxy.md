@@ -8,5 +8,6 @@
 
 | Interfaces | |
 | :--- | :--- |
+| [IConnectionHandler](Proxyfan.Domain.Proxy.IConnectionHandler.md 'Proxyfan\.Domain\.Proxy\.IConnectionHandler') | Defines the contract for a component that handles an incoming proxy connection for a specific protocol\. |
 | [IProxyConnection](Proxyfan.Domain.Proxy.IProxyConnection.md 'Proxyfan\.Domain\.Proxy\.IProxyConnection') | Represents an accepted TCP connection before protocol detection\. Provides duplex pipe transport and remote endpoint information\. |
 | [IProxyListener](Proxyfan.Domain.Proxy.IProxyListener.md 'Proxyfan\.Domain\.Proxy\.IProxyListener') | Defines the lifecycle contract for a TCP proxy listener that binds to a port, accepts incoming connections, and dispatches each connection via a callback\. |

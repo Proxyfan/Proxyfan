@@ -65,6 +65,22 @@ public int Port { get; set; }
 #### Property Value
 [System\.Int32](https://learn.microsoft.com/en-us/dotnet/api/system.int32 'System\.Int32')
 
+<a name='Proxyfan.Domain.Proxy.ProxyOptions.ProtocolDetectionTimeout'></a>
+
+## ProxyOptions\.ProtocolDetectionTimeout Property
+
+Gets or sets the maximum time the connection dispatcher waits for the initial
+bytes needed to detect the protocol\. If no data arrives within this duration
+the connection is closed\. A value of [System\.TimeSpan\.Zero](https://learn.microsoft.com/en-us/dotnet/api/system.timespan.zero 'System\.TimeSpan\.Zero') disables the
+timeout\. Default: 5 seconds\.
+
+```csharp
+public System.TimeSpan ProtocolDetectionTimeout { get; set; }
+```
+
+#### Property Value
+[System\.TimeSpan](https://learn.microsoft.com/en-us/dotnet/api/system.timespan 'System\.TimeSpan')
+
 <a name='Proxyfan.Domain.Proxy.ProxyOptions.RegisterSystemProxy'></a>
 
 ## ProxyOptions\.RegisterSystemProxy Property

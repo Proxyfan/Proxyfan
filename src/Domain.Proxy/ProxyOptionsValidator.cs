@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.Options;
 
 namespace Proxyfan.Domain.Proxy;
@@ -24,6 +25,12 @@ public sealed class ProxyOptionsValidator : IValidateOptions<ProxyOptions>
         {
             return ValidateOptionsResult.Fail(
                 $"MaxConnections must be greater than zero, but was {options.MaxConnections}.");
+        }
+
+        if (options.ProtocolDetectionTimeout < TimeSpan.Zero)
+        {
+            return ValidateOptionsResult.Fail(
+                $"ProtocolDetectionTimeout must be zero or positive, but was {options.ProtocolDetectionTimeout}.");
         }
 
         return ValidateOptionsResult.Success;

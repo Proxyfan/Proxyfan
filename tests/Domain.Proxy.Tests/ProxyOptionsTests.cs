@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Proxy.Tests;
@@ -35,6 +36,14 @@ internal sealed class ProxyOptionsTests
     {
         var options = new ProxyOptions();
         await Assert.That(options.MaxConnections).IsEqualTo(1000);
+    }
+
+    /// <summary>Verifies the default value of <see cref="ProxyOptions.ProtocolDetectionTimeout" />.</summary>
+    [Test]
+    public async Task ProtocolDetectionTimeout_Default_IsEqualTo5Seconds()
+    {
+        var options = new ProxyOptions();
+        await Assert.That(options.ProtocolDetectionTimeout).IsEqualTo(TimeSpan.FromSeconds(5));
     }
 
     /// <summary>Verifies that setting <see cref="ProxyOptions.Port" /> assigns the specified value.</summary>

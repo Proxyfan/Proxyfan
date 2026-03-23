@@ -19,6 +19,7 @@ public sealed partial class TcpProxyListener(
 {
     private readonly ILogger<TcpProxyListener> _logger = logger;
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor = optionsMonitor;
+    private Task? _acceptLoopTask;
     private CancellationTokenSource? _acceptLoopCts;
     private SemaphoreSlim? _connectionSemaphore;
     private Socket? _listenSocket;
@@ -35,11 +36,6 @@ public sealed partial class TcpProxyListener(
     {
         var options = _optionsMonitor.CurrentValue;
         var port = options.Port;
-
-        if (port is < 1024 or > 65535)
-        {
-            throw new ProxyBindException(port, new SocketException((int)SocketError.InvalidArgument));
-        }
 
         var socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
 
@@ -65,12 +61,17 @@ public sealed partial class TcpProxyListener(
 
         LogStarted(BoundPort.Value);
 
-        _ = RunAcceptLoopAsync(onConnectionAccepted, _acceptLoopCts.Token);
+        _acceptLoopTask = RunAcceptLoopAsync(onConnectionAccepted, _acceptLoopCts.Token);
 
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     In-flight connections that were accepted before this method is called are allowed to
+    ///     complete normally rather than being forcibly cancelled. This follows the graceful
+    ///     shutdown policy described in the design documentation.
+    /// </remarks>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         if (!IsListening)
@@ -87,6 +88,12 @@ public sealed partial class TcpProxyListener(
             await _acceptLoopCts.CancelAsync().ConfigureAwait(false);
             _acceptLoopCts.Dispose();
             _acceptLoopCts = null;
+        }
+
+        if (_acceptLoopTask is not null)
+        {
+            await _acceptLoopTask.ConfigureAwait(false);
+            _acceptLoopTask = null;
         }
 
         _listenSocket?.Dispose();
@@ -170,7 +177,14 @@ public sealed partial class TcpProxyListener(
         }
         finally
         {
-            _connectionSemaphore?.Release();
+            try
+            {
+                _connectionSemaphore?.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Semaphore was disposed during shutdown — harmless, ignore.
+            }
         }
     }
 }

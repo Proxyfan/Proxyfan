@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 
@@ -80,6 +81,22 @@ internal sealed class ProxyOptionsValidatorTests
     public async Task Validate_MaxConnectionsNegative1_ReturnsFail()
     {
         var result = Validate(new ProxyOptions { MaxConnections = -1 });
+        await Assert.That(result.Failed).IsTrue();
+    }
+
+    /// <summary>Verifies that <see cref="ProxyOptions.ProtocolDetectionTimeout" /> of zero passes validation.</summary>
+    [Test]
+    public async Task Validate_ProtocolDetectionTimeoutZero_ReturnsSuccess()
+    {
+        var result = Validate(new ProxyOptions { ProtocolDetectionTimeout = TimeSpan.Zero });
+        await Assert.That(result.Succeeded).IsTrue();
+    }
+
+    /// <summary>Verifies that a negative <see cref="ProxyOptions.ProtocolDetectionTimeout" /> fails validation.</summary>
+    [Test]
+    public async Task Validate_ProtocolDetectionTimeoutNegative_ReturnsFail()
+    {
+        var result = Validate(new ProxyOptions { ProtocolDetectionTimeout = TimeSpan.FromSeconds(-1) });
         await Assert.That(result.Failed).IsTrue();
     }
 }

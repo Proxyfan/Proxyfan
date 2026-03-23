@@ -1,3 +1,5 @@
+using System;
+
 namespace Proxyfan.Domain.Proxy;
 
 /// <summary>
@@ -20,4 +22,12 @@ public sealed class ProxyOptions
 
     /// <summary>Gets or sets the maximum number of concurrent connections the listener accepts. Default: 1000.</summary>
     public int MaxConnections { get; set; } = 1000;
+
+    /// <summary>
+    ///     Gets or sets the maximum time the connection dispatcher waits for the initial
+    ///     bytes needed to detect the protocol. If no data arrives within this duration
+    ///     the connection is closed. A value of <see cref="TimeSpan.Zero" /> disables the
+    ///     timeout. Default: 5 seconds.
+    /// </summary>
+    public TimeSpan ProtocolDetectionTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }
