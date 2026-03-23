@@ -102,8 +102,50 @@ try {
     }
 }
 
+# Remove compiler-generated types (source generators, lambda caches, etc.)
+# These have obfuscated names containing patterns like .<G>$, .<M>$, or <>
+$CompilerGenerated = Get-ChildItem -Path $OutDir -File -Filter "*.md" |
+    Where-Object { $_.BaseName -match '\._[A-Z]_\$|<>' }
+$RemovedCount = 0
+$RemovedNames = @()
+foreach ($File in $CompilerGenerated) {
+    $RemovedNames += [regex]::Escape($File.Name)
+    Remove-Item -LiteralPath $File.FullName -Force
+    $RemovedCount++
+}
+
+# Scrub references to removed compiler-generated types from remaining Markdown files
+if ($RemovedNames.Count -gt 0) {
+    $LinkPattern = "^\|.*($($RemovedNames -join '|')).*\|.*$"
+    Get-ChildItem -Path $OutDir -File -Filter "*.md" | ForEach-Object {
+        $Content  = Get-Content -LiteralPath $_.FullName -Raw
+        $Cleaned  = $Content -replace "(?m)$LinkPattern`r?`n", ''
+        if ($Cleaned -ne $Content) {
+            Set-Content -LiteralPath $_.FullName -Value $Cleaned -NoNewline
+        }
+    }
+}
+
 Write-Host "Output: $OutDir"
 Write-Host "Documented: $Processed assemblies ($Failed failed)"
+if ($RemovedCount -gt 0) {
+    Write-Host "Filtered: $RemovedCount compiler-generated type(s)"
+}
+
+# Prepend coverage note to the index file
+$IndexPath = Join-Path $OutDir "index.md"
+if (Test-Path -LiteralPath $IndexPath) {
+    $IndexContent = Get-Content -LiteralPath $IndexPath -Raw
+    $CoverageNote = @"
+> **Coverage Note:** This API reference is auto-generated from XML documentation comments by the
+> build script. It documents assemblies under ``src/`` that have public types with XML docs.
+> Projects that are scaffolding-only (no public types yet) will appear here automatically once
+> public APIs are added and the solution is rebuilt.
+
+
+"@
+    Set-Content -LiteralPath $IndexPath -Value ($CoverageNote + $IndexContent) -NoNewline
+}
 
 if ($Processed -eq 0 -and $Failed -eq 0) {
     Write-Host "  [WARN] No XML documentation files found under src/ for configuration '$Configuration'" -ForegroundColor Yellow
