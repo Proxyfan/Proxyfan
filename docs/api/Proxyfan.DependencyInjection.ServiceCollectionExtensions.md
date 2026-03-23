@@ -12,6 +12,34 @@ public static class ServiceCollectionExtensions
 Inheritance [System\.Object](https://learn.microsoft.com/en-us/dotnet/api/system.object 'System\.Object') &#129106; ServiceCollectionExtensions
 ### Methods
 
+<a name='Proxyfan.DependencyInjection.ServiceCollectionExtensions.AddProxyListener(thisMicrosoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)'></a>
+
+## ServiceCollectionExtensions\.AddProxyListener\(this IServiceCollection, IConfiguration\) Method
+
+Registers the proxy listener services, including [Proxyfan\.Domain\.Proxy\.IProxyListener](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iproxylistener 'Proxyfan\.Domain\.Proxy\.IProxyListener'), [Proxyfan\.Domain\.Proxy\.ProxyOptions](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.proxyoptions 'Proxyfan\.Domain\.Proxy\.ProxyOptions') binding,
+and options validation\.
+
+```csharp
+public static Microsoft.Extensions.DependencyInjection.IServiceCollection AddProxyListener(this Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Extensions.Configuration.IConfiguration configuration);
+```
+#### Parameters
+
+<a name='Proxyfan.DependencyInjection.ServiceCollectionExtensions.AddProxyListener(thisMicrosoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration).services'></a>
+
+`services` [Microsoft\.Extensions\.DependencyInjection\.IServiceCollection](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection 'Microsoft\.Extensions\.DependencyInjection\.IServiceCollection')
+
+The service collection to register services into\.
+
+<a name='Proxyfan.DependencyInjection.ServiceCollectionExtensions.AddProxyListener(thisMicrosoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration).configuration'></a>
+
+`configuration` [Microsoft\.Extensions\.Configuration\.IConfiguration](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.configuration.iconfiguration 'Microsoft\.Extensions\.Configuration\.IConfiguration')
+
+The configuration used to bind [Proxyfan\.Domain\.Proxy\.ProxyOptions](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.proxyoptions 'Proxyfan\.Domain\.Proxy\.ProxyOptions')\.
+
+#### Returns
+[Microsoft\.Extensions\.DependencyInjection\.IServiceCollection](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.dependencyinjection.iservicecollection 'Microsoft\.Extensions\.DependencyInjection\.IServiceCollection')  
+The [services](Proxyfan.DependencyInjection.ServiceCollectionExtensions.md#Proxyfan.DependencyInjection.ServiceCollectionExtensions.AddProxyListener(thisMicrosoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration).services 'Proxyfan\.DependencyInjection\.ServiceCollectionExtensions\.AddProxyListener\(this Microsoft\.Extensions\.DependencyInjection\.IServiceCollection, Microsoft\.Extensions\.Configuration\.IConfiguration\)\.services') for chaining\.
+
 <a name='Proxyfan.DependencyInjection.ServiceCollectionExtensions.AddSingletonAsImplementedInterfaces_TImplementation_(thisMicrosoft.Extensions.DependencyInjection.IServiceCollection,System.Func_TImplementation_)'></a>
 
 ## ServiceCollectionExtensions\.AddSingletonAsImplementedInterfaces\<TImplementation\>\(this IServiceCollection, Func\<TImplementation\>\) Method

@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Proxyfan.Domain.Proxy;
+using Proxyfan.Framework.Networking;
 
 namespace Proxyfan.DependencyInjection;
 
@@ -32,6 +36,7 @@ public static class ServiceCollectionExtensions
         }
     }
 
+    /// <param name="serviceCollection">The service collection to register services into.</param>
     extension(IServiceCollection serviceCollection)
     {
         /// <summary>
@@ -47,6 +52,21 @@ public static class ServiceCollectionExtensions
             var interfaces = GetTypeInterfaces(type);
             var typeWithInterfaces = new TypeWithInterfaces(type, interfaces);
             AddSingletonAsImplementedInterfaces(serviceCollection, implementation, typeWithInterfaces);
+        }
+
+        /// <summary>
+        ///     Registers the proxy listener services, including <see cref="IProxyListener" />, <see cref="ProxyOptions" />
+        ///     binding,
+        ///     and options validation.
+        /// </summary>
+        /// <param name="configuration">The configuration used to bind <see cref="ProxyOptions" />.</param>
+        /// <returns>The <paramref name="serviceCollection" /> for chaining.</returns>
+        public IServiceCollection AddProxyListener(IConfiguration configuration)
+        {
+            serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));
+            serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
+            serviceCollection.AddSingleton<IProxyListener, TcpProxyListener>();
+            return serviceCollection;
         }
     }
 

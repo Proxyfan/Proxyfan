@@ -4,15 +4,17 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
-        <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="TUnit" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Options" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Framework\Framework.csproj" />
+        <ProjectReference Include="..\..\src\Framework.Networking\Framework.Networking.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Proxy\Domain.Proxy.csproj" />
     </ItemGroup>
 
 </Project>

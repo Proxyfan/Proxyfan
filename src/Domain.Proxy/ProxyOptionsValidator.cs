@@ -1,0 +1,31 @@
+using Microsoft.Extensions.Options;
+
+namespace Proxyfan.Domain.Proxy;
+
+/// <summary>
+///     Validates <see cref="ProxyOptions" /> at application startup to surface configuration
+///     errors before the proxy attempts to bind.
+/// </summary>
+public sealed class ProxyOptionsValidator : IValidateOptions<ProxyOptions>
+{
+    private const int MinPort = 1024;
+    private const int MaxPort = 65535;
+
+    /// <inheritdoc />
+    public ValidateOptionsResult Validate(string? name, ProxyOptions options)
+    {
+        if (options.Port is < MinPort or > MaxPort)
+        {
+            return ValidateOptionsResult.Fail(
+                $"Proxy port {options.Port} is out of the valid range [{MinPort}–{MaxPort}].");
+        }
+
+        if (options.MaxConnections is <= 0)
+        {
+            return ValidateOptionsResult.Fail(
+                $"MaxConnections must be greater than zero, but was {options.MaxConnections}.");
+        }
+
+        return ValidateOptionsResult.Success;
+    }
+}

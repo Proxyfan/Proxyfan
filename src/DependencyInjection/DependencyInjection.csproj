@@ -8,10 +8,13 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Domain\Domain.csproj" />
+        <ProjectReference Include="..\Domain.Proxy\Domain.Proxy.csproj" />
+        <ProjectReference Include="..\Framework.Networking\Framework.Networking.csproj" />
     </ItemGroup>
 
 </Project>
