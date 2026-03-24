@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\Domain\Domain.csproj" />
         <ProjectReference Include="..\..\src\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\..\src\Framework.Networking\Framework.Networking.csproj" />
     </ItemGroup>

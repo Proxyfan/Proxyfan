@@ -1,3 +1,4 @@
+#### [Domain\.Proxy](index.md 'index')
 ### [Proxyfan\.Domain\.Proxy](Proxyfan.Domain.Proxy.md 'Proxyfan\.Domain\.Proxy')
 
 ## ProxyOptionsValidator Class

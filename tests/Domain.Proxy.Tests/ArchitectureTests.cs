@@ -11,6 +11,7 @@ internal sealed class ArchitectureTests
 {
     private static readonly Architecture TestArchitecture = new ArchLoader()
         .LoadAssemblies(
+            typeof(IDomainEvent).Assembly,
             typeof(IProxyListener).Assembly,
             typeof(TcpProxyListener).Assembly)
         .Build();
@@ -25,6 +26,20 @@ internal sealed class ArchitectureTests
         var rule = ArchRuleDefinition.Classes()
             .That().ResideInNamespace("Proxyfan.Domain.Proxy")
             .Should().NotDependOnAnyTypesThat().ResideInNamespace("Proxyfan.Framework.Networking");
+
+        TestArchitecture.CheckRule(rule);
+    }
+
+    /// <summary>
+    ///     Verifies that classes in the <c>Proxyfan.Domain</c> kernel do not depend on
+    ///     anything in <c>Proxyfan.Domain.Proxy</c>, enforcing the kernel independence rule.
+    /// </summary>
+    [Test]
+    public void Classes_ResidingInDomainKernel_ShouldNotDependOnDomainProxy()
+    {
+        var rule = ArchRuleDefinition.Classes()
+            .That().ResideInNamespace("Proxyfan.Domain")
+            .Should().NotDependOnAnyTypesThat().ResideInNamespace("Proxyfan.Domain.Proxy");
 
         TestArchitecture.CheckRule(rule);
     }
