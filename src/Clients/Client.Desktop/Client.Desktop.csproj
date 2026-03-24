@@ -19,4 +19,8 @@
         <ProjectReference Include="..\Client\Client.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

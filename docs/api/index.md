@@ -3,12 +3,11 @@
 > Projects that are scaffolding-only (no public types yet) will appear here automatically once
 > public APIs are added and the solution is rebuilt.
 
-#### [Client](index.md 'index')
+#### [Domain\.Proxy](index.md 'index')
 
-## Client Assembly
+## Domain\.Proxy Assembly
 
 | Namespaces | |
 | :--- | :--- |
-| [Proxyfan\.Client](Proxyfan.Client.md 'Proxyfan\.Client') | |
-| [Proxyfan\.Client\.Shell\.ViewModels](Proxyfan.Client.Shell.ViewModels.md 'Proxyfan\.Client\.Shell\.ViewModels') | |
-| [Proxyfan\.Client\.Shell\.Views](Proxyfan.Client.Shell.Views.md 'Proxyfan\.Client\.Shell\.Views') | |
+| [Proxyfan\.Domain\.Proxy](Proxyfan.Domain.Proxy.md 'Proxyfan\.Domain\.Proxy') | |
+| [Proxyfan\.Domain\.Proxy\.Events](Proxyfan.Domain.Proxy.Events.md 'Proxyfan\.Domain\.Proxy\.Events') | |

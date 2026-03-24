@@ -1,7 +1,9 @@
 <Solution>
 
   <Project Path="src/Domain/Domain.csproj" />
+  <Project Path="src/Domain.Proxy/Domain.Proxy.csproj" />
   <Project Path="src/Framework/Framework.csproj" />
+  <Project Path="src/Framework.Networking/Framework.Networking.csproj" />
   <Project Path="src/DependencyInjection/DependencyInjection.csproj" />
   <Project Path="src/Presentation/Presentation.csproj" />
 
@@ -12,7 +14,9 @@
 
   <Folder Name="/Tests/">
     <Project Path="tests/Domain.Tests/Domain.Tests.csproj" />
+    <Project Path="tests/Domain.Proxy.Tests/Domain.Proxy.Tests.csproj" />
     <Project Path="tests/Framework.Tests/Framework.Tests.csproj" />
+    <Project Path="tests/Framework.Networking.Tests/Framework.Networking.Tests.csproj" />
     <Project Path="tests/DependencyInjection.Tests/DependencyInjection.Tests.csproj" />
     <Project Path="tests/Presentation.Tests/Presentation.Tests.csproj" />
   </Folder>
