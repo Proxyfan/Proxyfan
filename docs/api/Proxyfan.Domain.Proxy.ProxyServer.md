@@ -30,37 +30,43 @@ trigger a restart when the server is running. Dispose stops the server and relea
 resources.
 ### Constructors
 
-<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_)'></a>
+<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Proxyfan.Domain.Proxy.IConnectionDispatcher,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_)'></a>
 
-## ProxyServer\(IProxyListener, IOptionsMonitor\<ProxyOptions\>, IDomainEventBus, ILogger\<ProxyServer\>\) Constructor
+## ProxyServer\(IProxyListener, IConnectionDispatcher, IOptionsMonitor\<ProxyOptions\>, IDomainEventBus, ILogger\<ProxyServer\>\) Constructor
 
 Initializes a new [ProxyServer](Proxyfan.Domain.Proxy.ProxyServer.md 'Proxyfan\.Domain\.Proxy\.ProxyServer') and, if
 [AutoStart](Proxyfan.Domain.Proxy.ProxyOptions.md#Proxyfan.Domain.Proxy.ProxyOptions.AutoStart 'Proxyfan\.Domain\.Proxy\.ProxyOptions\.AutoStart') is enabled, begins listening asynchronously\.
 
 ```csharp
-public ProxyServer(Proxyfan.Domain.Proxy.IProxyListener listener, Microsoft.Extensions.Options.IOptionsMonitor<Proxyfan.Domain.Proxy.ProxyOptions> optionsMonitor, Proxyfan.Domain.IDomainEventBus eventBus, Microsoft.Extensions.Logging.ILogger<Proxyfan.Domain.Proxy.ProxyServer> logger);
+public ProxyServer(Proxyfan.Domain.Proxy.IProxyListener listener, Proxyfan.Domain.Proxy.IConnectionDispatcher dispatcher, Microsoft.Extensions.Options.IOptionsMonitor<Proxyfan.Domain.Proxy.ProxyOptions> optionsMonitor, Proxyfan.Domain.IDomainEventBus eventBus, Microsoft.Extensions.Logging.ILogger<Proxyfan.Domain.Proxy.ProxyServer> logger);
 ```
 #### Parameters
 
-<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).listener'></a>
+<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Proxyfan.Domain.Proxy.IConnectionDispatcher,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).listener'></a>
 
 `listener` [IProxyListener](Proxyfan.Domain.Proxy.IProxyListener.md 'Proxyfan\.Domain\.Proxy\.IProxyListener')
 
 The TCP proxy listener to delegate to\.
 
-<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).optionsMonitor'></a>
+<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Proxyfan.Domain.Proxy.IConnectionDispatcher,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).dispatcher'></a>
+
+`dispatcher` [IConnectionDispatcher](Proxyfan.Domain.Proxy.IConnectionDispatcher.md 'Proxyfan\.Domain\.Proxy\.IConnectionDispatcher')
+
+The connection dispatcher that handles accepted connections\.
+
+<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Proxyfan.Domain.Proxy.IConnectionDispatcher,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).optionsMonitor'></a>
 
 `optionsMonitor` [Microsoft\.Extensions\.Options\.IOptionsMonitor&lt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.options.ioptionsmonitor-1 'Microsoft\.Extensions\.Options\.IOptionsMonitor\`1')[ProxyOptions](Proxyfan.Domain.Proxy.ProxyOptions.md 'Proxyfan\.Domain\.Proxy\.ProxyOptions')[&gt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.options.ioptionsmonitor-1 'Microsoft\.Extensions\.Options\.IOptionsMonitor\`1')
 
 Live options monitor for [ProxyOptions](Proxyfan.Domain.Proxy.ProxyOptions.md 'Proxyfan\.Domain\.Proxy\.ProxyOptions')\.
 
-<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).eventBus'></a>
+<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Proxyfan.Domain.Proxy.IConnectionDispatcher,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).eventBus'></a>
 
 `eventBus` [Proxyfan\.Domain\.IDomainEventBus](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.idomaineventbus 'Proxyfan\.Domain\.IDomainEventBus')
 
 Domain event bus for publishing lifecycle events\.
 
-<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).logger'></a>
+<a name='Proxyfan.Domain.Proxy.ProxyServer.ProxyServer(Proxyfan.Domain.Proxy.IProxyListener,Proxyfan.Domain.Proxy.IConnectionDispatcher,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Domain.Proxy.ProxyServer_).logger'></a>
 
 `logger` [Microsoft\.Extensions\.Logging\.ILogger&lt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.ilogger-1 'Microsoft\.Extensions\.Logging\.ILogger\`1')[ProxyServer](Proxyfan.Domain.Proxy.ProxyServer.md 'Proxyfan\.Domain\.Proxy\.ProxyServer')[&gt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.ilogger-1 'Microsoft\.Extensions\.Logging\.ILogger\`1')
 

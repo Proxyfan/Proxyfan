@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Proxy.Events;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 
 namespace Proxyfan.Framework.Networking.Tests;
@@ -15,12 +17,13 @@ internal sealed class ConnectionDispatcherTests
 {
     private static ConnectionDispatcher CreateDispatcher(
         IEnumerable<IConnectionHandler> handlers,
-        ProxyOptions? options = null)
+        ProxyOptions? options = null,
+        IDomainEventBus? eventBus = null)
     {
         var opts = options ?? new ProxyOptions();
         var monitor = new StubOptionsMonitor<ProxyOptions>(opts);
         var logger = new StubLogger<ConnectionDispatcher>();
-        return new ConnectionDispatcher(handlers, monitor, logger);
+        return new ConnectionDispatcher(handlers, monitor, eventBus ?? new StubDomainEventBus(), logger);
     }
 
     private static StubConnectionHandler AlwaysMatchHandler(
@@ -289,6 +292,103 @@ internal sealed class ConnectionDispatcherTests
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(50));
+
+        await Assert.That(
+            async () => await dispatcher.DispatchAsync(connection, cts.Token)
+        ).Throws<OperationCanceledException>();
+    }
+
+    // ── Error isolation tests ─────────────────────────────────────────────
+
+    /// <summary>
+    ///     Verifies that an exception thrown by a handler does not propagate out of
+    ///     <see cref="ConnectionDispatcher.DispatchAsync" />.
+    /// </summary>
+    [Test]
+    public async Task DispatchAsync_HandlerThrows_ExceptionDoesNotPropagateToDispatchCaller()
+    {
+        var handler = AlwaysMatchHandler((_, _) => throw new InvalidOperationException("simulated handler failure"));
+        var dispatcher = CreateDispatcher([handler]);
+        var connection = new StubProxyConnection();
+
+        await connection.Writer.WriteAsync(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 });
+
+        // Should complete without throwing.
+        await dispatcher.DispatchAsync(connection, CancellationToken.None);
+    }
+
+    /// <summary>
+    ///     Verifies that when a handler throws, a <see cref="ConnectionErrorOccurred" /> event is
+    ///     published with the correct client endpoint.
+    /// </summary>
+    [Test]
+    public async Task DispatchAsync_HandlerThrows_PublishesConnectionErrorOccurredEvent()
+    {
+        var bus = new StubDomainEventBus();
+        var handler = AlwaysMatchHandler((_, _) => throw new InvalidOperationException("simulated handler failure"));
+        var dispatcher = CreateDispatcher([handler], eventBus: bus);
+        var connection = new StubProxyConnection();
+
+        await connection.Writer.WriteAsync(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 });
+        await dispatcher.DispatchAsync(connection, CancellationToken.None);
+
+        var events = new List<ConnectionErrorOccurred>(bus.PublishedOf<ConnectionErrorOccurred>());
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].RemoteEndPoint).IsSameReferenceAs(connection.RemoteEndPoint);
+        await Assert.That(events[0].Exception).IsNotNull();
+    }
+
+    /// <summary>
+    ///     Verifies that after one connection's handler throws, a subsequent connection
+    ///     is still dispatched and handled normally by the same dispatcher instance.
+    /// </summary>
+    [Test]
+    public async Task DispatchAsync_HandlerThrowsOnFirstConnection_SubsequentConnectionHandledNormally()
+    {
+        var callCount = 0;
+        var handler = AlwaysMatchHandler((_, _) =>
+        {
+            callCount++;
+            if (callCount == 1)
+            {
+                throw new InvalidOperationException("simulated failure on first connection");
+            }
+
+            return Task.CompletedTask;
+        });
+
+        var dispatcher = CreateDispatcher([handler]);
+
+        var failingConnection = new StubProxyConnection();
+        await failingConnection.Writer.WriteAsync(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 });
+        await dispatcher.DispatchAsync(failingConnection, CancellationToken.None);
+
+        var secondConnection = new StubProxyConnection();
+        await secondConnection.Writer.WriteAsync(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 });
+        await dispatcher.DispatchAsync(secondConnection, CancellationToken.None);
+
+        await Assert.That(callCount).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Verifies that an <see cref="OperationCanceledException" /> thrown by a handler
+    ///     because the outer cancellation token was cancelled propagates out of the dispatcher.
+    /// </summary>
+    [Test]
+    public async Task DispatchAsync_HandlerThrowsOperationCanceledException_PropagatesOutOfDispatcher()
+    {
+        using var cts = new CancellationTokenSource();
+
+        var handler = AlwaysMatchHandler(async (_, ct) =>
+        {
+            await cts.CancelAsync();
+            ct.ThrowIfCancellationRequested();
+        });
+
+        var dispatcher = CreateDispatcher([handler]);
+        var connection = new StubProxyConnection();
+
+        await connection.Writer.WriteAsync(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 });
 
         await Assert.That(
             async () => await dispatcher.DispatchAsync(connection, cts.Token)

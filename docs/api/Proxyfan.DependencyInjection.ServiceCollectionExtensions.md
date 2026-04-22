@@ -20,6 +20,9 @@ Registers the proxy listener services, including [Proxyfan\.Domain\.Proxy\.IProx
 binding,
 and options validation\.
 
+<strong>Prerequisite:</strong> An [Proxyfan\.Domain\.IDomainEventBus](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.idomaineventbus 'Proxyfan\.Domain\.IDomainEventBus') singleton must already be registered
+                    in [serviceCollection](Proxyfan.DependencyInjection.ServiceCollectionExtensions.md#Proxyfan.DependencyInjection.ServiceCollectionExtensions.AddProxyListener(thisMicrosoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration).serviceCollection 'Proxyfan\.DependencyInjection\.ServiceCollectionExtensions\.AddProxyListener\(this Microsoft\.Extensions\.DependencyInjection\.IServiceCollection, Microsoft\.Extensions\.Configuration\.IConfiguration\)\.serviceCollection') before calling this method.
+
 ```csharp
 public static Microsoft.Extensions.DependencyInjection.IServiceCollection AddProxyListener(this Microsoft.Extensions.DependencyInjection.IServiceCollection serviceCollection, Microsoft.Extensions.Configuration.IConfiguration configuration);
 ```

@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia.Desktop" />
+        <PackageReference Include="Tmds.DBus.Protocol" />
     </ItemGroup>
 
     <ItemGroup>

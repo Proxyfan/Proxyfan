@@ -7,7 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Proxy.Events;
 
 namespace Proxyfan.Framework.Networking;
 
@@ -20,11 +22,17 @@ namespace Proxyfan.Framework.Networking;
 ///     <see cref="IProxyListener.StartAsync" />. The dispatcher peeks at up to
 ///     <see cref="PeekByteCount" /> bytes without consuming them, so the handler receives the
 ///     full original byte stream from the start.
+///     <para>
+///         Handler exceptions (excluding <see cref="OperationCanceledException" />) are caught,
+///         logged, and reported via a <see cref="ConnectionErrorOccurred" /> domain event.
+///         The exception is then swallowed so that one failing connection cannot affect others.
+///     </para>
 /// </remarks>
 public sealed partial class ConnectionDispatcher(
     IEnumerable<IConnectionHandler> handlers,
     IOptionsMonitor<ProxyOptions> optionsMonitor,
-    ILogger<ConnectionDispatcher> logger)
+    IDomainEventBus eventBus,
+    ILogger<ConnectionDispatcher> logger) : IConnectionDispatcher
 {
     /// <summary>
     ///     The number of bytes read from the connection for protocol detection.
@@ -33,6 +41,7 @@ public sealed partial class ConnectionDispatcher(
     public const int PeekByteCount = 8;
 
     private readonly IEnumerable<IConnectionHandler> _handlers = handlers;
+    private readonly IDomainEventBus _eventBus = eventBus;
     private readonly ILogger<ConnectionDispatcher> _logger = logger;
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor = optionsMonitor;
 
@@ -100,7 +109,17 @@ public sealed partial class ConnectionDispatcher(
             // causing the next ReadAsync on this reader (by the handler) to return immediately with
             // the full buffered content.
             reader.AdvanceTo(buffer.Start, buffer.Start);
-            await handler.HandleAsync(connection, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await handler.HandleAsync(connection, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogHandlerError(ex, connection.RemoteEndPoint);
+                _eventBus.Publish(new ConnectionErrorOccurred(connection.RemoteEndPoint, ex, DateTimeOffset.UtcNow));
+            }
+
             return;
         }
 
@@ -120,6 +139,10 @@ public sealed partial class ConnectionDispatcher(
     [LoggerMessage(Level = LogLevel.Debug,
         Message = "Connection from {RemoteEndPoint} closed before protocol could be detected")]
     private partial void LogConnectionClosedEarly(EndPoint remoteEndPoint);
+
+    [LoggerMessage(Level = LogLevel.Error,
+        Message = "Unhandled error in connection handler for {RemoteEndPoint}")]
+    private partial void LogHandlerError(Exception ex, EndPoint remoteEndPoint);
 
     private static async Task<ReadResult> ReadUntilAsync(PipeReader reader, int minimumBytes, CancellationToken cancellationToken)
     {

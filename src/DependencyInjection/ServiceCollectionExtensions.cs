@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,26 +14,6 @@ namespace Proxyfan.DependencyInjection;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-    private static void AddSingletonAsImplementedInterfaces<TImplementation>(IServiceCollection serviceCollection, Func<TImplementation> implementation, TypeWithInterfaces type)
-        where TImplementation : notnull
-    {
-        foreach (var @interface in type.Interfaces)
-        {
-            serviceCollection.Add(new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton));
-        }
-    }
-
-    private static IEnumerable<Type> GetTypeInterfaces(Type type)
-    {
-        foreach (var @interface in type.GetTypeInfo().ImplementedInterfaces)
-        {
-            if (@interface != typeof(IDisposable))
-            {
-                yield return @interface;
-            }
-        }
-    }
-
     /// <param name="serviceCollection">The service collection to register services into.</param>
     extension(IServiceCollection serviceCollection)
     {
@@ -44,20 +22,28 @@ public static class ServiceCollectionExtensions
         /// </summary>
         /// <typeparam name="TImplementation">The concrete type of the implementation instance.</typeparam>
         /// <param name="implementation">The singleton instance to register.</param>
-        [RequiresUnreferencedCode("Scans assembly types and implemented interfaces by reflection; not trim-safe by design.")]
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Scans assembly types and implemented interfaces by reflection; not trim-safe by design.")]
         public void AddSingletonAsImplementedInterfaces<TImplementation>(Func<TImplementation> implementation)
             where TImplementation : notnull
         {
             var type = typeof(TImplementation);
-            var interfaces = GetTypeInterfaces(type);
-            var typeWithInterfaces = new TypeWithInterfaces(type, interfaces);
-            AddSingletonAsImplementedInterfaces(serviceCollection, implementation, typeWithInterfaces);
+            foreach (var @interface in type.GetTypeInfo().ImplementedInterfaces)
+            {
+                if (@interface != typeof(IDisposable))
+                {
+                    serviceCollection.Add(new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton));
+                }
+            }
         }
 
         /// <summary>
         ///     Registers the proxy listener services, including <see cref="IProxyListener" />, <see cref="ProxyOptions" />
         ///     binding,
         ///     and options validation.
+        ///     <para>
+        ///         <strong>Prerequisite:</strong> An <see cref="Proxyfan.Domain.IDomainEventBus" /> singleton must already be registered
+        ///         in <paramref name="serviceCollection" /> before calling this method.
+        ///     </para>
         /// </summary>
         /// <param name="configuration">The configuration used to bind <see cref="ProxyOptions" />.</param>
         /// <returns>The service collection, for chaining.</returns>
@@ -66,9 +52,8 @@ public static class ServiceCollectionExtensions
             serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));
             serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
             serviceCollection.AddSingleton<IProxyListener, TcpProxyListener>();
+            serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
             return serviceCollection;
         }
     }
-
-    private sealed record TypeWithInterfaces(Type Type, IEnumerable<Type> Interfaces);
 }

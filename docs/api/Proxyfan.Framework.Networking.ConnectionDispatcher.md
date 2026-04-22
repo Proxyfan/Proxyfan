@@ -6,39 +6,49 @@ Reads the first bytes of an accepted connection to detect the protocol and dispa
 to the first registered [Proxyfan\.Domain\.Proxy\.IConnectionHandler](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iconnectionhandler 'Proxyfan\.Domain\.Proxy\.IConnectionHandler') that accepts those bytes\.
 
 ```csharp
-public sealed class ConnectionDispatcher
+public sealed class ConnectionDispatcher : Proxyfan.Domain.Proxy.IConnectionDispatcher
 ```
 
 Inheritance [System\.Object](https://learn.microsoft.com/en-us/dotnet/api/system.object 'System\.Object') &#129106; ConnectionDispatcher
+
+Implements [Proxyfan\.Domain\.Proxy\.IConnectionDispatcher](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iconnectiondispatcher 'Proxyfan\.Domain\.Proxy\.IConnectionDispatcher')
 
 ### Remarks
 Use [DispatchAsync\(IProxyConnection, CancellationToken\)](Proxyfan.Framework.Networking.ConnectionDispatcher.md#Proxyfan.Framework.Networking.ConnectionDispatcher.DispatchAsync(Proxyfan.Domain.Proxy.IProxyConnection,System.Threading.CancellationToken) 'Proxyfan\.Framework\.Networking\.ConnectionDispatcher\.DispatchAsync\(Proxyfan\.Domain\.Proxy\.IProxyConnection, System\.Threading\.CancellationToken\)') as the `onConnectionAccepted` callback passed to
 [Proxyfan\.Domain\.Proxy\.IProxyListener\.StartAsync\(System\.Func\{Proxyfan\.Domain\.Proxy\.IProxyConnection,System\.Threading\.CancellationToken,System\.Threading\.Tasks\.Task\},System\.Threading\.CancellationToken\)](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iproxylistener.startasync#proxyfan-domain-proxy-iproxylistener-startasync(system-func{proxyfan-domain-proxy-iproxyconnection-system-threading-cancellationtoken-system-threading-tasks-task}-system-threading-cancellationtoken) 'Proxyfan\.Domain\.Proxy\.IProxyListener\.StartAsync\(System\.Func\{Proxyfan\.Domain\.Proxy\.IProxyConnection,System\.Threading\.CancellationToken,System\.Threading\.Tasks\.Task\},System\.Threading\.CancellationToken\)')\. The dispatcher peeks at up to
 [PeekByteCount](Proxyfan.Framework.Networking.ConnectionDispatcher.md#Proxyfan.Framework.Networking.ConnectionDispatcher.PeekByteCount 'Proxyfan\.Framework\.Networking\.ConnectionDispatcher\.PeekByteCount') bytes without consuming them, so the handler receives the
 full original byte stream from the start\.
+
+Handler exceptions (excluding [System\.OperationCanceledException](https://learn.microsoft.com/en-us/dotnet/api/system.operationcanceledexception 'System\.OperationCanceledException')) are caught,
+logged, and reported via a [Proxyfan\.Domain\.Proxy\.Events\.ConnectionErrorOccurred](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.events.connectionerroroccurred 'Proxyfan\.Domain\.Proxy\.Events\.ConnectionErrorOccurred') domain event.
+The exception is then swallowed so that one failing connection cannot affect others.
 ### Constructors
 
-<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_)'></a>
+<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_)'></a>
 
-## ConnectionDispatcher\(IEnumerable\<IConnectionHandler\>, IOptionsMonitor\<ProxyOptions\>, ILogger\<ConnectionDispatcher\>\) Constructor
+## ConnectionDispatcher\(IEnumerable\<IConnectionHandler\>, IOptionsMonitor\<ProxyOptions\>, IDomainEventBus, ILogger\<ConnectionDispatcher\>\) Constructor
 
 Reads the first bytes of an accepted connection to detect the protocol and dispatches
 to the first registered [Proxyfan\.Domain\.Proxy\.IConnectionHandler](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iconnectionhandler 'Proxyfan\.Domain\.Proxy\.IConnectionHandler') that accepts those bytes\.
 
 ```csharp
-public ConnectionDispatcher(System.Collections.Generic.IEnumerable<Proxyfan.Domain.Proxy.IConnectionHandler> handlers, Microsoft.Extensions.Options.IOptionsMonitor<Proxyfan.Domain.Proxy.ProxyOptions> optionsMonitor, Microsoft.Extensions.Logging.ILogger<Proxyfan.Framework.Networking.ConnectionDispatcher> logger);
+public ConnectionDispatcher(System.Collections.Generic.IEnumerable<Proxyfan.Domain.Proxy.IConnectionHandler> handlers, Microsoft.Extensions.Options.IOptionsMonitor<Proxyfan.Domain.Proxy.ProxyOptions> optionsMonitor, Proxyfan.Domain.IDomainEventBus eventBus, Microsoft.Extensions.Logging.ILogger<Proxyfan.Framework.Networking.ConnectionDispatcher> logger);
 ```
 #### Parameters
 
-<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).handlers'></a>
+<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).handlers'></a>
 
 `handlers` [System\.Collections\.Generic\.IEnumerable&lt;](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1 'System\.Collections\.Generic\.IEnumerable\`1')[Proxyfan\.Domain\.Proxy\.IConnectionHandler](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iconnectionhandler 'Proxyfan\.Domain\.Proxy\.IConnectionHandler')[&gt;](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1 'System\.Collections\.Generic\.IEnumerable\`1')
 
-<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).optionsMonitor'></a>
+<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).optionsMonitor'></a>
 
 `optionsMonitor` [Microsoft\.Extensions\.Options\.IOptionsMonitor&lt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.options.ioptionsmonitor-1 'Microsoft\.Extensions\.Options\.IOptionsMonitor\`1')[Proxyfan\.Domain\.Proxy\.ProxyOptions](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.proxyoptions 'Proxyfan\.Domain\.Proxy\.ProxyOptions')[&gt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.options.ioptionsmonitor-1 'Microsoft\.Extensions\.Options\.IOptionsMonitor\`1')
 
-<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).logger'></a>
+<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).eventBus'></a>
+
+`eventBus` [Proxyfan\.Domain\.IDomainEventBus](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.idomaineventbus 'Proxyfan\.Domain\.IDomainEventBus')
+
+<a name='Proxyfan.Framework.Networking.ConnectionDispatcher.ConnectionDispatcher(System.Collections.Generic.IEnumerable_Proxyfan.Domain.Proxy.IConnectionHandler_,Microsoft.Extensions.Options.IOptionsMonitor_Proxyfan.Domain.Proxy.ProxyOptions_,Proxyfan.Domain.IDomainEventBus,Microsoft.Extensions.Logging.ILogger_Proxyfan.Framework.Networking.ConnectionDispatcher_).logger'></a>
 
 `logger` [Microsoft\.Extensions\.Logging\.ILogger&lt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.ilogger-1 'Microsoft\.Extensions\.Logging\.ILogger\`1')[ConnectionDispatcher](Proxyfan.Framework.Networking.ConnectionDispatcher.md 'Proxyfan\.Framework\.Networking\.ConnectionDispatcher')[&gt;](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.ilogger-1 'Microsoft\.Extensions\.Logging\.ILogger\`1')
 
@@ -47,6 +57,10 @@ Use [DispatchAsync\(IProxyConnection, CancellationToken\)](Proxyfan.Framework.Ne
 [Proxyfan\.Domain\.Proxy\.IProxyListener\.StartAsync\(System\.Func\{Proxyfan\.Domain\.Proxy\.IProxyConnection,System\.Threading\.CancellationToken,System\.Threading\.Tasks\.Task\},System\.Threading\.CancellationToken\)](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iproxylistener.startasync#proxyfan-domain-proxy-iproxylistener-startasync(system-func{proxyfan-domain-proxy-iproxyconnection-system-threading-cancellationtoken-system-threading-tasks-task}-system-threading-cancellationtoken) 'Proxyfan\.Domain\.Proxy\.IProxyListener\.StartAsync\(System\.Func\{Proxyfan\.Domain\.Proxy\.IProxyConnection,System\.Threading\.CancellationToken,System\.Threading\.Tasks\.Task\},System\.Threading\.CancellationToken\)')\. The dispatcher peeks at up to
 [PeekByteCount](Proxyfan.Framework.Networking.ConnectionDispatcher.md#Proxyfan.Framework.Networking.ConnectionDispatcher.PeekByteCount 'Proxyfan\.Framework\.Networking\.ConnectionDispatcher\.PeekByteCount') bytes without consuming them, so the handler receives the
 full original byte stream from the start\.
+
+Handler exceptions (excluding [System\.OperationCanceledException](https://learn.microsoft.com/en-us/dotnet/api/system.operationcanceledexception 'System\.OperationCanceledException')) are caught,
+logged, and reported via a [Proxyfan\.Domain\.Proxy\.Events\.ConnectionErrorOccurred](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.events.connectionerroroccurred 'Proxyfan\.Domain\.Proxy\.Events\.ConnectionErrorOccurred') domain event.
+The exception is then swallowed so that one failing connection cannot affect others.
 ### Fields
 
 <a name='Proxyfan.Framework.Networking.ConnectionDispatcher.PeekByteCount'></a>
@@ -87,6 +101,8 @@ The accepted connection to inspect and dispatch\.
 `cancellationToken` [System\.Threading\.CancellationToken](https://learn.microsoft.com/en-us/dotnet/api/system.threading.cancellationtoken 'System\.Threading\.CancellationToken')
 
 A token that, when cancelled, stops the dispatch\.
+
+Implements [DispatchAsync\(IProxyConnection, CancellationToken\)](https://learn.microsoft.com/en-us/dotnet/api/proxyfan.domain.proxy.iconnectiondispatcher.dispatchasync#proxyfan-domain-proxy-iconnectiondispatcher-dispatchasync(proxyfan-domain-proxy-iproxyconnection-system-threading-cancellationtoken) 'Proxyfan\.Domain\.Proxy\.IConnectionDispatcher\.DispatchAsync\(Proxyfan\.Domain\.Proxy\.IProxyConnection,System\.Threading\.CancellationToken\)')
 
 #### Returns
 [System\.Threading\.Tasks\.Task](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task 'System\.Threading\.Tasks\.Task')  

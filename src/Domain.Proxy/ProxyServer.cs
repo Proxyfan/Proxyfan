@@ -32,6 +32,7 @@ namespace Proxyfan.Domain.Proxy;
 public sealed partial class ProxyServer : IAsyncDisposable
 {
     private readonly IProxyListener _listener;
+    private readonly IConnectionDispatcher _dispatcher;
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor;
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger<ProxyServer> _logger;
@@ -48,16 +49,19 @@ public sealed partial class ProxyServer : IAsyncDisposable
     ///     <see cref="ProxyOptions.AutoStart" /> is enabled, begins listening asynchronously.
     /// </summary>
     /// <param name="listener">The TCP proxy listener to delegate to.</param>
+    /// <param name="dispatcher">The connection dispatcher that handles accepted connections.</param>
     /// <param name="optionsMonitor">Live options monitor for <see cref="ProxyOptions" />.</param>
     /// <param name="eventBus">Domain event bus for publishing lifecycle events.</param>
     /// <param name="logger">Logger for structured diagnostic output.</param>
     public ProxyServer(
         IProxyListener listener,
+        IConnectionDispatcher dispatcher,
         IOptionsMonitor<ProxyOptions> optionsMonitor,
         IDomainEventBus eventBus,
         ILogger<ProxyServer> logger)
     {
         _listener = listener;
+        _dispatcher = dispatcher;
         _optionsMonitor = optionsMonitor;
         _eventBus = eventBus;
         _logger = logger;
@@ -287,11 +291,9 @@ public sealed partial class ProxyServer : IAsyncDisposable
         _status = status;
     }
 
-    private static Task OnConnectionAccepted(IProxyConnection connection, CancellationToken cancellationToken)
+    private Task OnConnectionAccepted(IProxyConnection connection, CancellationToken cancellationToken)
     {
-        // Connection dispatching is handled by downstream tasks (T02 ConnectionDispatcher).
-        // Dispose the connection so the socket is released.
-        return connection.DisposeAsync().AsTask();
+        return _dispatcher.DispatchAsync(connection, cancellationToken);
     }
 
     private void OnOptionsChanged(ProxyOptions options, string? name)
