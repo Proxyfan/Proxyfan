@@ -56,7 +56,7 @@ This installs required workloads, restores packages, and builds the solution.
 ### Build
 
 ```powershell
-# Standard Debug build (also regenerates docs/api/)
+# Standard Debug build
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1
 
 # Build and run tests

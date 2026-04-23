@@ -4,14 +4,12 @@
 
 .DESCRIPTION
     This is the canonical build script for the Proxyfan project. It must be used
-    instead of calling 'dotnet build' directly so that the API reference under
-    docs/api/ is always kept in sync with the source code.
+    instead of calling 'dotnet build' directly.
 
     Steps (in order):
       1. Restore NuGet packages          (skipped with -SkipRestore)
       2. Build the solution
       3. Run tests                       (opt-in with -RunTests)
-      4. Generate API reference          (always, after a successful build)
 
 .PARAMETER RunTests
     Run the full test suite after building.
@@ -30,7 +28,7 @@
 
 .EXAMPLE
     .\.tools\Invoke-Build.ps1
-    Standard Debug build with API reference regeneration.
+    Standard Debug build.
 
 .EXAMPLE
     .\.tools\Invoke-Build.ps1 -RunTests
@@ -126,25 +124,6 @@ function Invoke-Tests {
     return $false
 }
 
-function Invoke-ApiReference {
-    Write-Step 'Generating API reference...'
-    $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-
-    & "$ScriptDir\Generate-ApiReference.ps1" -Directory $RepoRoot -OutputDirectory 'docs\api' -Configuration $Configuration
-    $ExitCode = $LASTEXITCODE
-
-    $Stopwatch.Stop()
-    $Elapsed = $Stopwatch.Elapsed.ToString('mm\:ss')
-
-    if ($ExitCode -eq 0) {
-        Write-Success "API reference generated ($Elapsed)"
-        return $true
-    }
-
-    Write-Failure "API reference generation failed ($Elapsed)"
-    return $false
-}
-
 function Show-Help {
     Write-Host ''
     Write-Host 'Proxyfan Build Script' -ForegroundColor Cyan
@@ -161,7 +140,7 @@ function Show-Help {
     Write-Host 'Examples:'
     Write-Host '  .\.tools\Invoke-Build.ps1                                    # Standard build'
     Write-Host '  .\.tools\Invoke-Build.ps1 -RunTests                          # Build + test'
-    Write-Host '  .\.tools\Invoke-Build.ps1 -RunTests -Configuration Release     # Full Release build'
+    Write-Host '  .\.tools\Invoke-Build.ps1 -RunTests -Configuration Release   # Full Release build'
     Write-Host '  .\.tools\Invoke-Build.ps1 -SkipRestore                       # Incremental build'
     Write-Host ''
 }
@@ -207,9 +186,6 @@ try {
     if ($RunTests) {
         if (-not (Invoke-Tests)) { $AllSucceeded = $false }
     }
-
-    # Step 4: API reference (always, after a successful build)
-    if (-not (Invoke-ApiReference)) { $AllSucceeded = $false }
 
     $TotalStopwatch.Stop()
     $TotalElapsed = $TotalStopwatch.Elapsed.ToString('mm\:ss')
