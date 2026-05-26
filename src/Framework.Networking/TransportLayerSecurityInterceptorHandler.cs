@@ -5,12 +5,10 @@ using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
 using System.Buffers;
-using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -137,80 +135,14 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         }
     }
 
-    private SslClientAuthenticationOptions CreateClientTransportLayerSecurityOptions(ConnectTarget target)
-    {
-        var options = new SslClientAuthenticationOptions
-        {
-            TargetHost = target.Host,
-        };
-        return options;
-    }
-
-    private InterceptionPipes CreateInterceptionPipes(SslStream clientSecureStream, SslStream serverSecureStream)
+    private TransportLayerSecurityInterceptionPipes CreateInterceptionPipes(SslStream clientSecureStream, SslStream serverSecureStream)
     {
         var clientReader = PipeReader.Create(clientSecureStream);
         var clientWriter = PipeWriter.Create(clientSecureStream);
         var serverReader = PipeReader.Create(serverSecureStream);
         var serverWriter = PipeWriter.Create(serverSecureStream);
-        var pipes = new InterceptionPipes(clientReader, clientWriter, serverReader, serverWriter);
+        var pipes = new TransportLayerSecurityInterceptionPipes(clientReader, clientWriter, serverReader, serverWriter);
         return pipes;
-    }
-
-    private SslServerAuthenticationOptions CreateServerTransportLayerSecurityOptions(X509Certificate2 leafCertificate)
-    {
-        var options = new SslServerAuthenticationOptions
-        {
-            ClientCertificateRequired = false,
-            ServerCertificate = leafCertificate,
-        };
-        return options;
-    }
-
-    private TrafficFlow CreateTrafficFlow(IProxyConnection connection)
-    {
-        var clientEndPoint = connection.RemoteEndPoint?.ToString();
-
-        if (string.IsNullOrWhiteSpace(clientEndPoint))
-        {
-            clientEndPoint = "unknown";
-        }
-
-        var flow = new TrafficFlow(Guid.NewGuid(), clientEndPoint, DateTimeOffset.UtcNow);
-        return flow;
-    }
-
-    private bool HasConnectionCloseDirective(HeaderCollection headers)
-    {
-        var connectionValue = headers.Get("Connection");
-
-        if (string.IsNullOrWhiteSpace(connectionValue))
-        {
-            return false;
-        }
-
-        return connectionValue.Contains("close", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private bool HasKeepAlive(
-        HypertextTransferProtocolRequestData request,
-        HypertextTransferProtocolResponseData response)
-    {
-        if (string.Equals(request.Version, "HTTP/1.0", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!response.Headers.HasHeader("Content-Length"))
-        {
-            return false;
-        }
-
-        if (HasConnectionCloseDirective(request.Headers) || HasConnectionCloseDirective(response.Headers))
-        {
-            return false;
-        }
-
-        return true;
     }
 
     private async Task InterceptAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
@@ -245,12 +177,12 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     {
         await using var serverStream = serverClient.GetStream();
         await using var serverSecureStream = new SslStream(serverStream, false);
-        var clientTransportLayerSecurityOptions = CreateClientTransportLayerSecurityOptions(target);
+        var clientTransportLayerSecurityOptions = TransportLayerSecurityInterceptorHelpers.CreateClientTransportLayerSecurityOptions(target);
         await serverSecureStream.AuthenticateAsClientAsync(clientTransportLayerSecurityOptions, cancellationToken).ConfigureAwait(false);
         var leafCertificate = await _context.GetLeafCertificateAsync(target.Host, cancellationToken).ConfigureAwait(false);
         using var clientStream = new DuplexPipeStream(connection.Transport.Input, connection.Transport.Output);
         await using var clientSecureStream = new SslStream(clientStream, false);
-        var serverTransportLayerSecurityOptions = CreateServerTransportLayerSecurityOptions(leafCertificate);
+        var serverTransportLayerSecurityOptions = TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions(leafCertificate);
         await clientSecureStream.AuthenticateAsServerAsync(serverTransportLayerSecurityOptions, cancellationToken).ConfigureAwait(false);
         var pipes = CreateInterceptionPipes(clientSecureStream, serverSecureStream);
 
@@ -351,7 +283,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
 
     private async Task RunHypertextTransferProtocolLoopAsync(
         IProxyConnection connection,
-        InterceptionPipes pipes,
+        TransportLayerSecurityInterceptionPipes pipes,
         CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -363,7 +295,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
                 break;
             }
 
-            var flow = CreateTrafficFlow(connection);
+            var flow = TransportLayerSecurityInterceptorHelpers.CreateTrafficFlow(connection);
             PublishFlowCreated(flow);
             flow.SetRequest(requestExchange.Request);
             PublishRequestReceived(flow, requestExchange.Request);
@@ -384,7 +316,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             _trafficStore.Add(flow);
             PublishFlowCompleted(flow);
 
-            if (!HasKeepAlive(requestExchange.Request, responseExchange.Response))
+            if (!TransportLayerSecurityInterceptorHelpers.HasKeepAlive(requestExchange.Request, responseExchange.Response))
             {
                 break;
             }
@@ -435,110 +367,5 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await serverWriter.WriteAsync(requestExchange.HeaderBytes, cancellationToken).ConfigureAwait(false);
         await serverWriter.WriteAsync(requestExchange.Body, cancellationToken).ConfigureAwait(false);
         await serverWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private sealed class DuplexPipeStream : Stream
-    {
-        private readonly Stream _readStream;
-        private readonly Stream _writeStream;
-
-        public DuplexPipeStream(PipeReader reader, PipeWriter writer)
-        {
-            var readStream = reader.AsStream();
-            var writeStream = writer.AsStream();
-            _readStream = readStream;
-            _writeStream = writeStream;
-        }
-
-        public override bool CanRead => true;
-
-        public override bool CanSeek => false;
-
-        public override bool CanTimeout => false;
-
-        public override bool CanWrite => true;
-
-        public override void Flush()
-        {
-            _writeStream.Flush();
-        }
-
-        public override Task FlushAsync(CancellationToken cancellationToken)
-        {
-            return _writeStream.FlushAsync(cancellationToken);
-        }
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            return _readStream.Read(buffer, offset, count);
-        }
-
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            var bytesRead = await _readStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            return bytesRead;
-        }
-
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void SetLength(long value)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            _writeStream.Write(buffer, offset, count);
-        }
-
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            await _writeStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private sealed class InterceptionPipes
-    {
-        public PipeReader ClientReader { get; }
-
-        public PipeWriter ClientWriter { get; }
-
-        public PipeReader ServerReader { get; }
-
-        public PipeWriter ServerWriter { get; }
-
-        public InterceptionPipes(
-            PipeReader clientReader,
-            PipeWriter clientWriter,
-            PipeReader serverReader,
-            PipeWriter serverWriter)
-        {
-            ClientReader = clientReader;
-            ClientWriter = clientWriter;
-            ServerReader = serverReader;
-            ServerWriter = serverWriter;
-        }
-
-        public Task CompleteAsync(CancellationToken cancellationToken)
-        {
-            _ = cancellationToken;
-            var completionTask = Task.WhenAll(
-                ClientReader.CompleteAsync().AsTask(),
-                ClientWriter.CompleteAsync().AsTask(),
-                ServerReader.CompleteAsync().AsTask(),
-                ServerWriter.CompleteAsync().AsTask());
-            return completionTask;
-        }
     }
 }

@@ -3,10 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
 
@@ -48,6 +50,13 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
+        serviceCollection.AddSingleton<IRuleEngine>(_ =>
+        {
+            IReadOnlyList<IRequestPhaseRule> requestRules = [];
+            IReadOnlyList<IResponsePhaseRule> responseRules = [];
+            var engine = new RuleEngine(requestRules, responseRules);
+            return engine;
+        });
         return serviceCollection;
     }
 

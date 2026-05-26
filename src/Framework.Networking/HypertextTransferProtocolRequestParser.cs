@@ -78,6 +78,12 @@ public static class HypertextTransferProtocolRequestParser
     {
         var headerSectionStartIndex = requestLineEndIndex + HeaderLineTerminator.Length;
         var headerSectionLength = headerText.Length - headerSectionStartIndex - HeaderSectionTerminator.Length;
+
+        if (headerSectionLength <= 0)
+        {
+            return string.Empty;
+        }
+
         return headerText.Substring(headerSectionStartIndex, headerSectionLength);
     }
 

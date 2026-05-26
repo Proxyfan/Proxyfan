@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Linq;
@@ -35,12 +36,14 @@ public sealed class ServiceCollectionExtensionsTests
         var dispatcher = provider.GetService<IConnectionDispatcher>();
         var trafficStore = provider.GetService<ITrafficStore>();
         var systemProxy = provider.GetService<ISystemProxy>();
+        var ruleEngine = provider.GetService<IRuleEngine>();
         var handlers = provider.GetServices<IConnectionHandler>().ToArray();
 
         await Assert.That(listener).IsNotNull();
         await Assert.That(dispatcher).IsNotNull();
         await Assert.That(trafficStore).IsNotNull();
         await Assert.That(systemProxy).IsNotNull();
+        await Assert.That(ruleEngine).IsNotNull();
         await Assert.That(handlers).Count().IsEqualTo(2);
     }
 

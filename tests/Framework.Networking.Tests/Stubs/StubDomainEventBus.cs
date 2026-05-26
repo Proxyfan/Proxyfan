@@ -1,6 +1,8 @@
 ﻿using Proxyfan.Domain;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Proxyfan.Framework.Networking.Tests.Stubs;
 
@@ -11,6 +13,7 @@ namespace Proxyfan.Framework.Networking.Tests.Stubs;
 public sealed class StubDomainEventBus : IDomainEventBus
 {
     private readonly List<IDomainEvent> _published;
+    private readonly List<TaskCompletionSource<IDomainEvent>> _waitingTasks;
 
     /// <summary>
     ///     Gets all events that have been published to this bus, in order of publication.
@@ -24,12 +27,24 @@ public sealed class StubDomainEventBus : IDomainEventBus
     {
         List<IDomainEvent> published = [];
         _published = published;
+        var waiters = new List<TaskCompletionSource<IDomainEvent>>();
+        _waitingTasks = waiters;
     }
 
     /// <inheritdoc />
     public void Publish<TEvent>(TEvent domainEvent) where TEvent : IDomainEvent
     {
-        _published.Add(domainEvent);
+        lock (_published)
+        {
+            _published.Add(domainEvent);
+
+            foreach (var waiter in _waitingTasks)
+            {
+                waiter.TrySetResult(domainEvent);
+            }
+
+            _waitingTasks.Clear();
+        }
     }
 
     /// <summary>
@@ -57,6 +72,45 @@ public sealed class StubDomainEventBus : IDomainEventBus
     {
         var disposable = new NoOpDisposable();
         return disposable;
+    }
+
+    /// <summary>
+    ///     Waits asynchronously until an event of type <typeparamref name="TEvent" /> has been
+    ///     published, or the cancellation token is cancelled.
+    /// </summary>
+    /// <typeparam name="TEvent">The event type to wait for.</typeparam>
+    /// <param name="cancellationToken">A token that cancels the wait.</param>
+    /// <returns>A task that completes when at least one matching event has been published.</returns>
+    public async Task WaitForEventAsync<TEvent>(CancellationToken cancellationToken) where TEvent : IDomainEvent
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            TaskCompletionSource<IDomainEvent> waiter;
+
+            lock (_published)
+            {
+                foreach (var e in _published)
+                {
+                    if (e is TEvent)
+                    {
+                        return;
+                    }
+                }
+
+                waiter = new TaskCompletionSource<IDomainEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waitingTasks.Add(waiter);
+            }
+
+            using var registration = cancellationToken.Register(static state => ((TaskCompletionSource<IDomainEvent>)state!).TrySetCanceled(), waiter);
+            var publishedEvent = await waiter.Task.ConfigureAwait(false);
+
+            if (publishedEvent is TEvent)
+            {
+                return;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private sealed class NoOpDisposable : IDisposable

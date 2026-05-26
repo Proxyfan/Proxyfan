@@ -1,7 +1,9 @@
-﻿using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -35,7 +37,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var bytes = Encoding.ASCII.GetBytes(methodPrefix + "/path HTTP/1.1\r\n");
         var sequence = new ReadOnlySequence<byte>(bytes);
 
@@ -53,7 +55,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var bytes = Encoding.ASCII.GetBytes("CONNECT example.com:443 HTTP/1.1\r\n");
         var sequence = new ReadOnlySequence<byte>(bytes);
 
@@ -71,7 +73,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var sequence = ReadOnlySequence<byte>.Empty;
 
         var result = handler.CanHandle(sequence);
@@ -88,7 +90,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var bytes = Encoding.ASCII.GetBytes("GET /path HTTP/1.1\r\n");
         var sequence = new ReadOnlySequence<byte>(bytes);
 
@@ -106,7 +108,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var bytes = Encoding.ASCII.GetBytes("\x16\x03\x01\x00\xf1");
         var sequence = new ReadOnlySequence<byte>(bytes);
 
@@ -125,7 +127,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var connection = new StubFullDuplexProxyConnection();
         await connection.InputWriter.CompleteAsync().ConfigureAwait(false);
 
@@ -144,7 +146,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var upstreamListener = new TcpListener(IPAddress.Loopback, 0);
         upstreamListener.Start();
 
@@ -183,7 +185,7 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
-        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, logger);
+        var handler = new HypertextTransferProtocolProxyHandler(trafficStore, eventBus, CreateEmptyRuleEngine(), logger);
         var connection = new StubFullDuplexProxyConnection();
         var requestBytes = Encoding.ASCII.GetBytes("GET /path HTTP/1.1\r\nAccept: */*\r\n\r\n");
         await connection.InputWriter.WriteAsync(requestBytes).ConfigureAwait(false);
@@ -210,5 +212,13 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var responseBytes = Encoding.ASCII.GetBytes(responseText);
         await networkStream.WriteAsync(responseBytes, cancellationToken).ConfigureAwait(false);
         await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static RuleEngine CreateEmptyRuleEngine()
+    {
+        IReadOnlyList<IRequestPhaseRule> requestRules = [];
+        IReadOnlyList<IResponsePhaseRule> responseRules = [];
+        var engine = new RuleEngine(requestRules, responseRules);
+        return engine;
     }
 }

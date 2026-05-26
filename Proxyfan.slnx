@@ -4,6 +4,9 @@
   <Project Path="src/Domain.Proxy/Domain.Proxy.csproj" />
   <Project Path="src/Domain.Traffic/Domain.Traffic.csproj" />
   <Project Path="src/Domain.Certificates/Domain.Certificates.csproj" />
+  <Project Path="src/Domain.Rules/Domain.Rules.csproj" />
+  <Project Path="src/Domain.Session/Domain.Session.csproj" />
+  <Project Path="src/Domain.Throttling/Domain.Throttling.csproj" />
   <Project Path="src/Framework/Framework.csproj" />
   <Project Path="src/Framework.Networking/Framework.Networking.csproj" />
   <Project Path="src/Framework.Platform/Framework.Platform.csproj" />
@@ -20,6 +23,9 @@
     <Project Path="tests/Domain.Proxy.Tests/Domain.Proxy.Tests.csproj" />
     <Project Path="tests/Domain.Traffic.Tests/Domain.Traffic.Tests.csproj" />
     <Project Path="tests/Domain.Certificates.Tests/Domain.Certificates.Tests.csproj" />
+    <Project Path="tests/Domain.Rules.Tests/Domain.Rules.Tests.csproj" />
+    <Project Path="tests/Domain.Session.Tests/Domain.Session.Tests.csproj" />
+    <Project Path="tests/Domain.Throttling.Tests/Domain.Throttling.Tests.csproj" />
     <Project Path="tests/Framework.Tests/Framework.Tests.csproj" />
     <Project Path="tests/Framework.Networking.Tests/Framework.Networking.Tests.csproj" />
     <Project Path="tests/Framework.Platform.Tests/Framework.Platform.Tests.csproj" />
