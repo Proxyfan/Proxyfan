@@ -1,16 +1,22 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.Logging;
 
 namespace Proxyfan.Domain.Proxy.Tests.Stubs;
 
-/// <summary>A no-op stub implementation of <see cref="ILogger{TCategoryName}" /> for testing.</summary>
-/// <typeparam name="T">The category type.</typeparam>
-internal sealed class StubLogger<T> : ILogger<T>
+/// <summary>
+///     A no-op stub implementation of <see cref="ILogger{TCategoryName}" /> that discards all
+///     log output, used in unit tests where logging side-effects are irrelevant.
+/// </summary>
+/// <typeparam name="T">
+///     The category type.
+/// </typeparam>
+public sealed class StubLogger<T> : ILogger<T>
 {
     /// <inheritdoc />
     public IDisposable BeginScope<TState>(TState state) where TState : notnull
     {
-        return new NoopScope();
+        var scope = new NoopScope();
+        return scope;
     }
 
     /// <inheritdoc />
@@ -22,10 +28,14 @@ internal sealed class StubLogger<T> : ILogger<T>
     /// <inheritdoc />
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
+        _ = (logLevel, eventId, state, exception, formatter);
     }
 
     private sealed class NoopScope : IDisposable
     {
-        public void Dispose() { }
+        public void Dispose()
+        {
+            GC.SuppressFinalize(this);
+        }
     }
 }

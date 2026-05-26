@@ -6,28 +6,22 @@ using Proxyfan.Framework.Networking;
 
 namespace Proxyfan.Domain.Proxy.Tests;
 
-/// <summary>Architecture conformance tests for the Domain.Proxy assembly.</summary>
-internal sealed class ArchitectureTests
+/// <summary>
+///     Architecture conformance tests for the Domain.Proxy assembly.
+/// </summary>
+public sealed class ArchitectureTests
 {
-    private static readonly Architecture TestArchitecture = new ArchLoader()
-        .LoadAssemblies(
-            typeof(IDomainEvent).Assembly,
-            typeof(IProxyListener).Assembly,
-            typeof(TcpProxyListener).Assembly)
-        .Build();
+    private static readonly Architecture TestArchitecture;
 
-    /// <summary>
-    ///     Verifies that classes in <c>Proxyfan.Domain.Proxy</c> do not depend on
-    ///     anything in <c>Proxyfan.Framework.Networking</c>.
-    /// </summary>
-    [Test]
-    public void Classes_ResidingInDomainProxy_ShouldNotDependOnFrameworkNetworking()
+    static ArchitectureTests()
     {
-        var rule = ArchRuleDefinition.Classes()
-            .That().ResideInNamespace("Proxyfan.Domain.Proxy")
-            .Should().NotDependOnAnyTypesThat().ResideInNamespace("Proxyfan.Framework.Networking");
-
-        TestArchitecture.CheckRule(rule);
+        var loader = new ArchLoader();
+        TestArchitecture = loader
+            .LoadAssemblies(
+                typeof(IDomainEvent).Assembly,
+                typeof(IProxyListener).Assembly,
+                typeof(SocketProxyListener).Assembly)
+            .Build();
     }
 
     /// <summary>
@@ -40,6 +34,20 @@ internal sealed class ArchitectureTests
         var rule = ArchRuleDefinition.Classes()
             .That().ResideInNamespace("Proxyfan.Domain")
             .Should().NotDependOnAnyTypesThat().ResideInNamespace("Proxyfan.Domain.Proxy");
+
+        TestArchitecture.CheckRule(rule);
+    }
+
+    /// <summary>
+    ///     Verifies that classes in <c>Proxyfan.Domain.Proxy</c> do not depend on
+    ///     anything in <c>Proxyfan.Framework.Networking</c>.
+    /// </summary>
+    [Test]
+    public void Classes_ResidingInDomainProxy_ShouldNotDependOnFrameworkNetworking()
+    {
+        var rule = ArchRuleDefinition.Classes()
+            .That().ResideInNamespace("Proxyfan.Domain.Proxy")
+            .Should().NotDependOnAnyTypesThat().ResideInNamespace("Proxyfan.Framework.Networking");
 
         TestArchitecture.CheckRule(rule);
     }

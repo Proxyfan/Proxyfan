@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,26 +9,42 @@ namespace Proxyfan.Framework.Networking.Tests.Stubs;
 /// <summary>
 ///     A configurable stub implementation of <see cref="IConnectionHandler" /> for testing.
 /// </summary>
-internal sealed class StubConnectionHandler : IConnectionHandler
+public sealed class StubConnectionHandler : IConnectionHandler
 {
     private readonly Func<ReadOnlySequence<byte>, bool> _canHandle;
-    private readonly Func<IProxyConnection, CancellationToken, Task>? _onHandle;
+    private readonly ConnectionAcceptedHandler? _onHandle;
 
     /// <summary>
-    ///     Initializes a new instance of <see cref="StubConnectionHandler" />.
+    ///     Gets the total number of times <see cref="HandleAsync" /> was invoked.
     /// </summary>
-    /// <param name="canHandle">The delegate invoked by <see cref="CanHandle" />.</param>
-    /// <param name="onHandle">Optional delegate invoked by <see cref="HandleAsync" />. Defaults to a no-op.</param>
-    internal StubConnectionHandler(
-        Func<ReadOnlySequence<byte>, bool> canHandle,
-        Func<IProxyConnection, CancellationToken, Task>? onHandle = null)
+    public int HandleCount { get; private set; }
+
+    /// <summary>
+    ///     Initializes a new <see cref="StubConnectionHandler" /> that always performs a no-op when handling.
+    /// </summary>
+    /// <param name="canHandle">
+    ///     The delegate invoked by <see cref="CanHandle" /> to determine if this handler accepts the connection.
+    /// </param>
+    public StubConnectionHandler(Func<ReadOnlySequence<byte>, bool> canHandle)
+    {
+        _canHandle = canHandle;
+        _onHandle = null;
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="StubConnectionHandler" /> with a custom handle callback.
+    /// </summary>
+    /// <param name="canHandle">
+    ///     The delegate invoked by <see cref="CanHandle" /> to determine if this handler accepts the connection.
+    /// </param>
+    /// <param name="onHandle">
+    ///     The delegate invoked by <see cref="HandleAsync" /> to process the connection.
+    /// </param>
+    public StubConnectionHandler(Func<ReadOnlySequence<byte>, bool> canHandle, ConnectionAcceptedHandler onHandle)
     {
         _canHandle = canHandle;
         _onHandle = onHandle;
     }
-
-    /// <summary>Gets the number of times <see cref="HandleAsync" /> was invoked.</summary>
-    internal int HandleCount { get; private set; }
 
     /// <inheritdoc />
     public bool CanHandle(ReadOnlySequence<byte> initialBytes)

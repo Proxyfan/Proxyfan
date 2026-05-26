@@ -1,30 +1,17 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Proxyfan.Domain.Proxy.Events;
 
 namespace Proxyfan.Domain.Proxy.Tests.Events;
 
-/// <summary>Tests for <see cref="ProxyStarted" />.</summary>
-internal sealed class ProxyStartedTests
+/// <summary>
+///     Tests for <see cref="ProxyStarted" />.
+/// </summary>
+public sealed class ProxyStartedTests
 {
-    /// <summary>Verifies that <see cref="ProxyStarted.Port" /> is set from the constructor.</summary>
-    [Test]
-    public async Task Port_WhenConstructed_ReturnsProvidedPort()
-    {
-        var evt = new ProxyStarted(8080, DateTimeOffset.UtcNow);
-        await Assert.That(evt.Port).IsEqualTo(8080);
-    }
-
-    /// <summary>Verifies that <see cref="ProxyStarted.Timestamp" /> is set from the constructor.</summary>
-    [Test]
-    public async Task Timestamp_WhenConstructed_ReturnsProvidedTimestamp()
-    {
-        var ts = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var evt = new ProxyStarted(8080, ts);
-        await Assert.That(evt.Timestamp).IsEqualTo(ts);
-    }
-
-    /// <summary>Verifies record equality for <see cref="ProxyStarted" />.</summary>
+    /// <summary>
+    ///     Verifies record equality for <see cref="ProxyStarted" />.
+    /// </summary>
     [Test]
     public async Task Equality_SameValues_AreEqual()
     {
@@ -32,5 +19,26 @@ internal sealed class ProxyStartedTests
         var a = new ProxyStarted(8080, ts);
         var b = new ProxyStarted(8080, ts);
         await Assert.That(a).IsEqualTo(b);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ProxyStarted.Port" /> is set from the constructor.
+    /// </summary>
+    [Test]
+    public async Task Port_WhenConstructed_ReturnsProvidedPort()
+    {
+        var evt = new ProxyStarted(8080, DateTimeOffset.UtcNow);
+        await Assert.That(evt.Port).IsEqualTo(8080);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ProxyStarted.Timestamp" /> is set from the constructor.
+    /// </summary>
+    [Test]
+    public async Task Timestamp_WhenConstructed_ReturnsProvidedTimestamp()
+    {
+        var ts = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var evt = new ProxyStarted(8080, ts);
+        await Assert.That(evt.Timestamp).IsEqualTo(ts);
     }
 }

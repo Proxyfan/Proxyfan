@@ -1,0 +1,55 @@
+﻿<UserControl x:Class="Proxyfan.Client.Inspector.Views.InspectorView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:inspectorViewModels="clr-namespace:Proxyfan.Client.Inspector.ViewModels"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             d:DataContext="{d:DesignInstance Type=inspectorViewModels:InspectorViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type inspectorViewModels:InspectorViewModel}"
+             x:DataType="inspectorViewModels:InspectorViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="24,*,24,*,24,*,24,*">
+        <TextBlock Grid.Row="0"
+                   Margin="4,0"
+                   FontWeight="SemiBold"
+                   Text="{localization:Localize Key=Inspector_Section_RequestHeaders}"
+                   VerticalAlignment="Center" />
+        <TextBox Grid.Row="1"
+                 AcceptsReturn="True"
+                 IsReadOnly="True"
+                 Text="{Binding RequestHeadersText}"
+                 TextWrapping="Wrap" />
+        <TextBlock Grid.Row="2"
+                   Margin="4,0"
+                   FontWeight="SemiBold"
+                   Text="{localization:Localize Key=Inspector_Section_RequestBody}"
+                   VerticalAlignment="Center" />
+        <TextBox Grid.Row="3"
+                 AcceptsReturn="True"
+                 IsReadOnly="True"
+                 Text="{Binding RequestBodyText}"
+                 TextWrapping="Wrap" />
+        <TextBlock Grid.Row="4"
+                   Margin="4,0"
+                   FontWeight="SemiBold"
+                   Text="{localization:Localize Key=Inspector_Section_ResponseHeaders}"
+                   VerticalAlignment="Center" />
+        <TextBox Grid.Row="5"
+                 AcceptsReturn="True"
+                 IsReadOnly="True"
+                 Text="{Binding ResponseHeadersText}"
+                 TextWrapping="Wrap" />
+        <TextBlock Grid.Row="6"
+                   Margin="4,0"
+                   FontWeight="SemiBold"
+                   Text="{localization:Localize Key=Inspector_Section_ResponseBody}"
+                   VerticalAlignment="Center" />
+        <TextBox Grid.Row="7"
+                 AcceptsReturn="True"
+                 IsReadOnly="True"
+                 Text="{Binding ResponseBodyText}"
+                 TextWrapping="Wrap" />
+    </Grid>
+</UserControl>

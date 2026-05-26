@@ -1,0 +1,199 @@
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+
+namespace Proxyfan.Domain.Traffic;
+
+/// <summary>
+///     Stores traffic flows in a bounded in-memory ring buffer.
+/// </summary>
+public sealed class TrafficStore : ITrafficStore
+{
+    private const int DefaultCapacity = 10000;
+    private readonly ConcurrentDictionary<Guid, TrafficFlow> _flows;
+    private readonly Guid[] _order;
+    private readonly object _syncRoot;
+    private int _count;
+    private int _nextIndex;
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficStore" /> instance with the default capacity.
+    /// </summary>
+    public TrafficStore()
+        : this(DefaultCapacity)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficStore" /> instance with the specified capacity.
+    /// </summary>
+    /// <param name="capacity">
+    ///     The maximum number of flows to retain.
+    /// </param>
+    public TrafficStore(int capacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+
+        Capacity = capacity;
+        _count = 0;
+        _nextIndex = 0;
+
+        var flows = new ConcurrentDictionary<Guid, TrafficFlow>();
+        var order = new Guid[capacity];
+        var syncRoot = new object();
+        _flows = flows;
+        _order = order;
+        _syncRoot = syncRoot;
+    }
+
+    /// <summary>
+    ///     Adds a traffic flow to the store.
+    /// </summary>
+    /// <param name="flow">
+    ///     The flow to store.
+    /// </param>
+    public void Add(TrafficFlow flow)
+    {
+        lock (_syncRoot)
+        {
+            RemoveOldestFlowWhenFull();
+            _flows[flow.Id] = flow;
+            _order[_nextIndex] = flow.Id;
+            _nextIndex = GetNextIndex(_nextIndex);
+        }
+    }
+
+    /// <summary>
+    ///     Gets the configured flow capacity.
+    /// </summary>
+    public int Capacity { get; }
+
+    /// <summary>
+    ///     Removes all stored flows.
+    /// </summary>
+    public void Clear()
+    {
+        lock (_syncRoot)
+        {
+            Array.Clear(_order, 0, _order.Length);
+            _flows.Clear();
+            _count = 0;
+            _nextIndex = 0;
+        }
+    }
+
+    /// <summary>
+    ///     Gets the current number of stored flows.
+    /// </summary>
+    public int Count
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _count;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Returns all stored flows ordered from newest to oldest.
+    /// </summary>
+    /// <returns>
+    ///     A snapshot of the currently stored flows.
+    /// </returns>
+    public IReadOnlyList<TrafficFlow> GetAll()
+    {
+        lock (_syncRoot)
+        {
+            return CreateSnapshot();
+        }
+    }
+
+    /// <summary>
+    ///     Looks up a stored flow by identifier.
+    /// </summary>
+    /// <param name="id">
+    ///     The flow identifier.
+    /// </param>
+    /// <returns>
+    ///     The stored flow when found; otherwise, <see langword="null" />.
+    /// </returns>
+    public TrafficFlow? GetById(Guid id)
+    {
+        if (_flows.TryGetValue(id, out TrafficFlow? flow))
+        {
+            return flow;
+        }
+
+        return null;
+    }
+
+    private List<TrafficFlow> CreateSnapshot()
+    {
+        var flows = new List<TrafficFlow>(_count);
+
+        if (_count == 0)
+        {
+            return flows;
+        }
+
+        var index = GetNewestIndex();
+
+        for (var itemIndex = 0; itemIndex < _count; itemIndex++)
+        {
+            var flowIdentifier = _order[index];
+
+            if (_flows.TryGetValue(flowIdentifier, out TrafficFlow? flow))
+            {
+                flows.Add(flow);
+            }
+
+            index = GetPreviousIndex(index);
+        }
+
+        return flows;
+    }
+
+    private int GetNewestIndex()
+    {
+        if (_nextIndex == 0)
+        {
+            return Capacity - 1;
+        }
+
+        return _nextIndex - 1;
+    }
+
+    private int GetNextIndex(int index)
+    {
+        if (index == Capacity - 1)
+        {
+            return 0;
+        }
+
+        return index + 1;
+    }
+
+    private int GetPreviousIndex(int index)
+    {
+        if (index == 0)
+        {
+            return Capacity - 1;
+        }
+
+        return index - 1;
+    }
+
+    private void RemoveOldestFlowWhenFull()
+    {
+        if (_count == Capacity)
+        {
+            var flowIdentifier = _order[_nextIndex];
+            _flows.TryRemove(flowIdentifier, out _);
+            return;
+        }
+
+        _count++;
+    }
+}

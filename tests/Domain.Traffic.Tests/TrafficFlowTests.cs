@@ -1,25 +1,83 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Traffic.Tests;
 
-/// <summary>Tests for <see cref="TrafficFlow" />.</summary>
-internal sealed class TrafficFlowTests
+/// <summary>
+///     Tests for <see cref="TrafficFlow" />.
+/// </summary>
+public sealed class TrafficFlowTests
 {
-    private static TrafficFlow CreateFlow()
-    {
-        return new TrafficFlow(Guid.NewGuid(), "127.0.0.1:12345", DateTimeOffset.UtcNow);
-    }
-
-    /// <summary>Verifies that a newly created flow starts in the <see cref="TrafficFlowStatus.Pending" /> state.</summary>
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.Abort" /> transitions a pending flow to aborted.
+    /// </summary>
     [Test]
-    public async Task Constructor_NewFlow_StatusIsPending()
+    public async Task Abort_WhenPending_SetsStatusToAborted()
     {
         var flow = CreateFlow();
-        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Pending);
+
+        flow.Abort();
+
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Aborted);
     }
 
-    /// <summary>Verifies that a newly created flow has no <see cref="TrafficFlow.FailedAt" /> timestamp.</summary>
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.Complete" /> records the response completion time.
+    /// </summary>
+    [Test]
+    public async Task Complete_WhenActive_RecordsResponseCompletedAt()
+    {
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
+        flow.SetResponse(response);
+
+        flow.Complete();
+
+        await Assert.That(flow.Timings.ResponseCompletedAt).IsNotNull();
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.Complete" /> transitions an active flow to complete.
+    /// </summary>
+    [Test]
+    public async Task Complete_WhenActive_SetsStatusToComplete()
+    {
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
+        flow.SetResponse(response);
+
+        flow.Complete();
+
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Complete);
+    }
+
+    /// <summary>
+    ///     Verifies that calling <see cref="TrafficFlow.Complete" /> more than once is a no-op.
+    /// </summary>
+    [Test]
+    public async Task Complete_WhenRepeated_RemainsComplete()
+    {
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
+        flow.SetResponse(response);
+        flow.Complete();
+        var completedAt = flow.Timings.ResponseCompletedAt;
+
+        flow.Complete();
+
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Complete);
+        await Assert.That(flow.Timings.ResponseCompletedAt).IsEqualTo(completedAt);
+    }
+
+    /// <summary>
+    ///     Verifies that a newly created flow has no failure timestamp.
+    /// </summary>
     [Test]
     public async Task Constructor_NewFlow_FailedAtIsNull()
     {
@@ -27,7 +85,64 @@ internal sealed class TrafficFlowTests
         await Assert.That(flow.FailedAt).IsNull();
     }
 
-    /// <summary>Verifies that <see cref="TrafficFlow.Fail" /> transitions a <c>Pending</c> flow to <c>Failed</c>.</summary>
+    /// <summary>
+    ///     Verifies that a newly created flow starts pending.
+    /// </summary>
+    [Test]
+    public async Task Constructor_NewFlow_StatusIsPending()
+    {
+        var flow = CreateFlow();
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Pending);
+    }
+
+    /// <summary>
+    ///     Verifies that a newly created flow starts with empty timings.
+    /// </summary>
+    [Test]
+    public async Task Constructor_NewFlow_TimingsAreEmpty()
+    {
+        var flow = CreateFlow();
+
+        await Assert.That(flow.Timings.RequestStartedAt).IsNull();
+        await Assert.That(flow.Timings.RequestCompletedAt).IsNull();
+        await Assert.That(flow.Timings.ResponseStartedAt).IsNull();
+        await Assert.That(flow.Timings.ResponseCompletedAt).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.Fail" /> transitions an active flow to failed.
+    /// </summary>
+    [Test]
+    public async Task Fail_WhenActive_SetsStatusToFailed()
+    {
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        flow.SetRequest(request);
+
+        flow.Fail();
+
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Failed);
+    }
+
+    /// <summary>
+    ///     Verifies that calling <see cref="TrafficFlow.Fail" /> twice preserves the first timestamp.
+    /// </summary>
+    [Test]
+    public async Task Fail_WhenRepeated_PreservesFailedAt()
+    {
+        var flow = CreateFlow();
+        flow.Fail();
+        var failedAt = flow.FailedAt;
+
+        flow.Fail();
+
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Failed);
+        await Assert.That(flow.FailedAt).IsEqualTo(failedAt);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.Fail" /> transitions a pending flow to failed.
+    /// </summary>
     [Test]
     public async Task Fail_WhenPending_SetsStatusToFailed()
     {
@@ -38,55 +153,114 @@ internal sealed class TrafficFlowTests
         await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Failed);
     }
 
-    /// <summary>Verifies that <see cref="TrafficFlow.Fail" /> sets <see cref="TrafficFlow.FailedAt" /> to approximately now.</summary>
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetRequest" /> stores the request and timestamps it.
+    /// </summary>
     [Test]
-    public async Task Fail_WhenPending_SetsFailedAtToApproximatelyNow()
+    public async Task SetRequest_WhenPending_SetsRequestData()
     {
-        var before = DateTimeOffset.UtcNow;
         var flow = CreateFlow();
+        var request = CreateRequest();
 
-        flow.Fail();
+        flow.SetRequest(request);
 
-        var after = DateTimeOffset.UtcNow;
-        await Assert.That(flow.FailedAt).IsNotNull();
-        await Assert.That(flow.FailedAt!.Value >= before).IsTrue();
-        await Assert.That(flow.FailedAt!.Value <= after).IsTrue();
+        await Assert.That(flow.Request).IsEqualTo(request);
+        await Assert.That(flow.Timings.RequestStartedAt).IsNotNull();
     }
 
     /// <summary>
-    ///     Verifies that calling <see cref="TrafficFlow.Fail" /> on an already-failed flow is a no-op
-    ///     (the <see cref="TrafficFlow.FailedAt" /> timestamp is not overwritten).
+    ///     Verifies that <see cref="TrafficFlow.SetRequest" /> transitions a pending flow to active.
     /// </summary>
     [Test]
-    public async Task Fail_WhenAlreadyFailed_IsNoOp()
+    public async Task SetRequest_WhenPending_SetsStatusToActive()
     {
         var flow = CreateFlow();
-        flow.Fail();
-        var firstFailedAt = flow.FailedAt;
+        var request = CreateRequest();
 
-        flow.Fail();
+        flow.SetRequest(request);
 
-        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Failed);
-        await Assert.That(flow.FailedAt).IsEqualTo(firstFailedAt);
+        await Assert.That(flow.Status).IsEqualTo(TrafficFlowStatus.Active);
     }
 
-    /// <summary>Verifies that <see cref="TrafficFlow.Id" /> is preserved from construction.</summary>
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetResponse" /> records request and response timings.
+    /// </summary>
     [Test]
-    public async Task Constructor_ProvidedId_IsPreserved()
+    public async Task SetResponse_WhenActive_RecordsTimings()
     {
-        var id = Guid.NewGuid();
-        var flow = new TrafficFlow(id, "10.0.0.1:9999", DateTimeOffset.UtcNow);
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
 
-        await Assert.That(flow.Id).IsEqualTo(id);
+        flow.SetResponse(response);
+
+        await Assert.That(flow.Timings.RequestCompletedAt).IsNotNull();
+        await Assert.That(flow.Timings.ResponseStartedAt).IsNotNull();
     }
 
-    /// <summary>Verifies that <see cref="TrafficFlow.ClientEndPoint" /> is preserved from construction.</summary>
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetResponse" /> stores the response.
+    /// </summary>
     [Test]
-    public async Task Constructor_ProvidedClientEndPoint_IsPreserved()
+    public async Task SetResponse_WhenActive_SetsResponseData()
     {
-        const string endPoint = "192.168.1.1:54321";
-        var flow = new TrafficFlow(Guid.NewGuid(), endPoint, DateTimeOffset.UtcNow);
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
 
-        await Assert.That(flow.ClientEndPoint).IsEqualTo(endPoint);
+        flow.SetResponse(response);
+
+        await Assert.That(flow.Response).IsEqualTo(response);
+    }
+
+    private TrafficFlow CreateFlow()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:12345", DateTimeOffset.UtcNow);
+        return flow;
+    }
+
+    private HypertextTransferProtocolRequestData CreateRequest()
+    {
+        byte[] body =
+        [
+            1,
+            2,
+            3,
+        ];
+        var requestUri = new Uri("https://example.com/");
+        var headers = HeaderCollection.Empty.Add("Host", "example.com");
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = body,
+            Headers = headers,
+            Method = "GET",
+            RequestUri = requestUri,
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+        return request;
+    }
+
+    private HypertextTransferProtocolResponseData CreateResponse()
+    {
+        byte[] body =
+        [
+            4,
+            5,
+            6,
+        ];
+        var headers = HeaderCollection.Empty.Add("Content-Type", "text/plain");
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = body,
+            Headers = headers,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        };
+        var response = new HypertextTransferProtocolResponseData(parameters);
+        return response;
     }
 }

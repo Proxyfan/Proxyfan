@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO.Pipelines;
 using System.Net;
 
@@ -10,9 +10,13 @@ namespace Proxyfan.Domain.Proxy;
 /// </summary>
 public interface IProxyConnection : IAsyncDisposable
 {
-    /// <summary>Gets the duplex pipe transport for reading and writing data on this connection.</summary>
-    IDuplexPipe Transport { get; }
-
-    /// <summary>Gets the remote endpoint of the connected client.</summary>
+    /// <summary>
+    ///     Gets the remote endpoint of the connected client.
+    /// </summary>
     EndPoint RemoteEndPoint { get; }
+
+    /// <summary>
+    ///     Gets the duplex pipe transport for reading and writing data on this connection.
+    /// </summary>
+    IDuplexPipe Transport { get; }
 }

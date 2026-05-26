@@ -1,0 +1,8 @@
+﻿<Project>
+
+    <ItemGroup>
+        <PackageReference Include="Automaticks.Testing.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    </ItemGroup>
+
+</Project>

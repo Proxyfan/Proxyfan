@@ -1,7 +1,7 @@
-using System;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace Proxyfan.Presentation;
 
@@ -15,23 +15,29 @@ public static class ViewModelLocator
     ///     Identifies the <c>DataContext</c> attached property, whose value is the
     ///     <see cref="Type" /> of the ViewModel to resolve from the DI container.
     /// </summary>
-    public static readonly AttachedProperty<Type?> DataContextProperty =
-        AvaloniaProperty.RegisterAttached<Control, Type?>("DataContext", typeof(ViewModelLocator));
+    public static readonly AttachedProperty<Type?> DataContextProperty;
 
     static ViewModelLocator()
     {
+        DataContextProperty = AvaloniaProperty.RegisterAttached<Control, Type?>("DataContext", typeof(ViewModelLocator));
         DataContextProperty.Changed.AddClassHandler<Control>(OnDataContextChanged);
     }
 
-    /// <summary>Gets the ViewModel type assigned to <paramref name="element" />.</summary>
+    /// <summary>
+    ///     Gets the ViewModel type assigned to <paramref name="element" />.
+    /// </summary>
     /// <param name="element">The control to query.</param>
-    /// <returns>The assigned <see cref="Type" />, or <see langword="null" />.</returns>
+    /// <returns>
+    ///     The assigned <see cref="Type" />, or <see langword="null" />.
+    /// </returns>
     public static Type? GetDataContext(Control element)
     {
         return element.GetValue(DataContextProperty);
     }
 
-    /// <summary>Sets the ViewModel type on <paramref name="element" />, causing the DI container to be queried.</summary>
+    /// <summary>
+    ///     Sets the ViewModel type on <paramref name="element" />, causing the DI container to be queried.
+    /// </summary>
     /// <param name="element">The control to configure.</param>
     /// <param name="value">The <see cref="Type" /> of the ViewModel to resolve.</param>
     public static void SetDataContext(Control element, Type? value)

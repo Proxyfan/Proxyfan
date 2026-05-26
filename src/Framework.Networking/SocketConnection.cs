@@ -1,8 +1,8 @@
+﻿using Proxyfan.Domain.Proxy;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using Proxyfan.Domain.Proxy;
 
 namespace Proxyfan.Framework.Networking;
 
@@ -10,43 +10,46 @@ namespace Proxyfan.Framework.Networking;
 ///     An <see cref="IProxyConnection" /> implementation that wraps an accepted <see cref="Socket" />
 ///     and exposes it as a duplex pipe via <see cref="System.IO.Pipelines" />.
 /// </summary>
-internal sealed class SocketConnection : IProxyConnection
+public sealed class SocketConnection : IProxyConnection
 {
     private readonly NetworkStream _stream;
-    private bool _disposed;
+    private bool _isDisposed;
 
     /// <summary>
     ///     Initializes a new instance of <see cref="SocketConnection" /> for the given accepted socket.
     /// </summary>
     /// <param name="socket">The accepted TCP socket. Ownership is transferred to this instance.</param>
-    internal SocketConnection(Socket socket)
+    public SocketConnection(Socket socket)
     {
-        _stream = new NetworkStream(socket, ownsSocket: true);
-        RemoteEndPoint = socket.RemoteEndPoint ?? new IPEndPoint(IPAddress.None, 0);
-        Transport = new DuplexPipe(PipeReader.Create(_stream), PipeWriter.Create(_stream));
+        var stream = new NetworkStream(socket, ownsSocket: true);
+        _stream = stream;
+        var fallbackEndPoint = new IPEndPoint(IPAddress.None, 0);
+        RemoteEndPoint = socket.RemoteEndPoint ?? fallbackEndPoint;
+        var pipe = new DuplexPipe(PipeReader.Create(stream), PipeWriter.Create(stream));
+        Transport = pipe;
     }
 
     /// <inheritdoc />
-    public IDuplexPipe Transport { get; }
+    public async ValueTask DisposeAsync()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        await _stream.DisposeAsync().ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public EndPoint RemoteEndPoint { get; }
 
     /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        await _stream.DisposeAsync().ConfigureAwait(false);
-    }
+    public IDuplexPipe Transport { get; }
 
     private sealed class DuplexPipe : IDuplexPipe
     {
-        internal DuplexPipe(PipeReader input, PipeWriter output)
+        public DuplexPipe(PipeReader input, PipeWriter output)
         {
             Input = input;
             Output = output;

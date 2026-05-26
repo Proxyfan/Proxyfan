@@ -1,18 +1,28 @@
-namespace Proxyfan.Domain.Proxy;
+﻿namespace Proxyfan.Domain.Proxy;
 
-/// <summary>Represents the current lifecycle state of the proxy server.</summary>
+/// <summary>
+///     Represents the current lifecycle state of the proxy server.
+/// </summary>
 public enum ProxyStatus
 {
-    /// <summary>The proxy is not running and no port is bound.</summary>
+    /// <summary>
+    ///     The proxy is not running and no port is bound.
+    /// </summary>
     Stopped,
 
-    /// <summary>The proxy is in the process of starting (binding port, initializing).</summary>
+    /// <summary>
+    ///     The proxy is in the process of starting (binding port, initializing).
+    /// </summary>
     Starting,
 
-    /// <summary>The proxy is actively listening for and accepting connections.</summary>
+    /// <summary>
+    ///     The proxy is actively listening for and accepting connections.
+    /// </summary>
     Running,
 
-    /// <summary>The proxy is in the process of shutting down gracefully.</summary>
+    /// <summary>
+    ///     The proxy is in the process of shutting down gracefully.
+    /// </summary>
     Stopping,
 
     /// <summary>

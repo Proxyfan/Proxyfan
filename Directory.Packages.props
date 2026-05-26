@@ -15,6 +15,7 @@
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.3.0.6" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
@@ -22,10 +23,19 @@
     <PackageVersion Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.19.0.132793" />
+    <PackageVersion Include="Automaticks.CSharp.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.Threading.Tasks.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.Linq.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.Reflection.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.Extensions.Options.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.Diagnostics.CodeAnalysis.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.CommunityToolkit.Mvvm.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.Testing.Analyzers" Version="2026.5.26.521" />
     <PackageVersion Include="TUnit" Version="1.12.93" />
     <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.3" />
     <PackageVersion Include="TngTech.ArchUnitNET.TUnit" Version="0.13.3" />
     <PackageVersion Include="Avalonia.Headless" Version="11.3.11" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     <!-- Security fix: pin transitive Tmds.DBus.Protocol to patched version (CVE-2026-39959 / GHSA-xrw6-gwf8-vvr9) -->
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />

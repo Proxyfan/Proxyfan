@@ -21,6 +21,13 @@
 
     <ItemGroup>
         <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.CSharp.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.Threading.Tasks.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.Linq.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.Reflection.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.Extensions.Options.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.Diagnostics.CodeAnalysis.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Automaticks.CommunityToolkit.Mvvm.Analyzers" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

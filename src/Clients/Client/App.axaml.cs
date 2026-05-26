@@ -1,24 +1,31 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Diagnostics;
 using Avalonia.Markup.Xaml;
+using IApplicationLifetime = Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Shell.ViewModels;
 using Proxyfan.Client.Shell.Views;
+using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.DependencyInjection;
+using Proxyfan.Domain;
+using Proxyfan.Domain.Proxy;
 using Proxyfan.Presentation;
-using IApplicationLifetime = Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime;
+using Proxyfan.Presentation.Localization;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Resources;
 
 namespace Proxyfan.Client;
 
-/// <summary>The Avalonia application entry point for the multi-platform client.</summary>
-[SuppressMessage("ReSharper", "PartialTypeWithSinglePart")]
+/// <summary>
+///     The Avalonia application entry point for the multi-platform client.
+/// </summary>
 public partial class App : Application
 {
     private readonly IHostBuilder _hostBuilder;
@@ -30,10 +37,21 @@ public partial class App : Application
     public App()
     {
         _hostBuilder = Host.CreateDefaultBuilder();
-        _hostBuilder.ConfigureServices(services =>
+        _hostBuilder.ConfigureServices((context, services) =>
         {
             services.AddSingletonAsImplementedInterfaces(ResolveApplicationLifetime);
+            services.AddSingleton<IDomainEventBus, DomainEventBus>();
+            services.AddProxyListener(context.Configuration);
+            services.AddSingleton<ProxyServer>();
+            services.AddSingleton<TrafficListViewModel>();
+            services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<ShellViewModel>();
+            services.AddSingleton<LocalizationService>(static serviceProvider =>
+            {
+                var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+                var culture = LocaleResolver.Resolve(configuration["ui:locale"]);
+                return new LocalizationService(culture);
+            });
             return;
 
             static IApplicationLifetime ResolveApplicationLifetime()
@@ -54,9 +72,6 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Avoid duplicate validations from both Avalonia and the CommunityToolkit.
-            // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-
             var dataValidationPluginsToRemove = new List<DataAnnotationsValidationPlugin>();
             foreach (var plugin in BindingPlugins.DataValidators)
             {
@@ -79,7 +94,7 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static ShellWindow CreateShellWindow()
+    private ShellWindow CreateShellWindow()
     {
         return new ShellWindow();
     }
@@ -95,12 +110,17 @@ public partial class App : Application
             var hostEnvironment = host.Services.GetRequiredService<IHostEnvironment>();
             if (hostEnvironment.IsDevelopment())
             {
-                this.AttachDevTools(new DevToolsOptions());
+                var devToolsOptions = new DevToolsOptions();
+                this.AttachDevTools(devToolsOptions);
             }
 #endif
 
             ContainerLocator.Set(() => host.Services);
+            var localizationService = host.Services.GetRequiredService<LocalizationService>();
+            var resourceManager = new ResourceManager("Proxyfan.Client.Resources.Strings", typeof(App).Assembly);
+            localizationService.RegisterManager(resourceManager);
             host.Start();
+            _ = host.Services.GetRequiredService<ProxyServer>();
         }
         catch (Exception ex)
         {

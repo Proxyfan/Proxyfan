@@ -29,7 +29,12 @@ dotnet_diagnostic.ca1711.severity = none # ReadOnlyMemoryStream ending in "Strea
 dotnet_diagnostic.ca1710.severity = none # ConcurrentList does not need to end in "Collection"
 dotnet_diagnostic.ca1707.severity = none # Test methods use underscores (Method_Scenario_Expected)
 dotnet_diagnostic.ide0072.severity = none # A switch expression may deliberately not include all cases
-dotnet_diagnostic.ide0130.severity = none # WPF temp project names cause false namespace mismatches
+dotnet_diagnostic.ide0130.severity = none # WPF temp project names cause false namespace mismatches
+dotnet_diagnostic.ide0290.severity = none # ATXCS037 forbids primary constructors
+dotnet_diagnostic.ca1848.severity = none # Use LoggerMessage delegates - deferred optimization
+dotnet_diagnostic.ca1822.severity = none # ATXCS011 forbids static methods in non-static classes
+dotnet_diagnostic.s2325.severity = none # ATXCS011 forbids static methods in non-static classes
+dotnet_diagnostic.s3963.severity = none # ATXCS036 forbids inline field initialization; static ctor is required
 dotnet_diagnostic.s2094.severity = none # Assembly marker classes are intentionally empty anchor types used for assembly scanning
 
 # TUnit framework: assertion return values are not meant to be captured

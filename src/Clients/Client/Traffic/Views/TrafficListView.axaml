@@ -1,0 +1,108 @@
+﻿<UserControl x:Class="Proxyfan.Client.Traffic.Views.TrafficListView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:trafficViewModels="clr-namespace:Proxyfan.Client.Traffic.ViewModels"
+             d:DataContext="{d:DesignInstance Type=trafficViewModels:TrafficListViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type trafficViewModels:TrafficListViewModel}"
+             x:DataType="trafficViewModels:TrafficListViewModel"
+             mc:Ignorable="d">
+    <DataGrid AutoGenerateColumns="False"
+              CanUserReorderColumns="False"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="False"
+              GridLinesVisibility="Horizontal"
+              IsReadOnly="True"
+              ItemsSource="{Binding Flows}"
+              SelectedItem="{Binding SelectedFlow, Mode=TwoWay}">
+        <DataGrid.Columns>
+            <DataGridTemplateColumn Width="50">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Number}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Number}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="80">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Status}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding FlowStatus}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="80">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Method}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Method}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="200">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Host}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Host}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="*">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Path}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding PathAndQuery}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="60">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Code}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding StatusCode}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="80">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_Duration}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding BodySize}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+        </DataGrid.Columns>
+    </DataGrid>
+</UserControl>

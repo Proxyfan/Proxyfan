@@ -1,10 +1,14 @@
-using System;
-using System.Reflection;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
+using Proxyfan.Framework.Platform;
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Versioning;
 
 namespace Proxyfan.DependencyInjection;
 
@@ -14,46 +18,61 @@ namespace Proxyfan.DependencyInjection;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    ///     Registers the proxy listener services, including <see cref="IProxyListener" />, <see cref="ProxyOptions" />
+    ///     binding, and options validation.
+    ///     <para>
+    ///         <strong>Prerequisite:</strong> An <see cref="Proxyfan.Domain.IDomainEventBus" /> singleton must already be
+    ///         registered in <paramref name="serviceCollection" /> before calling this method.
+    ///     </para>
+    /// </summary>
     /// <param name="serviceCollection">The service collection to register services into.</param>
-    extension(IServiceCollection serviceCollection)
+    /// <param name="configuration">The configuration used to bind <see cref="ProxyOptions" />.</param>
+    /// <returns>The service collection, for chaining.</returns>
+    [SupportedOSPlatform("windows")]
+    public static IServiceCollection AddProxyListener(
+        this IServiceCollection serviceCollection,
+        IConfiguration configuration)
     {
-        /// <summary>
-        ///     Registers <paramref name="implementation" /> as a singleton against every interface it implements.
-        /// </summary>
-        /// <typeparam name="TImplementation">The concrete type of the implementation instance.</typeparam>
-        /// <param name="implementation">The singleton instance to register.</param>
-        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Scans assembly types and implemented interfaces by reflection; not trim-safe by design.")]
-        public void AddSingletonAsImplementedInterfaces<TImplementation>(Func<TImplementation> implementation)
-            where TImplementation : notnull
-        {
-            var type = typeof(TImplementation);
-            foreach (var @interface in type.GetTypeInfo().ImplementedInterfaces)
-            {
-                if (@interface != typeof(IDisposable))
-                {
-                    serviceCollection.Add(new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton));
-                }
-            }
-        }
+        serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));
+        serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
+        serviceCollection.AddSingleton<ITrafficStore, TrafficStore>();
+        serviceCollection.AddSingleton<ICertificateGenerator, RsaCertificateGenerator>();
+        serviceCollection.AddSingleton<ICertificateStore, WindowsCertificateStore>();
+        var serverNameIndicationProxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
+        serverNameIndicationProxyingList.AddIncludedPattern("*");
+        serviceCollection.AddSingleton(serverNameIndicationProxyingList);
+        serviceCollection.AddSingleton<TransportLayerSecurityInterceptionContext>();
+        serviceCollection.AddSingleton<IConnectionHandler, HypertextTransferProtocolProxyHandler>();
+        serviceCollection.AddSingleton<IConnectionHandler, TransportLayerSecurityInterceptorHandler>();
+        serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
+        serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
+        serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
+        return serviceCollection;
+    }
 
-        /// <summary>
-        ///     Registers the proxy listener services, including <see cref="IProxyListener" />, <see cref="ProxyOptions" />
-        ///     binding,
-        ///     and options validation.
-        ///     <para>
-        ///         <strong>Prerequisite:</strong> An <see cref="Proxyfan.Domain.IDomainEventBus" /> singleton must already be registered
-        ///         in <paramref name="serviceCollection" /> before calling this method.
-        ///     </para>
-        /// </summary>
-        /// <param name="configuration">The configuration used to bind <see cref="ProxyOptions" />.</param>
-        /// <returns>The service collection, for chaining.</returns>
-        public IServiceCollection AddProxyListener(IConfiguration configuration)
+    /// <summary>
+    ///     Registers <paramref name="implementation" /> as a singleton against every interface it implements,
+    ///     excluding <see cref="IDisposable" />.
+    /// </summary>
+    /// <typeparam name="TImplementation">The concrete type of the implementation instance.</typeparam>
+    /// <param name="serviceCollection">The service collection to register services into.</param>
+    /// <param name="implementation">The factory that produces the singleton instance.</param>
+    [RequiresUnreferencedCode("Scans implemented interfaces by reflection; not trim-safe by design.")]
+    public static void AddSingletonAsImplementedInterfaces<TImplementation>(
+        this IServiceCollection serviceCollection,
+        ImplementationFactory<TImplementation> implementation)
+        where TImplementation : notnull
+    {
+        var type = typeof(TImplementation);
+
+        foreach (var @interface in type.GetInterfaces())
         {
-            serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));
-            serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
-            serviceCollection.AddSingleton<IProxyListener, TcpProxyListener>();
-            serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
-            return serviceCollection;
+            if (@interface != typeof(IDisposable))
+            {
+                var descriptor = new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton);
+                serviceCollection.Add(descriptor);
+            }
         }
     }
 }

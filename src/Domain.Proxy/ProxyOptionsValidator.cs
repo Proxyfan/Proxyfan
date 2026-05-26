@@ -1,5 +1,5 @@
-using System;
 using Microsoft.Extensions.Options;
+using System;
 
 namespace Proxyfan.Domain.Proxy;
 
@@ -9,8 +9,8 @@ namespace Proxyfan.Domain.Proxy;
 /// </summary>
 public sealed class ProxyOptionsValidator : IValidateOptions<ProxyOptions>
 {
-    private const int MinPort = 1024;
     private const int MaxPort = 65535;
+    private const int MinPort = 1024;
 
     /// <inheritdoc />
     public ValidateOptionsResult Validate(string? name, ProxyOptions options)

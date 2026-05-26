@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -6,14 +6,11 @@ namespace Proxyfan.Domain.Proxy;
 
 /// <summary>
 ///     Defines the contract for a component that handles an incoming proxy connection
-///     for a specific protocol.
+///     for a specific protocol. Implementations are registered with a
+///     <c>ConnectionDispatcher</c>, which reads the first bytes of each accepted connection,
+///     calls <see cref="CanHandle" /> on each registered handler in order, and delegates to
+///     the first handler that returns <see langword="true" />.
 /// </summary>
-/// <remarks>
-///     Implementations are registered with a <c>ConnectionDispatcher</c>, which reads the
-///     first bytes of each accepted connection, calls <see cref="CanHandle" /> on each
-///     registered handler in order, and delegates to the first handler that returns
-///     <see langword="true" />.
-/// </remarks>
 public interface IConnectionHandler
 {
     /// <summary>
@@ -27,12 +24,12 @@ public interface IConnectionHandler
     /// <returns>
     ///     <see langword="true" /> if this handler recognises the protocol in
     ///     <paramref name="initialBytes" />; <see langword="false" /> if the bytes are
-    ///     insufficient or do not match this handler's protocol.
+    ///     insufficient or do not match this handler''s protocol.
     /// </returns>
     bool CanHandle(ReadOnlySequence<byte> initialBytes);
 
     /// <summary>
-    ///     Handles the connection. The connection's transport pipe contains all original
+    ///     Handles the connection. The connection''s transport pipe contains all original
     ///     bytes including those peeked during protocol detection, so implementations
     ///     may read from the start of the stream without special handling.
     /// </summary>

@@ -13,8 +13,11 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Domain\Domain.csproj" />
+        <ProjectReference Include="..\Domain.Certificates\Domain.Certificates.csproj" />
         <ProjectReference Include="..\Domain.Proxy\Domain.Proxy.csproj" />
+        <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\Framework.Networking\Framework.Networking.csproj" />
+        <ProjectReference Include="..\Framework.Platform\Framework.Platform.csproj" />
     </ItemGroup>
 
 </Project>
