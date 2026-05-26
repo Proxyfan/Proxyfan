@@ -2,13 +2,6 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "defaultdocumentation.console": {
-      "version": "1.2.4",
-      "commands": [
-        "defaultdocumentation"
-      ],
-      "rollForward": false
-    },
     "jetbrains.resharper.globaltools": {
       "version": "2025.3.3",
       "commands": [

@@ -5,9 +5,7 @@ This file provides guidance to coding agents working with this repository. For f
 ## Rules for Agents
 
 - **CRITICAL: Never run `git commit` or `git push`.** Prepare changes and stop.
-- **CRITICAL: Use `docs/api/` as the primary source of truth for public APIs.** Index at `docs/api/index.md`; type pages at `docs/api/{Namespace}.{TypeName}.md`. Read source only for implementation details.
-- **CRITICAL: Run `.tools/Invoke-Build.ps1` after any public API change** to regenerate `docs/api/`.
-- **CRITICAL: Never use `#pragma warning disable`** in `src/` or `tests/`. Fix root causes instead.
+- **CRITICAL: Never use `#pragma warning disable`**in `src/` or `tests/`. Fix root causes instead.
 
 ## Development Environment
 
@@ -19,7 +17,7 @@ This file provides guidance to coding agents working with this repository. For f
 
 | Script | Purpose | Key Flags |
 |--------|---------|-----------|
-| `.tools/Invoke-Build.ps1` | Build + regenerate `docs/api/` | `-RunTests`, `-Configuration`, `-SkipRestore` |
+| `.tools/Invoke-Build.ps1` | Build | `-RunTests`, `-Configuration`, `-SkipRestore` |
 | `.tools/Run-Tests.ps1` | Run test suite | `-Configuration`, `-NoBuild` |
 | `.tools/Invoke-Cleanup.ps1` | Code formatting (on-demand only) | — |
 | `.tools/Initialize-Repository.ps1` | First-time setup | `-SkipWorkloads`, `-SkipTools`, `-RunTests` |

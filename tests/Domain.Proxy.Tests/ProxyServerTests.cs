@@ -21,7 +21,8 @@ internal sealed class ProxyServerTests
         _eventBus = new StubDomainEventBus();
         _optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options ?? new ProxyOptions { AutoStart = false });
         var logger = new StubLogger<ProxyServer>();
-        return new ProxyServer(_listener, _optionsMonitor, _eventBus, logger);
+        var dispatcher = new StubConnectionDispatcher();
+        return new ProxyServer(_listener, dispatcher, _optionsMonitor, _eventBus, logger);
     }
 
     // ── Initial state ─────────────────────────────────────────────────────────
