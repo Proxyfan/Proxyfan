@@ -11,9 +11,11 @@
   <Project Path="src/Domain.Configuration/Domain.Configuration.csproj" />
   <Project Path="src/Domain.DomainNameSystemSpoofing/Domain.DomainNameSystemSpoofing.csproj" />
   <Project Path="src/Framework/Framework.csproj" />
+  <Project Path="src/Framework.Extensibility/Framework.Extensibility.csproj" />
   <Project Path="src/Framework.Networking/Framework.Networking.csproj" />
   <Project Path="src/Framework.Platform/Framework.Platform.csproj" />
   <Project Path="src/Framework.Serialization/Framework.Serialization.csproj" />
+  <Project Path="src/Plugin.Abstractions/Plugin.Abstractions.csproj" />
   <Project Path="src/DependencyInjection/DependencyInjection.csproj" />
   <Project Path="src/Presentation/Presentation.csproj" />
 
@@ -36,9 +38,11 @@
     <Project Path="tests/Domain.DomainNameSystemSpoofing.Tests/Domain.DomainNameSystemSpoofing.Tests.csproj" />
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Framework.Tests/Framework.Tests.csproj" />
+    <Project Path="tests/Framework.Extensibility.Tests/Framework.Extensibility.Tests.csproj" />
     <Project Path="tests/Framework.Networking.Tests/Framework.Networking.Tests.csproj" />
     <Project Path="tests/Framework.Platform.Tests/Framework.Platform.Tests.csproj" />
     <Project Path="tests/Framework.Serialization.Tests/Framework.Serialization.Tests.csproj" />
+    <Project Path="tests/Plugin.Abstractions.Tests/Plugin.Abstractions.Tests.csproj" />
     <Project Path="tests/DependencyInjection.Tests/DependencyInjection.Tests.csproj" />
     <Project Path="tests/Presentation.Tests/Presentation.Tests.csproj" />
     <Project Path="tests/Client.Tests/Client.Tests.csproj" />
