@@ -58,40 +58,82 @@ public sealed class TrafficFilter
             return true;
         }
 
-        var request = flow.Request;
-        var response = flow.Response;
-
-        if (request is not null)
+        if (HasRequestMatch(flow.Request))
         {
-            if (request.RequestUri.ToString().Contains(_query, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (request.Method.Contains(_query, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            var hostHeader = request.Headers.Get("Host");
-
-            if (!string.IsNullOrEmpty(hostHeader) && hostHeader.Contains(_query, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return true;
         }
 
-        if (response is not null)
+        if (HasResponseMatch(flow.Response))
         {
-            if (response.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(_query, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return true;
+        }
 
-            if (!string.IsNullOrEmpty(response.ReasonPhrase) && response.ReasonPhrase.Contains(_query, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+        if (HasAnnotationMatch(flow))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool HasAnnotationMatch(TrafficFlow flow)
+    {
+        if (!string.IsNullOrEmpty(flow.Comment) && flow.Comment.Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (flow.ColorTag != TrafficFlowColorTag.None
+            && flow.ColorTag.ToString().Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool HasRequestMatch(HypertextTransferProtocolRequestData? request)
+    {
+        if (request is null)
+        {
+            return false;
+        }
+
+        if (request.RequestUri.ToString().Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (request.Method.Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var hostHeader = request.Headers.Get("Host");
+
+        if (!string.IsNullOrEmpty(hostHeader) && hostHeader.Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool HasResponseMatch(HypertextTransferProtocolResponseData? response)
+    {
+        if (response is null)
+        {
+            return false;
+        }
+
+        if (response.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrEmpty(response.ReasonPhrase) && response.ReasonPhrase.Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
         }
 
         return false;

@@ -189,6 +189,14 @@ public static class HarDocumentWriter
         writer.WriteString("_proxyfanFlowId", flow.Id.ToString());
         writer.WriteString("_proxyfanClientEndPoint", flow.ClientEndPoint);
         writer.WriteString("_proxyfanStatus", flow.Status.ToString());
+        if (flow.ColorTag != TrafficFlowColorTag.None)
+        {
+            writer.WriteString("_proxyfanColorTag", flow.ColorTag.ToString());
+        }
+        if (flow.Comment is not null)
+        {
+            writer.WriteString("_proxyfanComment", flow.Comment);
+        }
         writer.WriteEndObject();
     }
 

@@ -168,6 +168,47 @@ public sealed class HarExporterTests
     }
 
     /// <summary>
+    ///     Verifies that a flow with a color tag and comment serialises both Proxyfan-specific
+    ///     extension fields.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_FlowWithAnnotations_IncludesColorAndComment()
+    {
+        var exporter = new HarExporter();
+        var flow = CreateCompletedFlow();
+        flow.SetColorTag(TrafficFlowColorTag.Red);
+        flow.SetComment("Investigate this 500");
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var entry = document.RootElement.GetProperty("log").GetProperty("entries")[0];
+
+        await Assert.That(entry.GetProperty("_proxyfanColorTag").GetString()).IsEqualTo("Red");
+        await Assert.That(entry.GetProperty("_proxyfanComment").GetString()).IsEqualTo("Investigate this 500");
+    }
+
+    /// <summary>
+    ///     Verifies that a flow without annotations omits the optional Proxyfan annotation fields.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_FlowWithoutAnnotations_OmitsAnnotationFields()
+    {
+        var exporter = new HarExporter();
+        var flow = CreateCompletedFlow();
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var entry = document.RootElement.GetProperty("log").GetProperty("entries")[0];
+
+        await Assert.That(entry.TryGetProperty("_proxyfanColorTag", out _)).IsFalse();
+        await Assert.That(entry.TryGetProperty("_proxyfanComment", out _)).IsFalse();
+    }
+
+    /// <summary>
     ///     Verifies that a binary (non-text) response body is omitted from the content.text field.
     /// </summary>
     [Test]

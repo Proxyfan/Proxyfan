@@ -45,6 +45,18 @@ public static class HarEntryParser
             }
         }
 
+        var colorTag = ExtractColorTag(entry);
+        if (colorTag != TrafficFlowColorTag.None)
+        {
+            flow.SetColorTag(colorTag);
+        }
+
+        var comment = ExtractComment(entry);
+        if (comment is not null)
+        {
+            flow.SetComment(comment);
+        }
+
         return flow;
     }
 
@@ -62,6 +74,34 @@ public static class HarEntryParser
         }
 
         return "unknown";
+    }
+
+    private static TrafficFlowColorTag ExtractColorTag(JsonElement entry)
+    {
+        if (entry.TryGetProperty("_proxyfanColorTag", out var colorElement)
+            && colorElement.ValueKind == JsonValueKind.String
+            && Enum.TryParse<TrafficFlowColorTag>(colorElement.GetString(), ignoreCase: true, out var colorTag))
+        {
+            return colorTag;
+        }
+
+        return TrafficFlowColorTag.None;
+    }
+
+    private static string? ExtractComment(JsonElement entry)
+    {
+        if (entry.TryGetProperty("_proxyfanComment", out var commentElement)
+            && commentElement.ValueKind == JsonValueKind.String)
+        {
+            var value = commentElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     private static Guid ExtractFlowId(JsonElement entry)

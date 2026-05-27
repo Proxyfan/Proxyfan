@@ -222,6 +222,34 @@ public sealed class TrafficFilterTests
         await Assert.That(filter.HasMatch(flow)).IsFalse();
     }
 
+    /// <summary>
+    ///     Verifies that the filter matches when the query substring appears in a flow's comment.
+    /// </summary>
+    [Test]
+    public async Task Apply_CommentMatch_ReturnsMatching()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        flow.SetComment("Customer reported issue X-123");
+
+        var filter = new TrafficFilter("x-123");
+
+        await Assert.That(filter.HasMatch(flow)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that the filter matches when the query substring appears in a flow's color tag name.
+    /// </summary>
+    [Test]
+    public async Task Apply_ColorTagMatch_ReturnsMatching()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        flow.SetColorTag(TrafficFlowColorTag.Yellow);
+
+        var filter = new TrafficFilter("yellow");
+
+        await Assert.That(filter.HasMatch(flow)).IsTrue();
+    }
+
     private static TrafficFlow[] BuildFlows()
     {
         var flowOne = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);

@@ -154,6 +154,74 @@ public sealed class TrafficFlowTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetColorTag" /> stores the assigned colour.
+    /// </summary>
+    [Test]
+    public async Task SetColorTag_NewValue_UpdatesColorTag()
+    {
+        var flow = CreateFlow();
+
+        flow.SetColorTag(TrafficFlowColorTag.Red);
+
+        await Assert.That(flow.ColorTag).IsEqualTo(TrafficFlowColorTag.Red);
+    }
+
+    /// <summary>
+    ///     Verifies that assigning <see cref="TrafficFlowColorTag.None" /> clears any previous colour.
+    /// </summary>
+    [Test]
+    public async Task SetColorTag_ResetToNone_ClearsTag()
+    {
+        var flow = CreateFlow();
+        flow.SetColorTag(TrafficFlowColorTag.Blue);
+
+        flow.SetColorTag(TrafficFlowColorTag.None);
+
+        await Assert.That(flow.ColorTag).IsEqualTo(TrafficFlowColorTag.None);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetComment" /> stores the comment text.
+    /// </summary>
+    [Test]
+    public async Task SetComment_NewValue_UpdatesComment()
+    {
+        var flow = CreateFlow();
+
+        flow.SetComment("Investigate this request");
+
+        await Assert.That(flow.Comment).IsEqualTo("Investigate this request");
+    }
+
+    /// <summary>
+    ///     Verifies that whitespace-only comments are treated as null/clear.
+    /// </summary>
+    [Test]
+    public async Task SetComment_WhitespaceOnly_ClearsComment()
+    {
+        var flow = CreateFlow();
+        flow.SetComment("Something");
+
+        flow.SetComment("   ");
+
+        await Assert.That(flow.Comment).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that null comment input clears the comment.
+    /// </summary>
+    [Test]
+    public async Task SetComment_Null_ClearsComment()
+    {
+        var flow = CreateFlow();
+        flow.SetComment("Something");
+
+        flow.SetComment(null);
+
+        await Assert.That(flow.Comment).IsNull();
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="TrafficFlow.SetRequest" /> stores the request and timestamps it.
     /// </summary>
     [Test]

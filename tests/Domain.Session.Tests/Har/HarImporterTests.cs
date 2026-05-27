@@ -104,6 +104,27 @@ public sealed class HarImporterTests
     }
 
     /// <summary>
+    ///     Verifies that color tags and comments are preserved through a HAR round-trip.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_RoundTrip_PreservesAnnotations()
+    {
+        var originalFlow = CreateCompletedFlow();
+        originalFlow.SetColorTag(TrafficFlowColorTag.Blue);
+        originalFlow.SetComment("Annotated by tester");
+        var exporter = new HarExporter();
+        var importer = new HarImporter();
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { originalFlow }, output, CancellationToken.None);
+        output.Position = 0;
+        var importedFlows = await importer.ImportAsync(output, CancellationToken.None);
+
+        await Assert.That(importedFlows[0].ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
+        await Assert.That(importedFlows[0].Comment).IsEqualTo("Annotated by tester");
+    }
+
+    /// <summary>
     ///     Verifies that an entry with no request property is gracefully tolerated.
     /// </summary>
     [Test]

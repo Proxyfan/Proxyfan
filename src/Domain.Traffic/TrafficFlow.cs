@@ -13,6 +13,18 @@ public sealed class TrafficFlow
     public string ClientEndPoint { get; }
 
     /// <summary>
+    ///     Gets the user-assigned colour tag for this flow. The default,
+    ///     <see cref="TrafficFlowColorTag.None" />, indicates no colour has been set.
+    /// </summary>
+    public TrafficFlowColorTag ColorTag { get; private set; }
+
+    /// <summary>
+    ///     Gets the user-supplied comment for this flow, or <c>null</c> when none has
+    ///     been set. Comments survive HAR export and are full-text searchable.
+    /// </summary>
+    public string? Comment { get; private set; }
+
+    /// <summary>
     ///     Gets the UTC instant at which this flow transitioned to <see cref="TrafficFlowStatus.Failed" />.
     /// </summary>
     public DateTimeOffset? FailedAt { get; private set; }
@@ -154,6 +166,35 @@ public sealed class TrafficFlow
 
         Status = TrafficFlowStatus.Failed;
         FailedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    ///     Sets the user-assigned colour tag for this flow.
+    /// </summary>
+    /// <param name="colorTag">
+    ///     The colour to assign. Use <see cref="TrafficFlowColorTag.None" /> to clear.
+    /// </param>
+    public void SetColorTag(TrafficFlowColorTag colorTag)
+    {
+        ColorTag = colorTag;
+    }
+
+    /// <summary>
+    ///     Sets the user-supplied comment for this flow. Passing <c>null</c> or whitespace
+    ///     clears the comment.
+    /// </summary>
+    /// <param name="comment">
+    ///     The comment text, or <c>null</c> to clear.
+    /// </param>
+    public void SetComment(string? comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment))
+        {
+            Comment = null;
+            return;
+        }
+
+        Comment = comment;
     }
 
     /// <summary>
