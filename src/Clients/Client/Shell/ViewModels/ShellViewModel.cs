@@ -3,7 +3,12 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Options;
+using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Session.Har;
+using Proxyfan.Domain.Traffic;
+using Proxyfan.Presentation.Files;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,10 +20,23 @@ namespace Proxyfan.Client.Shell.ViewModels;
 /// </summary>
 public sealed partial class ShellViewModel : ObservableObject
 {
+    private const string DefaultSessionFileName = "proxyfan-session.har";
+    private const string HarExtension = "har";
+    private const string HarTypeDescription = "HTTP Archive (HAR) file";
+    private const string OpenSessionTitle = "Open HAR Session";
+    private const string SaveSessionTitle = "Save Captured Session as HAR";
+    private readonly IFilePickerService _filePicker;
+    private readonly IHarExporter _harExporter;
+    private readonly IHarImporter _harImporter;
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor;
     private readonly ISystemProxy _systemProxy;
     [ObservableProperty]
     private bool _isSystemProxyEnabled;
+
+    /// <summary>
+    ///     Gets the traffic list view model exposed for direct toolbar/status binding.
+    /// </summary>
+    public TrafficListViewModel TrafficList { get; }
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ShellViewModel" /> class.
@@ -29,11 +47,27 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="optionsMonitor">
     ///     Monitor for proxy configuration options, providing the bound port for registration.
     /// </param>
-    public ShellViewModel(ISystemProxy systemProxy, IOptionsMonitor<ProxyOptions> optionsMonitor)
+    /// <param name="trafficListViewModel">
+    ///     The traffic list view model exposed for toolbar/status bar bindings.
+    /// </param>
+    /// <param name="filePicker">The file picker abstraction used to prompt the user for HAR paths.</param>
+    /// <param name="harExporter">The HAR exporter used when saving a session.</param>
+    /// <param name="harImporter">The HAR importer used when opening a session.</param>
+    public ShellViewModel(
+        ISystemProxy systemProxy,
+        IOptionsMonitor<ProxyOptions> optionsMonitor,
+        TrafficListViewModel trafficListViewModel,
+        IFilePickerService filePicker,
+        IHarExporter harExporter,
+        IHarImporter harImporter)
     {
         _systemProxy = systemProxy;
         _optionsMonitor = optionsMonitor;
+        _filePicker = filePicker;
+        _harExporter = harExporter;
+        _harImporter = harImporter;
         _isSystemProxyEnabled = false;
+        TrafficList = trafficListViewModel;
     }
 
     [RelayCommand]
@@ -42,6 +76,64 @@ public sealed partial class ShellViewModel : ObservableObject
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.Shutdown();
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenSessionAsync(CancellationToken cancellationToken)
+    {
+        var request = new FilePickerOpenRequest
+        {
+            Title = OpenSessionTitle,
+            FileExtension = HarExtension,
+            ExtensionDescription = HarTypeDescription,
+        };
+        var stream = await _filePicker.OpenForReadAsync(request, cancellationToken).ConfigureAwait(false);
+        if (stream is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var imported = await _harImporter.ImportAsync(stream, cancellationToken).ConfigureAwait(false);
+            TrafficList.LoadFlows(imported);
+        }
+        finally
+        {
+            await stream.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveSessionAsync(CancellationToken cancellationToken)
+    {
+        var snapshot = new List<TrafficFlow>(TrafficList.Flows.Count);
+        foreach (var viewModel in TrafficList.Flows)
+        {
+            snapshot.Add(viewModel.Source);
+        }
+
+        var request = new FilePickerSaveRequest
+        {
+            Title = SaveSessionTitle,
+            DefaultFileName = DefaultSessionFileName,
+            FileExtension = HarExtension,
+            ExtensionDescription = HarTypeDescription,
+        };
+        var stream = await _filePicker.OpenForWriteAsync(request, cancellationToken).ConfigureAwait(false);
+        if (stream is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _harExporter.ExportAsync(snapshot, stream, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await stream.DisposeAsync().ConfigureAwait(false);
         }
     }
 

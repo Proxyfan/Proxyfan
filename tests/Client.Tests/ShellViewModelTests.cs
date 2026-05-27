@@ -1,6 +1,5 @@
 ﻿using Proxyfan.Client.Shell.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
-using Proxyfan.Domain.Proxy;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -12,9 +11,7 @@ public sealed class ShellViewModelTests
 {
     private static ShellViewModel CreateViewModel(StubSystemProxy systemProxy, int port)
     {
-        var options = new ProxyOptions { Port = port };
-        var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
-        return new ShellViewModel(systemProxy, optionsMonitor);
+        return ShellViewModelFactory.Create(systemProxy, port);
     }
 
     /// <summary>
@@ -76,5 +73,17 @@ public sealed class ShellViewModelTests
 
         await viewModel.ToggleSystemProxyCommand.ExecuteAsync(null);
         await Assert.That(viewModel.IsSystemProxyEnabled).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that the TrafficList property is exposed and not null.
+    /// </summary>
+    [Test]
+    public async Task TrafficList_AfterConstruction_IsExposed()
+    {
+        var viewModel = CreateViewModel(new StubSystemProxy(), 8080);
+
+        await Assert.That(viewModel.TrafficList).IsNotNull();
+        await Assert.That(viewModel.TrafficList.IsCapturing).IsTrue();
     }
 }

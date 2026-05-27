@@ -1,4 +1,7 @@
 ﻿using Avalonia.Controls;
+using Microsoft.Extensions.DependencyInjection;
+using Proxyfan.Client.Files;
+using Proxyfan.Presentation;
 
 namespace Proxyfan.Client.Shell.Views;
 
@@ -13,5 +16,24 @@ public partial class ShellWindow : Window
     public ShellWindow()
     {
         InitializeComponent();
+        Opened += OnOpenedRegisterFilePicker;
+    }
+
+    private void OnOpenedRegisterFilePicker(object? sender, System.EventArgs eventArgs)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        var services = ContainerLocator.Current;
+        if (services is null)
+        {
+            return;
+        }
+
+        var picker = services.GetService<AvaloniaFilePickerService>();
+        picker?.RegisterTopLevel(topLevel);
     }
 }

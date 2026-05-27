@@ -1,6 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Headless;
-using Avalonia.Threading;
+using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
@@ -13,19 +11,11 @@ using System.Threading.Tasks;
 namespace Proxyfan.Client.Tests;
 
 /// <summary>
-///     Behavioral tests for <see cref="TrafficListViewModel" /> driven through the Avalonia
-///     dispatcher so that <see cref="Dispatcher.UIThread" /> work items execute.
+///     Behavioral tests for <see cref="TrafficListViewModel" /> driven through the inline
+///     UI scheduler so that view-model mutations execute synchronously.
 /// </summary>
-[NotInParallel]
 public sealed class TrafficListViewModelBehaviorTests
 {
-    static TrafficListViewModelBehaviorTests()
-    {
-        AppBuilder.Configure<HeadlessApp>()
-            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = true })
-            .SetupWithoutStarting();
-    }
-
     /// <summary>
     ///     When a <see cref="RequestReceived" /> event is published, the corresponding flow must
     ///     be added to the observable collection.
@@ -34,11 +24,10 @@ public sealed class TrafficListViewModelBehaviorTests
     public async Task OnRequestReceived_WhenPublished_AddsFlowToCollection()
     {
         var bus = new RecordingDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         var requestEvent = CreateRequestEvent(Guid.NewGuid());
 
         bus.PublishRequestReceived(requestEvent);
-        await PumpDispatcherAsync();
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(1);
         await Assert.That(viewModel.Flows[0].Number).IsEqualTo(1);
@@ -52,11 +41,10 @@ public sealed class TrafficListViewModelBehaviorTests
     public async Task OnRequestReceived_TwoRequests_AssignsSequentialNumbers()
     {
         var bus = new RecordingDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid()));
         bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid()));
 
-        await PumpDispatcherAsync();
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(2);
         await Assert.That(viewModel.Flows[0].Number).IsEqualTo(1);
@@ -71,13 +59,11 @@ public sealed class TrafficListViewModelBehaviorTests
     public async Task OnResponseReceived_WithKnownFlow_UpdatesExistingFlow()
     {
         var bus = new RecordingDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         var flowId = Guid.NewGuid();
         bus.PublishRequestReceived(CreateRequestEvent(flowId));
-        await PumpDispatcherAsync();
 
         bus.PublishResponseReceived(CreateResponseEvent(flowId, 200));
-        await PumpDispatcherAsync();
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(1);
         await Assert.That(viewModel.Flows[0].StatusCode).IsEqualTo(200);
@@ -91,10 +77,9 @@ public sealed class TrafficListViewModelBehaviorTests
     public async Task OnResponseReceived_UnknownFlow_DoesNotThrow()
     {
         var bus = new RecordingDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
 
         bus.PublishResponseReceived(CreateResponseEvent(Guid.NewGuid(), 200));
-        await PumpDispatcherAsync();
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(0);
     }
@@ -107,13 +92,11 @@ public sealed class TrafficListViewModelBehaviorTests
     public async Task OnFlowCompleted_KnownFlow_UpdatesStatus()
     {
         var bus = new RecordingDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         var flowId = Guid.NewGuid();
         bus.PublishRequestReceived(CreateRequestEvent(flowId));
-        await PumpDispatcherAsync();
 
         bus.PublishFlowCompleted(new TrafficFlowCompleted(flowId, TrafficFlowStatus.Complete, DateTimeOffset.UtcNow));
-        await PumpDispatcherAsync();
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(1);
     }
@@ -126,18 +109,11 @@ public sealed class TrafficListViewModelBehaviorTests
     public async Task OnFlowCompleted_UnknownFlow_DoesNothing()
     {
         var bus = new RecordingDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
 
         bus.PublishFlowCompleted(new TrafficFlowCompleted(Guid.NewGuid(), TrafficFlowStatus.Complete, DateTimeOffset.UtcNow));
-        await PumpDispatcherAsync();
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(0);
-    }
-
-    private static Task PumpDispatcherAsync()
-    {
-        Dispatcher.UIThread.RunJobs();
-        return Task.CompletedTask;
     }
 
     private static RequestReceived CreateRequestEvent(Guid flowId)
@@ -168,10 +144,6 @@ public sealed class TrafficListViewModelBehaviorTests
         };
         var response = new HypertextTransferProtocolResponseData(parameters);
         return new ResponseReceived(flowId, response, DateTimeOffset.UtcNow);
-    }
-
-    private sealed class HeadlessApp : Application
-    {
     }
 
     private sealed class RecordingDomainEventBus : IDomainEventBus

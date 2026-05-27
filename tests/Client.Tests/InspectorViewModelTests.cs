@@ -1,4 +1,5 @@
-﻿using Proxyfan.Client.Inspector.ViewModels;
+using Proxyfan.Client.Inspector.ViewModels;
+using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
@@ -20,7 +21,7 @@ public sealed class InspectorViewModelTests
     public async Task UpdateDisplayedText_WhenNoFlowSelected_AllTextIsEmpty()
     {
         var bus = new StubDomainEventBus();
-        var trafficListViewModel = new TrafficListViewModel(bus);
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
 
         await Assert.That(inspectorViewModel.RequestHeadersText).IsEqualTo(string.Empty);
@@ -36,7 +37,7 @@ public sealed class InspectorViewModelTests
     public async Task UpdateDisplayedText_WhenFlowWithRequestSelected_RequestTextIsPopulated()
     {
         var bus = new StubDomainEventBus();
-        var trafficListViewModel = new TrafficListViewModel(bus);
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);
@@ -53,7 +54,7 @@ public sealed class InspectorViewModelTests
     public async Task UpdateDisplayedText_WhenFlowDeselected_AllTextIsCleared()
     {
         var bus = new StubDomainEventBus();
-        var trafficListViewModel = new TrafficListViewModel(bus);
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);
@@ -72,7 +73,7 @@ public sealed class InspectorViewModelTests
     public async Task Dispose_WhenDisposed_NoLongerUpdatesOnSelectionChange()
     {
         var bus = new StubDomainEventBus();
-        var trafficListViewModel = new TrafficListViewModel(bus);
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);

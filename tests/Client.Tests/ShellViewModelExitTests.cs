@@ -1,6 +1,5 @@
 ﻿using Proxyfan.Client.Shell.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
-using Proxyfan.Domain.Proxy;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -17,10 +16,7 @@ public sealed class ShellViewModelExitTests
     [Test]
     public async Task ExitCommand_WhenInvokedWithoutApplication_DoesNotThrow()
     {
-        var systemProxy = new StubSystemProxy();
-        var options = new ProxyOptions { Port = 8080 };
-        var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
-        var viewModel = new ShellViewModel(systemProxy, optionsMonitor);
+        var viewModel = ShellViewModelFactory.Create(new StubSystemProxy(), 8080);
 
         await Assert.That(() => viewModel.ExitCommand.Execute(null)).ThrowsNothing();
     }

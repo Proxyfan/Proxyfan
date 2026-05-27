@@ -1,10 +1,14 @@
-﻿using Avalonia.Threading;
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Domain;
+using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Threading;
 
 namespace Proxyfan.Client.Traffic.ViewModels;
@@ -19,14 +23,25 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private readonly IDisposable _flowCompletedSubscription;
     private readonly IDisposable _requestReceivedSubscription;
     private readonly IDisposable _responseReceivedSubscription;
+    private readonly IUserInterfaceScheduler _userInterfaceScheduler;
+    [ObservableProperty]
+    private string _filterText;
+    [ObservableProperty]
+    private bool _isCapturing;
     private int _nextNumber;
     [ObservableProperty]
     private TrafficFlowViewModel? _selectedFlow;
 
     /// <summary>
-    ///     Gets the observable collection of captured traffic flows.
+    ///     Gets the unfiltered observable collection of all captured traffic flows.
     /// </summary>
     public ObservableCollection<TrafficFlowViewModel> Flows { get; }
+
+    /// <summary>
+    ///     Gets the filtered observable collection of traffic flows to display in the UI.
+    ///     Rebuilt automatically whenever <see cref="Flows" /> or <see cref="FilterText" /> changes.
+    /// </summary>
+    public ObservableCollection<TrafficFlowViewModel> VisibleFlows { get; }
 
     /// <summary>
     ///     Initializes a new <see cref="TrafficListViewModel" /> and subscribes to capture events.
@@ -34,13 +49,26 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     /// <param name="eventBus">
     ///     The domain event bus used to subscribe to traffic events.
     /// </param>
-    public TrafficListViewModel(IDomainEventBus eventBus)
+    /// <param name="userInterfaceScheduler">
+    ///     Scheduler used to marshal collection mutations onto the UI thread.
+    /// </param>
+    public TrafficListViewModel(IDomainEventBus eventBus, IUserInterfaceScheduler userInterfaceScheduler)
     {
+        _userInterfaceScheduler = userInterfaceScheduler;
+
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
 
         var flows = new ObservableCollection<TrafficFlowViewModel>();
         Flows = flows;
+
+        var visibleFlows = new ObservableCollection<TrafficFlowViewModel>();
+        VisibleFlows = visibleFlows;
+
+        _filterText = string.Empty;
+        _isCapturing = true;
+
+        Flows.CollectionChanged += OnFlowsCollectionChanged;
 
         _requestReceivedSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
         _responseReceivedSubscription = eventBus.Subscribe<ResponseReceived>(OnResponseReceived);
@@ -50,9 +78,103 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        Flows.CollectionChanged -= OnFlowsCollectionChanged;
         _requestReceivedSubscription.Dispose();
         _responseReceivedSubscription.Dispose();
         _flowCompletedSubscription.Dispose();
+    }
+
+    /// <summary>
+    ///     Returns whether the supplied flow matches the current filter text. Empty filter
+    ///     matches everything; otherwise checks host, method, path, and status code (case
+    ///     insensitive) for substring match.
+    /// </summary>
+    /// <param name="flow">The flow to evaluate.</param>
+    /// <returns>True when the flow should be shown.</returns>
+    public bool HasFilterMatch(TrafficFlowViewModel flow)
+    {
+        if (string.IsNullOrWhiteSpace(FilterText))
+        {
+            return true;
+        }
+
+        var needle = FilterText;
+        var comparison = StringComparison.OrdinalIgnoreCase;
+
+        if (flow.Host.Contains(needle, comparison))
+        {
+            return true;
+        }
+
+        if (flow.Method.Contains(needle, comparison))
+        {
+            return true;
+        }
+
+        if (flow.PathAndQuery.Contains(needle, comparison))
+        {
+            return true;
+        }
+
+        if (flow.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(needle, comparison))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Replaces the current set of captured flows with the supplied imported flows.
+    ///     Existing capture state is preserved; flow numbering restarts at 1.
+    /// </summary>
+    /// <param name="importedFlows">The flows to load into the view model.</param>
+    public void LoadFlows(IReadOnlyList<TrafficFlow> importedFlows)
+    {
+        _userInterfaceScheduler.Post(() => LoadFlowsOnUiThread(importedFlows));
+    }
+
+    /// <summary>
+    ///     Rebuilds the <see cref="VisibleFlows" /> collection from the current <see cref="Flows" />
+    ///     using the active <see cref="FilterText" />.
+    /// </summary>
+    public void RebuildVisibleFlows()
+    {
+        _userInterfaceScheduler.Post(RebuildVisibleFlowsOnUiThread);
+    }
+
+    [RelayCommand]
+    private void Clear()
+    {
+        _userInterfaceScheduler.Post(ClearOnUiThread);
+    }
+
+    private void ClearOnUiThread()
+    {
+        _flowById.Clear();
+        Flows.Clear();
+        SelectedFlow = null;
+        Interlocked.Exchange(ref _nextNumber, 0);
+    }
+
+    private void LoadFlowsOnUiThread(IReadOnlyList<TrafficFlow> importedFlows)
+    {
+        ClearOnUiThread();
+
+        var number = 0;
+        foreach (var flow in importedFlows)
+        {
+            number++;
+            Interlocked.Exchange(ref _nextNumber, number);
+            var viewModel = new TrafficFlowViewModel(flow, number);
+            _flowById.TryAdd(flow.Id, viewModel);
+            Flows.Add(viewModel);
+        }
+    }
+
+    partial void OnFilterTextChanged(string value)
+    {
+        RebuildVisibleFlows();
     }
 
     private void OnFlowCompleted(TrafficFlowCompleted domainEvent)
@@ -62,16 +184,26 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Dispatcher.UIThread.Post(() => viewModel.UpdateStatus(domainEvent));
+        _userInterfaceScheduler.Post(() => viewModel.UpdateStatus(domainEvent));
+    }
+
+    private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
+    {
+        RebuildVisibleFlowsOnUiThread();
     }
 
     private void OnRequestReceived(RequestReceived domainEvent)
     {
+        if (!IsCapturing)
+        {
+            return;
+        }
+
         var number = Interlocked.Increment(ref _nextNumber);
         var viewModel = new TrafficFlowViewModel(domainEvent, number);
         _flowById.TryAdd(domainEvent.TrafficFlowId, viewModel);
 
-        Dispatcher.UIThread.Post(() => Flows.Add(viewModel));
+        _userInterfaceScheduler.Post(() => Flows.Add(viewModel));
     }
 
     private void OnResponseReceived(ResponseReceived domainEvent)
@@ -81,6 +213,25 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Dispatcher.UIThread.Post(() => viewModel.UpdateResponse(domainEvent));
+        _userInterfaceScheduler.Post(() => viewModel.UpdateResponse(domainEvent));
+    }
+
+    private void RebuildVisibleFlowsOnUiThread()
+    {
+        VisibleFlows.Clear();
+
+        foreach (var flow in Flows)
+        {
+            if (HasFilterMatch(flow))
+            {
+                VisibleFlows.Add(flow);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleCapture()
+    {
+        IsCapturing = !IsCapturing;
     }
 }

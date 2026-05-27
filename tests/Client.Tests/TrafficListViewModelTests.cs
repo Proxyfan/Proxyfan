@@ -1,4 +1,5 @@
-﻿using Proxyfan.Client.Traffic.ViewModels;
+using Proxyfan.Client.Traffic.ViewModels;
+using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
@@ -68,7 +69,7 @@ public sealed class TrafficListViewModelTests
     public async Task Flows_WhenInitialized_IsEmpty()
     {
         var bus = new StubDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(0);
     }
@@ -80,7 +81,7 @@ public sealed class TrafficListViewModelTests
     public async Task SelectedFlow_WhenInitialized_IsNull()
     {
         var bus = new StubDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(viewModel.SelectedFlow).IsNull();
     }
@@ -92,7 +93,7 @@ public sealed class TrafficListViewModelTests
     public async Task SelectedFlow_WhenSet_ReturnsSetValue()
     {
         var bus = new StubDomainEventBus();
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);
 
@@ -109,7 +110,7 @@ public sealed class TrafficListViewModelTests
     {
         var bus = new StubDomainEventBus();
 
-        using var viewModel = new TrafficListViewModel(bus);
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(bus.RequestReceivedHandler).IsNotNull();
         await Assert.That(bus.ResponseReceivedHandler).IsNotNull();
@@ -123,7 +124,7 @@ public sealed class TrafficListViewModelTests
     public async Task Dispose_WhenCalled_DoesNotThrow()
     {
         var bus = new StubDomainEventBus();
-        var viewModel = new TrafficListViewModel(bus);
+        var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(() => viewModel.Dispose()).ThrowsNothing();
     }

@@ -1,4 +1,5 @@
-﻿using Proxyfan.Client.Inspector.ViewModels;
+using Proxyfan.Client.Inspector.ViewModels;
+using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
@@ -21,7 +22,7 @@ public sealed class InspectorViewModelAdditionalTests
     public async Task UpdateDisplayedText_WhenFlowWithResponseSelected_ResponseTextIsPopulated()
     {
         var bus = new StubBus();
-        var trafficListViewModel = new TrafficListViewModel(bus);
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
         var flow = CreateTrafficFlowWithResponse();
         var flowViewModel = new TrafficFlowViewModel(flow, 1);

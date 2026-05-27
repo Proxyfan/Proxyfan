@@ -67,6 +67,30 @@
   <data name="Shell_Toolbar_DisableProxy" xml:space="preserve">
     <value>Disable Proxy</value>
   </data>
+  <data name="Shell_Toolbar_PauseCapture" xml:space="preserve">
+    <value>Pause Capture</value>
+  </data>
+  <data name="Shell_Toolbar_ResumeCapture" xml:space="preserve">
+    <value>Resume Capture</value>
+  </data>
+  <data name="Shell_Toolbar_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Shell_Toolbar_OpenSession" xml:space="preserve">
+    <value>Open Session...</value>
+  </data>
+  <data name="Shell_Toolbar_SaveSession" xml:space="preserve">
+    <value>Save Session...</value>
+  </data>
+  <data name="Shell_Toolbar_FilterPlaceholder" xml:space="preserve">
+    <value>Filter (host, method, path, status)</value>
+  </data>
+  <data name="Shell_StatusBar_FlowCount" xml:space="preserve">
+    <value>Flows:</value>
+  </data>
+  <data name="Shell_StatusBar_CapturePaused" xml:space="preserve">
+    <value>Capture paused</value>
+  </data>
   <data name="Shell_SourcePanel_Header" xml:space="preserve">
     <value>Sources</value>
   </data>

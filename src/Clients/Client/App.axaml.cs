@@ -7,15 +7,20 @@ using IApplicationLifetime = Avalonia.Controls.ApplicationLifetimes.IApplication
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Proxyfan.Client.Files;
 using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Shell.ViewModels;
 using Proxyfan.Client.Shell.Views;
+using Proxyfan.Client.Threading;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Session.Har;
 using Proxyfan.Presentation;
+using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Localization;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -46,6 +51,12 @@ public partial class App : Application
             services.AddSingleton<TrafficListViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<ShellViewModel>();
+            services.AddSingleton<AvaloniaUserInterfaceScheduler>();
+            services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
+            services.AddSingleton<AvaloniaFilePickerService>();
+            services.AddSingleton<IFilePickerService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaFilePickerService>());
+            services.AddSingleton<IHarExporter, HarExporter>();
+            services.AddSingleton<IHarImporter, HarImporter>();
             services.AddSingleton<LocalizationService>(static serviceProvider =>
             {
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();

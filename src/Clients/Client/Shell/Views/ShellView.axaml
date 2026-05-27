@@ -23,6 +23,49 @@
                            Margin="8,0"
                            Text="{localization:Localize Key=Shell_Toolbar_AppName}"
                            VerticalAlignment="Center" />
+                <Button Command="{Binding TrafficList.ToggleCaptureCommand}"
+                        DockPanel.Dock="Left"
+                        IsVisible="{Binding TrafficList.IsCapturing}"
+                        Margin="8,2,4,2"
+                        Padding="8,2"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{localization:Localize Key=Shell_Toolbar_PauseCapture}" />
+                </Button>
+                <Button Command="{Binding TrafficList.ToggleCaptureCommand}"
+                        DockPanel.Dock="Left"
+                        IsVisible="{Binding !TrafficList.IsCapturing}"
+                        Margin="8,2,4,2"
+                        Padding="8,2"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{localization:Localize Key=Shell_Toolbar_ResumeCapture}" />
+                </Button>
+                <Button Command="{Binding TrafficList.ClearCommand}"
+                        DockPanel.Dock="Left"
+                        Margin="4,2"
+                        Padding="8,2"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{localization:Localize Key=Shell_Toolbar_Clear}" />
+                </Button>
+                <Button Command="{Binding OpenSessionCommand}"
+                        DockPanel.Dock="Left"
+                        Margin="4,2"
+                        Padding="8,2"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{localization:Localize Key=Shell_Toolbar_OpenSession}" />
+                </Button>
+                <Button Command="{Binding SaveSessionCommand}"
+                        DockPanel.Dock="Left"
+                        Margin="4,2"
+                        Padding="8,2"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{localization:Localize Key=Shell_Toolbar_SaveSession}" />
+                </Button>
+                <TextBox DockPanel.Dock="Left"
+                         Margin="8,2"
+                         MinWidth="240"
+                         Text="{Binding TrafficList.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalAlignment="Center"
+                         Watermark="{localization:Localize Key=Shell_Toolbar_FilterPlaceholder}" />
                 <Button Command="{Binding ToggleSystemProxyCommand}"
                         DockPanel.Dock="Right"
                         IsVisible="{Binding IsSystemProxyEnabled}"
@@ -64,10 +107,24 @@
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="0,1,0,0">
-            <TextBlock HorizontalAlignment="Left"
-                       Margin="8,0"
-                       Text="{localization:Localize Key=Shell_StatusBar_Ready}"
-                       VerticalAlignment="Center" />
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
+                           Margin="8,0,4,0"
+                           Text="{localization:Localize Key=Shell_StatusBar_FlowCount}"
+                           VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
+                           Margin="0,0,8,0"
+                           Text="{Binding TrafficList.Flows.Count}"
+                           VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
+                           IsVisible="{Binding !TrafficList.IsCapturing}"
+                           Margin="16,0"
+                           Text="{localization:Localize Key=Shell_StatusBar_CapturePaused}"
+                           VerticalAlignment="Center" />
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>
