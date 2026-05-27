@@ -48,6 +48,12 @@ public static class CliArgumentParser
             return new CliCommand(CliCommandKind.HarSummary, DefaultPort, path);
         }
 
+        if (string.Equals(command, "har-to-curl", StringComparison.OrdinalIgnoreCase))
+        {
+            var path = ExtractPath(args);
+            return new CliCommand(CliCommandKind.HarToCurl, DefaultPort, path);
+        }
+
         if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
         {
             var sendRequest = CliSendArgumentParser.Parse(args);

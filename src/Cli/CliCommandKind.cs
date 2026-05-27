@@ -34,4 +34,9 @@ public enum CliCommandKind
     ///     The user requested to send a one-off HTTP request (Request Composer style).
     /// </summary>
     Send,
+
+    /// <summary>
+    ///     The user requested to convert a HAR file's entries to cURL command lines.
+    /// </summary>
+    HarToCurl,
 }

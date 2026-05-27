@@ -21,6 +21,7 @@ public static class CliHelpWriter
           version               Show version information
           start [--port N]      Start the proxy server on the given port (default: 8080)
           har-summary <path>    Print a human-readable summary of a HAR file
+          har-to-curl <path>    Print a curl command for every request in a HAR file
           send --url <url>      Print a composed HTTP/1.1 request to stdout
             [--method M]
             [--header "K: V"]
