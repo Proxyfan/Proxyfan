@@ -19,6 +19,7 @@
         <ProjectReference Include="..\Domain.Scripting\Domain.Scripting.csproj" />
         <ProjectReference Include="..\Domain.Throttling\Domain.Throttling.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
+        <ProjectReference Include="..\Framework.Serialization\Framework.Serialization.csproj" />
     </ItemGroup>
 
     <ItemGroup>
