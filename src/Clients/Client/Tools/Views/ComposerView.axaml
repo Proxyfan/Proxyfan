@@ -1,0 +1,118 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.ComposerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:ComposerViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:ComposerViewModel}"
+             x:DataType="viewModels:ComposerViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" ColumnDefinitions="280,*">
+        <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="0,0,8,0">
+            <TextBox Grid.Row="0"
+                     Margin="0,0,0,4"
+                     Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_Composer_Search}" />
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding HistoryEntries}"
+                     SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:ComposerHistoryEntryViewModel">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock FontWeight="SemiBold" Text="{Binding Method}" Width="56" />
+                            <TextBlock Text="{Binding Url}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,*">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,4">
+                <ComboBox Grid.Column="0"
+                          Margin="0,0,4,0"
+                          Width="90"
+                          SelectedItem="{Binding Method, Mode=TwoWay}">
+                    <ComboBox.Items>
+                        <x:String>GET</x:String>
+                        <x:String>POST</x:String>
+                        <x:String>PUT</x:String>
+                        <x:String>PATCH</x:String>
+                        <x:String>DELETE</x:String>
+                        <x:String>HEAD</x:String>
+                        <x:String>OPTIONS</x:String>
+                    </ComboBox.Items>
+                </ComboBox>
+                <TextBox Grid.Column="1"
+                         Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Watermark="https://example.com/api" />
+            </Grid>
+            <TextBlock Grid.Row="1"
+                       FontWeight="SemiBold"
+                       Margin="0,4,0,2"
+                       Text="{localization:Localize Key=Tools_Composer_Headers}" />
+            <TextBox Grid.Row="2"
+                     AcceptsReturn="True"
+                     FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
+                     MinHeight="100"
+                     Text="{Binding HeadersText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="NoWrap"
+                     Watermark="{localization:Localize Key=Tools_Composer_HeadersPlaceholder}" />
+            <TextBlock Grid.Row="3"
+                       FontWeight="SemiBold"
+                       Margin="0,8,0,2"
+                       Text="{localization:Localize Key=Tools_Composer_Body}" />
+            <TextBox Grid.Row="4"
+                     AcceptsReturn="True"
+                     FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
+                     MinHeight="80"
+                     Text="{Binding Body, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="NoWrap" />
+            <StackPanel Grid.Row="5"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        Margin="0,8,0,4">
+                <Button Command="{Binding SendCommand}"
+                        Content="{localization:Localize Key=Tools_Composer_Send}"
+                        Padding="12,4" />
+                <Button Command="{Binding ExportCurlCommand}"
+                        Content="{localization:Localize Key=Tools_Composer_Curl}"
+                        Padding="12,4" />
+                <Button Command="{Binding LoadHistoryEntryCommand}"
+                        Content="{localization:Localize Key=Tools_Composer_LoadEntry}"
+                        Padding="12,4" />
+                <Button Command="{Binding ToggleStarCommand}"
+                        Content="{localization:Localize Key=Tools_Composer_Star}"
+                        Padding="12,4" />
+                <Button Command="{Binding RemoveHistoryEntryCommand}"
+                        Content="{localization:Localize Key=Tools_Composer_Remove}"
+                        Padding="12,4" />
+                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" />
+            </StackPanel>
+            <Grid Grid.Row="6" RowDefinitions="Auto,*,Auto,Auto">
+                <TextBlock Grid.Row="0"
+                           FontWeight="SemiBold"
+                           Margin="0,4,0,2"
+                           Text="{localization:Localize Key=Tools_Composer_Response}" />
+                <TextBox Grid.Row="1"
+                         AcceptsReturn="True"
+                         FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
+                         IsReadOnly="True"
+                         Text="{Binding ResponseBody, Mode=OneWay}"
+                         TextWrapping="NoWrap" />
+                <TextBlock Grid.Row="2"
+                           FontWeight="SemiBold"
+                           Margin="0,4,0,2"
+                           Text="{localization:Localize Key=Tools_Composer_CurlOutput}" />
+                <TextBox Grid.Row="3"
+                         FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
+                         IsReadOnly="True"
+                         MinHeight="60"
+                         Text="{Binding CurlExport, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

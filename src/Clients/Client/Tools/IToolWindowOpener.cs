@@ -32,6 +32,12 @@ public interface IToolWindowOpener
     void OpenCertificateManager();
 
     /// <summary>
+    ///     Opens the Request Composer tool window. Idempotent: if the window is already
+    ///     open, it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenComposer();
+
+    /// <summary>
     ///     Opens the Map Local tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

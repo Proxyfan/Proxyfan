@@ -6,4 +6,8 @@
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
+    </ItemGroup>
+
 </Project>

@@ -45,7 +45,7 @@ public sealed class ArchitectureTests
             .ToArray();
 
         await Assert.That(TestArchitecture).IsNotNull();
-        await Assert.That(referencedAssemblyNames).Count().IsEqualTo(9);
+        await Assert.That(referencedAssemblyNames).Count().IsEqualTo(10);
         await Assert.That(referencedAssemblyNames).Contains("Domain");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Certificates");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Proxy");
@@ -55,6 +55,7 @@ public sealed class ArchitectureTests
         await Assert.That(referencedAssemblyNames).Contains("Domain.Traffic");
         await Assert.That(referencedAssemblyNames).Contains("Framework.Networking");
         await Assert.That(referencedAssemblyNames).Contains("Framework.Platform");
+        await Assert.That(referencedAssemblyNames).Contains("Framework.Serialization");
     }
 
     /// <summary>

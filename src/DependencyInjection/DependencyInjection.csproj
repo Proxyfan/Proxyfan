@@ -21,6 +21,7 @@
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\Framework.Networking\Framework.Networking.csproj" />
         <ProjectReference Include="..\Framework.Platform\Framework.Platform.csproj" />
+        <ProjectReference Include="..\Framework.Serialization\Framework.Serialization.csproj" />
     </ItemGroup>
 
 </Project>

@@ -119,6 +119,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenComposer()
+    {
+        _toolWindowOpener.OpenComposer();
+    }
+
+    [RelayCommand]
     private void OpenMapLocal()
     {
         _toolWindowOpener.OpenMapLocal();

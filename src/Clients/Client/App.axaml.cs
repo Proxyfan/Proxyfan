@@ -60,6 +60,7 @@ public partial class App : Application
             services.AddTransient<BreakpointViewModel>();
             services.AddTransient<AllowListViewModel>();
             services.AddTransient<CertificateManagerViewModel>();
+            services.AddTransient<ComposerViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();

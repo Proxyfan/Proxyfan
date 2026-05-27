@@ -17,6 +17,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private BlockListWindow? _blockListWindow;
     private BreakpointWindow? _breakpointWindow;
     private CertificateManagerWindow? _certificateManagerWindow;
+    private ComposerWindow? _composerWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
     private ScriptingWindow? _scriptingWindow;
@@ -122,6 +123,28 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _certificateManagerWindow = null;
         };
         _certificateManagerWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenComposer()
+    {
+        if (_composerWindow is not null)
+        {
+            _composerWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<ComposerViewModel>();
+        var window = new ComposerWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            _composerWindow = null;
+        };
+        _composerWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

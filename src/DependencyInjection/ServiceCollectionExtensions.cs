@@ -10,8 +10,11 @@ using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
+using Proxyfan.Framework.Serialization;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Net.Http;
 using System.Runtime.Versioning;
 
 namespace Proxyfan.DependencyInjection;
@@ -59,6 +62,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<MutableThrottleProfile>();
         AddRuleEngine(serviceCollection);
         AddScripting(serviceCollection);
+        AddComposer(serviceCollection);
         return serviceCollection;
     }
 
@@ -85,6 +89,31 @@ public static class ServiceCollectionExtensions
                 serviceCollection.Add(descriptor);
             }
         }
+    }
+
+    private static void AddComposer(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<HttpClient>(static _ =>
+        {
+            var handler = new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+                UseProxy = false,
+            };
+            var client = new HttpClient(handler, disposeHandler: true);
+            return client;
+        });
+        serviceCollection.AddSingleton<IComposerRequestSender, ComposerRequestSender>();
+        serviceCollection.AddSingleton<IComposerHistoryStore>(static _ =>
+        {
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Proxyfan");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "composer-history.json");
+            return new FileComposerHistoryStore(path);
+        });
+        serviceCollection.AddSingleton<ComposerHistoryService>();
     }
 
     private static void AddRuleEngine(IServiceCollection serviceCollection)
