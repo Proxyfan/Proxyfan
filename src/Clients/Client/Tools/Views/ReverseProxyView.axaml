@@ -1,0 +1,84 @@
+<UserControl x:Class="Proxyfan.Client.Tools.Views.ReverseProxyView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:ReverseProxySettingsViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:ReverseProxySettingsViewModel}"
+             x:DataType="viewModels:ReverseProxySettingsViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="*,Auto">
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox ItemsSource="{Binding Routes}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:ReverseProxyRouteViewModel">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Margin="4">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock FontWeight="Bold" Text="{Binding Name}" />
+                                <TextBlock FontSize="11"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                           Text="{Binding ListenEndPoint}" />
+                                <TextBlock FontSize="11"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                           Text="{Binding BackendEndPoint}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1"
+                                       Margin="6,0"
+                                       Text="{Binding Status}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="2"
+                                    Command="{Binding $parent[ItemsControl].((viewModels:ReverseProxySettingsViewModel)DataContext).StartRouteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_ReverseProxy_Start}"
+                                    Margin="2,0" />
+                            <Button Grid.Column="3"
+                                    Command="{Binding $parent[ItemsControl].((viewModels:ReverseProxySettingsViewModel)DataContext).StopRouteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_ReverseProxy_Stop}"
+                                    Margin="2,0" />
+                            <Button Grid.Column="4"
+                                    Command="{Binding $parent[ItemsControl].((viewModels:ReverseProxySettingsViewModel)DataContext).ProbeCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_ReverseProxy_Probe}"
+                                    Margin="2,0" />
+                            <Button Grid.Column="5"
+                                    Command="{Binding $parent[ItemsControl].((viewModels:ReverseProxySettingsViewModel)DataContext).RemoveRouteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_ReverseProxy_Remove}"
+                                    Margin="2,0" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,*,*,*,Auto"
+              Margin="0,8,0,0">
+            <TextBox Grid.Column="0"
+                     Margin="0,0,4,0"
+                     Text="{Binding RouteName, Mode=TwoWay}"
+                     Watermark="{localization:Localize Key=Tools_ReverseProxy_NamePlaceholder}" />
+            <TextBox Grid.Column="1"
+                     Margin="0,0,4,0"
+                     Text="{Binding ListenPort, Mode=TwoWay}"
+                     Watermark="{localization:Localize Key=Tools_ReverseProxy_ListenPortPlaceholder}" />
+            <TextBox Grid.Column="2"
+                     Margin="0,0,4,0"
+                     Text="{Binding BackendHost, Mode=TwoWay}"
+                     Watermark="{localization:Localize Key=Tools_ReverseProxy_BackendHostPlaceholder}" />
+            <TextBox Grid.Column="3"
+                     Margin="0,0,4,0"
+                     Text="{Binding BackendPort, Mode=TwoWay}"
+                     Watermark="{localization:Localize Key=Tools_ReverseProxy_BackendPortPlaceholder}" />
+            <Button Grid.Column="4"
+                    Command="{Binding AddRouteCommand}"
+                    Content="{localization:Localize Key=Tools_ReverseProxy_Add}"
+                    Padding="12,4" />
+        </Grid>
+    </Grid>
+</UserControl>

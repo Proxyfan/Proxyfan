@@ -218,4 +218,25 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenScriptingCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenReverseProxyCommand delegates to <see cref="StubToolWindowOpener.OpenReverseProxy" />.
+    /// </summary>
+    [Test]
+    public async Task OpenReverseProxyCommand_WhenInvoked_OpensReverseProxyWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenReverseProxyCommand.Execute(null);
+
+        await Assert.That(opener.OpenReverseProxyCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(0);
+    }
 }

@@ -146,6 +146,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ReverseProxyRouteRegistry>();
         serviceCollection.AddSingleton<IBackendHealthProbe, TransportControlProtocolBackendHealthProbe>();
         serviceCollection.AddSingleton<ReverseProxyEngine>();
+        serviceCollection.AddSingleton<IReverseProxyEngine>(static serviceProvider => serviceProvider.GetRequiredService<ReverseProxyEngine>());
     }
 
     private static void AddRuleEngine(IServiceCollection serviceCollection)

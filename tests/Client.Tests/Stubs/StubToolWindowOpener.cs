@@ -58,6 +58,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenPreferencesCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenReverseProxy" /> was invoked.
+    /// </summary>
+    public int OpenReverseProxyCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenScripting" /> was invoked.
     /// </summary>
     public int OpenScriptingCallCount { get; private set; }
@@ -135,6 +140,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenPreferences()
     {
         OpenPreferencesCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenReverseProxy()
+    {
+        OpenReverseProxyCallCount++;
     }
 
     /// <inheritdoc />

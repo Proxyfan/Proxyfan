@@ -11,7 +11,7 @@ namespace Proxyfan.Framework.Networking;
 ///     Manages the lifecycle of multiple reverse proxy routes: starts and stops listeners
 ///     and probes each backend's health on demand.
 /// </summary>
-public sealed partial class ReverseProxyEngine : IAsyncDisposable
+public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxyEngine
 {
     private readonly Lock _gate;
     private readonly IBackendHealthProbe _healthProbe;

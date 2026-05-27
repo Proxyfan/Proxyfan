@@ -68,6 +68,12 @@ public interface IToolWindowOpener
     void OpenPreferences();
 
     /// <summary>
+    ///     Opens the Reverse Proxy tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenReverseProxy();
+
+    /// <summary>
     ///     Opens the Scripting tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

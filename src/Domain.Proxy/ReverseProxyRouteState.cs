@@ -1,9 +1,7 @@
-using Proxyfan.Domain.Proxy;
-
-namespace Proxyfan.Framework.Networking;
+namespace Proxyfan.Domain.Proxy;
 
 /// <summary>
-///     Snapshot of a route's runtime state inside the <see cref="ReverseProxyEngine" />.
+///     Snapshot of a route's runtime state inside the reverse proxy engine.
 /// </summary>
 public sealed class ReverseProxyRouteState
 {

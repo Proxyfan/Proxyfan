@@ -217,6 +217,39 @@
   <data name="Shell_Menu_PluginManager" xml:space="preserve">
     <value>Plugin Manager...</value>
   </data>
+  <data name="Shell_Menu_ReverseProxy" xml:space="preserve">
+    <value>Reverse Proxy...</value>
+  </data>
+  <data name="Tools_ReverseProxy_Title" xml:space="preserve">
+    <value>Reverse Proxy</value>
+  </data>
+  <data name="Tools_ReverseProxy_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Tools_ReverseProxy_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Tools_ReverseProxy_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Tools_ReverseProxy_Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Tools_ReverseProxy_Probe" xml:space="preserve">
+    <value>Probe</value>
+  </data>
+  <data name="Tools_ReverseProxy_NamePlaceholder" xml:space="preserve">
+    <value>Route name</value>
+  </data>
+  <data name="Tools_ReverseProxy_ListenPortPlaceholder" xml:space="preserve">
+    <value>Listen port</value>
+  </data>
+  <data name="Tools_ReverseProxy_BackendHostPlaceholder" xml:space="preserve">
+    <value>Backend host</value>
+  </data>
+  <data name="Tools_ReverseProxy_BackendPortPlaceholder" xml:space="preserve">
+    <value>Backend port</value>
+  </data>
   <data name="Tools_BlockList_Title" xml:space="preserve">
     <value>Block List</value>
   </data>
