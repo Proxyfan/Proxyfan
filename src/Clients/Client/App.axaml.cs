@@ -66,6 +66,7 @@ public partial class App : Application
             services.AddTransient<MapRemoteViewModel>();
             services.AddTransient<PluginManagerViewModel>();
             services.AddTransient<PreferencesViewModel>();
+            services.AddTransient<RemoteDevicesViewModel>();
             services.AddTransient<ReverseProxySettingsViewModel>();
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ScriptingViewModel>();

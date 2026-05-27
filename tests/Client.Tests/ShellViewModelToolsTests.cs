@@ -239,4 +239,25 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenReverseProxyCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenRemoteDevicesCommand delegates to <see cref="StubToolWindowOpener.OpenRemoteDevices" />.
+    /// </summary>
+    [Test]
+    public async Task OpenRemoteDevicesCommand_WhenInvoked_OpensRemoteDevicesWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenRemoteDevicesCommand.Execute(null);
+
+        await Assert.That(opener.OpenRemoteDevicesCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenReverseProxyCallCount).IsEqualTo(0);
+    }
 }

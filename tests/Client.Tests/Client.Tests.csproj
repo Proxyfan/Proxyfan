@@ -18,6 +18,7 @@
         <ProjectReference Include="..\..\src\Clients\Client\Client.csproj" />
         <ProjectReference Include="..\..\src\Domain.Configuration\Domain.Configuration.csproj" />
         <ProjectReference Include="..\..\src\Domain.DomainNameSystemSpoofing\Domain.DomainNameSystemSpoofing.csproj" />
+        <ProjectReference Include="..\..\src\Domain.RemoteDevices\Domain.RemoteDevices.csproj" />
         <ProjectReference Include="..\..\src\Framework.Extensibility\Framework.Extensibility.csproj" />
         <ProjectReference Include="..\..\src\Plugin.Abstractions\Plugin.Abstractions.csproj" />
     </ItemGroup>

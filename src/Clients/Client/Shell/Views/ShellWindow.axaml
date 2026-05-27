@@ -47,6 +47,8 @@
                           Header="{localization:Localize Key=Shell_Menu_DomainNameSystemSpoofing}" />
                 <MenuItem Command="{Binding OpenReverseProxyCommand}"
                           Header="{localization:Localize Key=Shell_Menu_ReverseProxy}" />
+                <MenuItem Command="{Binding OpenRemoteDevicesCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_RemoteDevices}" />
                 <MenuItem Command="{Binding OpenThrottleCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Throttle}" />
             </MenuItem>

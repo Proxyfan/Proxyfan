@@ -23,6 +23,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private MapRemoteWindow? _mapRemoteWindow;
     private PluginManagerWindow? _pluginManagerWindow;
     private PreferencesWindow? _preferencesWindow;
+    private RemoteDevicesWindow? _remoteDevicesWindow;
     private ReverseProxyWindow? _reverseProxyWindow;
     private ScriptingWindow? _scriptingWindow;
     private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
@@ -261,6 +262,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _preferencesWindow = null;
         };
         _preferencesWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenRemoteDevices()
+    {
+        if (_remoteDevicesWindow is not null)
+        {
+            _remoteDevicesWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<RemoteDevicesViewModel>();
+        var window = new RemoteDevicesWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _remoteDevicesWindow = null;
+        };
+        _remoteDevicesWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

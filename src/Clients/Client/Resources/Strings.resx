@@ -574,4 +574,40 @@
   <data name="Tools_PluginManager_Refresh" xml:space="preserve">
     <value>Refresh</value>
   </data>
+  <data name="Shell_Menu_RemoteDevices" xml:space="preserve">
+    <value>Remote Devices...</value>
+  </data>
+  <data name="Tools_RemoteDevices_Title" xml:space="preserve">
+    <value>Remote Devices</value>
+  </data>
+  <data name="Tools_RemoteDevices_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Tools_RemoteDevices_Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Tools_RemoteDevices_Kind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="Tools_RemoteDevices_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Tools_RemoteDevices_RequestCount" xml:space="preserve">
+    <value>Requests</value>
+  </data>
+  <data name="Tools_RemoteDevices_LastSeen" xml:space="preserve">
+    <value>Last Seen</value>
+  </data>
+  <data name="Tools_RemoteDevices_Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Tools_RemoteDevices_RenamePlaceholder" xml:space="preserve">
+    <value>New name for selected device</value>
+  </data>
+  <data name="Tools_RemoteDevices_Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="Tools_RemoteDevices_Forget" xml:space="preserve">
+    <value>Forget</value>
+  </data>
 </root>

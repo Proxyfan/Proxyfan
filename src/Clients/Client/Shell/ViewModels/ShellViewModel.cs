@@ -155,6 +155,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenRemoteDevices()
+    {
+        _toolWindowOpener.OpenRemoteDevices();
+    }
+
+    [RelayCommand]
     private void OpenReverseProxy()
     {
         _toolWindowOpener.OpenReverseProxy();

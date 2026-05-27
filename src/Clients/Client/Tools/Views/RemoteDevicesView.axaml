@@ -1,0 +1,66 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.RemoteDevicesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:RemoteDevicesViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:RemoteDevicesViewModel}"
+             x:DataType="viewModels:RemoteDevicesViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="*,Auto">
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <DataGrid AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      ItemsSource="{Binding Devices}"
+                      SelectedItem="{Binding SelectedDevice, Mode=TwoWay}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding Name}"
+                                        Header="{localization:Localize Key=Tools_RemoteDevices_Name}"
+                                        Width="*" />
+                    <DataGridTextColumn Binding="{Binding Address}"
+                                        Header="{localization:Localize Key=Tools_RemoteDevices_Address}"
+                                        Width="160" />
+                    <DataGridTextColumn Binding="{Binding Kind}"
+                                        Header="{localization:Localize Key=Tools_RemoteDevices_Kind}"
+                                        Width="100" />
+                    <DataGridTextColumn Binding="{Binding Status}"
+                                        Header="{localization:Localize Key=Tools_RemoteDevices_Status}"
+                                        Width="100" />
+                    <DataGridTextColumn Binding="{Binding RequestCount}"
+                                        Header="{localization:Localize Key=Tools_RemoteDevices_RequestCount}"
+                                        Width="100" />
+                    <DataGridTextColumn Binding="{Binding LastSeen, StringFormat='{}{0:HH:mm:ss}'}"
+                                        Header="{localization:Localize Key=Tools_RemoteDevices_LastSeen}"
+                                        Width="100" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,8,0,0">
+            <TextBox Grid.Column="0"
+                     Margin="0,0,4,0"
+                     Text="{Binding RenameText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_RemoteDevices_RenamePlaceholder}" />
+            <Button Grid.Column="1"
+                    Command="{Binding RenameCommand}"
+                    Content="{localization:Localize Key=Tools_RemoteDevices_Rename}"
+                    Margin="0,0,4,0"
+                    Padding="8,4" />
+            <Button Grid.Column="2"
+                    Command="{Binding DisconnectCommand}"
+                    CommandParameter="{Binding SelectedDevice}"
+                    Content="{localization:Localize Key=Tools_RemoteDevices_Disconnect}"
+                    Margin="0,0,4,0"
+                    Padding="8,4" />
+            <Button Grid.Column="3"
+                    Command="{Binding ForgetCommand}"
+                    CommandParameter="{Binding SelectedDevice}"
+                    Content="{localization:Localize Key=Tools_RemoteDevices_Forget}"
+                    Padding="8,4" />
+        </Grid>
+    </Grid>
+</UserControl>
