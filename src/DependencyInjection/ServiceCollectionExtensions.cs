@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
         AddComposer(serviceCollection);
         AddPlugins(serviceCollection);
         AddPreferences(serviceCollection);
+        AddReverseProxy(serviceCollection);
         return serviceCollection;
     }
 
@@ -138,6 +139,13 @@ public static class ServiceCollectionExtensions
             var path = Path.Combine(directory, "preferences.json");
             return new FileUserPreferencesStore(path);
         });
+    }
+
+    private static void AddReverseProxy(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<ReverseProxyRouteRegistry>();
+        serviceCollection.AddSingleton<IBackendHealthProbe, TransportControlProtocolBackendHealthProbe>();
+        serviceCollection.AddSingleton<ReverseProxyEngine>();
     }
 
     private static void AddRuleEngine(IServiceCollection serviceCollection)
