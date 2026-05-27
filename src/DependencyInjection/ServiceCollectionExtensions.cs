@@ -53,26 +53,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
-        serviceCollection.AddSingleton<IRuleRegistry, RuleRegistry>();
-        serviceCollection.AddSingleton(_ =>
-        {
-            var allowList = new MutableAllowListRule(priority: 50, isEnabled: false);
-            return allowList;
-        });
-        serviceCollection.AddSingleton(_ =>
-        {
-            var blockList = new MutableBlockListRule(priority: 100, isEnabled: true);
-            return blockList;
-        });
-        serviceCollection.AddSingleton<IRuleEngine>(provider =>
-        {
-            var registry = provider.GetRequiredService<IRuleRegistry>();
-            var allowList = provider.GetRequiredService<MutableAllowListRule>();
-            var blockList = provider.GetRequiredService<MutableBlockListRule>();
-            registry.RegisterRequestPhaseRule(allowList);
-            registry.RegisterRequestPhaseRule(blockList);
-            return new RuleEngine(registry);
-        });
+        AddRuleEngine(serviceCollection);
         return serviceCollection;
     }
 
@@ -99,6 +80,44 @@ public static class ServiceCollectionExtensions
                 serviceCollection.Add(descriptor);
             }
         }
+    }
+
+    private static void AddRuleEngine(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<IRuleRegistry, RuleRegistry>();
+        serviceCollection.AddSingleton(_ =>
+        {
+            var allowList = new MutableAllowListRule(priority: 50, isEnabled: false);
+            return allowList;
+        });
+        serviceCollection.AddSingleton(_ =>
+        {
+            var blockList = new MutableBlockListRule(priority: 100, isEnabled: true);
+            return blockList;
+        });
+        serviceCollection.AddSingleton(_ =>
+        {
+            var mapRemote = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+            return mapRemote;
+        });
+        serviceCollection.AddSingleton(_ =>
+        {
+            var mapLocal = new MutableMapLocalRule(priority: 300, isEnabled: true);
+            return mapLocal;
+        });
+        serviceCollection.AddSingleton<IRuleEngine>(provider =>
+        {
+            var registry = provider.GetRequiredService<IRuleRegistry>();
+            var allowList = provider.GetRequiredService<MutableAllowListRule>();
+            var blockList = provider.GetRequiredService<MutableBlockListRule>();
+            var mapRemote = provider.GetRequiredService<MutableMapRemoteRule>();
+            var mapLocal = provider.GetRequiredService<MutableMapLocalRule>();
+            registry.RegisterRequestPhaseRule(allowList);
+            registry.RegisterRequestPhaseRule(blockList);
+            registry.RegisterRequestPhaseRule(mapRemote);
+            registry.RegisterRequestPhaseRule(mapLocal);
+            return new RuleEngine(registry);
+        });
     }
 
     private static HypertextTransferProtocolProxyHandlerDependencies BuildHypertextTransferProtocolDependencies(IServiceProvider provider)

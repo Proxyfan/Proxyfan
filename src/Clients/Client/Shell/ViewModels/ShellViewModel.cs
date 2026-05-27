@@ -107,6 +107,18 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenMapLocal()
+    {
+        _toolWindowOpener.OpenMapLocal();
+    }
+
+    [RelayCommand]
+    private void OpenMapRemote()
+    {
+        _toolWindowOpener.OpenMapRemote();
+    }
+
+    [RelayCommand]
     private async Task OpenSessionAsync(CancellationToken cancellationToken)
     {
         var request = new FilePickerOpenRequest

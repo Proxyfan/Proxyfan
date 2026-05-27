@@ -172,6 +172,12 @@
   <data name="Shell_Menu_AllowList" xml:space="preserve">
     <value>Allow List...</value>
   </data>
+  <data name="Shell_Menu_MapLocal" xml:space="preserve">
+    <value>Map Local...</value>
+  </data>
+  <data name="Shell_Menu_MapRemote" xml:space="preserve">
+    <value>Map Remote...</value>
+  </data>
   <data name="Shell_Menu_File" xml:space="preserve">
     <value>File</value>
   </data>
@@ -201,5 +207,44 @@
   </data>
   <data name="Tools_RuleList_PatternPlaceholder" xml:space="preserve">
     <value>e.g. https://example.com/*</value>
+  </data>
+  <data name="Tools_MapLocal_Title" xml:space="preserve">
+    <value>Map Local</value>
+  </data>
+  <data name="Tools_MapRemote_Title" xml:space="preserve">
+    <value>Map Remote</value>
+  </data>
+  <data name="Tools_MapRemote_Scheme" xml:space="preserve">
+    <value>Scheme (blank = preserve)</value>
+  </data>
+  <data name="Tools_MapRemote_Host" xml:space="preserve">
+    <value>Host (blank = preserve)</value>
+  </data>
+  <data name="Tools_MapRemote_Port" xml:space="preserve">
+    <value>Port (blank = preserve)</value>
+  </data>
+  <data name="Tools_MapRemote_Path" xml:space="preserve">
+    <value>Path (blank = preserve)</value>
+  </data>
+  <data name="Tools_MapRemote_PreserveHost" xml:space="preserve">
+    <value>Preserve original Host header</value>
+  </data>
+  <data name="Tools_MapRemote_DestinationHeader" xml:space="preserve">
+    <value>Destination</value>
+  </data>
+  <data name="Tools_MapLocal_StatusCode" xml:space="preserve">
+    <value>Status code</value>
+  </data>
+  <data name="Tools_MapLocal_ReasonPhrase" xml:space="preserve">
+    <value>Reason phrase</value>
+  </data>
+  <data name="Tools_MapLocal_Headers" xml:space="preserve">
+    <value>Headers (one per line: Name: Value)</value>
+  </data>
+  <data name="Tools_MapLocal_Body" xml:space="preserve">
+    <value>Body</value>
+  </data>
+  <data name="Tools_MapLocal_StatusHeader" xml:space="preserve">
+    <value>Status</value>
   </data>
 </root>

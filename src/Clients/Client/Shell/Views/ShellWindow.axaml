@@ -26,6 +26,10 @@
                           Header="{localization:Localize Key=Shell_Menu_BlockList}" />
                 <MenuItem Command="{Binding OpenAllowListCommand}"
                           Header="{localization:Localize Key=Shell_Menu_AllowList}" />
+                <MenuItem Command="{Binding OpenMapLocalCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_MapLocal}" />
+                <MenuItem Command="{Binding OpenMapRemoteCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_MapRemote}" />
             </MenuItem>
         </Menu>
         <views:ShellView Grid.Row="1" />

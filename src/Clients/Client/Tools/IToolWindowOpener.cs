@@ -18,4 +18,16 @@ public interface IToolWindowOpener
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>
     void OpenBlockList();
+
+    /// <summary>
+    ///     Opens the Map Local tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenMapLocal();
+
+    /// <summary>
+    ///     Opens the Map Remote tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenMapRemote();
 }

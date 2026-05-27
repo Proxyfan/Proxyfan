@@ -56,6 +56,8 @@ public partial class App : Application
             services.AddSingleton<ShellViewModel>();
             services.AddTransient<BlockListViewModel>();
             services.AddTransient<AllowListViewModel>();
+            services.AddTransient<MapLocalViewModel>();
+            services.AddTransient<MapRemoteViewModel>();
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());

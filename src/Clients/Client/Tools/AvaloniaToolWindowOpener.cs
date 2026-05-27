@@ -15,6 +15,8 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private readonly IServiceProvider _serviceProvider;
     private AllowListWindow? _allowListWindow;
     private BlockListWindow? _blockListWindow;
+    private MapLocalWindow? _mapLocalWindow;
+    private MapRemoteWindow? _mapRemoteWindow;
 
     /// <summary>
     ///     Initializes a new <see cref="AvaloniaToolWindowOpener" />.
@@ -68,6 +70,52 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _blockListWindow = null;
         };
         _blockListWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenMapLocal()
+    {
+        if (_mapLocalWindow is not null)
+        {
+            _mapLocalWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<MapLocalViewModel>();
+        var window = new MapLocalWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _mapLocalWindow = null;
+        };
+        _mapLocalWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenMapRemote()
+    {
+        if (_mapRemoteWindow is not null)
+        {
+            _mapRemoteWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<MapRemoteViewModel>();
+        var window = new MapRemoteWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _mapRemoteWindow = null;
+        };
+        _mapRemoteWindow = window;
         ToolWindowDisplay.Show(window);
     }
 }

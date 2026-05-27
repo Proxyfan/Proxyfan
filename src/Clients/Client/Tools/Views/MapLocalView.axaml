@@ -1,0 +1,107 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.MapLocalView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:matching="clr-namespace:Proxyfan.Domain.Rules.Matching;assembly=Domain.Rules"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:MapLocalViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:MapLocalViewModel}"
+             x:DataType="viewModels:MapLocalViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+        <CheckBox Grid.Row="0"
+                  Content="{localization:Localize Key=Tools_RuleList_Enabled}"
+                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                  Margin="0,0,0,8" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
+            <TextBox Grid.Column="0"
+                     Margin="0,0,4,0"
+                     Text="{Binding NewPatternText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_RuleList_PatternPlaceholder}" />
+            <ComboBox Grid.Column="1"
+                      Margin="0,0,4,0"
+                      MinWidth="100"
+                      SelectedItem="{Binding NewPatternKind, Mode=TwoWay}">
+                <matching:MatchingRuleKind>Wildcard</matching:MatchingRuleKind>
+                <matching:MatchingRuleKind>Exact</matching:MatchingRuleKind>
+                <matching:MatchingRuleKind>Regex</matching:MatchingRuleKind>
+            </ComboBox>
+            <Button Grid.Column="2"
+                    Command="{Binding AddEntryCommand}"
+                    Content="{localization:Localize Key=Tools_RuleList_AddPattern}"
+                    Padding="12,4" />
+        </Grid>
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
+            <TextBlock Grid.Column="0"
+                       Margin="0,0,8,0"
+                       Text="{localization:Localize Key=Tools_MapLocal_StatusCode}"
+                       VerticalAlignment="Center" />
+            <TextBox Grid.Column="1"
+                     Text="{Binding ResponseStatusCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
+            <TextBlock Grid.Column="0"
+                       Margin="0,0,8,0"
+                       Text="{localization:Localize Key=Tools_MapLocal_ReasonPhrase}"
+                       VerticalAlignment="Center" />
+            <TextBox Grid.Column="1"
+                     Text="{Binding ResponseReasonPhrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+        <TextBlock Grid.Row="4"
+                   Margin="0,4,0,2"
+                   Text="{localization:Localize Key=Tools_MapLocal_Headers}" />
+        <TextBox Grid.Row="5"
+                 AcceptsReturn="True"
+                 Height="80"
+                 Margin="0,2,0,4"
+                 Text="{Binding ResponseHeaders, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 TextWrapping="NoWrap" />
+        <Grid Grid.Row="6" RowDefinitions="Auto,*,Auto,*">
+            <TextBlock Grid.Row="0"
+                       Margin="0,4,0,2"
+                       Text="{localization:Localize Key=Tools_MapLocal_Body}" />
+            <TextBox Grid.Row="1"
+                     AcceptsReturn="True"
+                     Margin="0,2,0,8"
+                     Text="{Binding ResponseBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="NoWrap" />
+            <TextBlock Grid.Row="2"
+                       Margin="0,4,0,2"
+                       Text="{localization:Localize Key=Tools_MapLocal_StatusHeader}" />
+            <Border Grid.Row="3"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    BorderThickness="1">
+                <ListBox ItemsSource="{Binding Entries}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:MapLocalEntryViewModel">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="4">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Pattern}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                           Margin="8,0"
+                                           Text="{Binding Status}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                           Margin="8,0"
+                                           Text="{Binding Kind}"
+                                           VerticalAlignment="Center" />
+                                <Button Grid.Column="3"
+                                        Command="{Binding $parent[ListBox].((viewModels:MapLocalViewModel)DataContext).RemoveEntryCommand}"
+                                        CommandParameter="{Binding}"
+                                        Content="{localization:Localize Key=Tools_RuleList_RemovePattern}"
+                                        Padding="8,2" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
