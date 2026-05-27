@@ -45,6 +45,9 @@ public sealed class CliRunner
             case CliCommandKind.HarSummary:
                 return await CliHarSummaryHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
 
+            case CliCommandKind.Send:
+                return await CliSendHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
+
             case CliCommandKind.Unknown:
                 await standardError.WriteAsync("Unknown command. Run 'help' for usage.".AsMemory(), cancellationToken).ConfigureAwait(false);
                 return 2;

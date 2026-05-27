@@ -21,14 +21,23 @@ public static class CliHelpWriter
           version               Show version information
           start [--port N]      Start the proxy server on the given port (default: 8080)
           har-summary <path>    Print a human-readable summary of a HAR file
+          send --url <url>      Print a composed HTTP/1.1 request to stdout
+            [--method M]
+            [--header "K: V"]
+            [--body TEXT]
 
         Options:
           --port N              TCP port for the start command (1-65535)
           --input <path>        Alternative way to specify the HAR file path
+          --method M            HTTP method (default: GET)
+          --url URL             Target URL (required for send)
+          --header "K: V"       Add a header (repeatable)
+          --body TEXT           Request body text
 
         Examples:
           proxyfan-cli start --port 8888
           proxyfan-cli har-summary capture.har
+          proxyfan-cli send --method POST --url https://api.example.com --header "Accept: application/json" --body "hello"
 
         """;
 

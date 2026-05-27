@@ -48,6 +48,12 @@ public static class CliArgumentParser
             return new CliCommand(CliCommandKind.HarSummary, DefaultPort, path);
         }
 
+        if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
+        {
+            var sendRequest = CliSendArgumentParser.Parse(args);
+            return new CliCommand(CliCommandKind.Send, DefaultPort, null, sendRequest);
+        }
+
         return new CliCommand(CliCommandKind.Unknown, DefaultPort, null);
     }
 
