@@ -3,6 +3,7 @@ using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
@@ -34,6 +35,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
     private readonly IRuleEngine? _ruleEngine;
+    private readonly IScriptingHandler? _scriptingHandler;
     private readonly ITrafficStore _trafficStore;
 
     static TransportLayerSecurityInterceptorHandler()
@@ -58,6 +60,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _trafficStore = dependencies.TrafficStore;
         _ruleEngine = dependencies.RuleEngine;
         _breakpointHandler = dependencies.BreakpointHandler;
+        _scriptingHandler = dependencies.ScriptingHandler;
     }
 
     /// <inheritdoc />
@@ -107,6 +110,53 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             {
                 LogTunnelError(ex, target.Host, target.Port);
             }
+        }
+    }
+
+    private async Task<HypertextTransferProtocolRequestData> ApplyScriptingRequestAsync(
+        TrafficFlow flow,
+        HypertextTransferProtocolRequestData effectiveRequest,
+        CancellationToken cancellationToken)
+    {
+        if (_scriptingHandler is null)
+        {
+            return effectiveRequest;
+        }
+
+        try
+        {
+            var flowId = flow.Id.ToString();
+            var projected = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
+            return projected;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "TLS scripting request-phase hook threw; continuing with unmodified request");
+            return effectiveRequest;
+        }
+    }
+
+    private async Task<HypertextTransferProtocolResponseData> ApplyScriptingResponseAsync(
+        TrafficFlow flow,
+        HypertextTransferProtocolRequestData effectiveRequest,
+        HypertextTransferProtocolResponseData finalResponse,
+        CancellationToken cancellationToken)
+    {
+        if (_scriptingHandler is null)
+        {
+            return finalResponse;
+        }
+
+        try
+        {
+            var flowId = flow.Id.ToString();
+            var projected = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+            return projected;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "TLS scripting response-phase hook threw; continuing with unmodified response");
+            return finalResponse;
         }
     }
 
@@ -267,6 +317,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             return false;
         }
         effectiveRequest = breakResult.ModifiedRequest ?? effectiveRequest;
+        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
 
         var serveLocal = blockingAction as Domain.Rules.Pipeline.RequestPipelineAction.ServeLocalResponse;
         var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(requestExchange, effectiveRequest);
@@ -282,17 +333,33 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             return false;
         }
 
-        var responseActions = _ruleEngine?.EvaluateResponse(effectiveRequest, responseExchange.Response) ?? [];
-        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(responseExchange.Response, responseActions);
-        var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
+        var context = new TransportLayerSecurityResponsePhaseContext
+        {
+            EffectiveRequest = effectiveRequest,
+            Flow = flow,
+            Pipes = pipes,
+            ResponseExchange = responseExchange,
+        };
+        var keepAlive = await ProcessInterceptedResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
+        return keepAlive;
+    }
 
-        flow.SetResponse(finalResponse);
-        PublishResponseReceived(flow, finalResponse);
-        flow.Complete();
-        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(pipes.ClientWriter, finalExchange, cancellationToken).ConfigureAwait(false);
-        _trafficStore.Add(flow);
-        PublishFlowCompleted(flow);
-        return TransportLayerSecurityInterceptorHelpers.HasKeepAlive(effectiveRequest, finalResponse);
+    private async Task<bool> ProcessInterceptedResponsePhaseAsync(
+        TransportLayerSecurityResponsePhaseContext context,
+        CancellationToken cancellationToken)
+    {
+        var responseActions = _ruleEngine?.EvaluateResponse(context.EffectiveRequest, context.ResponseExchange.Response) ?? [];
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(context.ResponseExchange.Response, responseActions);
+        finalResponse = await ApplyScriptingResponseAsync(context.Flow, context.EffectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+        var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(context.ResponseExchange, finalResponse);
+
+        context.Flow.SetResponse(finalResponse);
+        PublishResponseReceived(context.Flow, finalResponse);
+        context.Flow.Complete();
+        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(context.Pipes.ClientWriter, finalExchange, cancellationToken).ConfigureAwait(false);
+        _trafficStore.Add(context.Flow);
+        PublishFlowCompleted(context.Flow);
+        return TransportLayerSecurityInterceptorHelpers.HasKeepAlive(context.EffectiveRequest, finalResponse);
     }
 
     private void PublishFlowCompleted(TrafficFlow flow)

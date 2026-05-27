@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 
 namespace Proxyfan.Framework.Networking;
@@ -38,6 +39,12 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     ///     for intercepted (decrypted) traffic.
     /// </summary>
     public IRuleEngine? RuleEngine { get; init; }
+
+    /// <summary>
+    ///     Gets the optional scripting handler used to invoke user scripts on intercepted
+    ///     (decrypted) requests and responses.
+    /// </summary>
+    public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
     ///     Gets the store that persists captured traffic flows.
