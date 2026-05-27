@@ -11,7 +11,6 @@
   <Project Path="src/Domain.Configuration/Domain.Configuration.csproj" />
   <Project Path="src/Domain.DomainNameSystemSpoofing/Domain.DomainNameSystemSpoofing.csproj" />
   <Project Path="src/Domain.Updates/Domain.Updates.csproj" />
-  <Project Path="src/Domain.Composer/Domain.Composer.csproj" />
   <Project Path="src/Framework/Framework.csproj" />
   <Project Path="src/Framework.Extensibility/Framework.Extensibility.csproj" />
   <Project Path="src/Framework.Networking/Framework.Networking.csproj" />
@@ -39,7 +38,6 @@
     <Project Path="tests/Domain.Configuration.Tests/Domain.Configuration.Tests.csproj" />
     <Project Path="tests/Domain.DomainNameSystemSpoofing.Tests/Domain.DomainNameSystemSpoofing.Tests.csproj" />
     <Project Path="tests/Domain.Updates.Tests/Domain.Updates.Tests.csproj" />
-    <Project Path="tests/Domain.Composer.Tests/Domain.Composer.Tests.csproj" />
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Framework.Tests/Framework.Tests.csproj" />
     <Project Path="tests/Framework.Extensibility.Tests/Framework.Extensibility.Tests.csproj" />
