@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
+using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
@@ -22,6 +23,14 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     ///     Gets the optional breakpoint handler used to pause traffic for user editing.
     /// </summary>
     public IBreakpointHandler? BreakpointHandler { get; init; }
+
+    /// <summary>
+    ///     Gets the optional certificate authority provider used to serve the local
+    ///     provisioning landing page when a client navigates to the magic provisioning
+    ///     host. When <see langword="null" />, provisioning requests are forwarded as
+    ///     ordinary HTTP traffic and will fail to resolve.
+    /// </summary>
+    public MutableCertificateAuthorityProvider? CertificateAuthorityProvider { get; init; }
 
     /// <summary>
     ///     Gets the domain event bus used to publish traffic capture events.

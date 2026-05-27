@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
+using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Pipeline;
@@ -29,6 +30,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private const int MaxHeaderBytes = 65536;
     private static readonly byte[][] MethodPrefixes;
     private readonly IBreakpointHandler? _breakpointHandler;
+    private readonly MutableCertificateAuthorityProvider? _certificateAuthorityProvider;
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger<HypertextTransferProtocolProxyHandler> _logger;
     private readonly IRuleEngine _ruleEngine;
@@ -67,6 +69,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         _upstreamProxy = dependencies.UpstreamProxy;
         _throttleProfile = dependencies.ThrottleProfile;
         _breakpointHandler = dependencies.BreakpointHandler;
+        _certificateAuthorityProvider = dependencies.CertificateAuthorityProvider;
     }
 
     /// <inheritdoc />
@@ -298,6 +301,22 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         PublishFlowCompleted(flow);
     }
 
+    private async Task HandleProvisioningRequestAsync(
+        IProxyConnection connection,
+        TrafficFlow flow,
+        HypertextTransferProtocolRequestData request,
+        CancellationToken cancellationToken)
+    {
+        var authority = await _certificateAuthorityProvider!.GetAsync(cancellationToken).ConfigureAwait(false);
+        var response = CertificateProvisioningResponder.BuildResponse(request, authority.Certificate);
+        await CertificateProvisioningResponder.WriteResponseAsync(connection.Transport.Output, response, cancellationToken).ConfigureAwait(false);
+        flow.SetResponse(response);
+        PublishResponseReceived(flow, response);
+        flow.Complete();
+        _trafficStore.Add(flow);
+        PublishFlowCompleted(flow);
+    }
+
     private bool HasConnectionCloseDirective(HeaderCollection headers)
     {
         var connectionValue = headers.Get("Connection");
@@ -380,6 +399,13 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         PublishFlowCreated(flow);
         flow.SetRequest(requestExchange.Request);
         PublishRequestReceived(flow, requestExchange.Request);
+
+        if (_certificateAuthorityProvider is not null
+            && CertificateProvisioningResponder.HasProvisioningTarget(requestExchange.Request))
+        {
+            await HandleProvisioningRequestAsync(connection, flow, requestExchange.Request, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
 
         var requestActions = _ruleEngine.EvaluateRequest(requestExchange.Request);
         var effectiveRequest = HypertextTransferProtocolRuleApplicator.ApplyRequestModifications(requestExchange.Request, requestActions);

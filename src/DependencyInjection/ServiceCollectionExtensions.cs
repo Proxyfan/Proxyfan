@@ -232,6 +232,7 @@ public static class ServiceCollectionExtensions
             ThrottleProfile = provider.GetService<MutableThrottleProfile>(),
             BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
             ScriptingHandler = provider.GetService<IScriptingHandler>(),
+            CertificateAuthorityProvider = provider.GetService<MutableCertificateAuthorityProvider>(),
         };
         return dependencies;
     }
