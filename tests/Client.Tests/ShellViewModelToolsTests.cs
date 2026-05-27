@@ -197,4 +197,25 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenSecureSocketsLayerProxyingCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenThemeCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenScriptingCommand delegates to <see cref="StubToolWindowOpener.OpenScripting" />.
+    /// </summary>
+    [Test]
+    public async Task OpenScriptingCommand_WhenInvoked_OpensScriptingWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenScriptingCommand.Execute(null);
+
+        await Assert.That(opener.OpenScriptingCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(0);
+    }
 }

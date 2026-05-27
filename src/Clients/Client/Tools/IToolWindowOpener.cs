@@ -44,6 +44,12 @@ public interface IToolWindowOpener
     void OpenMapRemote();
 
     /// <summary>
+    ///     Opens the Scripting tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenScripting();
+
+    /// <summary>
     ///     Opens the SSL Proxying tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

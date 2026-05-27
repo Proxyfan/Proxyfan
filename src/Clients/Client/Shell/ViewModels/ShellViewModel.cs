@@ -131,6 +131,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenScripting()
+    {
+        _toolWindowOpener.OpenScripting();
+    }
+
+    [RelayCommand]
     private void OpenSecureSocketsLayerProxying()
     {
         _toolWindowOpener.OpenSecureSocketsLayerProxying();

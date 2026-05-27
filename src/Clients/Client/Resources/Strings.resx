@@ -175,6 +175,9 @@
   <data name="Shell_Menu_Breakpoint" xml:space="preserve">
     <value>Breakpoint...</value>
   </data>
+  <data name="Shell_Menu_Scripting" xml:space="preserve">
+    <value>Scripting...</value>
+  </data>
   <data name="Shell_Menu_MapLocal" xml:space="preserve">
     <value>Map Local...</value>
   </data>
@@ -381,5 +384,32 @@
   </data>
   <data name="Tools_Breakpoint_Abort" xml:space="preserve">
     <value>Abort</value>
+  </data>
+  <data name="Tools_Scripting_Title" xml:space="preserve">
+    <value>Scripting</value>
+  </data>
+  <data name="Tools_Scripting_Enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Tools_Scripting_RequestPhase" xml:space="preserve">
+    <value>OnRequest (C#)</value>
+  </data>
+  <data name="Tools_Scripting_ResponsePhase" xml:space="preserve">
+    <value>OnResponse (C#)</value>
+  </data>
+  <data name="Tools_Scripting_RequestPlaceholder" xml:space="preserve">
+    <value>// request.SetHeader("X-Proxied", "yes");</value>
+  </data>
+  <data name="Tools_Scripting_ResponsePlaceholder" xml:space="preserve">
+    <value>// response.SetHeader("X-Proxied", "yes");</value>
+  </data>
+  <data name="Tools_Scripting_Compile" xml:space="preserve">
+    <value>Compile and activate</value>
+  </data>
+  <data name="Tools_Scripting_Clear" xml:space="preserve">
+    <value>Clear active script</value>
+  </data>
+  <data name="Tools_Scripting_Diagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
   </data>
 </root>

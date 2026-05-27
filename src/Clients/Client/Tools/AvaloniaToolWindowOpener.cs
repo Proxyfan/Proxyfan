@@ -19,6 +19,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private CertificateManagerWindow? _certificateManagerWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
+    private ScriptingWindow? _scriptingWindow;
     private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
     private ThemeWindow? _themeWindow;
     private ThrottleWindow? _throttleWindow;
@@ -167,6 +168,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _mapRemoteWindow = null;
         };
         _mapRemoteWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenScripting()
+    {
+        if (_scriptingWindow is not null)
+        {
+            _scriptingWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<ScriptingViewModel>();
+        var window = new ScriptingWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _scriptingWindow = null;
+        };
+        _scriptingWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

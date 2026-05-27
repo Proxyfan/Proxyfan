@@ -38,6 +38,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenMapRemoteCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenScripting" /> was invoked.
+    /// </summary>
+    public int OpenScriptingCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenSecureSocketsLayerProxying" /> was invoked.
     /// </summary>
     public int OpenSecureSocketsLayerProxyingCallCount { get; private set; }
@@ -86,6 +91,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenMapRemote()
     {
         OpenMapRemoteCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenScripting()
+    {
+        OpenScriptingCallCount++;
     }
 
     /// <inheritdoc />
