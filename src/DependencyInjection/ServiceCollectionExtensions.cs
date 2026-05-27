@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
@@ -53,9 +54,23 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
         serviceCollection.AddSingleton<IRuleRegistry, RuleRegistry>();
+        serviceCollection.AddSingleton(_ =>
+        {
+            var allowList = new MutableAllowListRule(priority: 50, isEnabled: false);
+            return allowList;
+        });
+        serviceCollection.AddSingleton(_ =>
+        {
+            var blockList = new MutableBlockListRule(priority: 100, isEnabled: true);
+            return blockList;
+        });
         serviceCollection.AddSingleton<IRuleEngine>(provider =>
         {
             var registry = provider.GetRequiredService<IRuleRegistry>();
+            var allowList = provider.GetRequiredService<MutableAllowListRule>();
+            var blockList = provider.GetRequiredService<MutableBlockListRule>();
+            registry.RegisterRequestPhaseRule(allowList);
+            registry.RegisterRequestPhaseRule(blockList);
             return new RuleEngine(registry);
         });
         return serviceCollection;
