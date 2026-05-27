@@ -22,6 +22,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Domain\Domain.csproj" />
         <ProjectReference Include="..\..\Domain.Configuration\Domain.Configuration.csproj" />
+        <ProjectReference Include="..\..\Domain.DomainNameSystemSpoofing\Domain.DomainNameSystemSpoofing.csproj" />
         <ProjectReference Include="..\..\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\..\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\..\Domain.Scripting\Domain.Scripting.csproj" />

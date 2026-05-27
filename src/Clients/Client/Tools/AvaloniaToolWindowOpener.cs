@@ -18,6 +18,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private BreakpointWindow? _breakpointWindow;
     private CertificateManagerWindow? _certificateManagerWindow;
     private ComposerWindow? _composerWindow;
+    private DomainNameSystemSpoofingWindow? _domainNameSystemSpoofingWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
     private PreferencesWindow? _preferencesWindow;
@@ -146,6 +147,28 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _composerWindow = null;
         };
         _composerWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenDomainNameSystemSpoofing()
+    {
+        if (_domainNameSystemSpoofingWindow is not null)
+        {
+            _domainNameSystemSpoofingWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<DomainNameSystemSpoofingViewModel>();
+        var window = new DomainNameSystemSpoofingWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            _domainNameSystemSpoofingWindow = null;
+        };
+        _domainNameSystemSpoofingWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

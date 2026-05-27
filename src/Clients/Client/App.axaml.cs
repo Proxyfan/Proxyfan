@@ -61,6 +61,7 @@ public partial class App : Application
             services.AddTransient<AllowListViewModel>();
             services.AddTransient<CertificateManagerViewModel>();
             services.AddTransient<ComposerViewModel>();
+            services.AddTransient<DomainNameSystemSpoofingViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
             services.AddTransient<PreferencesViewModel>();

@@ -33,6 +33,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenComposerCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenDomainNameSystemSpoofing" /> was invoked.
+    /// </summary>
+    public int OpenDomainNameSystemSpoofingCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenMapLocal" /> was invoked.
     /// </summary>
     public int OpenMapLocalCallCount { get; private set; }
@@ -95,6 +100,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenComposer()
     {
         OpenComposerCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenDomainNameSystemSpoofing()
+    {
+        OpenDomainNameSystemSpoofingCallCount++;
     }
 
     /// <inheritdoc />

@@ -18,6 +18,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\DependencyInjection\DependencyInjection.csproj" />
         <ProjectReference Include="..\..\src\Domain.Configuration\Domain.Configuration.csproj" />
+        <ProjectReference Include="..\..\src\Domain.DomainNameSystemSpoofing\Domain.DomainNameSystemSpoofing.csproj" />
         <ProjectReference Include="..\..\src\Framework.Serialization\Framework.Serialization.csproj" />
     </ItemGroup>
 

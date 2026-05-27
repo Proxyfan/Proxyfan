@@ -38,6 +38,12 @@ public interface IToolWindowOpener
     void OpenComposer();
 
     /// <summary>
+    ///     Opens the DNS Spoofing tool window. Idempotent: if the window is already
+    ///     open, it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenDomainNameSystemSpoofing();
+
+    /// <summary>
     ///     Opens the Map Local tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

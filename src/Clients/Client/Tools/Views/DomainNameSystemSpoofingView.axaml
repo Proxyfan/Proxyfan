@@ -1,0 +1,66 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.DomainNameSystemSpoofingView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:DomainNameSystemSpoofingViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:DomainNameSystemSpoofingViewModel}"
+             x:DataType="viewModels:DomainNameSystemSpoofingViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,*">
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,8"
+                   Text="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Description}"
+                   TextWrapping="Wrap" />
+        <Grid Grid.Row="1" ColumnDefinitions="2*,*,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0"
+                     Margin="0,0,4,0"
+                     Text="{Binding NewHostname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_DomainNameSystemSpoofing_HostnamePlaceholder}" />
+            <TextBox Grid.Column="1"
+                     Margin="0,0,4,0"
+                     Text="{Binding NewOverrideAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_DomainNameSystemSpoofing_AddressPlaceholder}" />
+            <Button Grid.Column="2"
+                    Command="{Binding AddEntryCommand}"
+                    Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Add}"
+                    Padding="12,4" />
+        </Grid>
+        <TextBlock Grid.Row="2"
+                   Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                   IsVisible="{Binding ValidationMessage, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Margin="0,0,0,8"
+                   Text="{Binding ValidationMessage}"
+                   TextWrapping="Wrap" />
+        <Border Grid.Row="3"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox ItemsSource="{Binding Entries}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:DomainNameSystemSpoofingEntryViewModel">
+                        <Grid ColumnDefinitions="2*,*,Auto" Margin="4">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Hostname}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       FontFamily="Consolas"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       Margin="8,0"
+                                       Text="{Binding OverrideAddress}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="2"
+                                    Command="{Binding $parent[ListBox].((viewModels:DomainNameSystemSpoofingViewModel)DataContext).RemoveEntryCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Remove}"
+                                    Padding="8,2" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </Grid>
+</UserControl>

@@ -17,6 +17,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Clients\Client\Client.csproj" />
         <ProjectReference Include="..\..\src\Domain.Configuration\Domain.Configuration.csproj" />
+        <ProjectReference Include="..\..\src\Domain.DomainNameSystemSpoofing\Domain.DomainNameSystemSpoofing.csproj" />
     </ItemGroup>
 
 </Project>

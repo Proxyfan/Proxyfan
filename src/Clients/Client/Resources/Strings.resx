@@ -211,6 +211,9 @@
   <data name="Shell_Menu_Preferences" xml:space="preserve">
     <value>Preferences...</value>
   </data>
+  <data name="Shell_Menu_DomainNameSystemSpoofing" xml:space="preserve">
+    <value>DNS Spoofing...</value>
+  </data>
   <data name="Tools_BlockList_Title" xml:space="preserve">
     <value>Block List</value>
   </data>
@@ -501,5 +504,23 @@
   </data>
   <data name="Tools_Preferences_Reset" xml:space="preserve">
     <value>Restore defaults</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_Title" xml:space="preserve">
+    <value>DNS Spoofing</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_Description" xml:space="preserve">
+    <value>Override DNS resolution for specific host names. Requests for matching hosts will connect to the configured IP address instead of the host's real DNS record.</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_HostnamePlaceholder" xml:space="preserve">
+    <value>e.g. api.example.com</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_AddressPlaceholder" xml:space="preserve">
+    <value>e.g. 127.0.0.1</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_Remove" xml:space="preserve">
+    <value>Remove</value>
   </data>
 </root>

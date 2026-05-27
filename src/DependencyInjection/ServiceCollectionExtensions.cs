@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Configuration;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
@@ -61,6 +62,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
         serviceCollection.AddSingleton<MutableThrottleProfile>();
+        serviceCollection.AddSingleton<DomainNameSystemOverrideMap>();
         AddRuleEngine(serviceCollection);
         AddScripting(serviceCollection);
         AddComposer(serviceCollection);

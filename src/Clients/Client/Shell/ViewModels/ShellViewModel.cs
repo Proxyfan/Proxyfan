@@ -125,6 +125,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenDomainNameSystemSpoofing()
+    {
+        _toolWindowOpener.OpenDomainNameSystemSpoofing();
+    }
+
+    [RelayCommand]
     private void OpenMapLocal()
     {
         _toolWindowOpener.OpenMapLocal();
