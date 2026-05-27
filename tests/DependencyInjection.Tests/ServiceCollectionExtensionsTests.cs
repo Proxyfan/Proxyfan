@@ -44,7 +44,7 @@ public sealed class ServiceCollectionExtensionsTests
         await Assert.That(trafficStore).IsNotNull();
         await Assert.That(systemProxy).IsNotNull();
         await Assert.That(ruleEngine).IsNotNull();
-        await Assert.That(handlers).Count().IsEqualTo(2);
+        await Assert.That(handlers).Count().IsEqualTo(3);
     }
 
     /// <summary>

@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<HypertextTransferProtocolProxyHandlerDependencies>(BuildHypertextTransferProtocolDependencies);
         serviceCollection.AddSingleton<IConnectionHandler, HypertextTransferProtocolProxyHandler>();
         serviceCollection.AddSingleton<IConnectionHandler, TransportLayerSecurityInterceptorHandler>();
+        serviceCollection.AddSingleton<IConnectionHandler, SocksTunnelHandler>();
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
