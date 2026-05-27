@@ -23,6 +23,12 @@ public sealed class TrafficFlow
     public Guid Id { get; }
 
     /// <summary>
+    ///     Gets the origin of this flow, indicating whether it was captured live, repeated
+    ///     from a previous flow, or composed manually.
+    /// </summary>
+    public TrafficFlowOrigin Origin { get; }
+
+    /// <summary>
     ///     Gets the captured HTTP request, when available.
     /// </summary>
     public HypertextTransferProtocolRequestData? Request { get; private set; }
@@ -60,9 +66,31 @@ public sealed class TrafficFlow
     ///     The UTC instant at which this flow was created.
     /// </param>
     public TrafficFlow(Guid id, string clientEndPoint, DateTimeOffset startedAt)
+        : this(id, clientEndPoint, startedAt, TrafficFlowOrigin.Captured)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficFlow" /> in the <see cref="TrafficFlowStatus.Pending" /> state
+    ///     with an explicit origin annotation.
+    /// </summary>
+    /// <param name="id">
+    ///     The unique flow identifier.
+    /// </param>
+    /// <param name="clientEndPoint">
+    ///     The client endpoint associated with this flow.
+    /// </param>
+    /// <param name="startedAt">
+    ///     The UTC instant at which this flow was created.
+    /// </param>
+    /// <param name="origin">
+    ///     The origin of this flow.
+    /// </param>
+    public TrafficFlow(Guid id, string clientEndPoint, DateTimeOffset startedAt, TrafficFlowOrigin origin)
     {
         ClientEndPoint = clientEndPoint;
         Id = id;
+        Origin = origin;
         StartedAt = startedAt;
         Status = TrafficFlowStatus.Pending;
 

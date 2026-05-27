@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
         serviceCollection.AddSingleton<MutableThrottleProfile>();
         serviceCollection.AddSingleton<DomainNameSystemOverrideMap>();
+        serviceCollection.AddSingleton(TimeProvider.System);
         AddRuleEngine(serviceCollection);
         AddScripting(serviceCollection);
         AddComposer(serviceCollection);
@@ -111,6 +112,7 @@ public static class ServiceCollectionExtensions
             return client;
         });
         serviceCollection.AddSingleton<IComposerRequestSender, ComposerRequestSender>();
+        serviceCollection.AddSingleton<IRequestRepeater, RequestRepeater>();
         serviceCollection.AddSingleton<IComposerHistoryStore>(static _ =>
         {
             var directory = Path.Combine(

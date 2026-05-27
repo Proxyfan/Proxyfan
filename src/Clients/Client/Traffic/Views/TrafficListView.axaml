@@ -18,6 +18,14 @@
               IsReadOnly="True"
               ItemsSource="{Binding VisibleFlows}"
               SelectedItem="{Binding SelectedFlow, Mode=TwoWay}">
+        <DataGrid.ContextMenu>
+            <ContextMenu>
+                <MenuItem Command="{Binding RepeatSelectedCommand}"
+                          Header="{localization:Localize Key=Traffic_Context_Repeat}" />
+                <MenuItem Command="{Binding RepeatSelectedTenTimesCommand}"
+                          Header="{localization:Localize Key=Traffic_Context_RepeatTenTimes}" />
+            </ContextMenu>
+        </DataGrid.ContextMenu>
         <DataGrid.Columns>
             <DataGridTemplateColumn Width="50">
                 <DataGridTemplateColumn.Header>

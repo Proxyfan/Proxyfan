@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Traffic.ViewModels;
 
@@ -22,6 +23,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
     private readonly IDisposable _requestReceivedSubscription;
+    private readonly IRequestRepeater? _requestRepeater;
     private readonly IDisposable _responseReceivedSubscription;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
@@ -55,8 +57,32 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     ///     Scheduler used to marshal collection mutations onto the UI thread.
     /// </param>
     public TrafficListViewModel(IDomainEventBus eventBus, IUserInterfaceScheduler userInterfaceScheduler)
+        : this(eventBus, userInterfaceScheduler, requestRepeater: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListViewModel" /> with an explicit request repeater
+    ///     so the &quot;Repeat&quot; context-menu action can replay captured flows through the proxy
+    ///     pipeline.
+    /// </summary>
+    /// <param name="eventBus">
+    ///     The domain event bus used to subscribe to traffic events.
+    /// </param>
+    /// <param name="userInterfaceScheduler">
+    ///     Scheduler used to marshal collection mutations onto the UI thread.
+    /// </param>
+    /// <param name="requestRepeater">
+    ///     Optional request repeater. When <see langword="null" /> the Repeat commands no-op
+    ///     (used by tests that exercise the list without spinning up the network stack).
+    /// </param>
+    public TrafficListViewModel(
+        IDomainEventBus eventBus,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        IRequestRepeater? requestRepeater)
     {
         _userInterfaceScheduler = userInterfaceScheduler;
+        _requestRepeater = requestRepeater;
 
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
@@ -250,6 +276,53 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
                 VisibleFlows.Add(flow);
             }
         }
+    }
+
+    private async Task RepeatFlowAsync(
+        TrafficFlowViewModel? flow,
+        int repeatCount,
+        CancellationToken cancellationToken)
+    {
+        if (_requestRepeater is null)
+        {
+            return;
+        }
+
+        if (flow is null)
+        {
+            return;
+        }
+
+        var request = flow.Request;
+        if (request is null)
+        {
+            return;
+        }
+
+        if (string.Equals(request.Method, "CONNECT", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (repeatCount == 1)
+        {
+            await _requestRepeater.RepeatAsync(request, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await _requestRepeater.RepeatAsync(request, repeatCount, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private async Task RepeatSelectedAsync(CancellationToken cancellationToken)
+    {
+        await RepeatFlowAsync(SelectedFlow, repeatCount: 1, cancellationToken).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private async Task RepeatSelectedTenTimesAsync(CancellationToken cancellationToken)
+    {
+        await RepeatFlowAsync(SelectedFlow, repeatCount: 10, cancellationToken).ConfigureAwait(false);
     }
 
     [RelayCommand]

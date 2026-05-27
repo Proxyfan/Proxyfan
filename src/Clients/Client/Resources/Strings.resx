@@ -124,6 +124,12 @@
   <data name="Traffic_Column_Duration" xml:space="preserve">
     <value>Duration</value>
   </data>
+  <data name="Traffic_Context_Repeat" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="Traffic_Context_RepeatTenTimes" xml:space="preserve">
+    <value>Repeat 10 Times</value>
+  </data>
   <data name="Inspector_Section_RequestHeaders" xml:space="preserve">
     <value>Request Headers</value>
   </data>
