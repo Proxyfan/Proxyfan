@@ -15,6 +15,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Domain.Certificates\Domain.Certificates.csproj" />
         <ProjectReference Include="..\..\src\Domain.Proxy\Domain.Proxy.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Updates\Domain.Updates.csproj" />
         <ProjectReference Include="..\..\src\Framework.Networking\Framework.Networking.csproj" />
         <ProjectReference Include="..\..\src\Framework.Platform\Framework.Platform.csproj" />
     </ItemGroup>

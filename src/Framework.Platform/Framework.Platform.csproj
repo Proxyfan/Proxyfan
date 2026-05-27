@@ -10,6 +10,7 @@
         <ProjectReference Include="..\Domain\Domain.csproj" />
         <ProjectReference Include="..\Domain.Certificates\Domain.Certificates.csproj" />
         <ProjectReference Include="..\Domain.Proxy\Domain.Proxy.csproj" />
+        <ProjectReference Include="..\Domain.Updates\Domain.Updates.csproj" />
     </ItemGroup>
 
 </Project>
