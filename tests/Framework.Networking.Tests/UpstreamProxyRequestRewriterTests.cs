@@ -103,6 +103,58 @@ public sealed class UpstreamProxyRequestRewriterTests
         await Assert.That(asString).Contains("http://unknown");
     }
 
+    /// <summary>
+    ///     Verifies that the Proxy-Authorization header is injected directly after the request line
+    ///     when supplied.
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_WithProxyAuthorization_InjectsHeader()
+    {
+        var originalBytes = Encoding.ASCII.GetBytes("GET /api HTTP/1.1\r\nHost: example.com\r\n\r\n");
+        var request = BuildRelativeRequest();
+
+        var rewritten = UpstreamProxyRequestRewriter.RewriteHeaders(originalBytes, request, "Basic YWxpY2U6c2VjcmV0");
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).Contains("Proxy-Authorization: Basic YWxpY2U6c2VjcmV0");
+        await Assert.That(asString).Contains("Host: example.com");
+    }
+
+    /// <summary>
+    ///     Verifies that any pre-existing Proxy-Authorization header from the client is removed when
+    ///     credentials are supplied, so the upstream sees only the configured credentials.
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_WithProxyAuthorization_StripsPreExistingClientHeader()
+    {
+        var originalBytes = Encoding.ASCII.GetBytes(
+            "GET /api HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic clientToken==\r\n\r\n");
+        var request = BuildRelativeRequest();
+
+        var rewritten = UpstreamProxyRequestRewriter.RewriteHeaders(originalBytes, request, "Basic configured");
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("clientToken==");
+        await Assert.That(asString).Contains("Proxy-Authorization: Basic configured");
+    }
+
+    /// <summary>
+    ///     Verifies that when no Proxy-Authorization is supplied, the rewriter leaves any
+    ///     pre-existing Proxy-Authorization header from the client intact.
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_NoProxyAuthorization_PreservesClientHeader()
+    {
+        var originalBytes = Encoding.ASCII.GetBytes(
+            "GET /api HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic clientToken==\r\n\r\n");
+        var request = BuildRelativeRequest();
+
+        var rewritten = UpstreamProxyRequestRewriter.RewriteHeaders(originalBytes, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).Contains("Proxy-Authorization: Basic clientToken==");
+    }
+
     private static HypertextTransferProtocolRequestData BuildRelativeRequest()
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

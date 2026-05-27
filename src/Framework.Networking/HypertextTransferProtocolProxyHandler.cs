@@ -245,7 +245,9 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         }
 
         var upstreamOptions = _upstreamProxy?.CurrentValue;
-        var hasUpstreamProxy = upstreamOptions is not null && upstreamOptions.HasValidConfiguration();
+        var hasUpstreamProxy = upstreamOptions is not null
+            && upstreamOptions.HasValidConfiguration()
+            && !BypassPatternMatcher.HasMatch(upstreamOptions.BypassPatterns, hostEndpoint.Host);
         ConnectTarget? upstreamTarget = null;
         if (hasUpstreamProxy)
         {
@@ -254,8 +256,9 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         }
 
         var connectTarget = upstreamTarget ?? hostEndpoint;
+        var proxyAuthorization = hasUpstreamProxy ? ProxyAuthorizationHeader.Build(upstreamOptions!) : null;
         var headerBytes = hasUpstreamProxy
-            ? UpstreamProxyRequestRewriter.RewriteHeaders(requestExchange.HeaderBytes, requestExchange.Request)
+            ? UpstreamProxyRequestRewriter.RewriteHeaders(requestExchange.HeaderBytes, requestExchange.Request, proxyAuthorization)
             : requestExchange.HeaderBytes;
         using var upstreamClient = new TcpClient();
         await upstreamClient.ConnectAsync(connectTarget.Host, connectTarget.Port, cancellationToken).ConfigureAwait(false);

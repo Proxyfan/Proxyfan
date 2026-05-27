@@ -95,6 +95,69 @@ public sealed class HypertextTransferProtocolProxyHandlerUpstreamTests
         await Assert.That(connection.Transport).IsNotNull();
     }
 
+    /// <summary>
+    ///     Verifies that when an upstream proxy is configured but the destination host matches a
+    ///     bypass pattern, the handler connects directly to the origin instead of via upstream.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_BypassPatternMatchesHost_ConnectsDirectly()
+    {
+        using var originListener = StartCapturingServer(out var capturedTask, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        var originPort = ((IPEndPoint)originListener.LocalEndpoint).Port;
+        var options = new UpstreamProxyOptions
+        {
+            IsEnabled = true,
+            Host = "blackhole.invalid",
+            Port = 65000,
+        };
+        options.BypassPatterns.Add("127.0.0.1");
+        var optionsMonitor = new StubOptionsMonitor<UpstreamProxyOptions>(options);
+        var handler = CreateHandler(upstreamProxy: optionsMonitor);
+        var connection = new StubFullDuplexProxyConnection();
+        var requestBytes = Encoding.ASCII.GetBytes($"GET /api HTTP/1.1\r\nHost: 127.0.0.1:{originPort}\r\nConnection: close\r\n\r\n");
+        await connection.InputWriter.WriteAsync(requestBytes);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        originListener.Stop();
+
+        var captured = await capturedTask;
+        await Assert.That(captured).StartsWith("GET /api HTTP/1.1");
+    }
+
+    /// <summary>
+    ///     Verifies that when an upstream proxy is configured with credentials, the handler injects
+    ///     a Proxy-Authorization Basic header.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_UpstreamProxyWithCredentials_InjectsProxyAuthorizationHeader()
+    {
+        using var upstreamListener = StartCapturingServer(out var capturedTask, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        var upstreamPort = ((IPEndPoint)upstreamListener.LocalEndpoint).Port;
+        var options = new UpstreamProxyOptions
+        {
+            IsEnabled = true,
+            Host = "127.0.0.1",
+            Port = upstreamPort,
+            Username = "alice",
+            Password = "secret",
+        };
+        var optionsMonitor = new StubOptionsMonitor<UpstreamProxyOptions>(options);
+        var handler = CreateHandler(upstreamProxy: optionsMonitor);
+        var connection = new StubFullDuplexProxyConnection();
+        var requestBytes = Encoding.ASCII.GetBytes("GET /api HTTP/1.1\r\nHost: corp.example\r\nConnection: close\r\n\r\n");
+        await connection.InputWriter.WriteAsync(requestBytes);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        upstreamListener.Stop();
+
+        var captured = await capturedTask;
+        await Assert.That(captured).Contains("Proxy-Authorization: Basic YWxpY2U6c2VjcmV0");
+    }
+
     private static HypertextTransferProtocolProxyHandler CreateHandler(
         IOptionsMonitor<UpstreamProxyOptions>? upstreamProxy = null,
         StubBreakpointHandler? breakpointHandler = null)
