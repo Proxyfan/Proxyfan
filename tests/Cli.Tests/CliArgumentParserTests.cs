@@ -147,4 +147,32 @@ public sealed class CliArgumentParserTests
 
         await Assert.That(command.Port).IsEqualTo(8080);
     }
+
+    /// <summary>
+    ///     Verifies that "har-summary" with NO args returns HarSummary with null path.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarSummaryWithNoPath_ReturnsHarSummaryWithNullPath()
+    {
+        var args = ParserTestArguments.One("har-summary");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarSummary);
+        await Assert.That(command.PathArgument).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that "send --url ..." returns the Send command.
+    /// </summary>
+    [Test]
+    public async Task Parse_SendWithUrl_ReturnsSend()
+    {
+        var args = ParserTestArguments.Three("send", "--url", "https://example.com/");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Send);
+        await Assert.That(command.SendRequest).IsNotNull();
+    }
 }

@@ -199,6 +199,29 @@ public sealed class TrafficFilterTests
         await Assert.That(filter.HasMatch(flow)).IsFalse();
     }
 
+    /// <summary>
+    ///     Verifies that a request with an empty Host header is correctly handled
+    ///     (the Host-header branch is taken with an empty/null value).
+    /// </summary>
+    [Test]
+    public async Task Apply_RequestWithEmptyHostHeader_DoesNotThrow()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        var request = new HypertextTransferProtocolRequestData(new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", string.Empty),
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/"),
+            Version = "HTTP/1.1",
+        });
+        flow.SetRequest(request);
+
+        var filter = new TrafficFilter("unmatched-needle-xyz");
+
+        await Assert.That(filter.HasMatch(flow)).IsFalse();
+    }
+
     private static TrafficFlow[] BuildFlows()
     {
         var flowOne = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);

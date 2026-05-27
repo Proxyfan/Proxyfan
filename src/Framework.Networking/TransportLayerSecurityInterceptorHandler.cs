@@ -84,11 +84,11 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             return;
         }
 
-        var hasProxyingMatch = _context.ProxyingList.HasMatch(target.Host);
+        var strategy = TransportLayerSecurityStrategySelector.Select(_context.ProxyingList, target.Host);
 
         try
         {
-            if (hasProxyingMatch)
+            if (strategy == TransportLayerSecurityHandlingStrategy.InterceptAndInspect)
             {
                 await InterceptAsync(connection, target, cancellationToken).ConfigureAwait(false);
             }
@@ -99,7 +99,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            if (hasProxyingMatch)
+            if (strategy == TransportLayerSecurityHandlingStrategy.InterceptAndInspect)
             {
                 LogInterceptError(ex, target.Host, target.Port);
             }

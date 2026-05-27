@@ -143,4 +143,40 @@ public sealed class CliRunnerTests
             File.Delete(temporaryFile);
         }
     }
+
+    /// <summary>
+    ///     Verifies that the Send command routes through CliSendHandler.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_SendCommand_RoutesThroughHandler()
+    {
+        var runner = new CliRunner();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var request = new CliSendRequest("GET", "https://example.com/", new System.Collections.Generic.Dictionary<string, string>(), null);
+        var command = new CliCommand(CliCommandKind.Send, 8080, null, request);
+
+        var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(output.ToString()).Contains("GET / HTTP/1.1");
+    }
+
+    /// <summary>
+    ///     Verifies that an unrecognized CliCommandKind enum value hits the default branch
+    ///     and returns exit code 3.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_UnhandledKind_ReturnsThree()
+    {
+        var runner = new CliRunner();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var command = new CliCommand((CliCommandKind)999, 8080, null);
+
+        var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+        await Assert.That(exitCode).IsEqualTo(3);
+        await Assert.That(error.ToString()).Contains("Unhandled");
+    }
 }

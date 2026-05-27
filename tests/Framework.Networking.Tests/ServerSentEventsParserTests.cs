@@ -200,4 +200,30 @@ public sealed class ServerSentEventsParserTests
 
         await Assert.That(events.Count).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     Verifies that <see cref="ServerSentEventsLineParser.ParseField(string)" /> returns
+    ///     a field with no value when the colon has no value after it.
+    /// </summary>
+    [Test]
+    public async Task ParseField_ColonWithoutValue_ReturnsEmptyValue()
+    {
+        var field = ServerSentEventsLineParser.ParseField("data:");
+
+        await Assert.That(field).IsNotNull();
+        await Assert.That(field!.Name).IsEqualTo("data");
+        await Assert.That(field.Value).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ServerSentEventsLineParser.ParseField(string)" /> with
+    ///     no leading space after colon preserves the value verbatim.
+    /// </summary>
+    [Test]
+    public async Task ParseField_NoLeadingSpaceAfterColon_PreservesValue()
+    {
+        var field = ServerSentEventsLineParser.ParseField("data:hello");
+
+        await Assert.That(field!.Value).IsEqualTo("hello");
+    }
 }
