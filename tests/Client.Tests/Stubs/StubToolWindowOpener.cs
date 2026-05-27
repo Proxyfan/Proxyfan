@@ -28,6 +28,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenMapRemoteCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenTheme" /> was invoked.
+    /// </summary>
+    public int OpenThemeCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenThrottle" /> was invoked.
     /// </summary>
     public int OpenThrottleCallCount { get; private set; }
@@ -54,6 +59,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenMapRemote()
     {
         OpenMapRemoteCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenTheme()
+    {
+        OpenThemeCallCount++;
     }
 
     /// <inheritdoc />

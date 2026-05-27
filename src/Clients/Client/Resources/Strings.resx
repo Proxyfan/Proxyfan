@@ -181,6 +181,12 @@
   <data name="Shell_Menu_Throttle" xml:space="preserve">
     <value>Throttle...</value>
   </data>
+  <data name="Shell_Menu_View" xml:space="preserve">
+    <value>_View</value>
+  </data>
+  <data name="Shell_Menu_Theme" xml:space="preserve">
+    <value>Theme...</value>
+  </data>
   <data name="Shell_Menu_File" xml:space="preserve">
     <value>File</value>
   </data>
@@ -260,6 +266,15 @@
     <value>Available presets:</value>
   </data>
   <data name="Tools_Throttle_Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Tools_Theme_Title" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Tools_Theme_PickerLabel" xml:space="preserve">
+    <value>Choose a theme:</value>
+  </data>
+  <data name="Tools_Theme_Apply" xml:space="preserve">
     <value>Apply</value>
   </data>
 </root>

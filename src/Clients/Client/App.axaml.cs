@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Diagnostics;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using IApplicationLifetime = Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@ using Proxyfan.Domain.Session.Har;
 using Proxyfan.Presentation;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Localization;
+using Proxyfan.Presentation.Theming;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
@@ -58,6 +60,7 @@ public partial class App : Application
             services.AddTransient<AllowListViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
+            services.AddTransient<ThemeViewModel>();
             services.AddTransient<ThrottleViewModel>();
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
@@ -66,6 +69,11 @@ public partial class App : Application
             services.AddSingleton<IFilePickerService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaFilePickerService>());
             services.AddSingleton<IHarExporter, HarExporter>();
             services.AddSingleton<IHarImporter, HarImporter>();
+            services.AddSingleton<ThemeService>(static _ =>
+            {
+                var initial = AppTheme.System;
+                return new ThemeService(initial);
+            });
             services.AddSingleton<LocalizationService>(static serviceProvider =>
             {
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
@@ -114,6 +122,16 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    private void ApplyTheme(AppTheme theme)
+    {
+        RequestedThemeVariant = theme switch
+        {
+            AppTheme.Light => ThemeVariant.Light,
+            AppTheme.Dark => ThemeVariant.Dark,
+            _ => ThemeVariant.Default,
+        };
+    }
+
     private ShellWindow CreateShellWindow()
     {
         return new ShellWindow();
@@ -139,6 +157,9 @@ public partial class App : Application
             var localizationService = host.Services.GetRequiredService<LocalizationService>();
             var resourceManager = new ResourceManager("Proxyfan.Client.Resources.Strings", typeof(App).Assembly);
             localizationService.RegisterManager(resourceManager);
+            var themeService = host.Services.GetRequiredService<ThemeService>();
+            ApplyTheme(themeService.CurrentTheme);
+            themeService.ThemeChanged += (_, theme) => ApplyTheme(theme);
             host.Start();
             _ = host.Services.GetRequiredService<ProxyServer>();
         }

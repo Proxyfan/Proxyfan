@@ -1,0 +1,35 @@
+<UserControl x:Class="Proxyfan.Client.Tools.Views.ThemeView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:ThemeViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:ThemeViewModel}"
+             x:DataType="viewModels:ThemeViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,4"
+                   Text="{localization:Localize Key=Tools_Theme_PickerLabel}" />
+        <Border Grid.Row="1"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox ItemsSource="{Binding Options}"
+                     SelectedItem="{Binding SelectedOption, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:ThemeOptionViewModel">
+                        <TextBlock Margin="4" Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+        <StackPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+            <Button Command="{Binding ApplyCommand}"
+                    Content="{localization:Localize Key=Tools_Theme_Apply}"
+                    Padding="12,4" />
+        </StackPanel>
+    </Grid>
+</UserControl>

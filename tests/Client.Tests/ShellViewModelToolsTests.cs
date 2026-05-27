@@ -113,4 +113,25 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenMapRemoteCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenThemeCommand delegates to <see cref="StubToolWindowOpener.OpenTheme" />.
+    /// </summary>
+    [Test]
+    public async Task OpenThemeCommand_WhenInvoked_OpensThemeWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenThemeCommand.Execute(null);
+
+        await Assert.That(opener.OpenThemeCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(0);
+    }
 }

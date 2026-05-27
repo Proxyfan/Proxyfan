@@ -145,6 +145,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenTheme()
+    {
+        _toolWindowOpener.OpenTheme();
+    }
+
+    [RelayCommand]
     private void OpenThrottle()
     {
         _toolWindowOpener.OpenThrottle();

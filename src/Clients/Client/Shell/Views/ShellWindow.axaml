@@ -33,6 +33,10 @@
                 <MenuItem Command="{Binding OpenThrottleCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Throttle}" />
             </MenuItem>
+            <MenuItem Header="{localization:Localize Key=Shell_Menu_View}">
+                <MenuItem Command="{Binding OpenThemeCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_Theme}" />
+            </MenuItem>
         </Menu>
         <views:ShellView Grid.Row="1" />
     </Grid>

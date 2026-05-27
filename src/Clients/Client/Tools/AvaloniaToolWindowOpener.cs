@@ -17,6 +17,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private BlockListWindow? _blockListWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
+    private ThemeWindow? _themeWindow;
     private ThrottleWindow? _throttleWindow;
 
     /// <summary>
@@ -117,6 +118,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _mapRemoteWindow = null;
         };
         _mapRemoteWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenTheme()
+    {
+        if (_themeWindow is not null)
+        {
+            _themeWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<ThemeViewModel>();
+        var window = new ThemeWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _themeWindow = null;
+        };
+        _themeWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

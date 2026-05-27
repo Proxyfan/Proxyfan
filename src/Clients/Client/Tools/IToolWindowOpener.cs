@@ -32,6 +32,12 @@ public interface IToolWindowOpener
     void OpenMapRemote();
 
     /// <summary>
+    ///     Opens the Theme picker tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenTheme();
+
+    /// <summary>
     ///     Opens the Throttle tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>
