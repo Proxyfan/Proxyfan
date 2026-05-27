@@ -49,6 +49,7 @@ public partial class App : Application
             services.AddProxyListener(context.Configuration);
             services.AddSingleton<ProxyServer>();
             services.AddSingleton<TrafficListViewModel>();
+            services.AddSingleton<SourceListViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<ShellViewModel>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();

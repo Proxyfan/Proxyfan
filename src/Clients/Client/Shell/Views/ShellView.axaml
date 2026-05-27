@@ -88,9 +88,30 @@
             <Border Grid.Column="0"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="0,0,1,0">
-                <TextBlock HorizontalAlignment="Center"
-                           Text="{localization:Localize Key=Shell_SourcePanel_Header}"
-                           VerticalAlignment="Center" />
+                <DockPanel LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Top"
+                               FontWeight="SemiBold"
+                               Margin="8,4"
+                               Text="{localization:Localize Key=Shell_SourcePanel_Header}" />
+                    <ListBox ItemsSource="{Binding SourceList.Sources}"
+                             SelectedItem="{Binding SourceList.SelectedSource, Mode=TwoWay}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True">
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                               Margin="8,0,0,0"
+                                               Text="{Binding Count}" />
+                                    <TextBlock IsVisible="{Binding IsAllGroup}"
+                                               Text="{localization:Localize Key=Shell_SourcePanel_AllGroup}" />
+                                    <TextBlock IsVisible="{Binding !IsAllGroup}"
+                                               Text="{Binding Host}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
             <GridSplitter Grid.Column="1"
                           ResizeBehavior="PreviousAndNext"

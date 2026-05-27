@@ -34,6 +34,11 @@ public sealed partial class ShellViewModel : ObservableObject
     private bool _isSystemProxyEnabled;
 
     /// <summary>
+    ///     Gets the source list view model exposed for the left panel.
+    /// </summary>
+    public SourceListViewModel SourceList { get; }
+
+    /// <summary>
     ///     Gets the traffic list view model exposed for direct toolbar/status binding.
     /// </summary>
     public TrafficListViewModel TrafficList { get; }
@@ -50,6 +55,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="trafficListViewModel">
     ///     The traffic list view model exposed for toolbar/status bar bindings.
     /// </param>
+    /// <param name="sourceListViewModel">
+    ///     The source list view model exposed for the left navigation panel.
+    /// </param>
     /// <param name="filePicker">The file picker abstraction used to prompt the user for HAR paths.</param>
     /// <param name="harExporter">The HAR exporter used when saving a session.</param>
     /// <param name="harImporter">The HAR importer used when opening a session.</param>
@@ -57,6 +65,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ISystemProxy systemProxy,
         IOptionsMonitor<ProxyOptions> optionsMonitor,
         TrafficListViewModel trafficListViewModel,
+        SourceListViewModel sourceListViewModel,
         IFilePickerService filePicker,
         IHarExporter harExporter,
         IHarImporter harImporter)
@@ -68,6 +77,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _harImporter = harImporter;
         _isSystemProxyEnabled = false;
         TrafficList = trafficListViewModel;
+        SourceList = sourceListViewModel;
     }
 
     [RelayCommand]

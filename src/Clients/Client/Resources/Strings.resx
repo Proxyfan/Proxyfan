@@ -94,6 +94,9 @@
   <data name="Shell_SourcePanel_Header" xml:space="preserve">
     <value>Sources</value>
   </data>
+  <data name="Shell_SourcePanel_AllGroup" xml:space="preserve">
+    <value>All</value>
+  </data>
   <data name="Shell_StatusBar_Ready" xml:space="preserve">
     <value>Ready</value>
   </data>

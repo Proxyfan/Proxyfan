@@ -27,6 +27,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _filterText;
     [ObservableProperty]
+    private string _hostFilter;
+    [ObservableProperty]
     private bool _isCapturing;
     private int _nextNumber;
     [ObservableProperty]
@@ -66,6 +68,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         VisibleFlows = visibleFlows;
 
         _filterText = string.Empty;
+        _hostFilter = string.Empty;
         _isCapturing = true;
 
         Flows.CollectionChanged += OnFlowsCollectionChanged;
@@ -93,6 +96,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     /// <returns>True when the flow should be shown.</returns>
     public bool HasFilterMatch(TrafficFlowViewModel flow)
     {
+        if (!HasHostFilterMatch(flow))
+        {
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(FilterText))
         {
             return true;
@@ -157,6 +165,16 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         Interlocked.Exchange(ref _nextNumber, 0);
     }
 
+    private bool HasHostFilterMatch(TrafficFlowViewModel flow)
+    {
+        if (string.IsNullOrWhiteSpace(HostFilter))
+        {
+            return true;
+        }
+
+        return string.Equals(flow.Host, HostFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void LoadFlowsOnUiThread(IReadOnlyList<TrafficFlow> importedFlows)
     {
         ClearOnUiThread();
@@ -190,6 +208,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
         RebuildVisibleFlowsOnUiThread();
+    }
+
+    partial void OnHostFilterChanged(string value)
+    {
+        RebuildVisibleFlows();
     }
 
     private void OnRequestReceived(RequestReceived domainEvent)

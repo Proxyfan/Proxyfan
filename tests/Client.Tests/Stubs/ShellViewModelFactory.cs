@@ -52,8 +52,10 @@ public static class ShellViewModelFactory
     {
         var options = new ProxyOptions { Port = port };
         var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
-        var trafficList = new TrafficListViewModel(new NoopEventBus(), InlineUserInterfaceScheduler.Instance);
-        return new ShellViewModel(systemProxy, optionsMonitor, trafficList, filePicker, harExporter, harImporter);
+        var eventBus = new NoopEventBus();
+        var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance);
+        var sourceList = new SourceListViewModel(eventBus, trafficList, InlineUserInterfaceScheduler.Instance);
+        return new ShellViewModel(systemProxy, optionsMonitor, trafficList, sourceList, filePicker, harExporter, harImporter);
     }
 
     /// <summary>
