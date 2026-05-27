@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\Domain.Configuration\Domain.Configuration.csproj" />
         <ProjectReference Include="..\..\src\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\..\src\Framework.Serialization\Framework.Serialization.csproj" />
     </ItemGroup>

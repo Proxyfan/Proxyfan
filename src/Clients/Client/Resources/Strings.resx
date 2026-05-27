@@ -208,6 +208,9 @@
   <data name="Shell_Menu_Exit" xml:space="preserve">
     <value>Exit</value>
   </data>
+  <data name="Shell_Menu_Preferences" xml:space="preserve">
+    <value>Preferences...</value>
+  </data>
   <data name="Tools_BlockList_Title" xml:space="preserve">
     <value>Block List</value>
   </data>
@@ -450,5 +453,53 @@
   </data>
   <data name="Tools_Composer_CurlOutput" xml:space="preserve">
     <value>cURL</value>
+  </data>
+  <data name="Tools_Preferences_Title" xml:space="preserve">
+    <value>Preferences</value>
+  </data>
+  <data name="Tools_Preferences_Group_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Tools_Preferences_Group_Proxy" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="Tools_Preferences_Group_Upstream" xml:space="preserve">
+    <value>Upstream Proxy</value>
+  </data>
+  <data name="Tools_Preferences_Locale" xml:space="preserve">
+    <value>Locale (e.g. en-US, blank = auto)</value>
+  </data>
+  <data name="Tools_Preferences_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Tools_Preferences_LogLevel" xml:space="preserve">
+    <value>Log level</value>
+  </data>
+  <data name="Tools_Preferences_ProxyPort" xml:space="preserve">
+    <value>Proxy port</value>
+  </data>
+  <data name="Tools_Preferences_StartProxyOnLaunch" xml:space="preserve">
+    <value>Start proxy automatically on launch</value>
+  </data>
+  <data name="Tools_Preferences_RegisterSystemProxy" xml:space="preserve">
+    <value>Register as system proxy on startup</value>
+  </data>
+  <data name="Tools_Preferences_CaptureMaximumFlows" xml:space="preserve">
+    <value>Max captured flows</value>
+  </data>
+  <data name="Tools_Preferences_EnableUpstream" xml:space="preserve">
+    <value>Use upstream proxy</value>
+  </data>
+  <data name="Tools_Preferences_UpstreamHost" xml:space="preserve">
+    <value>Upstream host</value>
+  </data>
+  <data name="Tools_Preferences_UpstreamPort" xml:space="preserve">
+    <value>Upstream port</value>
+  </data>
+  <data name="Tools_Preferences_Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Tools_Preferences_Reset" xml:space="preserve">
+    <value>Restore defaults</value>
   </data>
 </root>

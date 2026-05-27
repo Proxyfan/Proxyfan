@@ -18,6 +18,9 @@
     <Grid RowDefinitions="Auto,*">
         <Menu Grid.Row="0">
             <MenuItem Header="{localization:Localize Key=Shell_Menu_File}">
+                <MenuItem Command="{Binding OpenPreferencesCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_Preferences}" />
+                <Separator />
                 <MenuItem Command="{Binding ExitCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Exit}" />
             </MenuItem>

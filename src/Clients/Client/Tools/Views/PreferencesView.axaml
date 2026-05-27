@@ -1,0 +1,121 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.PreferencesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:PreferencesViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:PreferencesViewModel}"
+             x:DataType="viewModels:PreferencesViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="12" RowDefinitions="*,Auto,Auto">
+        <ScrollViewer Grid.Row="0">
+            <StackPanel Spacing="12">
+                <HeaderedContentControl Header="{localization:Localize Key=Tools_Preferences_Group_General}">
+                    <StackPanel Spacing="6" Margin="6,4,0,0">
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_Locale}" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding Locale, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Watermark="auto" />
+                        </Grid>
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_Theme}" />
+                            <ComboBox Grid.Column="1"
+                                      Width="200"
+                                      HorizontalAlignment="Left"
+                                      SelectedItem="{Binding Theme, Mode=TwoWay}">
+                                <ComboBox.Items>
+                                    <x:String>System</x:String>
+                                    <x:String>Light</x:String>
+                                    <x:String>Dark</x:String>
+                                </ComboBox.Items>
+                            </ComboBox>
+                        </Grid>
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_LogLevel}" />
+                            <ComboBox Grid.Column="1"
+                                      Width="200"
+                                      HorizontalAlignment="Left"
+                                      SelectedItem="{Binding LogLevel, Mode=TwoWay}">
+                                <ComboBox.Items>
+                                    <x:String>Trace</x:String>
+                                    <x:String>Debug</x:String>
+                                    <x:String>Information</x:String>
+                                    <x:String>Warning</x:String>
+                                    <x:String>Error</x:String>
+                                </ComboBox.Items>
+                            </ComboBox>
+                        </Grid>
+                    </StackPanel>
+                </HeaderedContentControl>
+                <HeaderedContentControl Header="{localization:Localize Key=Tools_Preferences_Group_Proxy}">
+                    <StackPanel Spacing="6" Margin="6,4,0,0">
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_ProxyPort}" />
+                            <NumericUpDown Grid.Column="1"
+                                           Width="160"
+                                           HorizontalAlignment="Left"
+                                           Minimum="1024" Maximum="65535"
+                                           Value="{Binding ProxyPort, Mode=TwoWay}" />
+                        </Grid>
+                        <CheckBox Content="{localization:Localize Key=Tools_Preferences_StartProxyOnLaunch}"
+                                  IsChecked="{Binding IsStartProxyOnLaunch, Mode=TwoWay}" />
+                        <CheckBox Content="{localization:Localize Key=Tools_Preferences_RegisterSystemProxy}"
+                                  IsChecked="{Binding IsRegisterSystemProxyOnStartup, Mode=TwoWay}" />
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_CaptureMaximumFlows}" />
+                            <NumericUpDown Grid.Column="1"
+                                           Width="160"
+                                           HorizontalAlignment="Left"
+                                           Minimum="100" Maximum="1000000"
+                                           Value="{Binding CaptureMaximumFlows, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </HeaderedContentControl>
+                <HeaderedContentControl Header="{localization:Localize Key=Tools_Preferences_Group_Upstream}">
+                    <StackPanel Spacing="6" Margin="6,4,0,0">
+                        <CheckBox Content="{localization:Localize Key=Tools_Preferences_EnableUpstream}"
+                                  IsChecked="{Binding IsUpstreamProxyEnabled, Mode=TwoWay}" />
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_UpstreamHost}" />
+                            <TextBox Grid.Column="1"
+                                     IsEnabled="{Binding IsUpstreamProxyEnabled}"
+                                     Text="{Binding UpstreamProxyHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Watermark="corp-proxy.example.com" />
+                        </Grid>
+                        <Grid ColumnDefinitions="180,*">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                       Text="{localization:Localize Key=Tools_Preferences_UpstreamPort}" />
+                            <NumericUpDown Grid.Column="1"
+                                           Width="160"
+                                           HorizontalAlignment="Left"
+                                           IsEnabled="{Binding IsUpstreamProxyEnabled}"
+                                           Minimum="1" Maximum="65535"
+                                           Value="{Binding UpstreamProxyPort, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </HeaderedContentControl>
+            </StackPanel>
+        </ScrollViewer>
+        <TextBlock Grid.Row="1"
+                   Margin="0,8,0,4"
+                   FontStyle="Italic"
+                   Text="{Binding StatusMessage}" />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+            <Button Content="{localization:Localize Key=Tools_Preferences_Reset}"
+                    Command="{Binding ResetCommand}" />
+            <Button Content="{localization:Localize Key=Tools_Preferences_Apply}"
+                    Command="{Binding ApplyCommand}"
+                    Classes="accent" />
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Certificates;
+using Proxyfan.Domain.Configuration;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
@@ -63,6 +64,7 @@ public static class ServiceCollectionExtensions
         AddRuleEngine(serviceCollection);
         AddScripting(serviceCollection);
         AddComposer(serviceCollection);
+        AddPreferences(serviceCollection);
         return serviceCollection;
     }
 
@@ -114,6 +116,19 @@ public static class ServiceCollectionExtensions
             return new FileComposerHistoryStore(path);
         });
         serviceCollection.AddSingleton<ComposerHistoryService>();
+    }
+
+    private static void AddPreferences(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<IUserPreferencesStore>(static _ =>
+        {
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Proxyfan");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "preferences.json");
+            return new FileUserPreferencesStore(path);
+        });
     }
 
     private static void AddRuleEngine(IServiceCollection serviceCollection)

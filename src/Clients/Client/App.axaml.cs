@@ -63,6 +63,7 @@ public partial class App : Application
             services.AddTransient<ComposerViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
+            services.AddTransient<PreferencesViewModel>();
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ScriptingViewModel>();
             services.AddTransient<ThemeViewModel>();

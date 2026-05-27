@@ -137,6 +137,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenPreferences()
+    {
+        _toolWindowOpener.OpenPreferences();
+    }
+
+    [RelayCommand]
     private void OpenScripting()
     {
         _toolWindowOpener.OpenScripting();

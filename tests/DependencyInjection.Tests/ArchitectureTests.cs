@@ -45,9 +45,10 @@ public sealed class ArchitectureTests
             .ToArray();
 
         await Assert.That(TestArchitecture).IsNotNull();
-        await Assert.That(referencedAssemblyNames).Count().IsEqualTo(10);
+        await Assert.That(referencedAssemblyNames).Count().IsEqualTo(11);
         await Assert.That(referencedAssemblyNames).Contains("Domain");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Certificates");
+        await Assert.That(referencedAssemblyNames).Contains("Domain.Configuration");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Proxy");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Rules");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Scripting");

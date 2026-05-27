@@ -50,6 +50,12 @@ public interface IToolWindowOpener
     void OpenMapRemote();
 
     /// <summary>
+    ///     Opens the Preferences tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenPreferences();
+
+    /// <summary>
     ///     Opens the Scripting tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

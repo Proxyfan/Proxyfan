@@ -20,6 +20,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private ComposerWindow? _composerWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
+    private PreferencesWindow? _preferencesWindow;
     private ScriptingWindow? _scriptingWindow;
     private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
     private ThemeWindow? _themeWindow;
@@ -191,6 +192,28 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _mapRemoteWindow = null;
         };
         _mapRemoteWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenPreferences()
+    {
+        if (_preferencesWindow is not null)
+        {
+            _preferencesWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<PreferencesViewModel>();
+        var window = new PreferencesWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            _preferencesWindow = null;
+        };
+        _preferencesWindow = window;
         ToolWindowDisplay.Show(window);
     }
 
