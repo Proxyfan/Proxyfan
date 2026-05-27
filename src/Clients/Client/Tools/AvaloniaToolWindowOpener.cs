@@ -21,6 +21,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private DomainNameSystemSpoofingWindow? _domainNameSystemSpoofingWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
+    private PluginManagerWindow? _pluginManagerWindow;
     private PreferencesWindow? _preferencesWindow;
     private ScriptingWindow? _scriptingWindow;
     private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
@@ -215,6 +216,28 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _mapRemoteWindow = null;
         };
         _mapRemoteWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenPluginManager()
+    {
+        if (_pluginManagerWindow is not null)
+        {
+            _pluginManagerWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<PluginManagerViewModel>();
+        var window = new PluginManagerWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            _pluginManagerWindow = null;
+        };
+        _pluginManagerWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

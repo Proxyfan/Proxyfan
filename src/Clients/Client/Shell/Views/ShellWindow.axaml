@@ -51,6 +51,8 @@
             <MenuItem Header="{localization:Localize Key=Shell_Menu_View}">
                 <MenuItem Command="{Binding OpenThemeCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Theme}" />
+                <MenuItem Command="{Binding OpenPluginManagerCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_PluginManager}" />
             </MenuItem>
         </Menu>
         <views:ShellView Grid.Row="1" />

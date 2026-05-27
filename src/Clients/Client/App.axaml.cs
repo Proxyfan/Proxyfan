@@ -64,6 +64,7 @@ public partial class App : Application
             services.AddTransient<DomainNameSystemSpoofingViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
+            services.AddTransient<PluginManagerViewModel>();
             services.AddTransient<PreferencesViewModel>();
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ScriptingViewModel>();

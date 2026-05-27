@@ -143,6 +143,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenPluginManager()
+    {
+        _toolWindowOpener.OpenPluginManager();
+    }
+
+    [RelayCommand]
     private void OpenPreferences()
     {
         _toolWindowOpener.OpenPreferences();

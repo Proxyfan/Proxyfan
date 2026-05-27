@@ -48,6 +48,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenMapRemoteCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenPluginManager" /> was invoked.
+    /// </summary>
+    public int OpenPluginManagerCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenPreferences" /> was invoked.
     /// </summary>
     public int OpenPreferencesCallCount { get; private set; }
@@ -118,6 +123,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenMapRemote()
     {
         OpenMapRemoteCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenPluginManager()
+    {
+        OpenPluginManagerCallCount++;
     }
 
     /// <inheritdoc />

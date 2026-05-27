@@ -1,0 +1,81 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.PluginManagerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:PluginManagerViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:PluginManagerViewModel}"
+             x:DataType="viewModels:PluginManagerViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0"
+                       FontWeight="SemiBold"
+                       Text="{Binding Summary}"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Command="{Binding RefreshCommand}"
+                    Content="{localization:Localize Key=Tools_PluginManager_Refresh}"
+                    Padding="12,4" />
+        </Grid>
+        <TextBlock Grid.Row="1"
+                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                   Margin="0,0,0,8"
+                   Text="{localization:Localize Key=Tools_PluginManager_Description}"
+                   TextWrapping="Wrap" />
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Plugins}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:PluginItemViewModel">
+                            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="8">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="0"
+                                               FontWeight="SemiBold"
+                                               Text="{Binding Name}" />
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="1"
+                                               FontFamily="Consolas"
+                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                               Text="{Binding Version}" />
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="0"
+                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                               FontSize="11"
+                                               Text="{Binding Identifier}" />
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="1"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                               Text="{Binding Status}" />
+                                    <TextBlock Grid.Row="2"
+                                               Grid.Column="0"
+                                               Grid.ColumnSpan="2"
+                                               Margin="0,4,0,0"
+                                               Text="{Binding Description}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Grid.Row="3"
+                                               Grid.Column="0"
+                                               Grid.ColumnSpan="2"
+                                               Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                                               IsVisible="{Binding ErrorMessage, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                               Margin="0,4,0,0"
+                                               Text="{Binding ErrorMessage}"
+                                               TextWrapping="Wrap" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

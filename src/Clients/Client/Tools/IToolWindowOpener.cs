@@ -56,6 +56,12 @@ public interface IToolWindowOpener
     void OpenMapRemote();
 
     /// <summary>
+    ///     Opens the Plugin Manager tool window. Idempotent: if the window is already
+    ///     open, it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenPluginManager();
+
+    /// <summary>
     ///     Opens the Preferences tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

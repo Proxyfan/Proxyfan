@@ -21,6 +21,7 @@
         <ProjectReference Include="..\Domain.Scripting\Domain.Scripting.csproj" />
         <ProjectReference Include="..\Domain.Throttling\Domain.Throttling.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
+        <ProjectReference Include="..\Framework.Extensibility\Framework.Extensibility.csproj" />
         <ProjectReference Include="..\Framework.Networking\Framework.Networking.csproj" />
         <ProjectReference Include="..\Framework.Platform\Framework.Platform.csproj" />
         <ProjectReference Include="..\Framework.Serialization\Framework.Serialization.csproj" />

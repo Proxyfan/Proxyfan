@@ -214,6 +214,9 @@
   <data name="Shell_Menu_DomainNameSystemSpoofing" xml:space="preserve">
     <value>DNS Spoofing...</value>
   </data>
+  <data name="Shell_Menu_PluginManager" xml:space="preserve">
+    <value>Plugin Manager...</value>
+  </data>
   <data name="Tools_BlockList_Title" xml:space="preserve">
     <value>Block List</value>
   </data>
@@ -522,5 +525,14 @@
   </data>
   <data name="Tools_DomainNameSystemSpoofing_Remove" xml:space="preserve">
     <value>Remove</value>
+  </data>
+  <data name="Tools_PluginManager_Title" xml:space="preserve">
+    <value>Plugin Manager</value>
+  </data>
+  <data name="Tools_PluginManager_Description" xml:space="preserve">
+    <value>Plugins extend Proxyfan with custom inspectors, decoders, and export formats. Plugins are loaded from the application plugins directory at startup. Use Refresh to re-read the registry after editing plugins on disk.</value>
+  </data>
+  <data name="Tools_PluginManager_Refresh" xml:space="preserve">
+    <value>Refresh</value>
   </data>
 </root>

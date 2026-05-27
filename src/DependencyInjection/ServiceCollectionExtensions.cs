@@ -10,6 +10,7 @@ using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Framework.Extensibility;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
 using Proxyfan.Framework.Serialization;
@@ -66,6 +67,7 @@ public static class ServiceCollectionExtensions
         AddRuleEngine(serviceCollection);
         AddScripting(serviceCollection);
         AddComposer(serviceCollection);
+        AddPlugins(serviceCollection);
         AddPreferences(serviceCollection);
         return serviceCollection;
     }
@@ -118,6 +120,11 @@ public static class ServiceCollectionExtensions
             return new FileComposerHistoryStore(path);
         });
         serviceCollection.AddSingleton<ComposerHistoryService>();
+    }
+
+    private static void AddPlugins(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<PluginRegistry>();
     }
 
     private static void AddPreferences(IServiceCollection serviceCollection)
