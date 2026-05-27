@@ -5,6 +5,7 @@ using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
@@ -57,6 +58,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
         serviceCollection.AddSingleton<MutableThrottleProfile>();
         AddRuleEngine(serviceCollection);
+        AddScripting(serviceCollection);
         return serviceCollection;
     }
 
@@ -130,6 +132,17 @@ public static class ServiceCollectionExtensions
         });
     }
 
+    private static void AddScripting(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton(_ =>
+        {
+            var configuration = new MutableScriptingConfiguration(isEnabled: false);
+            return configuration;
+        });
+        serviceCollection.AddSingleton<IUserScriptCompiler, RoslynUserScriptCompiler>();
+        serviceCollection.AddSingleton<IScriptingHandler, UserScriptingHandler>();
+    }
+
     private static HypertextTransferProtocolProxyHandlerDependencies BuildHypertextTransferProtocolDependencies(IServiceProvider provider)
     {
         var dependencies = new HypertextTransferProtocolProxyHandlerDependencies
@@ -141,6 +154,7 @@ public static class ServiceCollectionExtensions
             UpstreamProxy = provider.GetService<IOptionsMonitor<UpstreamProxyOptions>>(),
             ThrottleProfile = provider.GetService<MutableThrottleProfile>(),
             BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
+            ScriptingHandler = provider.GetService<IScriptingHandler>(),
         };
         return dependencies;
     }

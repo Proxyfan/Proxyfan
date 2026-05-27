@@ -4,6 +4,7 @@ using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 
@@ -36,6 +37,13 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     ///     Gets the rule engine used to evaluate request- and response-phase rules.
     /// </summary>
     public required IRuleEngine RuleEngine { get; init; }
+
+    /// <summary>
+    ///     Gets the optional scripting handler that runs user-defined C# scripts before the
+    ///     request leaves the proxy and after the response is received. When
+    ///     <see langword="null" /> or when no script is active, traffic passes through unchanged.
+    /// </summary>
+    public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
     ///     Gets the optional throttle profile holder used to bandwidth-limit response writes.

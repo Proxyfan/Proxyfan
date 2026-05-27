@@ -16,6 +16,7 @@
         <ProjectReference Include="..\..\src\Domain.Certificates\Domain.Certificates.csproj" />
         <ProjectReference Include="..\..\src\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\..\src\Domain.Rules\Domain.Rules.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Scripting\Domain.Scripting.csproj" />
         <ProjectReference Include="..\..\src\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\..\src\Framework.Networking\Framework.Networking.csproj" />
     </ItemGroup>

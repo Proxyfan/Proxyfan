@@ -5,6 +5,7 @@ using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
@@ -31,6 +32,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger<HypertextTransferProtocolProxyHandler> _logger;
     private readonly IRuleEngine _ruleEngine;
+    private readonly IScriptingHandler? _scriptingHandler;
     private readonly MutableThrottleProfile? _throttleProfile;
     private readonly ITrafficStore _trafficStore;
     private readonly IOptionsMonitor<UpstreamProxyOptions>? _upstreamProxy;
@@ -60,6 +62,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         _trafficStore = dependencies.TrafficStore;
         _eventBus = dependencies.EventBus;
         _ruleEngine = dependencies.RuleEngine;
+        _scriptingHandler = dependencies.ScriptingHandler;
         _logger = dependencies.Logger;
         _upstreamProxy = dependencies.UpstreamProxy;
         _throttleProfile = dependencies.ThrottleProfile;
@@ -128,6 +131,53 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
 
         var decision = await _breakpointHandler.ResolveResponseAsync(effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
         return decision;
+    }
+
+    private async Task<HypertextTransferProtocolRequestData> ApplyScriptingRequestAsync(
+        TrafficFlow flow,
+        HypertextTransferProtocolRequestData effectiveRequest,
+        CancellationToken cancellationToken)
+    {
+        if (_scriptingHandler is null)
+        {
+            return effectiveRequest;
+        }
+
+        try
+        {
+            var flowId = flow.Id.ToString();
+            var projected = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
+            return projected;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Scripting request-phase hook threw; continuing with unmodified request");
+            return effectiveRequest;
+        }
+    }
+
+    private async Task<HypertextTransferProtocolResponseData> ApplyScriptingResponseAsync(
+        TrafficFlow flow,
+        HypertextTransferProtocolRequestData effectiveRequest,
+        HypertextTransferProtocolResponseData finalResponse,
+        CancellationToken cancellationToken)
+    {
+        if (_scriptingHandler is null)
+        {
+            return finalResponse;
+        }
+
+        try
+        {
+            var flowId = flow.Id.ToString();
+            var projected = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+            return projected;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Scripting response-phase hook threw; continuing with unmodified response");
+            return finalResponse;
+        }
     }
 
     private async Task ApplyThrottleAsync(CancellationToken cancellationToken)
@@ -287,6 +337,37 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         return target;
     }
 
+    private async Task<bool> ProcessResponsePhaseAsync(
+        HypertextTransferProtocolResponsePhaseContext context,
+        CancellationToken cancellationToken)
+    {
+        var flow = context.Flow;
+        var effectiveRequest = context.EffectiveRequest;
+        var responseExchange = context.ResponseExchange;
+        var responseActions = _ruleEngine.EvaluateResponse(effectiveRequest, responseExchange.Response);
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(responseExchange.Response, responseActions);
+
+        finalResponse = await ApplyScriptingResponseAsync(flow, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+
+        var responseBreakpoint = await ApplyResponseBreakpointAsync(effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+        if (responseBreakpoint.IsAborting)
+        {
+            FailAndCompleteFlow(flow);
+            return false;
+        }
+        finalResponse = responseBreakpoint.ModifiedResponse ?? finalResponse;
+
+        var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
+        flow.SetResponse(finalResponse);
+        PublishResponseReceived(flow, finalResponse);
+        flow.Complete();
+        await ApplyThrottleAsync(cancellationToken).ConfigureAwait(false);
+        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(context.Connection.Transport.Output, finalExchange, cancellationToken).ConfigureAwait(false);
+        _trafficStore.Add(flow);
+        PublishFlowCompleted(flow);
+        return CanKeepClientConnectionAlive(effectiveRequest, finalResponse);
+    }
+
     private async Task<bool> ProcessSingleExchangeAsync(
         IProxyConnection connection,
         HypertextTransferProtocolProxyRequestExchange requestExchange,
@@ -315,6 +396,8 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         }
         effectiveRequest = requestBreakpoint.ModifiedRequest ?? effectiveRequest;
 
+        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
+
         var responseExchange = await GetResponseExchangeAsync(blockingAction, requestExchange, effectiveRequest, cancellationToken).ConfigureAwait(false);
         if (responseExchange is null)
         {
@@ -322,26 +405,14 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
 
-        var responseActions = _ruleEngine.EvaluateResponse(effectiveRequest, responseExchange.Response);
-        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(responseExchange.Response, responseActions);
-
-        var responseBreakpoint = await ApplyResponseBreakpointAsync(effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-        if (responseBreakpoint.IsAborting)
+        var context = new HypertextTransferProtocolResponsePhaseContext
         {
-            FailAndCompleteFlow(flow);
-            return false;
-        }
-        finalResponse = responseBreakpoint.ModifiedResponse ?? finalResponse;
-
-        var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
-        flow.SetResponse(finalResponse);
-        PublishResponseReceived(flow, finalResponse);
-        flow.Complete();
-        await ApplyThrottleAsync(cancellationToken).ConfigureAwait(false);
-        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(connection.Transport.Output, finalExchange, cancellationToken).ConfigureAwait(false);
-        _trafficStore.Add(flow);
-        PublishFlowCompleted(flow);
-        return CanKeepClientConnectionAlive(effectiveRequest, finalResponse);
+            Connection = connection,
+            EffectiveRequest = effectiveRequest,
+            Flow = flow,
+            ResponseExchange = responseExchange,
+        };
+        return await ProcessResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
     }
 
     private void PublishFlowCompleted(TrafficFlow flow)

@@ -35,6 +35,7 @@
     <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.3" />
     <PackageVersion Include="TngTech.ArchUnitNET.TUnit" Version="0.13.3" />
     <PackageVersion Include="Avalonia.Headless" Version="11.3.11" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.12.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     <!-- Security fix: pin transitive Tmds.DBus.Protocol to patched version (CVE-2026-39959 / GHSA-xrw6-gwf8-vvr9) -->
