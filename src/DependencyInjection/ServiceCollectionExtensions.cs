@@ -5,6 +5,7 @@ using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Configuration;
 using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.RemoteDevices;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
@@ -70,6 +71,7 @@ public static class ServiceCollectionExtensions
         AddComposer(serviceCollection);
         AddPlugins(serviceCollection);
         AddPreferences(serviceCollection);
+        AddRemoteDevices(serviceCollection);
         AddReverseProxy(serviceCollection);
         return serviceCollection;
     }
@@ -141,6 +143,17 @@ public static class ServiceCollectionExtensions
             var path = Path.Combine(directory, "preferences.json");
             return new FileUserPreferencesStore(path);
         });
+    }
+
+    private static void AddRemoteDevices(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<RemoteDeviceTracker>(static serviceProvider =>
+        {
+            var timeProvider = serviceProvider.GetRequiredService<TimeProvider>();
+            var tracker = new RemoteDeviceTracker(timeProvider);
+            return tracker;
+        });
+        serviceCollection.AddSingleton<RemoteDeviceTrackerEventBridge>();
     }
 
     private static void AddReverseProxy(IServiceCollection serviceCollection)
