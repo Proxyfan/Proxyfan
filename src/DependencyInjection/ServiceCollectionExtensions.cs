@@ -8,7 +8,6 @@ using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
 
@@ -53,12 +52,11 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
-        serviceCollection.AddSingleton<IRuleEngine>(_ =>
+        serviceCollection.AddSingleton<IRuleRegistry, RuleRegistry>();
+        serviceCollection.AddSingleton<IRuleEngine>(provider =>
         {
-            IReadOnlyList<IRequestPhaseRule> requestRules = [];
-            IReadOnlyList<IResponsePhaseRule> responseRules = [];
-            var engine = new RuleEngine(requestRules, responseRules);
-            return engine;
+            var registry = provider.GetRequiredService<IRuleRegistry>();
+            return new RuleEngine(registry);
         });
         return serviceCollection;
     }

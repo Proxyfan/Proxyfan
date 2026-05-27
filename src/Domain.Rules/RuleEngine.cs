@@ -11,25 +11,42 @@ namespace Proxyfan.Domain.Rules;
 /// </summary>
 public sealed class RuleEngine : IRuleEngine
 {
-    private readonly IReadOnlyList<IRequestPhaseRule> _requestRules;
-    private readonly IReadOnlyList<IResponsePhaseRule> _responseRules;
+    private readonly IRuleRegistry _registry;
 
     /// <summary>
-    ///     Initializes a new <see cref="RuleEngine" /> with the supplied request- and response-phase rules.
-    ///     Rules are sorted by ascending priority once at construction time.
+    ///     Initializes a new <see cref="RuleEngine" /> backed by the supplied registry.
+    ///     Rule snapshots are queried per-evaluation so newly registered rules take effect
+    ///     immediately, including across UI-driven rule edits at runtime.
     /// </summary>
-    /// <param name="requestRules">The collection of request-phase rules.</param>
-    /// <param name="responseRules">The collection of response-phase rules.</param>
+    /// <param name="registry">The rule registry that supplies request- and response-phase rules.</param>
+    public RuleEngine(IRuleRegistry registry)
+    {
+        _registry = registry;
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="RuleEngine" /> seeded with the supplied rule collections.
+    ///     A new <see cref="RuleRegistry" /> is created internally; subsequent registrations
+    ///     are not visible through this engine.
+    /// </summary>
+    /// <param name="requestRules">The initial set of request-phase rules.</param>
+    /// <param name="responseRules">The initial set of response-phase rules.</param>
     public RuleEngine(
         IEnumerable<IRequestPhaseRule> requestRules,
         IEnumerable<IResponsePhaseRule> responseRules)
     {
-        var orderedRequestRules = new List<IRequestPhaseRule>(requestRules);
-        orderedRequestRules.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
-        var orderedResponseRules = new List<IResponsePhaseRule>(responseRules);
-        orderedResponseRules.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
-        _requestRules = orderedRequestRules;
-        _responseRules = orderedResponseRules;
+        var registry = new RuleRegistry();
+        foreach (var rule in requestRules)
+        {
+            registry.RegisterRequestPhaseRule(rule);
+        }
+
+        foreach (var rule in responseRules)
+        {
+            registry.RegisterResponsePhaseRule(rule);
+        }
+
+        _registry = registry;
     }
 
     /// <inheritdoc />
@@ -38,7 +55,7 @@ public sealed class RuleEngine : IRuleEngine
         var actions = new List<RequestPipelineAction>();
         var currentRequest = request;
 
-        foreach (var rule in _requestRules)
+        foreach (var rule in _registry.GetRequestPhaseRules())
         {
             if (!rule.IsEnabled)
             {
@@ -80,7 +97,7 @@ public sealed class RuleEngine : IRuleEngine
         var actions = new List<ResponsePipelineAction>();
         var currentResponse = response;
 
-        foreach (var rule in _responseRules)
+        foreach (var rule in _registry.GetResponsePhaseRules())
         {
             if (!rule.IsEnabled)
             {
