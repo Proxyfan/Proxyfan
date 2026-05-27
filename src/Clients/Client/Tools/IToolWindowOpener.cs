@@ -20,6 +20,12 @@ public interface IToolWindowOpener
     void OpenBlockList();
 
     /// <summary>
+    ///     Opens the Certificate Manager tool window. Idempotent: if the window is already
+    ///     open, it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenCertificateManager();
+
+    /// <summary>
     ///     Opens the Map Local tool window. Idempotent: if the window is already open,
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>

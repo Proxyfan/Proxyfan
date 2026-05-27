@@ -58,6 +58,7 @@ public partial class App : Application
             services.AddSingleton<ShellViewModel>();
             services.AddTransient<BlockListViewModel>();
             services.AddTransient<AllowListViewModel>();
+            services.AddTransient<CertificateManagerViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();

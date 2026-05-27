@@ -1,5 +1,4 @@
-﻿using Proxyfan.Domain.Certificates;
-using System;
+using Proxyfan.Domain.Certificates;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +10,7 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public sealed class TransportLayerSecurityInterceptionContext
 {
-    private readonly Lazy<Task<CertificateAuthority>> _certificateAuthorityTask;
+    private readonly MutableCertificateAuthorityProvider _authorityProvider;
     private readonly LeafCertificateCache _certificateCache;
 
     /// <summary>
@@ -22,18 +21,17 @@ public sealed class TransportLayerSecurityInterceptionContext
     /// <summary>
     ///     Initializes a new instance of the <see cref="TransportLayerSecurityInterceptionContext" /> class.
     /// </summary>
-    /// <param name="certificateGenerator">The certificate generator used to create the root authority.</param>
+    /// <param name="authorityProvider">The provider that owns the current root certificate authority.</param>
     /// <param name="proxyingList">The proxying rules used to decide when to intercept secure traffic.</param>
     public TransportLayerSecurityInterceptionContext(
-        ICertificateGenerator certificateGenerator,
+        MutableCertificateAuthorityProvider authorityProvider,
         ServerNameIndicationProxyingList proxyingList)
     {
-        var certificateAuthorityTask = new Lazy<Task<CertificateAuthority>>(
-            () => certificateGenerator.GenerateRootCertificateAuthorityAsync(CancellationToken.None));
         var certificateCache = new LeafCertificateCache(1000);
-        _certificateAuthorityTask = certificateAuthorityTask;
+        _authorityProvider = authorityProvider;
         _certificateCache = certificateCache;
         ProxyingList = proxyingList;
+        _authorityProvider.Changed += OnAuthorityChanged;
     }
 
     /// <summary>
@@ -45,9 +43,14 @@ public sealed class TransportLayerSecurityInterceptionContext
     public async Task<X509Certificate2> GetLeafCertificateAsync(string hostname, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var authority = await _certificateAuthorityTask.Value.ConfigureAwait(false);
+        var authority = await _authorityProvider.GetAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         var certificate = _certificateCache.GetOrAdd(hostname, authority.Sign);
         return certificate;
+    }
+
+    private void OnAuthorityChanged(MutableCertificateAuthorityProvider sender)
+    {
+        _certificateCache.Clear();
     }
 }

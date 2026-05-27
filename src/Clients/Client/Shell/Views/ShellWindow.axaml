@@ -32,6 +32,8 @@
                           Header="{localization:Localize Key=Shell_Menu_MapRemote}" />
                 <MenuItem Command="{Binding OpenSecureSocketsLayerProxyingCommand}"
                           Header="{localization:Localize Key=Shell_Menu_SecureSocketsLayerProxying}" />
+                <MenuItem Command="{Binding OpenCertificateManagerCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_CertificateManager}" />
                 <MenuItem Command="{Binding OpenThrottleCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Throttle}" />
             </MenuItem>

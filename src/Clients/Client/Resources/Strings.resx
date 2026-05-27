@@ -184,6 +184,9 @@
   <data name="Shell_Menu_SecureSocketsLayerProxying" xml:space="preserve">
     <value>SSL Proxying...</value>
   </data>
+  <data name="Shell_Menu_CertificateManager" xml:space="preserve">
+    <value>Certificate Manager...</value>
+  </data>
   <data name="Shell_Menu_View" xml:space="preserve">
     <value>_View</value>
   </data>
@@ -300,5 +303,44 @@
   </data>
   <data name="Tools_SecureSocketsLayerProxying_Remove" xml:space="preserve">
     <value>Remove</value>
+  </data>
+  <data name="Tools_CertificateManager_Title" xml:space="preserve">
+    <value>Certificate Manager</value>
+  </data>
+  <data name="Tools_CertificateManager_Heading" xml:space="preserve">
+    <value>Proxyfan Root Certificate Authority</value>
+  </data>
+  <data name="Tools_CertificateManager_SubjectLabel" xml:space="preserve">
+    <value>Subject:</value>
+  </data>
+  <data name="Tools_CertificateManager_IssuerLabel" xml:space="preserve">
+    <value>Issuer:</value>
+  </data>
+  <data name="Tools_CertificateManager_ThumbprintLabel" xml:space="preserve">
+    <value>Thumbprint:</value>
+  </data>
+  <data name="Tools_CertificateManager_NotBeforeLabel" xml:space="preserve">
+    <value>Valid from:</value>
+  </data>
+  <data name="Tools_CertificateManager_NotAfterLabel" xml:space="preserve">
+    <value>Valid until:</value>
+  </data>
+  <data name="Tools_CertificateManager_InstalledLabel" xml:space="preserve">
+    <value>Trusted by Windows:</value>
+  </data>
+  <data name="Tools_CertificateManager_Install" xml:space="preserve">
+    <value>Install in Trust Store</value>
+  </data>
+  <data name="Tools_CertificateManager_Uninstall" xml:space="preserve">
+    <value>Remove from Trust Store</value>
+  </data>
+  <data name="Tools_CertificateManager_Export" xml:space="preserve">
+    <value>Export...</value>
+  </data>
+  <data name="Tools_CertificateManager_Regenerate" xml:space="preserve">
+    <value>Regenerate</value>
+  </data>
+  <data name="Tools_CertificateManager_Warning" xml:space="preserve">
+    <value>Regenerating the root certificate invalidates every cached leaf certificate. If the previous CA was installed, the freshly minted CA will be reinstalled automatically.</value>
   </data>
 </root>

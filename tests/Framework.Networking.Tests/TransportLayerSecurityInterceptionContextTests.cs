@@ -1,4 +1,4 @@
-﻿using Proxyfan.Domain.Certificates;
+using Proxyfan.Domain.Certificates;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -18,7 +18,7 @@ public sealed class TransportLayerSecurityInterceptionContextTests
     public async Task ProxyingList_Always_ReturnsSameInstanceAsConfigured()
     {
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
-        var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
 
         await Assert.That(context.ProxyingList).IsSameReferenceAs(proxyingList);
     }
@@ -30,7 +30,7 @@ public sealed class TransportLayerSecurityInterceptionContextTests
     public async Task GetLeafCertificateAsync_ValidHostname_ReturnsCertificateWithSubject()
     {
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: false);
-        var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
 
         var certificate = await context.GetLeafCertificateAsync("example.com", CancellationToken.None);
 
@@ -45,7 +45,7 @@ public sealed class TransportLayerSecurityInterceptionContextTests
     public async Task GetLeafCertificateAsync_SameHostnameTwice_ReturnsSameCertificate()
     {
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: false);
-        var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
 
         var first = await context.GetLeafCertificateAsync("cached.example.com", CancellationToken.None);
         var second = await context.GetLeafCertificateAsync("cached.example.com", CancellationToken.None);
@@ -60,7 +60,7 @@ public sealed class TransportLayerSecurityInterceptionContextTests
     public async Task GetLeafCertificateAsync_DifferentHostnames_ReturnsDifferentCertificates()
     {
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: false);
-        var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
 
         var first = await context.GetLeafCertificateAsync("alpha.example.com", CancellationToken.None);
         var second = await context.GetLeafCertificateAsync("beta.example.com", CancellationToken.None);

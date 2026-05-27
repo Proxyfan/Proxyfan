@@ -136,6 +136,27 @@ public sealed class ShellViewModelToolsTests
     }
 
     /// <summary>
+    ///     The OpenCertificateManagerCommand delegates to <see cref="StubToolWindowOpener.OpenCertificateManager" />.
+    /// </summary>
+    [Test]
+    public async Task OpenCertificateManagerCommand_WhenInvoked_OpensCertificateManagerWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenCertificateManagerCommand.Execute(null);
+
+        await Assert.That(opener.OpenCertificateManagerCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenThemeCallCount).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     The OpenSecureSocketsLayerProxyingCommand delegates to <see cref="StubToolWindowOpener.OpenSecureSocketsLayerProxying" />.
     /// </summary>
     [Test]

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Framework.Networking.Tests.Stubs;
@@ -18,7 +18,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerTests
     private static TransportLayerSecurityInterceptorHandler CreateHandler()
     {
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
-        var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = NullLogger<TransportLayerSecurityInterceptorHandler>.Instance;

@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ITrafficStore, TrafficStore>();
         serviceCollection.AddSingleton<ICertificateGenerator, RsaCertificateGenerator>();
         serviceCollection.AddSingleton<ICertificateStore, WindowsCertificateStore>();
+        serviceCollection.AddSingleton<MutableCertificateAuthorityProvider>();
         var serverNameIndicationProxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
         serverNameIndicationProxyingList.AddIncludedPattern("*");
         serviceCollection.AddSingleton(serverNameIndicationProxyingList);

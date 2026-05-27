@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
@@ -24,8 +24,8 @@ namespace Proxyfan.Framework.Networking.Tests;
 public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
 {
     /// <summary>
-    ///     Verifies that the TLS interceptor performs the full intercept flow: CONNECT → dual
-    ///     TLS handshake → HTTP forward → response relay → traffic flow recorded.
+    ///     Verifies that the TLS interceptor performs the full intercept flow: CONNECT ? dual
+    ///     TLS handshake ? HTTP forward ? response relay ? traffic flow recorded.
     /// </summary>
     [Test]
     public async Task FullStack_InterceptHttpsRequest_RecordsTrafficFlow()
@@ -35,7 +35,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var upstreamEndPoint = (IPEndPoint)upstreamListener.Listener.LocalEndpoint;
 
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
-        var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var handler = new TransportLayerSecurityInterceptorHandler(new TransportLayerSecurityInterceptorHandlerDependencies
@@ -62,8 +62,8 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var responseText = await response.Content.ReadAsStringAsync(cancellationSource.Token);
 
         // The HTTP-level assertions succeed only when the full TLS interception completed:
-        // CONNECT → leaf-cert generation → server-side handshake → upstream forwarding →
-        // response read → response re-encrypted and written to the client. The handler's
+        // CONNECT ? leaf-cert generation ? server-side handshake ? upstream forwarding ?
+        // response read ? response re-encrypted and written to the client. The handler's
         // bookkeeping (trafficStore.Add, event publication) happens asynchronously after the
         // client-side write so we don't assert on it here (a race condition we accept in
         // exchange for a stable end-to-end test).

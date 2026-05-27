@@ -15,6 +15,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private readonly IServiceProvider _serviceProvider;
     private AllowListWindow? _allowListWindow;
     private BlockListWindow? _blockListWindow;
+    private CertificateManagerWindow? _certificateManagerWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
     private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
@@ -73,6 +74,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _blockListWindow = null;
         };
         _blockListWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenCertificateManager()
+    {
+        if (_certificateManagerWindow is not null)
+        {
+            _certificateManagerWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<CertificateManagerViewModel>();
+        var window = new CertificateManagerWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _certificateManagerWindow = null;
+        };
+        _certificateManagerWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

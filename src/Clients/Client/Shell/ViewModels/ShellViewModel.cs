@@ -107,6 +107,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenCertificateManager()
+    {
+        _toolWindowOpener.OpenCertificateManager();
+    }
+
+    [RelayCommand]
     private void OpenMapLocal()
     {
         _toolWindowOpener.OpenMapLocal();

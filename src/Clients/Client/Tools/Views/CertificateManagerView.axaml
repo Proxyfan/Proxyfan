@@ -1,0 +1,59 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.CertificateManagerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:CertificateManagerViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:CertificateManagerViewModel}"
+             x:DataType="viewModels:CertificateManagerViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+        <TextBlock Grid.Row="0"
+                   FontSize="16"
+                   FontWeight="Bold"
+                   Margin="0,0,0,8"
+                   Text="{localization:Localize Key=Tools_CertificateManager_Heading}" />
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,2">
+            <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{localization:Localize Key=Tools_CertificateManager_SubjectLabel}" />
+            <SelectableTextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding Subject}" />
+        </Grid>
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,2">
+            <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{localization:Localize Key=Tools_CertificateManager_IssuerLabel}" />
+            <SelectableTextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding Issuer}" />
+        </Grid>
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,2">
+            <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{localization:Localize Key=Tools_CertificateManager_ThumbprintLabel}" />
+            <SelectableTextBlock Grid.Column="1" Margin="8,0,0,0" FontFamily="Cascadia Mono,Consolas,monospace" Text="{Binding Thumbprint}" />
+        </Grid>
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,2">
+            <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{localization:Localize Key=Tools_CertificateManager_NotBeforeLabel}" />
+            <SelectableTextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding NotBefore}" />
+        </Grid>
+        <Grid Grid.Row="5" ColumnDefinitions="Auto,*" Margin="0,2">
+            <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{localization:Localize Key=Tools_CertificateManager_NotAfterLabel}" />
+            <SelectableTextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding NotAfter}" />
+        </Grid>
+        <Grid Grid.Row="6" ColumnDefinitions="Auto,*" Margin="0,2,0,8">
+            <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{localization:Localize Key=Tools_CertificateManager_InstalledLabel}" />
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding IsInstalled}" />
+        </Grid>
+        <StackPanel Grid.Row="7" Margin="0,0,0,8" Orientation="Horizontal" Spacing="8">
+            <Button Command="{Binding InstallCommand}" Content="{localization:Localize Key=Tools_CertificateManager_Install}" />
+            <Button Command="{Binding UninstallCommand}" Content="{localization:Localize Key=Tools_CertificateManager_Uninstall}" />
+            <Button Command="{Binding ExportCommand}" Content="{localization:Localize Key=Tools_CertificateManager_Export}" />
+            <Button Command="{Binding RegenerateCommand}" Content="{localization:Localize Key=Tools_CertificateManager_Regenerate}" />
+        </StackPanel>
+        <TextBlock Grid.Row="8"
+                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                   Margin="0,8,0,0"
+                   Text="{localization:Localize Key=Tools_CertificateManager_Warning}"
+                   TextWrapping="Wrap" />
+        <TextBlock Grid.Row="9"
+                   Foreground="{DynamicResource SystemAccentColorBrush}"
+                   Margin="0,8,0,0"
+                   Text="{Binding StatusMessage}" />
+    </Grid>
+</UserControl>
