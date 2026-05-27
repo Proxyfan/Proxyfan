@@ -16,6 +16,7 @@
         <ProjectReference Include="..\Domain.Certificates\Domain.Certificates.csproj" />
         <ProjectReference Include="..\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\Domain.Rules\Domain.Rules.csproj" />
+        <ProjectReference Include="..\Domain.Throttling\Domain.Throttling.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\Framework.Networking\Framework.Networking.csproj" />
         <ProjectReference Include="..\Framework.Platform\Framework.Platform.csproj" />

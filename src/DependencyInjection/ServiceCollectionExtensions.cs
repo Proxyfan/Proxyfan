@@ -45,6 +45,8 @@ public static class ServiceCollectionExtensions
         serverNameIndicationProxyingList.AddIncludedPattern("*");
         serviceCollection.AddSingleton(serverNameIndicationProxyingList);
         serviceCollection.AddSingleton<TransportLayerSecurityInterceptionContext>();
+        serviceCollection.AddSingleton<TransportLayerSecurityInterceptorHandlerDependencies>(BuildTransportLayerSecurityDependencies);
+        serviceCollection.AddSingleton<HypertextTransferProtocolProxyHandlerDependencies>(BuildHypertextTransferProtocolDependencies);
         serviceCollection.AddSingleton<IConnectionHandler, HypertextTransferProtocolProxyHandler>();
         serviceCollection.AddSingleton<IConnectionHandler, TransportLayerSecurityInterceptorHandler>();
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
@@ -83,5 +85,34 @@ public static class ServiceCollectionExtensions
                 serviceCollection.Add(descriptor);
             }
         }
+    }
+
+    private static HypertextTransferProtocolProxyHandlerDependencies BuildHypertextTransferProtocolDependencies(IServiceProvider provider)
+    {
+        var dependencies = new HypertextTransferProtocolProxyHandlerDependencies
+        {
+            TrafficStore = provider.GetRequiredService<ITrafficStore>(),
+            EventBus = provider.GetRequiredService<Proxyfan.Domain.IDomainEventBus>(),
+            RuleEngine = provider.GetRequiredService<IRuleEngine>(),
+            Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HypertextTransferProtocolProxyHandler>>(),
+            UpstreamProxy = provider.GetService<IOptionsMonitor<UpstreamProxyOptions>>(),
+            ThrottleProfile = provider.GetService<IOptionsMonitor<Proxyfan.Domain.Throttling.ThrottleProfile>>(),
+            BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
+        };
+        return dependencies;
+    }
+
+    private static TransportLayerSecurityInterceptorHandlerDependencies BuildTransportLayerSecurityDependencies(IServiceProvider provider)
+    {
+        var dependencies = new TransportLayerSecurityInterceptorHandlerDependencies
+        {
+            Context = provider.GetRequiredService<TransportLayerSecurityInterceptionContext>(),
+            TrafficStore = provider.GetRequiredService<ITrafficStore>(),
+            EventBus = provider.GetRequiredService<Proxyfan.Domain.IDomainEventBus>(),
+            Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TransportLayerSecurityInterceptorHandler>>(),
+            RuleEngine = provider.GetService<IRuleEngine>(),
+            BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
+        };
+        return dependencies;
     }
 }

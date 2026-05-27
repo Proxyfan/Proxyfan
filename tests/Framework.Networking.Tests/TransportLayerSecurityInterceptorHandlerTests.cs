@@ -22,7 +22,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var logger = NullLogger<TransportLayerSecurityInterceptorHandler>.Instance;
-        return new TransportLayerSecurityInterceptorHandler(context, trafficStore, eventBus, logger);
+        return new TransportLayerSecurityInterceptorHandler(new TransportLayerSecurityInterceptorHandlerDependencies
+        {
+            Context = context,
+            TrafficStore = trafficStore,
+            EventBus = eventBus,
+            Logger = logger,
+        });
     }
 
     /// <summary>

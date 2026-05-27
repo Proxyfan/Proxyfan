@@ -1,0 +1,150 @@
+﻿using System;
+using System.Threading.Tasks;
+
+namespace Proxyfan.Cli.Tests;
+
+/// <summary>
+///     Tests for <see cref="CliArgumentParser" />.
+/// </summary>
+public sealed class CliArgumentParserTests
+{
+    /// <summary>
+    ///     Verifies that no arguments returns the Help command.
+    /// </summary>
+    [Test]
+    public async Task Parse_NoArguments_ReturnsHelp()
+    {
+        var command = CliArgumentParser.Parse(Array.Empty<string>());
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Help);
+    }
+
+    /// <summary>
+    ///     Verifies that "--help" and "help" both produce the Help command.
+    /// </summary>
+    /// <param name="token">The help-style token to parse.</param>
+    [Test]
+    [Arguments("--help")]
+    [Arguments("-h")]
+    [Arguments("help")]
+    [Arguments("HELP")]
+    public async Task Parse_HelpToken_ReturnsHelp(string token)
+    {
+        var args = ParserTestArguments.One(token);
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Help);
+    }
+
+    /// <summary>
+    ///     Verifies that "--version" and "version" both produce the Version command.
+    /// </summary>
+    /// <param name="token">The version-style token to parse.</param>
+    [Test]
+    [Arguments("--version")]
+    [Arguments("-v")]
+    [Arguments("version")]
+    public async Task Parse_VersionToken_ReturnsVersion(string token)
+    {
+        var args = ParserTestArguments.One(token);
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Version);
+    }
+
+    /// <summary>
+    ///     Verifies that "start" without --port defaults to port 8080.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithoutPort_DefaultsToPort8080()
+    {
+        var args = ParserTestArguments.One("start");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Start);
+        await Assert.That(command.Port).IsEqualTo(8080);
+    }
+
+    /// <summary>
+    ///     Verifies that "start --port 9000" returns port 9000.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithPort_UsesGivenPort()
+    {
+        var args = ParserTestArguments.Three("start", "--port", "9000");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Start);
+        await Assert.That(command.Port).IsEqualTo(9000);
+    }
+
+    /// <summary>
+    ///     Verifies that "start --port BAD" falls back to default 8080.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithInvalidPort_FallsBackToDefault()
+    {
+        var args = ParserTestArguments.Three("start", "--port", "notanumber");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Port).IsEqualTo(8080);
+    }
+
+    /// <summary>
+    ///     Verifies that "har-summary path/to/file.har" returns HarSummary with the path.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarSummaryWithPath_ReturnsHarSummary()
+    {
+        var args = ParserTestArguments.Two("har-summary", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarSummary);
+        await Assert.That(command.PathArgument).IsEqualTo("capture.har");
+    }
+
+    /// <summary>
+    ///     Verifies that "har-summary --input path/to/file.har" uses the --input flag.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarSummaryWithInputFlag_UsesInputPath()
+    {
+        var args = ParserTestArguments.Three("har-summary", "--input", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.PathArgument).IsEqualTo("capture.har");
+    }
+
+    /// <summary>
+    ///     Verifies that an unknown command returns Unknown.
+    /// </summary>
+    [Test]
+    public async Task Parse_UnknownCommand_ReturnsUnknown()
+    {
+        var args = ParserTestArguments.One("blahblah");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Unknown);
+    }
+
+    /// <summary>
+    ///     Verifies that a port above 65535 falls back to default.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithOutOfRangePort_FallsBackToDefault()
+    {
+        var args = ParserTestArguments.Three("start", "--port", "99999");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Port).IsEqualTo(8080);
+    }
+}

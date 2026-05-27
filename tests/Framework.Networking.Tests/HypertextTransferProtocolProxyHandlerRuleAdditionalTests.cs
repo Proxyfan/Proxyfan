@@ -124,11 +124,13 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleAdditionalTests
     {
         var newStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
-        var handler = new HypertextTransferProtocolProxyHandler(
-            newStore,
-            eventBus,
-            ruleEngine,
-            NullLogger<HypertextTransferProtocolProxyHandler>.Instance);
+        var handler = new HypertextTransferProtocolProxyHandler(new HypertextTransferProtocolProxyHandlerDependencies
+        {
+            TrafficStore = newStore,
+            EventBus = eventBus,
+            RuleEngine = ruleEngine,
+            Logger = NullLogger<HypertextTransferProtocolProxyHandler>.Instance,
+        });
         trafficStore = newStore;
         return handler;
     }
@@ -207,3 +209,4 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleAdditionalTests
         }
     }
 }
+

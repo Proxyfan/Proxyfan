@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
@@ -27,9 +29,11 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private static readonly byte[] ConnectPrefix;
     private static readonly byte[] ErrorResponseBytes;
     private static readonly byte[] SuccessResponseBytes;
+    private readonly IBreakpointHandler? _breakpointHandler;
     private readonly TransportLayerSecurityInterceptionContext _context;
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
+    private readonly IRuleEngine? _ruleEngine;
     private readonly ITrafficStore _trafficStore;
 
     static TransportLayerSecurityInterceptorHandler()
@@ -43,22 +47,17 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     }
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="TransportLayerSecurityInterceptorHandler" /> class.
+    ///     Initializes a new <see cref="TransportLayerSecurityInterceptorHandler" /> with bundled dependencies.
     /// </summary>
-    /// <param name="context">The interception context used to resolve certificates and proxying rules.</param>
-    /// <param name="trafficStore">The store that persists captured traffic flows.</param>
-    /// <param name="eventBus">The domain event bus used to publish captured traffic events.</param>
-    /// <param name="logger">The logger used for structured diagnostic output.</param>
-    public TransportLayerSecurityInterceptorHandler(
-        TransportLayerSecurityInterceptionContext context,
-        ITrafficStore trafficStore,
-        IDomainEventBus eventBus,
-        ILogger<TransportLayerSecurityInterceptorHandler> logger)
+    /// <param name="dependencies">The bundled handler dependencies.</param>
+    public TransportLayerSecurityInterceptorHandler(TransportLayerSecurityInterceptorHandlerDependencies dependencies)
     {
-        _context = context;
-        _eventBus = eventBus;
-        _logger = logger;
-        _trafficStore = trafficStore;
+        _context = dependencies.Context;
+        _eventBus = dependencies.EventBus;
+        _logger = dependencies.Logger;
+        _trafficStore = dependencies.TrafficStore;
+        _ruleEngine = dependencies.RuleEngine;
+        _breakpointHandler = dependencies.BreakpointHandler;
     }
 
     /// <inheritdoc />
@@ -246,6 +245,56 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         return target;
     }
 
+    private async Task<bool> ProcessInterceptedExchangeAsync(
+        IProxyConnection connection,
+        TransportLayerSecurityInterceptionPipes pipes,
+        HypertextTransferProtocolProxyRequestExchange requestExchange,
+        CancellationToken cancellationToken)
+    {
+        var flow = TransportLayerSecurityInterceptorHelpers.CreateTrafficFlow(connection);
+        PublishFlowCreated(flow);
+        flow.SetRequest(requestExchange.Request);
+        PublishRequestReceived(flow, requestExchange.Request);
+
+        var requestActions = _ruleEngine?.EvaluateRequest(requestExchange.Request) ?? [];
+        var effectiveRequest = HypertextTransferProtocolRuleApplicator.ApplyRequestModifications(requestExchange.Request, requestActions);
+        var blockingAction = HypertextTransferProtocolRuleApplicator.FindBlockingAction(requestActions);
+        var breakResult = await ResolveRequestBreakpointAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
+        if (breakResult.IsAborting)
+        {
+            flow.Fail();
+            PublishFlowCompleted(flow);
+            return false;
+        }
+        effectiveRequest = breakResult.ModifiedRequest ?? effectiveRequest;
+
+        var serveLocal = blockingAction as Domain.Rules.Pipeline.RequestPipelineAction.ServeLocalResponse;
+        var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(requestExchange, effectiveRequest);
+        await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
+        var responseExchange = serveLocal is not null
+            ? HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(serveLocal.LocalResponse)
+            : await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipes.ServerReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
+
+        if (responseExchange is null)
+        {
+            flow.Fail();
+            PublishFlowCompleted(flow);
+            return false;
+        }
+
+        var responseActions = _ruleEngine?.EvaluateResponse(effectiveRequest, responseExchange.Response) ?? [];
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(responseExchange.Response, responseActions);
+        var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
+
+        flow.SetResponse(finalResponse);
+        PublishResponseReceived(flow, finalResponse);
+        flow.Complete();
+        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(pipes.ClientWriter, finalExchange, cancellationToken).ConfigureAwait(false);
+        _trafficStore.Add(flow);
+        PublishFlowCompleted(flow);
+        return TransportLayerSecurityInterceptorHelpers.HasKeepAlive(effectiveRequest, finalResponse);
+    }
+
     private void PublishFlowCompleted(TrafficFlow flow)
     {
         var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
@@ -281,6 +330,19 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await Task.WhenAll(forward, backward).ConfigureAwait(false);
     }
 
+    private async Task<Domain.Rules.Rules.BreakpointDecision> ResolveRequestBreakpointAsync(
+        HypertextTransferProtocolRequestData request,
+        CancellationToken cancellationToken)
+    {
+        if (_breakpointHandler is null)
+        {
+            return BreakpointDecisions.ResumeRequest(request);
+        }
+
+        var decision = await _breakpointHandler.ResolveRequestAsync(request, cancellationToken).ConfigureAwait(false);
+        return decision;
+    }
+
     private async Task RunHypertextTransferProtocolLoopAsync(
         IProxyConnection connection,
         TransportLayerSecurityInterceptionPipes pipes,
@@ -295,28 +357,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
                 break;
             }
 
-            var flow = TransportLayerSecurityInterceptorHelpers.CreateTrafficFlow(connection);
-            PublishFlowCreated(flow);
-            flow.SetRequest(requestExchange.Request);
-            PublishRequestReceived(flow, requestExchange.Request);
-            await WriteRequestToServerAsync(pipes.ServerWriter, requestExchange, cancellationToken).ConfigureAwait(false);
-            var responseExchange = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipes.ServerReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
+            var canContinue = await ProcessInterceptedExchangeAsync(connection, pipes, requestExchange, cancellationToken).ConfigureAwait(false);
 
-            if (responseExchange is null)
-            {
-                flow.Fail();
-                PublishFlowCompleted(flow);
-                break;
-            }
-
-            flow.SetResponse(responseExchange.Response);
-            PublishResponseReceived(flow, responseExchange.Response);
-            flow.Complete();
-            await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(pipes.ClientWriter, responseExchange, cancellationToken).ConfigureAwait(false);
-            _trafficStore.Add(flow);
-            PublishFlowCompleted(flow);
-
-            if (!TransportLayerSecurityInterceptorHelpers.HasKeepAlive(requestExchange.Request, responseExchange.Response))
+            if (!canContinue)
             {
                 break;
             }

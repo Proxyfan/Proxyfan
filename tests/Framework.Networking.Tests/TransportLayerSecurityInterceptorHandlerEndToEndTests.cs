@@ -38,11 +38,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
-        var handler = new TransportLayerSecurityInterceptorHandler(
-            context,
-            trafficStore,
-            eventBus,
-            NullLogger<TransportLayerSecurityInterceptorHandler>.Instance);
+        var handler = new TransportLayerSecurityInterceptorHandler(new TransportLayerSecurityInterceptorHandlerDependencies
+        {
+            Context = context,
+            TrafficStore = trafficStore,
+            EventBus = eventBus,
+            Logger = NullLogger<TransportLayerSecurityInterceptorHandler>.Instance,
+        });
 
         using var proxyListener = StartProxyListener(handler);
         var proxyEndPoint = (IPEndPoint)proxyListener.Listener.LocalEndpoint;

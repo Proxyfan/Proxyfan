@@ -160,11 +160,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerHandleAsyncTests
         var context = new TransportLayerSecurityInterceptionContext(new StubCertificateGenerator(), proxyingList);
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
-        var handler = new TransportLayerSecurityInterceptorHandler(
-            context,
-            trafficStore,
-            eventBus,
-            NullLogger<TransportLayerSecurityInterceptorHandler>.Instance);
+        var handler = new TransportLayerSecurityInterceptorHandler(new TransportLayerSecurityInterceptorHandlerDependencies
+        {
+            Context = context,
+            TrafficStore = trafficStore,
+            EventBus = eventBus,
+            Logger = NullLogger<TransportLayerSecurityInterceptorHandler>.Instance,
+        });
         return handler;
     }
 

@@ -7,6 +7,8 @@
   <Project Path="src/Domain.Rules/Domain.Rules.csproj" />
   <Project Path="src/Domain.Session/Domain.Session.csproj" />
   <Project Path="src/Domain.Throttling/Domain.Throttling.csproj" />
+  <Project Path="src/Domain.Scripting/Domain.Scripting.csproj" />
+  <Project Path="src/Domain.Configuration/Domain.Configuration.csproj" />
   <Project Path="src/Framework/Framework.csproj" />
   <Project Path="src/Framework.Networking/Framework.Networking.csproj" />
   <Project Path="src/Framework.Platform/Framework.Platform.csproj" />
@@ -16,6 +18,7 @@
   <Folder Name="/Clients/">
     <Project Path="src/Clients/Client/Client.csproj" />
     <Project Path="src/Clients/Client.Desktop/Client.Desktop.csproj" />
+    <Project Path="src/Cli/Cli.csproj" />
   </Folder>
 
   <Folder Name="/Tests/">
@@ -26,6 +29,9 @@
     <Project Path="tests/Domain.Rules.Tests/Domain.Rules.Tests.csproj" />
     <Project Path="tests/Domain.Session.Tests/Domain.Session.Tests.csproj" />
     <Project Path="tests/Domain.Throttling.Tests/Domain.Throttling.Tests.csproj" />
+    <Project Path="tests/Domain.Scripting.Tests/Domain.Scripting.Tests.csproj" />
+    <Project Path="tests/Domain.Configuration.Tests/Domain.Configuration.Tests.csproj" />
+    <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Framework.Tests/Framework.Tests.csproj" />
     <Project Path="tests/Framework.Networking.Tests/Framework.Networking.Tests.csproj" />
     <Project Path="tests/Framework.Platform.Tests/Framework.Platform.Tests.csproj" />
