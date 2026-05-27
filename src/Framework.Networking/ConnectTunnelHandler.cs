@@ -64,7 +64,7 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
     {
         var target = await ParseConnectTargetAsync(connection, cancellationToken).ConfigureAwait(false);
 
-        if (target is null)
+        if (target is null || !ConnectTargetValidator.HasValidTarget(target.Host, target.Port))
         {
             await SendErrorResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
             return;

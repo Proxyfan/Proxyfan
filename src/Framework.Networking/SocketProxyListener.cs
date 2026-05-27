@@ -200,7 +200,7 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
             }
             catch (SocketException ex)
             {
-                if (cancellationToken.IsCancellationRequested)
+                if (AcceptErrorClassifier.HasFatalError(ex, cancellationToken.IsCancellationRequested))
                 {
                     break;
                 }
