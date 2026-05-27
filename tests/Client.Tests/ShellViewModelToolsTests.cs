@@ -1,4 +1,4 @@
-using Proxyfan.Client.Shell.ViewModels;
+﻿using Proxyfan.Client.Shell.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
 using System.Threading.Tasks;
 
@@ -133,5 +133,26 @@ public sealed class ShellViewModelToolsTests
 
         await Assert.That(opener.OpenThemeCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     The OpenSecureSocketsLayerProxyingCommand delegates to <see cref="StubToolWindowOpener.OpenSecureSocketsLayerProxying" />.
+    /// </summary>
+    [Test]
+    public async Task OpenSecureSocketsLayerProxyingCommand_WhenInvoked_OpensSecureSocketsLayerProxyingWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenSecureSocketsLayerProxyingCommand.Execute(null);
+
+        await Assert.That(opener.OpenSecureSocketsLayerProxyingCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenThemeCallCount).IsEqualTo(0);
     }
 }

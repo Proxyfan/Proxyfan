@@ -1,4 +1,4 @@
-namespace Proxyfan.Client.Tools;
+﻿namespace Proxyfan.Client.Tools;
 
 /// <summary>
 ///     Abstraction over the UI-thread operation of showing a tool window. Injected into
@@ -30,6 +30,12 @@ public interface IToolWindowOpener
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>
     void OpenMapRemote();
+
+    /// <summary>
+    ///     Opens the SSL Proxying tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenSecureSocketsLayerProxying();
 
     /// <summary>
     ///     Opens the Theme picker tool window. Idempotent: if the window is already open,

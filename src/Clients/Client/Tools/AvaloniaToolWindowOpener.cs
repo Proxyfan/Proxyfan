@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Client.Tools.Views;
 using System;
@@ -17,6 +17,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private BlockListWindow? _blockListWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
+    private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
     private ThemeWindow? _themeWindow;
     private ThrottleWindow? _throttleWindow;
 
@@ -118,6 +119,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _mapRemoteWindow = null;
         };
         _mapRemoteWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenSecureSocketsLayerProxying()
+    {
+        if (_secureSocketsLayerProxyingWindow is not null)
+        {
+            _secureSocketsLayerProxyingWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<SecureSocketsLayerProxyingViewModel>();
+        var window = new SecureSocketsLayerProxyingWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _secureSocketsLayerProxyingWindow = null;
+        };
+        _secureSocketsLayerProxyingWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

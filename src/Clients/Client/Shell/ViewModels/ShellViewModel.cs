@@ -119,6 +119,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenSecureSocketsLayerProxying()
+    {
+        _toolWindowOpener.OpenSecureSocketsLayerProxying();
+    }
+
+    [RelayCommand]
     private async Task OpenSessionAsync(CancellationToken cancellationToken)
     {
         var request = new FilePickerOpenRequest

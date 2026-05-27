@@ -9,13 +9,28 @@ namespace Proxyfan.Domain.Certificates;
 /// </summary>
 public sealed class ServerNameIndicationProxyingList
 {
+    /// <summary>
+    ///     Raised whenever the list contents or enabled state changes.
+    /// </summary>
+    public event ServerNameIndicationProxyingListChanged? Changed;
+
     private readonly HashSet<string> _excludedPatterns;
     private readonly HashSet<string> _includedPatterns;
 
     /// <summary>
+    ///     Gets the excluded host name patterns currently configured.
+    /// </summary>
+    public IReadOnlyCollection<string> ExcludedPatterns => _excludedPatterns;
+
+    /// <summary>
+    ///     Gets the included host name patterns currently configured.
+    /// </summary>
+    public IReadOnlyCollection<string> IncludedPatterns => _includedPatterns;
+
+    /// <summary>
     ///     Gets a value indicating whether server name indication proxying is enabled.
     /// </summary>
-    public bool IsEnabled { get; }
+    public bool IsEnabled { get; private set; }
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ServerNameIndicationProxyingList" /> class.
@@ -41,7 +56,10 @@ public sealed class ServerNameIndicationProxyingList
             throw new ArgumentException("Pattern must be provided.", nameof(pattern));
         }
 
-        _excludedPatterns.Add(pattern);
+        if (_excludedPatterns.Add(pattern))
+        {
+            RaiseChanged();
+        }
     }
 
     /// <summary>
@@ -55,7 +73,38 @@ public sealed class ServerNameIndicationProxyingList
             throw new ArgumentException("Pattern must be provided.", nameof(pattern));
         }
 
-        _includedPatterns.Add(pattern);
+        if (_includedPatterns.Add(pattern))
+        {
+            RaiseChanged();
+        }
+    }
+
+    /// <summary>
+    ///     Disables server name indication proxying. Raises <see cref="Changed" /> when the state actually flips.
+    /// </summary>
+    public void Disable()
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        IsEnabled = false;
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Enables server name indication proxying. Raises <see cref="Changed" /> when the state actually flips.
+    /// </summary>
+    public void Enable()
+    {
+        if (IsEnabled)
+        {
+            return;
+        }
+
+        IsEnabled = true;
+        RaiseChanged();
     }
 
     /// <summary>
@@ -92,6 +141,40 @@ public sealed class ServerNameIndicationProxyingList
         return false;
     }
 
+    /// <summary>
+    ///     Removes an excluded host name pattern.
+    /// </summary>
+    /// <param name="pattern">The excluded host name pattern.</param>
+    public void RemoveExcludedPattern(string pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return;
+        }
+
+        if (_excludedPatterns.Remove(pattern))
+        {
+            RaiseChanged();
+        }
+    }
+
+    /// <summary>
+    ///     Removes an included host name pattern.
+    /// </summary>
+    /// <param name="pattern">The included host name pattern.</param>
+    public void RemoveIncludedPattern(string pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return;
+        }
+
+        if (_includedPatterns.Remove(pattern))
+        {
+            RaiseChanged();
+        }
+    }
+
     private bool HasPatternMatch(string hostname, string pattern)
     {
         if (string.Equals(pattern, "*", StringComparison.Ordinal))
@@ -117,5 +200,10 @@ public sealed class ServerNameIndicationProxyingList
         var suffix = pattern[1..];
         return hostname.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
             && !string.Equals(hostname, suffix[1..], StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void RaiseChanged()
+    {
+        Changed?.Invoke(this);
     }
 }

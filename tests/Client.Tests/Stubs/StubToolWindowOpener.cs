@@ -1,4 +1,4 @@
-using Proxyfan.Client.Tools;
+﻿using Proxyfan.Client.Tools;
 
 namespace Proxyfan.Client.Tests.Stubs;
 
@@ -26,6 +26,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     ///     Gets the number of times <see cref="OpenMapRemote" /> was invoked.
     /// </summary>
     public int OpenMapRemoteCallCount { get; private set; }
+
+    /// <summary>
+    ///     Gets the number of times <see cref="OpenSecureSocketsLayerProxying" /> was invoked.
+    /// </summary>
+    public int OpenSecureSocketsLayerProxyingCallCount { get; private set; }
 
     /// <summary>
     ///     Gets the number of times <see cref="OpenTheme" /> was invoked.
@@ -59,6 +64,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenMapRemote()
     {
         OpenMapRemoteCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenSecureSocketsLayerProxying()
+    {
+        OpenSecureSocketsLayerProxyingCallCount++;
     }
 
     /// <inheritdoc />

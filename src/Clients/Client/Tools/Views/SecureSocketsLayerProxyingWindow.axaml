@@ -1,0 +1,18 @@
+﻿<Window x:Class="Proxyfan.Client.Tools.Views.SecureSocketsLayerProxyingWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+        xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+        xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+        xmlns:views="clr-namespace:Proxyfan.Client.Tools.Views"
+        Title="{localization:Localize Key=Tools_SecureSocketsLayerProxying_Title}"
+        Width="500"
+        Height="520"
+        d:DataContext="{d:DesignInstance Type=viewModels:SecureSocketsLayerProxyingViewModel}"
+        presentation:ViewModelLocator.DataContext="{x:Type viewModels:SecureSocketsLayerProxyingViewModel}"
+        x:DataType="viewModels:SecureSocketsLayerProxyingViewModel"
+        mc:Ignorable="d">
+    <views:SecureSocketsLayerProxyingView />
+</Window>

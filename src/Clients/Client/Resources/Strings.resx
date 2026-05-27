@@ -181,6 +181,9 @@
   <data name="Shell_Menu_Throttle" xml:space="preserve">
     <value>Throttle...</value>
   </data>
+  <data name="Shell_Menu_SecureSocketsLayerProxying" xml:space="preserve">
+    <value>SSL Proxying...</value>
+  </data>
   <data name="Shell_Menu_View" xml:space="preserve">
     <value>_View</value>
   </data>
@@ -276,5 +279,26 @@
   </data>
   <data name="Tools_Theme_Apply" xml:space="preserve">
     <value>Apply</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_Title" xml:space="preserve">
+    <value>SSL Proxying</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_Enable" xml:space="preserve">
+    <value>Enable SSL proxying</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_IncludedLabel" xml:space="preserve">
+    <value>Included hosts</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_ExcludedLabel" xml:space="preserve">
+    <value>Excluded hosts</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_PatternWatermark" xml:space="preserve">
+    <value>Host or *.example.com</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_Remove" xml:space="preserve">
+    <value>Remove</value>
   </data>
 </root>

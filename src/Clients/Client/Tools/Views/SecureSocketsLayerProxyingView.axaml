@@ -1,0 +1,78 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.SecureSocketsLayerProxyingView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:SecureSocketsLayerProxyingViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:SecureSocketsLayerProxyingViewModel}"
+             x:DataType="viewModels:SecureSocketsLayerProxyingViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,*,*">
+        <CheckBox Grid.Row="0"
+                  Content="{localization:Localize Key=Tools_SecureSocketsLayerProxying_Enable}"
+                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                  Margin="0,0,0,8" />
+        <Border Grid.Row="1"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1"
+                Margin="0,0,0,8"
+                Padding="6">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Row="0"
+                           FontWeight="Bold"
+                           Margin="0,0,0,4"
+                           Text="{localization:Localize Key=Tools_SecureSocketsLayerProxying_IncludedLabel}" />
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding IncludedPatterns}"
+                         SelectedItem="{Binding SelectedIncludedPattern, Mode=TwoWay}" />
+                <Grid Grid.Row="2"
+                      ColumnDefinitions="*,Auto,Auto"
+                      Margin="0,4,0,0">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding NewIncludedPattern, Mode=TwoWay}"
+                             Watermark="{localization:Localize Key=Tools_SecureSocketsLayerProxying_PatternWatermark}" />
+                    <Button Grid.Column="1"
+                            Command="{Binding AddIncludedPatternCommand}"
+                            Content="{localization:Localize Key=Tools_SecureSocketsLayerProxying_Add}"
+                            Margin="6,0,0,0" />
+                    <Button Grid.Column="2"
+                            Command="{Binding RemoveIncludedPatternCommand}"
+                            Content="{localization:Localize Key=Tools_SecureSocketsLayerProxying_Remove}"
+                            Margin="4,0,0,0" />
+                </Grid>
+            </Grid>
+        </Border>
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1"
+                Padding="6">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Row="0"
+                           FontWeight="Bold"
+                           Margin="0,0,0,4"
+                           Text="{localization:Localize Key=Tools_SecureSocketsLayerProxying_ExcludedLabel}" />
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding ExcludedPatterns}"
+                         SelectedItem="{Binding SelectedExcludedPattern, Mode=TwoWay}" />
+                <Grid Grid.Row="2"
+                      ColumnDefinitions="*,Auto,Auto"
+                      Margin="0,4,0,0">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding NewExcludedPattern, Mode=TwoWay}"
+                             Watermark="{localization:Localize Key=Tools_SecureSocketsLayerProxying_PatternWatermark}" />
+                    <Button Grid.Column="1"
+                            Command="{Binding AddExcludedPatternCommand}"
+                            Content="{localization:Localize Key=Tools_SecureSocketsLayerProxying_Add}"
+                            Margin="6,0,0,0" />
+                    <Button Grid.Column="2"
+                            Command="{Binding RemoveExcludedPatternCommand}"
+                            Content="{localization:Localize Key=Tools_SecureSocketsLayerProxying_Remove}"
+                            Margin="4,0,0,0" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

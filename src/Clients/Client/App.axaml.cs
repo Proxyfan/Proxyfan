@@ -60,6 +60,7 @@ public partial class App : Application
             services.AddTransient<AllowListViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
+            services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ThemeViewModel>();
             services.AddTransient<ThrottleViewModel>();
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
