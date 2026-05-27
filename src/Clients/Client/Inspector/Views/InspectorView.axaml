@@ -10,46 +10,95 @@
              presentation:ViewModelLocator.DataContext="{x:Type inspectorViewModels:InspectorViewModel}"
              x:DataType="inspectorViewModels:InspectorViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="24,*,24,*,24,*,24,*">
-        <TextBlock Grid.Row="0"
-                   Margin="4,0"
-                   FontWeight="SemiBold"
-                   Text="{localization:Localize Key=Inspector_Section_RequestHeaders}"
-                   VerticalAlignment="Center" />
-        <TextBox Grid.Row="1"
-                 AcceptsReturn="True"
-                 IsReadOnly="True"
-                 Text="{Binding RequestHeadersText}"
-                 TextWrapping="Wrap" />
-        <TextBlock Grid.Row="2"
-                   Margin="4,0"
-                   FontWeight="SemiBold"
-                   Text="{localization:Localize Key=Inspector_Section_RequestBody}"
-                   VerticalAlignment="Center" />
-        <TextBox Grid.Row="3"
-                 AcceptsReturn="True"
-                 IsReadOnly="True"
-                 Text="{Binding RequestBodyText}"
-                 TextWrapping="Wrap" />
-        <TextBlock Grid.Row="4"
-                   Margin="4,0"
-                   FontWeight="SemiBold"
-                   Text="{localization:Localize Key=Inspector_Section_ResponseHeaders}"
-                   VerticalAlignment="Center" />
-        <TextBox Grid.Row="5"
-                 AcceptsReturn="True"
-                 IsReadOnly="True"
-                 Text="{Binding ResponseHeadersText}"
-                 TextWrapping="Wrap" />
-        <TextBlock Grid.Row="6"
-                   Margin="4,0"
-                   FontWeight="SemiBold"
-                   Text="{localization:Localize Key=Inspector_Section_ResponseBody}"
-                   VerticalAlignment="Center" />
-        <TextBox Grid.Row="7"
-                 AcceptsReturn="True"
-                 IsReadOnly="True"
-                 Text="{Binding ResponseBodyText}"
-                 TextWrapping="Wrap" />
+    <Grid RowDefinitions="*,*">
+        <HeaderedContentControl Grid.Row="0"
+                                Header="{localization:Localize Key=Inspector_Section_Request}"
+                                Margin="2">
+            <TabControl>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Headers}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding RequestHeadersText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Body}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding RequestBodyText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Query}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding QueryParametersText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Cookies}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding RequestCookiesText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Raw}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding RawRequestText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Summary}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding SummaryText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Timing}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding TimingText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+            </TabControl>
+        </HeaderedContentControl>
+        <HeaderedContentControl Grid.Row="1"
+                                Header="{localization:Localize Key=Inspector_Section_Response}"
+                                Margin="2">
+            <TabControl>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Headers}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding ResponseHeadersText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Body}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding ResponseBodyText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Cookies}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding ResponseCookiesText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Raw}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding RawResponseText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
+            </TabControl>
+        </HeaderedContentControl>
     </Grid>
 </UserControl>

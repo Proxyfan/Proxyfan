@@ -109,4 +109,31 @@
   <data name="Inspector_Section_ResponseBody" xml:space="preserve">
     <value>Response Body</value>
   </data>
+  <data name="Inspector_Tab_Headers" xml:space="preserve">
+    <value>Headers</value>
+  </data>
+  <data name="Inspector_Tab_Body" xml:space="preserve">
+    <value>Body</value>
+  </data>
+  <data name="Inspector_Tab_Query" xml:space="preserve">
+    <value>Query</value>
+  </data>
+  <data name="Inspector_Tab_Cookies" xml:space="preserve">
+    <value>Cookies</value>
+  </data>
+  <data name="Inspector_Tab_Raw" xml:space="preserve">
+    <value>Raw</value>
+  </data>
+  <data name="Inspector_Tab_Summary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="Inspector_Tab_Timing" xml:space="preserve">
+    <value>Timing</value>
+  </data>
+  <data name="Inspector_Section_Request" xml:space="preserve">
+    <value>Request</value>
+  </data>
+  <data name="Inspector_Section_Response" xml:space="preserve">
+    <value>Response</value>
+  </data>
 </root>

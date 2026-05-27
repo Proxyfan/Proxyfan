@@ -25,6 +25,7 @@
         <ProjectReference Include="..\..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\..\DependencyInjection\DependencyInjection.csproj" />
         <ProjectReference Include="..\..\Framework\Framework.csproj" />
+        <ProjectReference Include="..\..\Framework.Serialization\Framework.Serialization.csproj" />
         <ProjectReference Include="..\..\Presentation\Presentation.csproj" />
     </ItemGroup>
 
