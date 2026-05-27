@@ -145,6 +145,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenThrottle()
+    {
+        _toolWindowOpener.OpenThrottle();
+    }
+
+    [RelayCommand]
     private async Task SaveSessionAsync(CancellationToken cancellationToken)
     {
         var snapshot = new List<TrafficFlow>(TrafficList.Flows.Count);

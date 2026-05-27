@@ -17,6 +17,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private BlockListWindow? _blockListWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
+    private ThrottleWindow? _throttleWindow;
 
     /// <summary>
     ///     Initializes a new <see cref="AvaloniaToolWindowOpener" />.
@@ -116,6 +117,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _mapRemoteWindow = null;
         };
         _mapRemoteWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenThrottle()
+    {
+        if (_throttleWindow is not null)
+        {
+            _throttleWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<ThrottleViewModel>();
+        var window = new ThrottleWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _throttleWindow = null;
+        };
+        _throttleWindow = window;
         ToolWindowDisplay.Show(window);
     }
 }

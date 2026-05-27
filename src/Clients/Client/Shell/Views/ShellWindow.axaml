@@ -30,6 +30,8 @@
                           Header="{localization:Localize Key=Shell_Menu_MapLocal}" />
                 <MenuItem Command="{Binding OpenMapRemoteCommand}"
                           Header="{localization:Localize Key=Shell_Menu_MapRemote}" />
+                <MenuItem Command="{Binding OpenThrottleCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_Throttle}" />
             </MenuItem>
         </Menu>
         <views:ShellView Grid.Row="1" />

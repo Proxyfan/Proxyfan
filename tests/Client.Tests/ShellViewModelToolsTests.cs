@@ -92,4 +92,25 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenMapRemoteCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenMapLocalCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenThrottleCommand delegates to <see cref="StubToolWindowOpener.OpenThrottle" />.
+    /// </summary>
+    [Test]
+    public async Task OpenThrottleCommand_WhenInvoked_OpensThrottleWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenThrottleCommand.Execute(null);
+
+        await Assert.That(opener.OpenThrottleCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenMapRemoteCallCount).IsEqualTo(0);
+    }
 }

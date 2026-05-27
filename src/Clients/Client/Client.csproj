@@ -24,6 +24,7 @@
         <ProjectReference Include="..\..\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\..\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\..\Domain.Session\Domain.Session.csproj" />
+        <ProjectReference Include="..\..\Domain.Throttling\Domain.Throttling.csproj" />
         <ProjectReference Include="..\..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\..\DependencyInjection\DependencyInjection.csproj" />
         <ProjectReference Include="..\..\Framework\Framework.csproj" />

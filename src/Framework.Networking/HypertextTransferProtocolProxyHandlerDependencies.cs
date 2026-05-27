@@ -38,11 +38,10 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     public required IRuleEngine RuleEngine { get; init; }
 
     /// <summary>
-    ///     Gets the optional throttle profile monitor used to bandwidth-limit response writes.
-    ///     When <see langword="null" /> or when the profile reports unbounded rates, writes
-    ///     pass through unthrottled.
+    ///     Gets the optional throttle profile holder used to bandwidth-limit response writes.
+    ///     When <see langword="null" /> or when no profile is active, writes pass through unthrottled.
     /// </summary>
-    public IOptionsMonitor<ThrottleProfile>? ThrottleProfile { get; init; }
+    public MutableThrottleProfile? ThrottleProfile { get; init; }
 
     /// <summary>
     ///     Gets the store that persists captured traffic flows.

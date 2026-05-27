@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
@@ -53,6 +54,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
+        serviceCollection.AddSingleton<MutableThrottleProfile>();
         AddRuleEngine(serviceCollection);
         return serviceCollection;
     }
@@ -129,7 +131,7 @@ public static class ServiceCollectionExtensions
             RuleEngine = provider.GetRequiredService<IRuleEngine>(),
             Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HypertextTransferProtocolProxyHandler>>(),
             UpstreamProxy = provider.GetService<IOptionsMonitor<UpstreamProxyOptions>>(),
-            ThrottleProfile = provider.GetService<IOptionsMonitor<Proxyfan.Domain.Throttling.ThrottleProfile>>(),
+            ThrottleProfile = provider.GetService<MutableThrottleProfile>(),
             BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
         };
         return dependencies;

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Throttling;
 using System;
 using System.Threading;
@@ -15,15 +14,15 @@ public static class ThrottleApplier
 {
     /// <summary>
     ///     Applies the latency portion of the supplied throttle profile by delaying for the
-    ///     configured duration. Returns immediately when the profile is null, when bypassed,
-    ///     or when latency is zero.
+    ///     configured duration. Returns immediately when the holder is null, when no profile
+    ///     is active, or when latency is zero.
     /// </summary>
-    /// <param name="profileMonitor">The options monitor that resolves the current profile.</param>
+    /// <param name="throttle">The mutable holder that exposes the active profile, or <see langword="null" />.</param>
     /// <param name="cancellationToken">A token that cancels the delay.</param>
     /// <returns>A task that completes once the latency has elapsed.</returns>
-    public static async Task ApplyLatencyAsync(IOptionsMonitor<ThrottleProfile>? profileMonitor, CancellationToken cancellationToken)
+    public static async Task ApplyLatencyAsync(MutableThrottleProfile? throttle, CancellationToken cancellationToken)
     {
-        var profile = profileMonitor?.CurrentValue;
+        var profile = throttle?.Profile;
 
         if (profile is null || profile.Latency <= TimeSpan.Zero)
         {

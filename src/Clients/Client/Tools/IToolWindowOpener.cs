@@ -30,4 +30,10 @@ public interface IToolWindowOpener
     ///     it is brought to the foreground instead of being recreated.
     /// </summary>
     void OpenMapRemote();
+
+    /// <summary>
+    ///     Opens the Throttle tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenThrottle();
 }

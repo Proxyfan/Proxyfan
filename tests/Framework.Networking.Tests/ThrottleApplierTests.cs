@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using Proxyfan.Domain.Throttling;
 using System;
 using System.Threading;
@@ -12,13 +11,28 @@ namespace Proxyfan.Framework.Networking.Tests;
 public sealed class ThrottleApplierTests
 {
     /// <summary>
-    ///     Verifies that a null monitor completes immediately without throwing.
+    ///     Verifies that a null holder completes immediately without throwing.
     /// </summary>
     [Test]
-    public async Task ApplyLatencyAsync_NullMonitor_CompletesImmediately()
+    public async Task ApplyLatencyAsync_NullHolder_CompletesImmediately()
     {
         var start = DateTimeOffset.UtcNow;
         await ThrottleApplier.ApplyLatencyAsync(null, CancellationToken.None);
+        var elapsed = DateTimeOffset.UtcNow - start;
+
+        await Assert.That(elapsed.TotalMilliseconds).IsLessThan(50);
+    }
+
+    /// <summary>
+    ///     Verifies that an empty holder (no active profile) completes immediately.
+    /// </summary>
+    [Test]
+    public async Task ApplyLatencyAsync_HolderWithNoProfile_CompletesImmediately()
+    {
+        var holder = new MutableThrottleProfile();
+
+        var start = DateTimeOffset.UtcNow;
+        await ThrottleApplier.ApplyLatencyAsync(holder, CancellationToken.None);
         var elapsed = DateTimeOffset.UtcNow - start;
 
         await Assert.That(elapsed.TotalMilliseconds).IsLessThan(50);
@@ -30,17 +44,18 @@ public sealed class ThrottleApplierTests
     [Test]
     public async Task ApplyLatencyAsync_ZeroLatency_CompletesImmediately()
     {
-        var profile = new ThrottleProfile("test", new ThrottleProfileParameters
+        var parameters = new ThrottleProfileParameters
         {
             UploadBytesPerSecond = 1024,
             DownloadBytesPerSecond = 1024,
             Latency = TimeSpan.Zero,
             PacketLossProbability = 0,
-        });
-        var monitor = new StubOptionsMonitor<ThrottleProfile>(profile);
+        };
+        var profile = new ThrottleProfile("test", parameters);
+        var holder = new MutableThrottleProfile(profile);
 
         var start = DateTimeOffset.UtcNow;
-        await ThrottleApplier.ApplyLatencyAsync(monitor, CancellationToken.None);
+        await ThrottleApplier.ApplyLatencyAsync(holder, CancellationToken.None);
         var elapsed = DateTimeOffset.UtcNow - start;
 
         await Assert.That(elapsed.TotalMilliseconds).IsLessThan(50);
@@ -52,41 +67,20 @@ public sealed class ThrottleApplierTests
     [Test]
     public async Task ApplyLatencyAsync_PositiveLatency_DelaysAtLeastConfiguredDuration()
     {
-        var profile = new ThrottleProfile("test", new ThrottleProfileParameters
+        var parameters = new ThrottleProfileParameters
         {
             UploadBytesPerSecond = 1024,
             DownloadBytesPerSecond = 1024,
             Latency = TimeSpan.FromMilliseconds(50),
             PacketLossProbability = 0,
-        });
-        var monitor = new StubOptionsMonitor<ThrottleProfile>(profile);
+        };
+        var profile = new ThrottleProfile("test", parameters);
+        var holder = new MutableThrottleProfile(profile);
 
         var start = DateTimeOffset.UtcNow;
-        await ThrottleApplier.ApplyLatencyAsync(monitor, CancellationToken.None);
+        await ThrottleApplier.ApplyLatencyAsync(holder, CancellationToken.None);
         var elapsed = DateTimeOffset.UtcNow - start;
 
         await Assert.That(elapsed.TotalMilliseconds).IsGreaterThanOrEqualTo(40);
-    }
-
-    private sealed class StubOptionsMonitor<T> : IOptionsMonitor<T>
-    {
-        private readonly T _value;
-
-        public StubOptionsMonitor(T value)
-        {
-            _value = value;
-        }
-
-        public T CurrentValue => _value;
-
-        public T Get(string? name)
-        {
-            return _value;
-        }
-
-        public IDisposable? OnChange(Action<T, string?> listener)
-        {
-            return null;
-        }
     }
 }

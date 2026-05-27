@@ -1,0 +1,42 @@
+<UserControl x:Class="Proxyfan.Client.Tools.Views.ThrottleView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:ThrottleViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:ThrottleViewModel}"
+             x:DataType="viewModels:ThrottleViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto">
+        <StackPanel Grid.Row="0" Margin="0,0,0,8" Orientation="Horizontal">
+            <TextBlock Text="{localization:Localize Key=Tools_Throttle_ActiveLabel}" VerticalAlignment="Center" />
+            <TextBlock FontWeight="Bold"
+                       Margin="6,0,0,0"
+                       Text="{Binding ActiveProfileName}"
+                       VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock Grid.Row="1"
+                   Margin="0,0,0,4"
+                   Text="{localization:Localize Key=Tools_Throttle_PresetLabel}" />
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox ItemsSource="{Binding Presets}"
+                     SelectedItem="{Binding SelectedPreset, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:ThrottleProfilePresetViewModel">
+                        <TextBlock Margin="4" Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+        <StackPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+            <Button Command="{Binding ApplyCommand}"
+                    Content="{localization:Localize Key=Tools_Throttle_Apply}"
+                    Padding="12,4" />
+        </StackPanel>
+    </Grid>
+</UserControl>

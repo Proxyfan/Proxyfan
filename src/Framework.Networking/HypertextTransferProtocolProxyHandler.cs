@@ -31,7 +31,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger<HypertextTransferProtocolProxyHandler> _logger;
     private readonly IRuleEngine _ruleEngine;
-    private readonly IOptionsMonitor<ThrottleProfile>? _throttleProfile;
+    private readonly MutableThrottleProfile? _throttleProfile;
     private readonly ITrafficStore _trafficStore;
     private readonly IOptionsMonitor<UpstreamProxyOptions>? _upstreamProxy;
 
