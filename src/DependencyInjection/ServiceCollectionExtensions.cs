@@ -108,6 +108,13 @@ public static class ServiceCollectionExtensions
             var mapLocal = new MutableMapLocalRule(priority: 300, isEnabled: true);
             return mapLocal;
         });
+        serviceCollection.AddSingleton(_ =>
+        {
+            var configuration = new MutableBreakpointConfiguration(isEnabled: false);
+            return configuration;
+        });
+        serviceCollection.AddSingleton<IBreakpointPauseInbox, BreakpointPauseInbox>();
+        serviceCollection.AddSingleton<IBreakpointHandler, InteractiveBreakpointHandler>();
         serviceCollection.AddSingleton<IRuleEngine>(provider =>
         {
             var registry = provider.GetRequiredService<IRuleRegistry>();

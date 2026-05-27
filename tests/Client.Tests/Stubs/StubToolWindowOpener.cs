@@ -18,6 +18,11 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenBlockListCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenBreakpoint" /> was invoked.
+    /// </summary>
+    public int OpenBreakpointCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenCertificateManager" /> was invoked.
     /// </summary>
     public int OpenCertificateManagerCallCount { get; private set; }
@@ -57,6 +62,12 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenBlockList()
     {
         OpenBlockListCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenBreakpoint()
+    {
+        OpenBreakpointCallCount++;
     }
 
     /// <inheritdoc />

@@ -1,0 +1,159 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.BreakpointView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:matching="clr-namespace:Proxyfan.Domain.Rules.Matching;assembly=Domain.Rules"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:rules="clr-namespace:Proxyfan.Domain.Rules.Rules;assembly=Domain.Rules"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:BreakpointViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:BreakpointViewModel}"
+             x:DataType="viewModels:BreakpointViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" ColumnDefinitions="*,2*">
+        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*">
+            <CheckBox Grid.Row="0"
+                      Content="{localization:Localize Key=Tools_Breakpoint_Enabled}"
+                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                      Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1"
+                       Margin="0,0,0,4"
+                       Text="{localization:Localize Key=Tools_Breakpoint_Phases}" />
+            <ComboBox Grid.Row="2"
+                      Margin="0,0,0,8"
+                      SelectedItem="{Binding Phases, Mode=TwoWay}">
+                <rules:BreakpointPhase>Request</rules:BreakpointPhase>
+                <rules:BreakpointPhase>Response</rules:BreakpointPhase>
+                <rules:BreakpointPhase>Both</rules:BreakpointPhase>
+            </ComboBox>
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+                <TextBox Grid.Column="0"
+                         Margin="0,0,4,0"
+                         Text="{Binding NewPatternText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Watermark="{localization:Localize Key=Tools_RuleList_PatternPlaceholder}" />
+                <ComboBox Grid.Column="1"
+                          Margin="0,0,4,0"
+                          MinWidth="100"
+                          SelectedItem="{Binding NewPatternKind, Mode=TwoWay}">
+                    <matching:MatchingRuleKind>Wildcard</matching:MatchingRuleKind>
+                    <matching:MatchingRuleKind>Exact</matching:MatchingRuleKind>
+                    <matching:MatchingRuleKind>Regex</matching:MatchingRuleKind>
+                </ComboBox>
+                <Button Grid.Column="2"
+                        Command="{Binding AddPatternCommand}"
+                        Content="{localization:Localize Key=Tools_RuleList_AddPattern}"
+                        Padding="12,4" />
+            </Grid>
+            <Border Grid.Row="4"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    BorderThickness="1">
+                <ListBox ItemsSource="{Binding Patterns}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:BlockListPatternViewModel">
+                            <Grid ColumnDefinitions="*,Auto,Auto" Margin="4">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Pattern}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                           Margin="8,0"
+                                           Text="{Binding Kind}"
+                                           VerticalAlignment="Center" />
+                                <Button Grid.Column="2"
+                                        Command="{Binding $parent[ListBox].((viewModels:BreakpointViewModel)DataContext).RemovePatternCommand}"
+                                        CommandParameter="{Binding}"
+                                        Content="{localization:Localize Key=Tools_RuleList_RemovePattern}"
+                                        Padding="8,2" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+        </Grid>
+        <Grid Grid.Column="1" Margin="8,0,0,0" RowDefinitions="Auto,*,Auto">
+            <TextBlock Grid.Row="0"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,4"
+                       Text="{localization:Localize Key=Tools_Breakpoint_PendingPauses}" />
+            <Grid Grid.Row="1" ColumnDefinitions="*,2*">
+                <Border Grid.Column="0"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Pauses}"
+                             SelectedItem="{Binding SelectedPause, Mode=TwoWay}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:BreakpointPauseViewModel">
+                                <StackPanel Margin="4" Orientation="Vertical">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Phase}" />
+                                    <TextBlock Text="{Binding RequestUrl}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+                <Grid Grid.Column="1"
+                      IsVisible="{Binding SelectedPause, Converter={x:Static ObjectConverters.IsNotNull}}"
+                      Margin="8,0,0,0">
+                    <Grid DataContext="{Binding SelectedPause}"
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
+                          x:DataType="viewModels:BreakpointPauseViewModel">
+                        <TextBlock Grid.Row="0"
+                                   Margin="0,0,0,4"
+                                   Text="{localization:Localize Key=Tools_Breakpoint_RequestUrl}" />
+                        <TextBox Grid.Row="1"
+                                 Margin="0,0,0,8"
+                                 Text="{Binding RequestUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="2"
+                                   Margin="0,0,0,4"
+                                   Text="{localization:Localize Key=Tools_Breakpoint_Method}" />
+                        <TextBox Grid.Row="3"
+                                 Margin="0,0,0,8"
+                                 Text="{Binding Method, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Grid Grid.Row="4" ColumnDefinitions="*,*" Margin="0,0,0,8">
+                            <StackPanel Grid.Column="0" Margin="0,0,4,0" Orientation="Vertical">
+                                <TextBlock Margin="0,0,0,4"
+                                           Text="{localization:Localize Key=Tools_Breakpoint_StatusCode}" />
+                                <TextBox Text="{Binding StatusCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0" Orientation="Vertical">
+                                <TextBlock Margin="0,0,0,4"
+                                           Text="{localization:Localize Key=Tools_Breakpoint_ReasonPhrase}" />
+                                <TextBox Text="{Binding ReasonPhrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Grid.Row="5"
+                                   Margin="0,0,0,4"
+                                   Text="{localization:Localize Key=Tools_Breakpoint_Headers}" />
+                        <TextBox Grid.Row="6"
+                                 AcceptsReturn="True"
+                                 Height="100"
+                                 Margin="0,0,0,8"
+                                 Text="{Binding HeadersText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="7"
+                                   Margin="0,0,0,4"
+                                   Text="{localization:Localize Key=Tools_Breakpoint_Body}" />
+                        <TextBox Grid.Row="8"
+                                 AcceptsReturn="True"
+                                 Margin="0,0,0,0"
+                                 Text="{Binding BodyText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 TextWrapping="Wrap" />
+                    </Grid>
+                </Grid>
+            </Grid>
+            <StackPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+                <Button Command="{Binding AbortCommand}"
+                        CommandParameter="{Binding SelectedPause}"
+                        Content="{localization:Localize Key=Tools_Breakpoint_Abort}"
+                        Margin="0,0,8,0"
+                        Padding="12,4" />
+                <Button Command="{Binding ResumeCommand}"
+                        CommandParameter="{Binding SelectedPause}"
+                        Content="{localization:Localize Key=Tools_Breakpoint_Resume}"
+                        Padding="12,4" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

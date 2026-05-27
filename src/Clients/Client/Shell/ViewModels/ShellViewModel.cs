@@ -107,6 +107,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenBreakpoint()
+    {
+        _toolWindowOpener.OpenBreakpoint();
+    }
+
+    [RelayCommand]
     private void OpenCertificateManager()
     {
         _toolWindowOpener.OpenCertificateManager();

@@ -15,6 +15,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private readonly IServiceProvider _serviceProvider;
     private AllowListWindow? _allowListWindow;
     private BlockListWindow? _blockListWindow;
+    private BreakpointWindow? _breakpointWindow;
     private CertificateManagerWindow? _certificateManagerWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
@@ -74,6 +75,29 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _blockListWindow = null;
         };
         _blockListWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenBreakpoint()
+    {
+        if (_breakpointWindow is not null)
+        {
+            _breakpointWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<BreakpointViewModel>();
+        var window = new BreakpointWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _breakpointWindow = null;
+        };
+        _breakpointWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

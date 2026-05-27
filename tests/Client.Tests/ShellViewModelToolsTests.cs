@@ -52,6 +52,27 @@ public sealed class ShellViewModelToolsTests
     }
 
     /// <summary>
+    ///     The OpenBreakpointCommand delegates to <see cref="StubToolWindowOpener.OpenBreakpoint" />.
+    /// </summary>
+    [Test]
+    public async Task OpenBreakpointCommand_WhenInvoked_OpensBreakpointWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenBreakpointCommand.Execute(null);
+
+        await Assert.That(opener.OpenBreakpointCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenBlockListCallCount).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     The OpenMapLocalCommand delegates to <see cref="StubToolWindowOpener.OpenMapLocal" />.
     /// </summary>
     [Test]

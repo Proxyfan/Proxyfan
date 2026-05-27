@@ -57,6 +57,7 @@ public partial class App : Application
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<ShellViewModel>();
             services.AddTransient<BlockListViewModel>();
+            services.AddTransient<BreakpointViewModel>();
             services.AddTransient<AllowListViewModel>();
             services.AddTransient<CertificateManagerViewModel>();
             services.AddTransient<MapLocalViewModel>();

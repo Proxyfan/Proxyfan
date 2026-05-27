@@ -20,6 +20,12 @@ public interface IToolWindowOpener
     void OpenBlockList();
 
     /// <summary>
+    ///     Opens the Breakpoint tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenBreakpoint();
+
+    /// <summary>
     ///     Opens the Certificate Manager tool window. Idempotent: if the window is already
     ///     open, it is brought to the foreground instead of being recreated.
     /// </summary>

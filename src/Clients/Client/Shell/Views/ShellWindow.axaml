@@ -26,6 +26,8 @@
                           Header="{localization:Localize Key=Shell_Menu_BlockList}" />
                 <MenuItem Command="{Binding OpenAllowListCommand}"
                           Header="{localization:Localize Key=Shell_Menu_AllowList}" />
+                <MenuItem Command="{Binding OpenBreakpointCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_Breakpoint}" />
                 <MenuItem Command="{Binding OpenMapLocalCommand}"
                           Header="{localization:Localize Key=Shell_Menu_MapLocal}" />
                 <MenuItem Command="{Binding OpenMapRemoteCommand}"
