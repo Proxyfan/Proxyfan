@@ -12,6 +12,8 @@ using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Shell.ViewModels;
 using Proxyfan.Client.Shell.Views;
 using Proxyfan.Client.Threading;
+using Proxyfan.Client.Tools;
+using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
@@ -52,6 +54,9 @@ public partial class App : Application
             services.AddSingleton<SourceListViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<ShellViewModel>();
+            services.AddTransient<BlockListViewModel>();
+            services.AddTransient<AllowListViewModel>();
+            services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
             services.AddSingleton<AvaloniaFilePickerService>();

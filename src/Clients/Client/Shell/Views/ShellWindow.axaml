@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
         xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
         xmlns:viewModels="clr-namespace:Proxyfan.Client.Shell.ViewModels"
         xmlns:views="clr-namespace:Proxyfan.Client.Shell.Views"
@@ -16,8 +17,15 @@
         mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
         <Menu Grid.Row="0">
-            <MenuItem Header="File">
-                <MenuItem Command="{Binding ExitCommand}" Header="Exit" />
+            <MenuItem Header="{localization:Localize Key=Shell_Menu_File}">
+                <MenuItem Command="{Binding ExitCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_Exit}" />
+            </MenuItem>
+            <MenuItem Header="{localization:Localize Key=Shell_Menu_Tools}">
+                <MenuItem Command="{Binding OpenBlockListCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_BlockList}" />
+                <MenuItem Command="{Binding OpenAllowListCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_AllowList}" />
             </MenuItem>
         </Menu>
         <views:ShellView Grid.Row="1" />

@@ -1,0 +1,64 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.AllowListView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:matching="clr-namespace:Proxyfan.Domain.Rules.Matching;assembly=Domain.Rules"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:AllowListViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:AllowListViewModel}"
+             x:DataType="viewModels:AllowListViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto">
+        <CheckBox Grid.Row="0"
+                  Content="{localization:Localize Key=Tools_RuleList_Enabled}"
+                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                  Margin="0,0,0,8" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0"
+                     Margin="0,0,4,0"
+                     Text="{Binding NewPatternText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_RuleList_PatternPlaceholder}" />
+            <ComboBox Grid.Column="1"
+                      Margin="0,0,4,0"
+                      MinWidth="100"
+                      SelectedItem="{Binding NewPatternKind, Mode=TwoWay}">
+                <matching:MatchingRuleKind>Wildcard</matching:MatchingRuleKind>
+                <matching:MatchingRuleKind>Exact</matching:MatchingRuleKind>
+                <matching:MatchingRuleKind>Regex</matching:MatchingRuleKind>
+            </ComboBox>
+            <Button Grid.Column="2"
+                    Command="{Binding AddPatternCommand}"
+                    Content="{localization:Localize Key=Tools_RuleList_AddPattern}"
+                    Padding="12,4" />
+        </Grid>
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox ItemsSource="{Binding Patterns}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:BlockListPatternViewModel">
+                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="4">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Pattern}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       Margin="8,0"
+                                       Text="{Binding Kind}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="2"
+                                    Command="{Binding $parent[ListBox].((viewModels:AllowListViewModel)DataContext).RemovePatternCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_RuleList_RemovePattern}"
+                                    Padding="8,2" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </Grid>
+</UserControl>

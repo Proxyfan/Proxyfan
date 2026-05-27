@@ -50,12 +50,35 @@ public static class ShellViewModelFactory
         IHarExporter harExporter,
         IHarImporter harImporter)
     {
+        var toolWindowOpener = new StubToolWindowOpener();
+        return Create(systemProxy, port, filePicker, harExporter, harImporter, toolWindowOpener);
+    }
+
+    /// <summary>
+    ///     Creates a new <see cref="ShellViewModel" /> wired with the supplied
+    ///     <paramref name="systemProxy" /> and explicit stubs including the tool window opener.
+    /// </summary>
+    /// <param name="systemProxy">The system proxy stub to wire in.</param>
+    /// <param name="port">The proxy port for <see cref="ProxyOptions" />.</param>
+    /// <param name="filePicker">The file picker stub.</param>
+    /// <param name="harExporter">The HAR exporter stub.</param>
+    /// <param name="harImporter">The HAR importer stub.</param>
+    /// <param name="toolWindowOpener">The tool window opener stub.</param>
+    /// <returns>A new <see cref="ShellViewModel" /> instance.</returns>
+    internal static ShellViewModel Create(
+        StubSystemProxy systemProxy,
+        int port,
+        IFilePickerService filePicker,
+        IHarExporter harExporter,
+        IHarImporter harImporter,
+        StubToolWindowOpener toolWindowOpener)
+    {
         var options = new ProxyOptions { Port = port };
         var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
         var eventBus = new NoopEventBus();
         var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance);
         var sourceList = new SourceListViewModel(eventBus, trafficList, InlineUserInterfaceScheduler.Instance);
-        return new ShellViewModel(systemProxy, optionsMonitor, trafficList, sourceList, filePicker, harExporter, harImporter);
+        return new ShellViewModel(systemProxy, optionsMonitor, trafficList, sourceList, filePicker, harExporter, harImporter, toolWindowOpener);
     }
 
     /// <summary>

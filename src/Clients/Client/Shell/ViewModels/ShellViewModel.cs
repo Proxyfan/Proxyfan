@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Options;
+using Proxyfan.Client.Tools;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Session.Har;
@@ -30,6 +31,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly IHarImporter _harImporter;
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor;
     private readonly ISystemProxy _systemProxy;
+    private readonly IToolWindowOpener _toolWindowOpener;
     [ObservableProperty]
     private bool _isSystemProxyEnabled;
 
@@ -61,6 +63,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="filePicker">The file picker abstraction used to prompt the user for HAR paths.</param>
     /// <param name="harExporter">The HAR exporter used when saving a session.</param>
     /// <param name="harImporter">The HAR importer used when opening a session.</param>
+    /// <param name="toolWindowOpener">The opener used to display tool windows on user request.</param>
     public ShellViewModel(
         ISystemProxy systemProxy,
         IOptionsMonitor<ProxyOptions> optionsMonitor,
@@ -68,13 +71,15 @@ public sealed partial class ShellViewModel : ObservableObject
         SourceListViewModel sourceListViewModel,
         IFilePickerService filePicker,
         IHarExporter harExporter,
-        IHarImporter harImporter)
+        IHarImporter harImporter,
+        IToolWindowOpener toolWindowOpener)
     {
         _systemProxy = systemProxy;
         _optionsMonitor = optionsMonitor;
         _filePicker = filePicker;
         _harExporter = harExporter;
         _harImporter = harImporter;
+        _toolWindowOpener = toolWindowOpener;
         _isSystemProxyEnabled = false;
         TrafficList = trafficListViewModel;
         SourceList = sourceListViewModel;
@@ -87,6 +92,18 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             desktop.Shutdown();
         }
+    }
+
+    [RelayCommand]
+    private void OpenAllowList()
+    {
+        _toolWindowOpener.OpenAllowList();
+    }
+
+    [RelayCommand]
+    private void OpenBlockList()
+    {
+        _toolWindowOpener.OpenBlockList();
     }
 
     [RelayCommand]
