@@ -262,7 +262,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         var proxyAuthorization = hasUpstreamProxy ? ProxyAuthorizationHeader.Build(upstreamOptions!) : null;
         var headerBytes = hasUpstreamProxy
             ? UpstreamProxyRequestRewriter.RewriteHeaders(requestExchange.HeaderBytes, requestExchange.Request, proxyAuthorization)
-            : requestExchange.HeaderBytes;
+            : OriginRequestRewriter.RewriteHeaders(requestExchange.HeaderBytes, requestExchange.Request);
         using var upstreamClient = new TcpClient();
         await upstreamClient.ConnectAsync(connectTarget.Host, connectTarget.Port, cancellationToken).ConfigureAwait(false);
         await using var upstreamStream = upstreamClient.GetStream();

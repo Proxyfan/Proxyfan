@@ -198,6 +198,56 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         await Assert.That(completedEvents).HasSingleItem();
     }
 
+    /// <summary>
+    ///     Verifies that, when forwarding directly to the origin server (no upstream proxy), the handler
+    ///     strips hop-by-hop headers like <c>Proxy-Authorization</c>, rewrites the absolute-URI request
+    ///     line to origin form, and injects a <c>Via</c> header. This is a security-critical RFC 7230
+    ///     compliance test: leaking <c>Proxy-Authorization</c> to the origin would expose proxy
+    ///     credentials.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_DirectToOriginRequest_StripsHopByHopHeadersAndInjectsVia()
+    {
+        var trafficStore = new StubTrafficStore();
+        var eventBus = new StubDomainEventBus();
+        var logger = new StubLogger<HypertextTransferProtocolProxyHandler>();
+        var handler = new HypertextTransferProtocolProxyHandler(new HypertextTransferProtocolProxyHandlerDependencies { TrafficStore = trafficStore, EventBus = eventBus, RuleEngine = CreateEmptyRuleEngine(), Logger = logger });
+        var upstreamListener = new TcpListener(IPAddress.Loopback, 0);
+        upstreamListener.Start();
+
+        try
+        {
+            var upstreamPort = ((IPEndPoint)upstreamListener.LocalEndpoint).Port;
+            var connection = new StubFullDuplexProxyConnection();
+            var requestText = "GET http://127.0.0.1:" + upstreamPort + "/api?x=1 HTTP/1.1\r\n"
+                + "Host: 127.0.0.1:" + upstreamPort + "\r\n"
+                + "Proxy-Authorization: Basic c2VjcmV0\r\n"
+                + "Proxy-Connection: keep-alive\r\n"
+                + "X-Custom: value\r\n"
+                + "Connection: close, X-Forwarded-By\r\n"
+                + "X-Forwarded-By: alice\r\n"
+                + "\r\n";
+            var requestBytes = Encoding.ASCII.GetBytes(requestText);
+            await connection.InputWriter.WriteAsync(requestBytes).ConfigureAwait(false);
+
+            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var serverTask = CaptureUpstreamRequestAsync(upstreamListener, cancellationTokenSource.Token);
+            await handler.HandleAsync(connection, cancellationTokenSource.Token).ConfigureAwait(false);
+            var observedRequest = await serverTask.ConfigureAwait(false);
+
+            await Assert.That(observedRequest).StartsWith("GET /api?x=1 HTTP/1.1\r\n");
+            await Assert.That(observedRequest).DoesNotContain("Proxy-Authorization");
+            await Assert.That(observedRequest).DoesNotContain("Proxy-Connection");
+            await Assert.That(observedRequest).DoesNotContain("X-Forwarded-By");
+            await Assert.That(observedRequest).Contains("X-Custom: value");
+            await Assert.That(observedRequest).Contains("Via: 1.1 proxyfan");
+        }
+        finally
+        {
+            upstreamListener.Stop();
+        }
+    }
+
     private static async Task RunUpstreamServerAsync(TcpListener listener, CancellationToken cancellationToken)
     {
         using var client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
@@ -212,6 +262,23 @@ public sealed class HypertextTransferProtocolProxyHandlerTests
         var responseBytes = Encoding.ASCII.GetBytes(responseText);
         await networkStream.WriteAsync(responseBytes, cancellationToken).ConfigureAwait(false);
         await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string> CaptureUpstreamRequestAsync(TcpListener listener, CancellationToken cancellationToken)
+    {
+        using var client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
+        await using var networkStream = client.GetStream();
+        var requestBuffer = new byte[4096];
+        var bytesRead = await networkStream.ReadAsync(requestBuffer, cancellationToken).ConfigureAwait(false);
+        var responseText = "HTTP/1.1 200 OK\r\n"
+            + "Content-Length: 2\r\n"
+            + "Connection: close\r\n"
+            + "\r\n"
+            + "OK";
+        var responseBytes = Encoding.ASCII.GetBytes(responseText);
+        await networkStream.WriteAsync(responseBytes, cancellationToken).ConfigureAwait(false);
+        await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        return Encoding.ASCII.GetString(requestBuffer, 0, bytesRead);
     }
 
     private static RuleEngine CreateEmptyRuleEngine()
