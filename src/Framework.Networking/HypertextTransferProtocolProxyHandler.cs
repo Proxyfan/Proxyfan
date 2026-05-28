@@ -1,6 +1,4 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Proxyfan.Domain;
+﻿using Microsoft.Extensions.Logging;
 using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
@@ -9,12 +7,8 @@ using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
-using Proxyfan.Domain.Traffic.Events;
 using System;
 using System.Buffers;
-using System.IO;
-using System.IO.Pipelines;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,15 +26,14 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private static readonly byte[][] MethodPrefixes;
     private readonly IBreakpointHandler? _breakpointHandler;
     private readonly MutableCertificateAuthorityProvider? _certificateAuthorityProvider;
-    private readonly IDomainEventBus _eventBus;
+    private readonly HypertextTransferProtocolFlowEventPublisher _flowEventPublisher;
+    private readonly HypertextTransferProtocolForwarder _forwarder;
     private readonly ILogger<HypertextTransferProtocolProxyHandler> _logger;
     private readonly IRuleEngine _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
     private readonly MutableThrottleProfile? _throttleProfile;
-    private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
-    private readonly IOptionsMonitor<UpstreamProxyOptions>? _upstreamProxy;
-    private readonly IWebSocketStore? _webSocketStore;
+    private readonly HypertextTransferProtocolUpgradeOrchestrator _upgradeOrchestrator;
 
     static HypertextTransferProtocolProxyHandler()
     {
@@ -65,16 +58,35 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     public HypertextTransferProtocolProxyHandler(HypertextTransferProtocolProxyHandlerDependencies dependencies)
     {
         _trafficStore = dependencies.TrafficStore;
-        _eventBus = dependencies.EventBus;
         _ruleEngine = dependencies.RuleEngine;
         _scriptingHandler = dependencies.ScriptingHandler;
         _logger = dependencies.Logger;
-        _upstreamProxy = dependencies.UpstreamProxy;
         _throttleProfile = dependencies.ThrottleProfile;
         _breakpointHandler = dependencies.BreakpointHandler;
         _certificateAuthorityProvider = dependencies.CertificateAuthorityProvider;
-        _webSocketStore = dependencies.WebSocketStore;
-        _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
+        var timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
+        var flowEventPublisher = new HypertextTransferProtocolFlowEventPublisher(dependencies.EventBus);
+        _flowEventPublisher = flowEventPublisher;
+        var forwarderDependencies = new HypertextTransferProtocolForwarderDependencies
+        {
+            EventBus = dependencies.EventBus,
+            Logger = dependencies.Logger,
+            ServerSentEventsStore = dependencies.ServerSentEventsStore,
+            TimeProvider = timeProvider,
+            TrafficStore = dependencies.TrafficStore,
+            UpstreamProxy = dependencies.UpstreamProxy,
+        };
+        var forwarder = new HypertextTransferProtocolForwarder(forwarderDependencies);
+        _forwarder = forwarder;
+        var upgradeOrchestratorDependencies = new HypertextTransferProtocolUpgradeOrchestratorDependencies
+        {
+            FlowEventPublisher = _flowEventPublisher,
+            TimeProvider = timeProvider,
+            TrafficStore = dependencies.TrafficStore,
+            WebSocketStore = dependencies.WebSocketStore,
+        };
+        var upgradeOrchestrator = new HypertextTransferProtocolUpgradeOrchestrator(upgradeOrchestratorDependencies);
+        _upgradeOrchestrator = upgradeOrchestrator;
     }
 
     /// <inheritdoc />
@@ -227,49 +239,6 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         return candidatePrefix.SequenceEqual(prefix);
     }
 
-    private async Task CompleteUpgradeExchangeAsync(
-        UpgradeExchangeRequest request,
-        NetworkStream upstreamStream,
-        UpgradeResponseExchange upstreamUpgradeResponse,
-        CancellationToken cancellationToken)
-    {
-        var upstreamResponseExchange = upstreamUpgradeResponse.ResponseExchange;
-        var rewrittenResponse = UpgradeResponseRewriter.Rewrite(upstreamResponseExchange.Response);
-        var clientFacingExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(upstreamResponseExchange, rewrittenResponse);
-        request.Flow.SetResponse(rewrittenResponse);
-        PublishResponseReceived(request.Flow, rewrittenResponse);
-        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(request.Connection.Transport.Output, clientFacingExchange, cancellationToken).ConfigureAwait(false);
-
-        if (!WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request.EffectiveRequest, rewrittenResponse))
-        {
-            request.Flow.Complete();
-            _trafficStore.Add(request.Flow);
-            PublishFlowCompleted(request.Flow);
-            return;
-        }
-
-        var webSocketFlow = new WebSocketFlow(request.Flow);
-        _webSocketStore?.Add(webSocketFlow);
-
-        var clientStream = new DuplexPipeStream(request.Connection.Transport.Input, request.Connection.Transport.Output);
-        var prefixedUpstreamStream = new PrefixedReadStream(upstreamUpgradeResponse.PrefetchedBytes, upstreamStream);
-        Stream upstreamReadWriteStream = upstreamUpgradeResponse.PrefetchedBytes.Length == 0
-            ? upstreamStream
-            : prefixedUpstreamStream;
-        var tunnel = new WebSocketUpgradeTunnel(_timeProvider);
-
-        try
-        {
-            await tunnel.TunnelAsync(clientStream, upstreamReadWriteStream, webSocketFlow, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            request.Flow.Complete();
-            _trafficStore.Add(request.Flow);
-            PublishFlowCompleted(request.Flow);
-        }
-    }
-
     private TrafficFlow CreateTrafficFlow(IProxyConnection connection)
     {
         var clientEndPoint = connection.RemoteEndPoint?.ToString() ?? "unknown";
@@ -290,91 +259,76 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
 
-        var upstreamClient = new TcpClient();
-        try
-        {
-            await upstreamClient.ConnectAsync(hostEndpoint.Host, hostEndpoint.Port, cancellationToken).ConfigureAwait(false);
-            var upstreamStream = upstreamClient.GetStream();
-            await SendUpgradeRequestUpstreamAsync(request, upstreamStream, cancellationToken).ConfigureAwait(false);
-            var upstreamUpgradeResponse = await ReadUpgradeResponseFromUpstreamAsync(request, upstreamStream, cancellationToken).ConfigureAwait(false);
-
-            if (upstreamUpgradeResponse is null)
-            {
-                FailAndCompleteFlow(request.Flow);
-                return false;
-            }
-
-            await CompleteUpgradeExchangeAsync(request, upstreamStream, upstreamUpgradeResponse, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            upstreamClient.Dispose();
-        }
-
-        return false;
+        var dispatched = await _upgradeOrchestrator.DispatchAsync(request, hostEndpoint, cancellationToken).ConfigureAwait(false);
+        return dispatched;
     }
 
     private void FailAndCompleteFlow(TrafficFlow flow)
     {
         flow.Fail();
-        PublishFlowCompleted(flow);
+        _flowEventPublisher.PublishFlowCompleted(flow);
     }
 
-    private async Task<HypertextTransferProtocolProxyResponseExchange?> ForwardRequestAsync(
-        HypertextTransferProtocolProxyRequestExchange requestExchange,
+    private async Task<bool> ForwardAndProcessResponseAsync(
+        HypertextTransferProtocolForwardAndProcessRequest request,
         CancellationToken cancellationToken)
     {
+        var flow = request.Flow;
+        var effectiveRequest = request.EffectiveRequest;
+        var requestForUpstream = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(request.RequestExchange, effectiveRequest);
+        var forwardingRequest = new HypertextTransferProtocolForwardingRequest
+        {
+            Connection = request.Connection,
+            EffectiveRequest = effectiveRequest,
+            Flow = flow,
+            RequestExchange = requestForUpstream,
+        };
+        var outcome = await GetResponseExchangeAsync(forwardingRequest, request.BlockingAction, cancellationToken).ConfigureAwait(false);
+        if (outcome.IsFailure)
+        {
+            FailAndCompleteFlow(flow);
+            return false;
+        }
+
+        if (outcome.IsStreaming)
+        {
+            return false;
+        }
+
+        var context = HypertextTransferProtocolResponsePhaseContextFactory.Create(request.Connection, effectiveRequest, flow, outcome.Exchange!);
+        return await ProcessResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<HypertextTransferProtocolForwardingOutcome> ForwardRequestAsync(
+        HypertextTransferProtocolForwardingRequest forwardingRequest,
+        CancellationToken cancellationToken)
+    {
+        var requestExchange = forwardingRequest.RequestExchange;
         var hostEndpoint = ParseHostEndpoint(requestExchange.Request.Headers);
 
         if (hostEndpoint is null)
         {
             _logger.LogDebug("HTTP request is missing a valid Host header.");
-            return null;
+            return HypertextTransferProtocolForwardingOutcomes.Failure();
         }
 
-        var upstreamOptions = _upstreamProxy?.CurrentValue;
-        var hasUpstreamProxy = upstreamOptions is not null
-            && upstreamOptions.HasValidConfiguration()
-            && !BypassPatternMatcher.HasMatch(upstreamOptions.BypassPatterns, hostEndpoint.Host);
-        ConnectTarget? upstreamTarget = null;
-        if (hasUpstreamProxy)
-        {
-            var built = new ConnectTarget(upstreamOptions!.Host!, upstreamOptions.Port);
-            upstreamTarget = built;
-        }
-
-        var connectTarget = upstreamTarget ?? hostEndpoint;
-        var proxyAuthorization = hasUpstreamProxy ? ProxyAuthorizationHeader.Build(upstreamOptions!) : null;
-        var headerBytes = hasUpstreamProxy
-            ? UpstreamProxyRequestRewriter.RewriteHeaders(requestExchange.HeaderBytes, requestExchange.Request, proxyAuthorization)
-            : OriginRequestRewriter.RewriteHeaders(requestExchange.HeaderBytes, requestExchange.Request);
-        using var upstreamClient = new TcpClient();
-        await upstreamClient.ConnectAsync(connectTarget.Host, connectTarget.Port, cancellationToken).ConfigureAwait(false);
-        await using var upstreamStream = upstreamClient.GetStream();
-        await upstreamStream.WriteAsync(headerBytes, cancellationToken).ConfigureAwait(false);
-        await upstreamStream.WriteAsync(requestExchange.Body, cancellationToken).ConfigureAwait(false);
-        await upstreamStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-        var reader = PipeReader.Create(upstreamStream);
-        var responseExchange = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(reader, MaxHeaderBytes, requestExchange.Request.Method, cancellationToken).ConfigureAwait(false);
-        await reader.CompleteAsync().ConfigureAwait(false);
-        return responseExchange;
+        var outcome = await _forwarder.ForwardAsync(forwardingRequest, hostEndpoint, cancellationToken).ConfigureAwait(false);
+        return outcome;
     }
 
-    private async Task<HypertextTransferProtocolProxyResponseExchange?> GetResponseExchangeAsync(
+    private async Task<HypertextTransferProtocolForwardingOutcome> GetResponseExchangeAsync(
+        HypertextTransferProtocolForwardingRequest forwardingRequest,
         RequestPipelineAction? blockingAction,
-        HypertextTransferProtocolProxyRequestExchange requestExchange,
-        HypertextTransferProtocolRequestData effectiveRequest,
         CancellationToken cancellationToken)
     {
         if (blockingAction is RequestPipelineAction.ServeLocalResponse serveAction)
         {
             var localExchange = HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(serveAction.LocalResponse);
-            return localExchange;
+            return HypertextTransferProtocolForwardingOutcomes.Standard(localExchange);
         }
 
-        var requestForUpstream = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(requestExchange, effectiveRequest);
-        var exchange = await ForwardRequestAsync(requestForUpstream, cancellationToken).ConfigureAwait(false);
-        return exchange;
+        var outcome = await ForwardRequestAsync(forwardingRequest, cancellationToken).ConfigureAwait(false);
+        return outcome;
     }
 
     private async Task HandleBlockedRequestAsync(IProxyConnection connection, TrafficFlow flow, CancellationToken cancellationToken)
@@ -383,7 +337,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         flow.SetResponse(HypertextTransferProtocolRuleApplicator.CreateBlockedResponseData());
         flow.Complete();
         _trafficStore.Add(flow);
-        PublishFlowCompleted(flow);
+        _flowEventPublisher.PublishFlowCompleted(flow);
     }
 
     private async Task HandleProvisioningRequestAsync(
@@ -396,10 +350,10 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         var response = CertificateProvisioningResponder.BuildResponse(request, authority.Certificate);
         await CertificateProvisioningResponder.WriteResponseAsync(connection.Transport.Output, response, cancellationToken).ConfigureAwait(false);
         flow.SetResponse(response);
-        PublishResponseReceived(flow, response);
+        _flowEventPublisher.PublishResponseReceived(flow, response);
         flow.Complete();
         _trafficStore.Add(flow);
-        PublishFlowCompleted(flow);
+        _flowEventPublisher.PublishFlowCompleted(flow);
     }
 
     private bool HasConnectionCloseDirective(HeaderCollection headers)
@@ -468,12 +422,12 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
 
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
         flow.SetResponse(finalResponse);
-        PublishResponseReceived(flow, finalResponse);
+        _flowEventPublisher.PublishResponseReceived(flow, finalResponse);
         flow.Complete();
         await ApplyThrottleAsync(cancellationToken).ConfigureAwait(false);
         await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(context.Connection.Transport.Output, finalExchange, cancellationToken).ConfigureAwait(false);
         _trafficStore.Add(flow);
-        PublishFlowCompleted(flow);
+        _flowEventPublisher.PublishFlowCompleted(flow);
         return CanKeepClientConnectionAlive(effectiveRequest, finalResponse);
     }
 
@@ -483,9 +437,9 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         CancellationToken cancellationToken)
     {
         var flow = CreateTrafficFlow(connection);
-        PublishFlowCreated(flow);
+        _flowEventPublisher.PublishFlowCreated(flow);
         flow.SetRequest(requestExchange.Request);
-        PublishRequestReceived(flow, requestExchange.Request);
+        _flowEventPublisher.PublishRequestReceived(flow, requestExchange.Request);
 
         if (_certificateAuthorityProvider is not null
             && CertificateProvisioningResponder.HasProvisioningTarget(requestExchange.Request))
@@ -511,7 +465,6 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
         effectiveRequest = requestBreakpoint.ModifiedRequest ?? effectiveRequest;
-
         effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
 
         if (blockingAction is not RequestPipelineAction.ServeLocalResponse
@@ -521,72 +474,14 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return await DispatchUpgradeExchangeAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
         }
 
-        var responseExchange = await GetResponseExchangeAsync(blockingAction, requestExchange, effectiveRequest, cancellationToken).ConfigureAwait(false);
-        if (responseExchange is null)
+        var forwardAndProcessRequest = new HypertextTransferProtocolForwardAndProcessRequest
         {
-            FailAndCompleteFlow(flow);
-            return false;
-        }
-
-        var context = HypertextTransferProtocolResponsePhaseContextFactory.Create(connection, effectiveRequest, flow, responseExchange);
-        return await ProcessResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
-    }
-
-    private void PublishFlowCompleted(TrafficFlow flow)
-    {
-        var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
-        _eventBus.Publish(completedEvent);
-    }
-
-    private void PublishFlowCreated(TrafficFlow flow)
-    {
-        var createdEvent = new TrafficFlowCreated(flow.Id, DateTimeOffset.UtcNow);
-        _eventBus.Publish(createdEvent);
-    }
-
-    private void PublishRequestReceived(TrafficFlow flow, HypertextTransferProtocolRequestData request)
-    {
-        var requestReceivedEvent = new RequestReceived(flow.Id, request, flow.ClientEndPoint, DateTimeOffset.UtcNow);
-        _eventBus.Publish(requestReceivedEvent);
-    }
-
-    private void PublishResponseReceived(TrafficFlow flow, HypertextTransferProtocolResponseData response)
-    {
-        var responseReceivedEvent = new ResponseReceived(flow.Id, response, DateTimeOffset.UtcNow);
-        _eventBus.Publish(responseReceivedEvent);
-    }
-
-    private async Task<UpgradeResponseExchange?> ReadUpgradeResponseFromUpstreamAsync(
-        UpgradeExchangeRequest request,
-        NetworkStream upstreamStream,
-        CancellationToken cancellationToken)
-    {
-        var pipeReaderOptions = new StreamPipeReaderOptions(leaveOpen: true);
-        var upstreamReader = PipeReader.Create(upstreamStream, pipeReaderOptions);
-        var upstreamResponseExchange = await HypertextTransferProtocolPipeHelpers
-            .ReadResponseAsync(upstreamReader, MaxHeaderBytes, request.EffectiveRequest.Method, cancellationToken).ConfigureAwait(false);
-
-        if (upstreamResponseExchange is null)
-        {
-            await upstreamReader.CompleteAsync().ConfigureAwait(false);
-            return null;
-        }
-
-        var prefetched = await PipeReaderDrainer.DrainBufferedBytesAsync(upstreamReader, cancellationToken).ConfigureAwait(false);
-        await upstreamReader.CompleteAsync().ConfigureAwait(false);
-        var upgradeExchange = new UpgradeResponseExchange(upstreamResponseExchange, prefetched);
-        return upgradeExchange;
-    }
-
-    private async Task SendUpgradeRequestUpstreamAsync(
-        UpgradeExchangeRequest request,
-        NetworkStream upstreamStream,
-        CancellationToken cancellationToken)
-    {
-        var rebuiltRequestExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(request.RequestExchange, request.EffectiveRequest);
-        var upstreamHeaderBytes = UpgradeRequestRewriter.RewriteHeaders(rebuiltRequestExchange.HeaderBytes, request.EffectiveRequest);
-        await upstreamStream.WriteAsync(upstreamHeaderBytes, cancellationToken).ConfigureAwait(false);
-        await upstreamStream.WriteAsync(rebuiltRequestExchange.Body, cancellationToken).ConfigureAwait(false);
-        await upstreamStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            BlockingAction = blockingAction,
+            Connection = connection,
+            EffectiveRequest = effectiveRequest,
+            Flow = flow,
+            RequestExchange = requestExchange,
+        };
+        return await ForwardAndProcessResponseAsync(forwardAndProcessRequest, cancellationToken).ConfigureAwait(false);
     }
 }

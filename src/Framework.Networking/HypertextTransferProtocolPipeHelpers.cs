@@ -81,6 +81,60 @@ public static class HypertextTransferProtocolPipeHelpers
         string requestMethod,
         CancellationToken cancellationToken)
     {
+        var headerRead = await ReadResponseHeadersAsync(reader, maxBytes, cancellationToken).ConfigureAwait(false);
+
+        if (headerRead is null)
+        {
+            return null;
+        }
+
+        var exchange = await ReadResponseBodyAsync(reader, headerRead, requestMethod, cancellationToken).ConfigureAwait(false);
+        return exchange;
+    }
+
+    /// <summary>
+    ///     Reads the body of an HTTP response using the framing rules of RFC 7230 § 3.3.3 and
+    ///     wraps it together with the previously-read headers into a response exchange.
+    /// </summary>
+    /// <param name="reader">The pipe reader holding the buffered body bytes.</param>
+    /// <param name="headerRead">The previously-read header section.</param>
+    /// <param name="requestMethod">The HTTP method of the request that produced this response.</param>
+    /// <param name="cancellationToken">A token that cancels the read operation.</param>
+    /// <returns>The parsed response exchange, or <see langword="null" /> when the body cannot be read.</returns>
+    public static async Task<HypertextTransferProtocolProxyResponseExchange?> ReadResponseBodyAsync(
+        PipeReader reader,
+        HypertextTransferProtocolResponseHeaderRead headerRead,
+        string requestMethod,
+        CancellationToken cancellationToken)
+    {
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(headerRead.Response, requestMethod);
+        var bodyBytes = await ReadResponseBodyBytesAsync(reader, headerRead.Response, framing, cancellationToken).ConfigureAwait(false);
+
+        if (bodyBytes is null)
+        {
+            return null;
+        }
+
+        var responseWithBody = CreateResponseWithBody(headerRead.Response, bodyBytes);
+        var responseExchange = new HypertextTransferProtocolProxyResponseExchange(bodyBytes, headerRead.HeaderBytes, responseWithBody);
+        return responseExchange;
+    }
+
+    /// <summary>
+    ///     Reads only the header section of an HTTP response, leaving the body bytes (if any)
+    ///     buffered in <paramref name="reader" /> for the caller to consume. Used by handlers
+    ///     that need to inspect the response (e.g. detect <c>text/event-stream</c>) before
+    ///     deciding how to drain the body.
+    /// </summary>
+    /// <param name="reader">The pipe reader to consume response bytes from.</param>
+    /// <param name="maxBytes">The maximum number of response header bytes to allow.</param>
+    /// <param name="cancellationToken">A token that cancels the read operation.</param>
+    /// <returns>The header read result, or <see langword="null" /> when parsing fails.</returns>
+    public static async Task<HypertextTransferProtocolResponseHeaderRead?> ReadResponseHeadersAsync(
+        PipeReader reader,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
         var headerBytes = await PipeReaderHelper.ReadUntilEndOfHeadersAsync(reader, maxBytes, cancellationToken).ConfigureAwait(false);
 
         if (headerBytes is null)
@@ -95,17 +149,12 @@ public static class HypertextTransferProtocolPipeHelpers
             return null;
         }
 
-        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, requestMethod);
-        var bodyBytes = await ReadResponseBodyAsync(reader, response, framing, cancellationToken).ConfigureAwait(false);
-
-        if (bodyBytes is null)
+        var headerRead = new HypertextTransferProtocolResponseHeaderRead
         {
-            return null;
-        }
-
-        var responseWithBody = CreateResponseWithBody(response, bodyBytes);
-        var responseExchange = new HypertextTransferProtocolProxyResponseExchange(bodyBytes, headerBytes, responseWithBody);
-        return responseExchange;
+            HeaderBytes = headerBytes,
+            Response = response,
+        };
+        return headerRead;
     }
 
     /// <summary>
@@ -227,7 +276,7 @@ public static class HypertextTransferProtocolPipeHelpers
         }
     }
 
-    private static async Task<byte[]?> ReadResponseBodyAsync(
+    private static async Task<byte[]?> ReadResponseBodyBytesAsync(
         PipeReader reader,
         HypertextTransferProtocolResponseData response,
         HypertextTransferProtocolBodyFraming framing,

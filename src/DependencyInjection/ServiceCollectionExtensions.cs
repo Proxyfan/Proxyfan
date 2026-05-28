@@ -50,6 +50,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
         serviceCollection.AddSingleton<ITrafficStore, TrafficStore>();
         serviceCollection.AddSingleton<IWebSocketStore, WebSocketStore>();
+        serviceCollection.AddSingleton<IServerSentEventsStore, ServerSentEventsStore>();
         serviceCollection.AddSingleton<TrafficFlowDiffPool>();
         serviceCollection.AddSingleton<ICertificateGenerator, RsaCertificateGenerator>();
         serviceCollection.AddSingleton<ICertificateStore, WindowsCertificateStore>();
@@ -237,6 +238,7 @@ public static class ServiceCollectionExtensions
             ScriptingHandler = provider.GetService<IScriptingHandler>(),
             CertificateAuthorityProvider = provider.GetService<MutableCertificateAuthorityProvider>(),
             WebSocketStore = provider.GetService<IWebSocketStore>(),
+            ServerSentEventsStore = provider.GetService<IServerSentEventsStore>(),
             TimeProvider = provider.GetService<TimeProvider>(),
         };
         return dependencies;
@@ -255,6 +257,7 @@ public static class ServiceCollectionExtensions
             ScriptingHandler = provider.GetService<IScriptingHandler>(),
             TimeProvider = provider.GetService<TimeProvider>(),
             WebSocketStore = provider.GetService<IWebSocketStore>(),
+            ServerSentEventsStore = provider.GetService<IServerSentEventsStore>(),
         };
         return dependencies;
     }

@@ -48,6 +48,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
+    ///     Gets the optional Server-Sent Events store used to capture <c>text/event-stream</c>
+    ///     responses observed over intercepted TLS streams. When <see langword="null" />, SSE
+    ///     responses are still relayed correctly but events are not retained for inspection.
+    /// </summary>
+    public IServerSentEventsStore? ServerSentEventsStore { get; init; }
+
+    /// <summary>
     ///     Gets the time provider used for WebSocket message timestamps. Defaults to
     ///     <see cref="System.TimeProvider.System" /> when not supplied.
     /// </summary>

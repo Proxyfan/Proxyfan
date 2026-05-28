@@ -56,6 +56,14 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
+    ///     Gets the optional Server-Sent Events store used to capture <c>text/event-stream</c>
+    ///     responses while the relay forwards them verbatim to the client. When
+    ///     <see langword="null" />, SSE responses are still streamed correctly but the captured
+    ///     events are not retained for inspection.
+    /// </summary>
+    public IServerSentEventsStore? ServerSentEventsStore { get; init; }
+
+    /// <summary>
     ///     Gets the optional throttle profile holder used to bandwidth-limit response writes.
     ///     When <see langword="null" /> or when no profile is active, writes pass through unthrottled.
     /// </summary>
