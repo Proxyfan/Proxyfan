@@ -122,4 +122,16 @@ public sealed class HypertextTransferProtocolCookieParserTests
         await Assert.That(cookie.IsSecure).IsTrue();
         await Assert.That(cookie.IsHypertextTransferProtocolOnly).IsTrue();
     }
+
+    /// <summary>
+    ///     Verifies that an all-semicolons input returns null (covers the empty-attributes
+    ///     branch after Split with RemoveEmptyEntries).
+    /// </summary>
+    [Test]
+    public async Task ParseSetCookie_OnlySemicolons_ReturnsNull()
+    {
+        var cookie = HypertextTransferProtocolCookieParser.ParseSetCookie(";;;");
+
+        await Assert.That(cookie).IsNull();
+    }
 }

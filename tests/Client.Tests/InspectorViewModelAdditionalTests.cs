@@ -33,6 +33,30 @@ public sealed class InspectorViewModelAdditionalTests
         await Assert.That(inspectorViewModel.ResponseBodyText).IsNotEmpty();
     }
 
+    /// <summary>
+    ///     Verifies that selecting a flow with no request or response (a tunnel-style flow)
+    ///     clears the inspector text sections (covers the false branches of UpdateDisplayedText).
+    /// </summary>
+    [Test]
+    public async Task UpdateDisplayedText_WhenTunnelFlowSelectedAfterPopulatedFlow_ClearsSections()
+    {
+        var bus = new StubBus();
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        var populatedFlow = CreateTrafficFlowWithResponse();
+        var populatedViewModel = new TrafficFlowViewModel(populatedFlow, 1);
+        trafficListViewModel.SelectedFlow = populatedViewModel;
+        var tunnelFlow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9002", DateTimeOffset.UtcNow);
+        var tunnelViewModel = new TrafficFlowViewModel(tunnelFlow, 2);
+
+        trafficListViewModel.SelectedFlow = tunnelViewModel;
+
+        await Assert.That(inspectorViewModel.RequestHeadersText).IsEqualTo(string.Empty);
+        await Assert.That(inspectorViewModel.RequestBodyText).IsEqualTo(string.Empty);
+        await Assert.That(inspectorViewModel.ResponseHeadersText).IsEqualTo(string.Empty);
+        await Assert.That(inspectorViewModel.ResponseBodyText).IsEqualTo(string.Empty);
+    }
+
     private static TrafficFlow CreateTrafficFlowWithResponse()
     {
         var requestUri = new Uri("https://example.com/api");

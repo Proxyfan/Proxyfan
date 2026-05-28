@@ -125,4 +125,53 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistryTests
 
         await Assert.That(snapshot.Count).IsEqualTo(2);
     }
+
+    /// <summary>
+    ///     Looking up a previously-created stream returns the existing instance, exercising the
+    ///     TryGetValue success branch in <see cref="HypertextTransferProtocolVersion2StreamRegistry.Find" />.
+    /// </summary>
+    [Test]
+    public async Task Find_ExistingStream_ReturnsSameInstance()
+    {
+        var registry = new HypertextTransferProtocolVersion2StreamRegistry();
+        var created = registry.GetOrCreate(11);
+
+        var found = registry.Find(11);
+
+        await Assert.That(found).IsSameReferenceAs(created);
+    }
+
+    /// <summary>
+    ///     Applying the same local initial receive window size is a no-op (delta == 0); existing
+    ///     streams are not shifted. Exercises the early-return branch in
+    ///     <see cref="HypertextTransferProtocolVersion2StreamRegistry.ApplyLocalInitialReceiveWindowSize" />.
+    /// </summary>
+    [Test]
+    public async Task ApplyLocalInitialReceiveWindowSize_ZeroDelta_DoesNotShiftStreams()
+    {
+        var registry = new HypertextTransferProtocolVersion2StreamRegistry();
+        var stream = registry.GetOrCreate(1);
+        var originalAvailable = stream.ReceiveWindow.Available;
+
+        registry.ApplyLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize);
+
+        await Assert.That(stream.ReceiveWindow.Available).IsEqualTo(originalAvailable);
+    }
+
+    /// <summary>
+    ///     Applying the same peer initial send window size is a no-op (delta == 0); existing
+    ///     streams are not shifted. Exercises the early-return branch in
+    ///     <see cref="HypertextTransferProtocolVersion2StreamRegistry.ApplyPeerInitialSendWindowSize" />.
+    /// </summary>
+    [Test]
+    public async Task ApplyPeerInitialSendWindowSize_ZeroDelta_DoesNotShiftStreams()
+    {
+        var registry = new HypertextTransferProtocolVersion2StreamRegistry();
+        var stream = registry.GetOrCreate(1);
+        var originalAvailable = stream.SendWindow.Available;
+
+        registry.ApplyPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize);
+
+        await Assert.That(stream.SendWindow.Available).IsEqualTo(originalAvailable);
+    }
 }

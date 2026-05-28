@@ -198,4 +198,86 @@ public sealed class MapRemoteViewModelTests
 
         await Assert.That(viewModel.Entries.Count).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     AddEntry with a blank DestinationPath uses null path on the destination
+    ///     (covers the true branch of the path ternary in AddEntry).
+    /// </summary>
+    [Test]
+    public async Task AddEntryCommand_BlankDestinationPath_UsesNullPath()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var viewModel = new MapRemoteViewModel(rule, InlineUserInterfaceScheduler.Instance)
+        {
+            NewPatternText = "https://example.com/*",
+            NewPatternKind = MatchingRuleKind.Wildcard,
+            DestinationHost = "internal.example.com",
+            DestinationPath = "   ",
+        };
+
+        viewModel.AddEntryCommand.Execute(null);
+
+        var added = rule.GetEntries()[0];
+        await Assert.That(added.Destination.Path).IsNull();
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     Setting IsEnabled to the same value the rule already has is a no-op
+    ///     (covers the true branch of the equality check in OnIsEnabledChanged).
+    /// </summary>
+    [Test]
+    public async Task IsEnabled_SetToSameValueAsRule_DoesNotMutateRule()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var viewModel = new MapRemoteViewModel(rule, InlineUserInterfaceScheduler.Instance);
+        var initialEnabled = rule.IsEnabled;
+
+        viewModel.IsEnabled = true;
+
+        await Assert.That(rule.IsEnabled).IsEqualTo(initialEnabled);
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     When a rule mutation propagates while IsEnabled is in sync, the view model
+    ///     does not reassign IsEnabled (covers the false branch of the IsEnabled
+    ///     equality check in ReloadEntries).
+    /// </summary>
+    [Test]
+    public async Task RuleChanged_WhenIsEnabledMatches_DoesNotReassignIsEnabled()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var viewModel = new MapRemoteViewModel(rule, InlineUserInterfaceScheduler.Instance);
+        var matchingRule = new MatchingRule("https://example.com/*", MatchingRuleKind.Wildcard);
+        var destination = new MapRemoteDestination(null, "internal.example.com", null, null, false);
+
+        rule.AddEntry(new MapRemoteEntry { Destination = destination, IsEnabled = true, MatchingRule = matchingRule });
+
+        await Assert.That(viewModel.Entries.Count).IsEqualTo(1);
+        await Assert.That(viewModel.IsEnabled).IsTrue();
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     When the rule's IsEnabled changes externally, ReloadEntries propagates the
+    ///     new value into the view model. The subsequent OnIsEnabledChanged hits the
+    ///     true branch of the equality check (rule already matches) and does not
+    ///     re-enter SetEnabled.
+    /// </summary>
+    [Test]
+    public async Task ExternalEnable_PropagatesToViewModel_DoesNotLoopBackToRule()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: false);
+        var viewModel = new MapRemoteViewModel(rule, InlineUserInterfaceScheduler.Instance);
+        var changedInvocations = 0;
+        rule.Changed += () => changedInvocations++;
+
+        rule.SetEnabled(true);
+
+        await Assert.That(viewModel.IsEnabled).IsTrue();
+        await Assert.That(rule.IsEnabled).IsTrue();
+        await Assert.That(changedInvocations).IsEqualTo(1);
+        viewModel.Dispose();
+    }
 }

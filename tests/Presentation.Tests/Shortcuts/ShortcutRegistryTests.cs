@@ -123,4 +123,33 @@ public sealed class ShortcutRegistryTests
 
         await Assert.That(gesture.ToString()).IsEqualTo("Ctrl+Shift+Alt+Meta+X");
     }
+
+    /// <summary>
+    ///     Verifies GetGesture returns null for an action that has no binding (e.g. an
+    ///     out-of-range enum value).
+    /// </summary>
+    [Test]
+    public async Task GetGesture_UnboundAction_ReturnsNull()
+    {
+        var registry = new ShortcutRegistry();
+
+        var gesture = registry.GetGesture((ShortcutAction)999);
+
+        await Assert.That(gesture).IsNull();
+    }
+
+    /// <summary>
+    ///     Re-binding an action to its existing gesture (where <c>existingAction == action</c>)
+    ///     must succeed and not throw the conflict exception.
+    /// </summary>
+    [Test]
+    public async Task SetBinding_SameGestureSameAction_DoesNotThrow()
+    {
+        var registry = new ShortcutRegistry();
+        var existing = registry.GetGesture(ShortcutAction.ToggleCapture)!;
+
+        registry.SetBinding(ShortcutAction.ToggleCapture, existing);
+
+        await Assert.That(registry.GetGesture(ShortcutAction.ToggleCapture)).IsEqualTo(existing);
+    }
 }

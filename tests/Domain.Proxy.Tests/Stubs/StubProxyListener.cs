@@ -10,8 +10,10 @@ namespace Proxyfan.Domain.Proxy.Tests.Stubs;
 public sealed class StubProxyListener : IProxyListener
 {
     private int? _boundPort;
+    private bool _suppressDefaultBoundPort;
     private TimeSpan _startDelay;
     private Exception? _startException;
+    private Exception? _stopException;
     private readonly TimeProvider _timeProvider;
 
     /// <summary>
@@ -54,6 +56,7 @@ public sealed class StubProxyListener : IProxyListener
     {
         StartCalled = true;
         StartCallCount++;
+        ConnectionAccepted = onConnectionAccepted;
 
         if (_startDelay > TimeSpan.Zero)
         {
@@ -65,9 +68,15 @@ public sealed class StubProxyListener : IProxyListener
             throw _startException;
         }
 
-        _boundPort ??= 8080;
+        _boundPort ??= _suppressDefaultBoundPort ? null : 8080;
         IsListening = true;
     }
+
+    /// <summary>
+    ///     Gets the handler captured from the most recent <see cref="StartAsync" /> call.
+    ///     Test code can invoke this to simulate an inbound connection.
+    /// </summary>
+    public ConnectionAcceptedHandler? ConnectionAccepted { get; private set; }
 
     /// <inheritdoc />
     public Task StopAsync(CancellationToken cancellationToken)
@@ -75,6 +84,12 @@ public sealed class StubProxyListener : IProxyListener
         StopCalled = true;
         StopCallCount++;
         IsListening = false;
+
+        if (_stopException is not null)
+        {
+            throw _stopException;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -121,6 +136,29 @@ public sealed class StubProxyListener : IProxyListener
     public StubProxyListener WithStartException(Exception exception)
     {
         _startException = exception;
+        return this;
+    }
+
+    /// <summary>
+    ///     Configures the stub to NOT default <see cref="BoundPort" /> to 8080 after
+    ///     <see cref="StartAsync" /> succeeds. <see cref="BoundPort" /> remains null,
+    ///     exercising the null-coalescing fallback in callers.
+    /// </summary>
+    /// <returns>This instance for fluent chaining.</returns>
+    public StubProxyListener WithoutBoundPort()
+    {
+        _suppressDefaultBoundPort = true;
+        return this;
+    }
+
+    /// <summary>
+    ///     Configures the stub to throw the given exception when <see cref="StopAsync" /> is called.
+    /// </summary>
+    /// <param name="exception">The exception to throw.</param>
+    /// <returns>This instance for fluent chaining.</returns>
+    public StubProxyListener WithStopException(Exception exception)
+    {
+        _stopException = exception;
         return this;
     }
 }

@@ -104,6 +104,42 @@ public sealed class UserScriptingHandlerTests
     }
 
     /// <summary>
+    ///     Verifies that when no script is configured the response flows through unchanged.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_NoActiveScript_ReturnsOriginal()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
+
+        await Assert.That(result.StatusCode).IsEqualTo(200);
+    }
+
+    /// <summary>
+    ///     Verifies that a script that only opts in to the request phase is bypassed for the
+    ///     response hook.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_RequestOnlyScript_ReturnsOriginal()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "script",
+            onRequest: (request, state) => request.Method = "PATCH"));
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
+
+        await Assert.That(result.StatusCode).IsEqualTo(200);
+    }
+
+    /// <summary>
     ///     Verifies that response phase can read shared state written by the request phase
     ///     on the same flow id.
     /// </summary>

@@ -104,6 +104,59 @@ public sealed class MutableAllowListRuleTests
     }
 
     /// <summary>
+    ///     AddPattern walks past non-matching patterns when checking for duplicates.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_DuplicateAfterNonMatching_IsIgnored()
+    {
+        var rule = new MutableAllowListRule(priority: 50, isEnabled: false);
+        var first = new MatchingRule("https://a.example.com/*", MatchingRuleKind.Wildcard);
+        var second = new MatchingRule("https://b.example.com/*", MatchingRuleKind.Wildcard);
+
+        rule.AddPattern(first);
+        rule.AddPattern(second);
+        rule.AddPattern(second);
+
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     RemovePattern walks past non-matching patterns to find the target.
+    /// </summary>
+    [Test]
+    public async Task RemovePattern_TargetAfterNonMatching_RemovesTarget()
+    {
+        var rule = new MutableAllowListRule(priority: 50, isEnabled: false);
+        var first = new MatchingRule("https://a.example.com/*", MatchingRuleKind.Wildcard);
+        var second = new MatchingRule("https://b.example.com/*", MatchingRuleKind.Wildcard);
+        rule.AddPattern(first);
+        rule.AddPattern(second);
+
+        rule.RemovePattern(second);
+
+        var remaining = rule.GetPatterns();
+        await Assert.That(remaining.Count).IsEqualTo(1);
+        await Assert.That(remaining[0].Pattern).IsEqualTo(first.Pattern);
+    }
+
+    /// <summary>
+    ///     RemovePattern of a non-registered pattern is a no-op and does not raise Changed.
+    /// </summary>
+    [Test]
+    public async Task RemovePattern_NotRegistered_DoesNotRaiseChanged()
+    {
+        var rule = new MutableAllowListRule(priority: 50, isEnabled: false);
+        rule.AddPattern(new MatchingRule("https://a.example.com/*", MatchingRuleKind.Wildcard));
+        var count = 0;
+        rule.Changed += () => count++;
+
+        rule.RemovePattern(new MatchingRule("https://b.example.com/*", MatchingRuleKind.Wildcard));
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     SetEnabled toggles IsEnabled and raises Changed.
     /// </summary>
     [Test]

@@ -153,4 +153,18 @@ public sealed class Socks5ConnectRequestParserTests
 
         await Assert.That(() => Socks5ConnectRequestParser.TryParse(bytes)).Throws<System.IO.InvalidDataException>();
     }
+
+    /// <summary>
+    ///     A domain-name address type with the buffer exactly at the 4-byte boundary (so
+    ///     the length byte itself is absent) must return null rather than throwing.
+    /// </summary>
+    [Test]
+    public async Task TryParse_DomainAtypNoLengthByte_ReturnsNull()
+    {
+        var bytes = new byte[] { 0x05, 0x01, 0x00, 0x03 };
+
+        var request = Socks5ConnectRequestParser.TryParse(bytes);
+
+        await Assert.That(request).IsNull();
+    }
 }

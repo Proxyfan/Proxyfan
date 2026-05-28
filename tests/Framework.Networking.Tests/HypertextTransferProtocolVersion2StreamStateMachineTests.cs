@@ -186,4 +186,46 @@ public sealed class HypertextTransferProtocolVersion2StreamStateMachineTests
 
         await Assert.That(result.IsProtocolError).IsTrue();
     }
+
+    /// <summary>
+    ///     DATA without END_STREAM on a half-closed-local stream keeps the half-closed state
+    ///     (the stream remains receiving until END_STREAM arrives). Exercises the
+    ///     HalfClosedLocal-without-END_STREAM branch in OnDataReceived.
+    /// </summary>
+    [Test]
+    public async Task OnDataReceived_HalfClosedLocalWithoutEndStream_StaysHalfClosedLocal()
+    {
+        var result = HypertextTransferProtocolVersion2StreamStateMachine.OnDataReceived(HypertextTransferProtocolVersion2StreamState.HalfClosedLocal, hasEndStreamFlag: false);
+
+        await Assert.That(result.IsProtocolError).IsFalse();
+        await Assert.That(result.NextState).IsEqualTo(HypertextTransferProtocolVersion2StreamState.HalfClosedLocal);
+    }
+
+    /// <summary>
+    ///     A trailing HEADERS frame without END_STREAM on an open stream is permitted by the
+    ///     RFC 7540 transition table and leaves the state unchanged. Exercises the
+    ///     Open-without-END_STREAM branch in OnHeadersReceived.
+    /// </summary>
+    [Test]
+    public async Task OnHeadersReceived_OpenWithoutEndStream_StaysOpen()
+    {
+        var result = HypertextTransferProtocolVersion2StreamStateMachine.OnHeadersReceived(HypertextTransferProtocolVersion2StreamState.Open, hasEndStreamFlag: false);
+
+        await Assert.That(result.IsProtocolError).IsFalse();
+        await Assert.That(result.NextState).IsEqualTo(HypertextTransferProtocolVersion2StreamState.Open);
+    }
+
+    /// <summary>
+    ///     Trailing HEADERS without END_STREAM on a half-closed-local stream leaves the
+    ///     half-closed-local state unchanged. Exercises the HalfClosedLocal-without-END_STREAM
+    ///     branch in OnHeadersReceived.
+    /// </summary>
+    [Test]
+    public async Task OnHeadersReceived_HalfClosedLocalWithoutEndStream_StaysHalfClosedLocal()
+    {
+        var result = HypertextTransferProtocolVersion2StreamStateMachine.OnHeadersReceived(HypertextTransferProtocolVersion2StreamState.HalfClosedLocal, hasEndStreamFlag: false);
+
+        await Assert.That(result.IsProtocolError).IsFalse();
+        await Assert.That(result.NextState).IsEqualTo(HypertextTransferProtocolVersion2StreamState.HalfClosedLocal);
+    }
 }

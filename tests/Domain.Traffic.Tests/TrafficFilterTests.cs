@@ -250,6 +250,100 @@ public sealed class TrafficFilterTests
         await Assert.That(filter.HasMatch(flow)).IsTrue();
     }
 
+    /// <summary>
+    ///     Verifies that calling HasMatch directly with an empty-query filter returns true
+    ///     (covers the true branch of the query-length guard inside HasMatch itself, which
+    ///     Apply normally short-circuits before reaching).
+    /// </summary>
+    [Test]
+    public async Task HasMatch_EmptyQuery_ReturnsTrue()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        var filter = new TrafficFilter(string.Empty);
+
+        await Assert.That(filter.HasMatch(flow)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that a request with a Host header that does not contain the query returns false
+    ///     (covers the false branch of hostHeader.Contains).
+    /// </summary>
+    [Test]
+    public async Task HasMatch_HostHeaderPresentButNoMatch_ReturnsFalse()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        var request = new HypertextTransferProtocolRequestData(new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", "irrelevant.example"),
+            Method = "GET",
+            RequestUri = new Uri("https://irrelevant.example/foo"),
+            Version = "HTTP/1.1",
+        });
+        flow.SetRequest(request);
+
+        var filter = new TrafficFilter("query-not-anywhere-xyz");
+
+        await Assert.That(filter.HasMatch(flow)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that a response with a ReasonPhrase that does not contain the query
+    ///     returns false (covers the false branch of reasonPhrase.Contains).
+    /// </summary>
+    [Test]
+    public async Task HasMatch_ResponseReasonPhrasePresentButNoMatch_ReturnsFalse()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        var request = new HypertextTransferProtocolRequestData(new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty,
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/"),
+            Version = "HTTP/1.1",
+        });
+        var response = new HypertextTransferProtocolResponseData(new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty,
+            ReasonPhrase = "Forbidden",
+            StatusCode = 403,
+            Version = "HTTP/1.1",
+        });
+        flow.SetRequest(request);
+        flow.SetResponse(response);
+
+        var filter = new TrafficFilter("query-not-anywhere-xyz");
+
+        await Assert.That(filter.HasMatch(flow)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that the Host-header branch matches when neither the URL nor the
+    ///     method contains the query but the Host header does. This is the only path that
+    ///     reaches the <c>return true</c> on the Host-header arm of
+    ///     <c>HasRequestMatch</c>.
+    /// </summary>
+    [Test]
+    public async Task HasMatch_OnlyHostHeaderContainsQuery_ReturnsTrue()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        var request = new HypertextTransferProtocolRequestData(new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", "needle-host.example"),
+            Method = "GET",
+            RequestUri = new Uri("https://otherhost.test/path"),
+            Version = "HTTP/1.1",
+        });
+        flow.SetRequest(request);
+
+        var filter = new TrafficFilter("needle-host");
+
+        await Assert.That(filter.HasMatch(flow)).IsTrue();
+    }
+
     private static TrafficFlow[] BuildFlows()
     {
         var flowOne = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);

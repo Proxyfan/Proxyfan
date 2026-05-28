@@ -117,4 +117,22 @@ public sealed class HypertextTransferProtocolVersion2HeaderBlockAssemblerTests
         await Assert.That(result).IsNull();
         await Assert.That(assembler.IsInProgress).IsTrue();
     }
+
+    /// <summary>
+    ///     <see cref="HypertextTransferProtocolVersion2HeaderBlockAssembler.CurrentByteSize" />
+    ///     reports the buffered fragment count between BeginBlock and the final CONTINUATION.
+    /// </summary>
+    [Test]
+    public async Task CurrentByteSize_BetweenContinuations_TracksBufferedBytes()
+    {
+        var assembler = new HypertextTransferProtocolVersion2HeaderBlockAssembler();
+
+        assembler.BeginBlock(1, [0x01, 0x02, 0x03], hasEndHeadersFlag: false);
+
+        await Assert.That(assembler.CurrentByteSize).IsEqualTo(3);
+
+        assembler.AppendContinuation(1, [0x04, 0x05], hasEndHeadersFlag: false);
+
+        await Assert.That(assembler.CurrentByteSize).IsEqualTo(5);
+    }
 }

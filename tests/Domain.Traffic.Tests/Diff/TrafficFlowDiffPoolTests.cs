@@ -176,6 +176,40 @@ public sealed class TrafficFlowDiffPoolTests
         await Assert.That(snapshot[1]).IsSameReferenceAs(flowTwo);
     }
 
+    /// <summary>
+    ///     Verifies that Clear on a non-empty pool raises Changed exactly once.
+    /// </summary>
+    [Test]
+    public async Task Clear_NonEmptyPoolWithSubscriber_RaisesChanged()
+    {
+        var pool = new TrafficFlowDiffPool();
+        pool.Add(BuildFlow());
+        pool.Add(BuildFlow());
+        var raisedCount = 0;
+        pool.Changed += _ => raisedCount++;
+
+        pool.Clear();
+
+        await Assert.That(raisedCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that Remove on a present flow raises Changed once when a subscriber is attached.
+    /// </summary>
+    [Test]
+    public async Task Remove_PresentFlowWithSubscriber_RaisesChanged()
+    {
+        var pool = new TrafficFlowDiffPool();
+        var flow = BuildFlow();
+        pool.Add(flow);
+        var raisedCount = 0;
+        pool.Changed += _ => raisedCount++;
+
+        pool.Remove(flow);
+
+        await Assert.That(raisedCount).IsEqualTo(1);
+    }
+
     private static TrafficFlow BuildFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);

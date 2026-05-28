@@ -65,6 +65,39 @@ public sealed class GitHubReleasesUpdateFeedTests
         await Assert.That(info!.Version).IsEqualTo("2.0.0");
     }
 
+    /// <summary>
+    ///     A response body of literal JSON null causes <see cref="GitHubReleasesUpdateFeed.Create" />
+    ///     to return null. Covers the null-response short-circuit.
+    /// </summary>
+    [Test]
+    public async Task Create_NullResponseBody_ReturnsNull()
+    {
+        using var handler = new StubHttpMessageHandler("null");
+        using var client = new HttpClient(handler);
+        var feed = GitHubReleasesUpdateFeed.Create(client, "x", "y");
+
+        var info = await feed.Invoke(CancellationToken.None);
+
+        await Assert.That(info).IsNull();
+    }
+
+    /// <summary>
+    ///     A release without an <c>html_url</c> field falls back to an empty download URL.
+    /// </summary>
+    [Test]
+    public async Task Create_MissingHtmlUrl_DownloadUrlIsEmpty()
+    {
+        var json = """{"tag_name":"1.0.0"}""";
+        using var handler = new StubHttpMessageHandler(json);
+        using var client = new HttpClient(handler);
+        var feed = GitHubReleasesUpdateFeed.Create(client, "x", "y");
+
+        var info = await feed.Invoke(CancellationToken.None);
+
+        await Assert.That(info).IsNotNull();
+        await Assert.That(info!.DownloadUrl).IsEqualTo(string.Empty);
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly string _responseBody;

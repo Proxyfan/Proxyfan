@@ -179,4 +179,51 @@ public sealed class CliRunnerTests
         await Assert.That(exitCode).IsEqualTo(3);
         await Assert.That(error.ToString()).Contains("Unhandled");
     }
+
+    /// <summary>
+    ///     Verifies that the HarToCurl command is dispatched and reaches its handler when
+    ///     the path argument is missing (which returns its handler-specific error code 7).
+    /// </summary>
+    [Test]
+    public async Task RunAsync_HarToCurlWithoutPath_RoutesToHandler()
+    {
+        var runner = new CliRunner();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var command = new CliCommand(CliCommandKind.HarToCurl, 8080, null);
+
+        var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+        await Assert.That(exitCode).IsEqualTo(7);
+        await Assert.That(error.ToString()).Contains("har-to-curl");
+    }
+
+    /// <summary>
+    ///     Verifies that the HarToCurl command renders a cURL line per HAR entry when given
+    ///     a valid file with at least one request.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_HarToCurlValidFile_WritesCurlLine()
+    {
+        var temporaryFile = Path.Combine(Path.GetTempPath(), "proxyfan_cli_test_" + System.Guid.NewGuid() + ".har");
+        const string harJson = "{\"log\":{\"version\":\"1.2\",\"creator\":{\"name\":\"Test\",\"version\":\"1\"},\"entries\":[{\"startedDateTime\":\"2024-01-01T00:00:00Z\",\"time\":0,\"request\":{\"method\":\"GET\",\"url\":\"https://example.com/\",\"httpVersion\":\"HTTP/1.1\",\"headers\":[],\"queryString\":[],\"cookies\":[],\"headersSize\":-1,\"bodySize\":-1},\"response\":{\"status\":200,\"statusText\":\"OK\",\"httpVersion\":\"HTTP/1.1\",\"headers\":[],\"cookies\":[],\"content\":{\"size\":0,\"mimeType\":\"text/plain\"},\"redirectURL\":\"\",\"headersSize\":-1,\"bodySize\":0},\"cache\":{},\"timings\":{\"send\":0,\"wait\":0,\"receive\":0}}]}}";
+        await File.WriteAllTextAsync(temporaryFile, harJson, Encoding.UTF8, CancellationToken.None);
+
+        try
+        {
+            var runner = new CliRunner();
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var command = new CliCommand(CliCommandKind.HarToCurl, 8080, temporaryFile);
+
+            var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output.ToString()).Contains("curl");
+        }
+        finally
+        {
+            File.Delete(temporaryFile);
+        }
+    }
 }

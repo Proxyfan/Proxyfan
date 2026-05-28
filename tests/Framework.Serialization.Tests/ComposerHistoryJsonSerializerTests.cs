@@ -135,4 +135,61 @@ public sealed class ComposerHistoryJsonSerializerTests
 
         await Assert.That(entries.Count).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     An entry missing the Method field is dropped during deserialization
+    ///     (covers the null-method branch of TryConvert).
+    /// </summary>
+    [Test]
+    public async Task Deserialize_EntryMissingMethod_SkipsEntry()
+    {
+        var json = "{\"schemaVersion\":1,\"entries\":[{\"url\":\"https://example.com/api\",\"version\":\"HTTP/1.1\"}]}";
+
+        var entries = ComposerHistoryJsonSerializer.Deserialize(json);
+
+        await Assert.That(entries.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     An entry missing the Url field is dropped during deserialization
+    ///     (covers the null-url branch of TryConvert).
+    /// </summary>
+    [Test]
+    public async Task Deserialize_EntryMissingUrl_SkipsEntry()
+    {
+        var json = "{\"schemaVersion\":1,\"entries\":[{\"method\":\"GET\",\"version\":\"HTTP/1.1\"}]}";
+
+        var entries = ComposerHistoryJsonSerializer.Deserialize(json);
+
+        await Assert.That(entries.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     An entry with invalid base64 body data is dropped during deserialization
+    ///     (covers the FormatException catch branch of TryConvert).
+    /// </summary>
+    [Test]
+    public async Task Deserialize_EntryWithInvalidBase64_SkipsEntry()
+    {
+        var json = "{\"schemaVersion\":1,\"entries\":[{\"method\":\"POST\",\"url\":\"https://example.com/api\",\"version\":\"HTTP/1.1\",\"bodyBase64\":\"@@@not-base64@@@\"}]}";
+
+        var entries = ComposerHistoryJsonSerializer.Deserialize(json);
+
+        await Assert.That(entries.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     An entry with a null headers dictionary is parsed using an empty header
+    ///     collection (covers the null headers branch in TryConvert).
+    /// </summary>
+    [Test]
+    public async Task Deserialize_EntryWithNullHeaders_UsesEmptyHeaders()
+    {
+        var json = "{\"schemaVersion\":1,\"entries\":[{\"method\":\"GET\",\"url\":\"https://example.com/api\",\"version\":\"HTTP/1.1\",\"savedAt\":\"2024-01-01T00:00:00Z\"}]}";
+
+        var entries = ComposerHistoryJsonSerializer.Deserialize(json);
+
+        await Assert.That(entries.Count).IsEqualTo(1);
+        await Assert.That(entries[0].Headers.Count).IsEqualTo(0);
+    }
 }

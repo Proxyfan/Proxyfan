@@ -94,6 +94,38 @@ public sealed class HypertextTransferProtocolVersion2FrameReaderTests
         await Assert.That(frame!.Header.StreamIdentifier).IsEqualTo((uint)5);
     }
 
+    /// <summary>
+    ///     When the header bytes arrive before the payload bytes, the reader waits for the rest
+    ///     of the payload to arrive instead of returning a truncated frame. Exercises the
+    ///     buffer-shorter-than-payload branch in <c>TryConsumeFrame</c>.
+    /// </summary>
+    [Test]
+    public async Task ReadFrameAsync_PayloadArrivesAfterHeader_ReturnsFrame()
+    {
+        var payload = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55 };
+        var buffer = new byte[9 + payload.Length];
+        var descriptor = new HypertextTransferProtocolVersion2FrameDescriptor
+        {
+            PayloadLength = payload.Length,
+            Type = HypertextTransferProtocolVersion2FrameType.Data,
+            Flags = HypertextTransferProtocolVersion2FrameFlag.None,
+            StreamIdentifier = 7,
+        };
+        HypertextTransferProtocolVersion2FrameWriter.WriteFrame(buffer, descriptor, payload);
+        var pipe = new Pipe();
+        await pipe.Writer.WriteAsync(buffer.AsMemory(0, 9));
+        await pipe.Writer.FlushAsync();
+        var readTask = HypertextTransferProtocolVersion2FrameReader.ReadFrameAsync(pipe.Reader, CancellationToken.None);
+        await pipe.Writer.WriteAsync(buffer.AsMemory(9));
+        await pipe.Writer.CompleteAsync();
+
+        var frame = await readTask;
+
+        await Assert.That(frame).IsNotNull();
+        await Assert.That(frame!.Header.StreamIdentifier).IsEqualTo((uint)7);
+        await Assert.That(frame.Payload.ToArray()).IsEquivalentTo(payload);
+    }
+
     private static byte[] BuildHeaderFrame(uint streamId)
     {
         var payload = new byte[] { 0x82 };

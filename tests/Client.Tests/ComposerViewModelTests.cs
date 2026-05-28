@@ -265,6 +265,87 @@ public sealed class ComposerViewModelTests
         await Assert.That(viewModel.HistoryEntries.Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     RemoveHistoryEntry with no selected entry is a no-op.
+    /// </summary>
+    [Test]
+    public async Task RemoveHistoryEntry_NoSelection_LeavesStoreUnchanged()
+    {
+        var entry = CreateEntry("GET", "https://example.com/");
+        var store = new StubComposerHistoryStore { Entries = [entry] };
+        var viewModel = CreateViewModel(store: store);
+
+        viewModel.RemoveHistoryEntryCommand.Execute(null);
+
+        await Assert.That(store.Entries.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     ToggleStar with no selected entry is a no-op.
+    /// </summary>
+    [Test]
+    public async Task ToggleStar_NoSelection_LeavesStoreUnchanged()
+    {
+        var entry = CreateEntry("GET", "https://example.com/");
+        var store = new StubComposerHistoryStore { Entries = [entry] };
+        var viewModel = CreateViewModel(store: store);
+
+        viewModel.ToggleStarCommand.Execute(null);
+
+        await Assert.That(store.Entries[0].IsStarred).IsFalse();
+    }
+
+    /// <summary>
+    ///     BuildRequest with a whitespace Method defaults to GET.
+    /// </summary>
+    [Test]
+    public async Task BuildRequest_WhitespaceMethod_DefaultsToGet()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.Method = "   ";
+        viewModel.Url = "https://example.com/";
+
+        var request = viewModel.BuildRequest();
+
+        await Assert.That(request).IsNotNull();
+        await Assert.That(request!.Method).IsEqualTo("GET");
+    }
+
+    /// <summary>
+    ///     A header line without a colon is silently skipped.
+    /// </summary>
+    [Test]
+    public async Task BuildRequest_HeaderLineWithoutColon_IsSkipped()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.Url = "https://example.com/";
+        viewModel.HeadersText = "NotAHeader\nAccept: application/json";
+
+        var request = viewModel.BuildRequest();
+
+        await Assert.That(request).IsNotNull();
+        await Assert.That(request!.Headers.GetAll("Accept")[0]).IsEqualTo("application/json");
+        await Assert.That(request.Headers.HasHeader("NotAHeader")).IsFalse();
+    }
+
+    /// <summary>
+    ///     A header line whose name portion is only whitespace (e.g. <c>"  : value"</c>) has a
+    ///     non-zero colon position but produces an empty name after trimming. The composer
+    ///     skips it rather than registering a header with an empty name.
+    /// </summary>
+    [Test]
+    public async Task BuildRequest_WhitespaceOnlyHeaderName_IsSkipped()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.Url = "https://example.com/";
+        viewModel.HeadersText = "  : value-without-name\nAccept: application/json";
+
+        var request = viewModel.BuildRequest();
+
+        await Assert.That(request).IsNotNull();
+        await Assert.That(request!.Headers.GetAll("Accept")[0]).IsEqualTo("application/json");
+    }
+
     private static ComposerHistoryEntry CreateEntry(string method, string url)
     {
         return new ComposerHistoryEntry

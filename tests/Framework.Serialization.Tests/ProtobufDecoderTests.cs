@@ -156,6 +156,28 @@ public sealed class ProtobufDecoderTests
     }
 
     /// <summary>
+    ///     Verifies that the EndGroup deprecated wire type (4) is also rejected.
+    /// </summary>
+    [Test]
+    public async Task Decode_EndGroup_Throws()
+    {
+        var payload = new byte[] { 0x0C };
+
+        await Assert.That(() => ProtobufDecoder.Decode(payload)).Throws<InvalidDataException>();
+    }
+
+    /// <summary>
+    ///     Verifies that an unknown wire type (e.g. 7) is rejected with a meaningful error.
+    /// </summary>
+    [Test]
+    public async Task Decode_UnknownWireType_Throws()
+    {
+        var payload = new byte[] { 0x0F };
+
+        await Assert.That(() => ProtobufDecoder.Decode(payload)).Throws<InvalidDataException>();
+    }
+
+    /// <summary>
     ///     Verifies that very large varints (overflowing 64 bits) throw.
     /// </summary>
     [Test]

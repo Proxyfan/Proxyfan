@@ -80,6 +80,8 @@ public sealed class RemoteProcedureCallFlowTests
         await Assert.That(rpcFlow.Messages.Count).IsEqualTo(2);
         await Assert.That(rpcFlow.Messages[0].Direction).IsEqualTo(RemoteProcedureCallDirection.Outbound);
         await Assert.That(rpcFlow.Messages[0].IsCompressed).IsFalse();
+        await Assert.That(rpcFlow.Messages[0].Payload.Length).IsEqualTo(3);
+        await Assert.That(rpcFlow.Messages[0].Timestamp).IsEqualTo(request.Timestamp);
         await Assert.That(rpcFlow.Messages[1].Direction).IsEqualTo(RemoteProcedureCallDirection.Inbound);
         await Assert.That(rpcFlow.Messages[1].IsCompressed).IsTrue();
     }

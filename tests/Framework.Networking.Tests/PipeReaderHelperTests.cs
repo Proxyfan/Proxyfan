@@ -12,6 +12,25 @@ namespace Proxyfan.Framework.Networking.Tests;
 public sealed class PipeReaderHelperTests
 {
     /// <summary>
+    ///     Verifies that when end-of-headers is found in the buffer but the resulting header
+    ///     length exceeds <paramref name="maxBytes" /> the method returns null and the buffer
+    ///     is advanced to the end.
+    /// </summary>
+    [Test]
+    public async Task ReadUntilEndOfHeadersAsync_EndFoundButHeaderLengthExceedsMaxBytes_ReturnsNull()
+    {
+        var pipe = new Pipe();
+        var headers = new string('X', 60) + "\r\n\r\n";
+        await pipe.Writer.WriteAsync(Encoding.ASCII.GetBytes(headers));
+        await pipe.Writer.FlushAsync();
+
+        var result = await PipeReaderHelper.ReadUntilEndOfHeadersAsync(
+            pipe.Reader, 50, CancellationToken.None);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
     ///     Verifies that reading headers with a valid CRLF-terminated block returns all header bytes.
     /// </summary>
     [Test]

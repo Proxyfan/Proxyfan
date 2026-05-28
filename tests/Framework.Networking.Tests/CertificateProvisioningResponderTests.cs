@@ -119,6 +119,77 @@ public sealed class CertificateProvisioningResponderTests
         await Assert.That(response.Headers.Get("Content-Disposition")).Contains(".mobileconfig");
     }
 
+    /// <summary>
+    ///     Verifies that a relative request URI starting with '/' is treated as-is when
+    ///     extracting the request path, exercising the relative-URI-with-leading-slash branch
+    ///     of <c>ExtractPath</c>.
+    /// </summary>
+    [Test]
+    public async Task BuildResponse_RelativeUriWithLeadingSlash_RoutesToMatchingPath()
+    {
+        using var certificate = CreateSelfSignedCertificate();
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", "proxyfan.proxy"),
+            Method = "GET",
+            RequestUri = new Uri("/proxyfan-ca.pem", UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var response = CertificateProvisioningResponder.BuildResponse(request, certificate);
+
+        await Assert.That(response.Headers.Get("Content-Type")).IsEqualTo(MediaTypes.ApplicationXPemFile);
+    }
+
+    /// <summary>
+    ///     Verifies that a relative request URI without a leading slash gets one prepended
+    ///     before path matching, exercising the relative-URI-without-leading-slash branch of
+    ///     <c>ExtractPath</c>.
+    /// </summary>
+    [Test]
+    public async Task BuildResponse_RelativeUriWithoutLeadingSlash_PrependsSlash()
+    {
+        using var certificate = CreateSelfSignedCertificate();
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", "proxyfan.proxy"),
+            Method = "GET",
+            RequestUri = new Uri("proxyfan-ca.pem", UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var response = CertificateProvisioningResponder.BuildResponse(request, certificate);
+
+        await Assert.That(response.Headers.Get("Content-Type")).IsEqualTo(MediaTypes.ApplicationXPemFile);
+    }
+
+    /// <summary>
+    ///     Verifies that a relative request URI with an empty OriginalString falls back to
+    ///     "/" before path matching, exercising the empty-raw branch of <c>ExtractPath</c>.
+    /// </summary>
+    [Test]
+    public async Task BuildResponse_RelativeUriWithEmptyOriginalString_FallsBackToRoot()
+    {
+        using var certificate = CreateSelfSignedCertificate();
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", "proxyfan.proxy"),
+            Method = "GET",
+            RequestUri = new Uri(string.Empty, UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var response = CertificateProvisioningResponder.BuildResponse(request, certificate);
+
+        await Assert.That(response.Headers.Get("Content-Type")).IsEqualTo(MediaTypes.TextHypertextMarkup);
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var uri = new Uri(url);

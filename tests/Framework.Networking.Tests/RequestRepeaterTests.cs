@@ -180,6 +180,26 @@ public sealed class RequestRepeaterTests
             .Throws<ArgumentOutOfRangeException>();
     }
 
+    /// <summary>
+    ///     Verifies that a positive inter-repeat delay is honored between iterations
+    ///     (covers the <c>Task.Delay</c> branch of the loop).
+    /// </summary>
+    [Test]
+    public async Task RepeatAsync_TwoRepeatsWithPositiveDelay_DelaysBetweenIterations()
+    {
+        var sender = new StubComposerRequestSender();
+        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
+        var trafficStore = new StubTrafficStore();
+        var eventBus = new StubDomainEventBus();
+        var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
+        var request = BuildRequest("GET", "https://example.com/delay");
+
+        var completed = await repeater.RepeatAsync(request, repeatCount: 2, TimeSpan.FromMilliseconds(1), CancellationToken.None);
+
+        await Assert.That(completed).IsEqualTo(2);
+        await Assert.That(trafficStore.Count).IsEqualTo(2);
+    }
+
     private static HypertextTransferProtocolRequestData BuildRequest(string method, string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

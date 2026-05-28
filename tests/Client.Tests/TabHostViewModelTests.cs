@@ -113,6 +113,17 @@ public sealed class TabHostViewModelTests
     }
 
     [Test]
+    public async Task ActivatePrevious_FromSingleTab_NoChange()
+    {
+        var trafficList = BuildTrafficList();
+        var host = new TabHostViewModel(trafficList);
+
+        host.ActivatePrevious();
+
+        await Assert.That(host.ActiveTabIndex).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task ActivatePrevious_WithTwoTabs_WrapsAroundFromFirstToLast()
     {
         var trafficList = BuildTrafficList();
@@ -237,6 +248,24 @@ public sealed class TabHostViewModelTests
         await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsEqualTo(flow.Source.Id);
     }
 
+    /// <summary>
+    ///     When the selected flow is cleared (set to null), the domain tab's selected flow id
+    ///     is also cleared (covers the null leg of the null-conditional in OnTrafficListPropertyChanged).
+    /// </summary>
+    [Test]
+    public async Task SelectedFlowCleared_OnActiveTab_PropagatesNullToDomainTab()
+    {
+        var trafficList = BuildTrafficList();
+        var flow = AddFlow(trafficList, "y.example", 1);
+        var host = new TabHostViewModel(trafficList);
+        trafficList.SelectedFlow = flow;
+        await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsEqualTo(flow.Source.Id);
+
+        trafficList.SelectedFlow = null;
+
+        await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsNull();
+    }
+
     private static TrafficFlowViewModel AddFlow(TrafficListViewModel trafficList, string host, int number)
     {
         var uri = new Uri("https://" + host + "/");
@@ -254,6 +283,76 @@ public sealed class TabHostViewModelTests
         var viewModel = new TrafficFlowViewModel(domainEvent, number);
         trafficList.Flows.Add(viewModel);
         return viewModel;
+    }
+
+    /// <summary>
+    ///     When ApplyTabState searches for a selected flow that is NOT the first in the
+    ///     collection, the foreach walks past at least one non-matching flow before finding
+    ///     the target (covers the false branch of the per-flow id comparison).
+    /// </summary>
+    [Test]
+    public async Task ActivateAt_RestoreSelectionAfterFirstFlow_FindsMatchAfterWalking()
+    {
+        var trafficList = BuildTrafficList();
+        var firstFlow = AddFlow(trafficList, "first.example", 1);
+        var secondFlow = AddFlow(trafficList, "second.example", 2);
+        var host = new TabHostViewModel(trafficList);
+        trafficList.SelectedFlow = secondFlow;
+        host.AddTabCommand.Execute(null);
+        await Assert.That(trafficList.SelectedFlow).IsNull();
+
+        host.ActivateAt(0);
+
+        await Assert.That(trafficList.SelectedFlow).IsSameReferenceAs(secondFlow);
+        await Assert.That(firstFlow).IsNotNull();
+    }
+
+    /// <summary>
+    ///     CloseTab on a TabViewModel that is not present in the host is a no-op.
+    /// </summary>
+    [Test]
+    public async Task CloseTab_TabNotInCollection_IsIgnored()
+    {
+        var trafficList = BuildTrafficList();
+        var host = new TabHostViewModel(trafficList);
+        host.AddTabCommand.Execute(null);
+        var orphan = new TabViewModel(new TrafficWorkspaceTab("Orphan"));
+
+        host.CloseTabCommand.Execute(orphan);
+
+        await Assert.That(host.Tabs.Count).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Directly assigning ActiveTabIndex to a negative value is ignored by the partial
+    ///     OnActiveTabIndexChanged guard, leaving the active tab unchanged.
+    /// </summary>
+    [Test]
+    public async Task ActiveTabIndex_AssignedNegativeDirectly_DoesNotChangeActiveTab()
+    {
+        var trafficList = BuildTrafficList();
+        var host = new TabHostViewModel(trafficList);
+        host.AddTabCommand.Execute(null);
+        var initial = host.ActiveTab;
+
+        host.ActiveTabIndex = -5;
+
+        await Assert.That(host.ActiveTab).IsSameReferenceAs(initial);
+    }
+
+    /// <summary>
+    ///     Directly assigning ActiveTabIndex above the upper bound is ignored.
+    /// </summary>
+    [Test]
+    public async Task ActiveTabIndex_AssignedAboveUpperBoundDirectly_DoesNotChangeActiveTab()
+    {
+        var trafficList = BuildTrafficList();
+        var host = new TabHostViewModel(trafficList);
+        var initial = host.ActiveTab;
+
+        host.ActiveTabIndex = 99;
+
+        await Assert.That(host.ActiveTab).IsSameReferenceAs(initial);
     }
 
     private static TrafficListViewModel BuildTrafficList()

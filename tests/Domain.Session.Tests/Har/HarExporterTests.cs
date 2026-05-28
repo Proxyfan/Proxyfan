@@ -227,6 +227,125 @@ public sealed class HarExporterTests
         await Assert.That(content.GetProperty("size").GetInt32()).IsEqualTo(4);
     }
 
+    /// <summary>
+    ///     Verifies that a response without a Content-Type header serialises an empty mimeType
+    ///     string, exercising the null-coalescing branch in WriteContent.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_ResponseWithoutContentType_EmitsEmptyMimeType()
+    {
+        var exporter = new HarExporter();
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9000", DateTimeOffset.UtcNow);
+        flow.SetRequest(new HypertextTransferProtocolRequestData(new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty,
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/"),
+            Version = "HTTP/1.1",
+        }));
+        flow.SetResponse(new HypertextTransferProtocolResponseData(new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = Encoding.UTF8.GetBytes("hello"),
+            Headers = HeaderCollection.Empty,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        }));
+        flow.Complete();
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var content = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("response").GetProperty("content");
+
+        await Assert.That(content.GetProperty("mimeType").GetString()).IsEqualTo(string.Empty);
+        await Assert.That(content.TryGetProperty("text", out _)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that a query-string pair without an "=" sign is serialised with name set
+    ///     to the entire token and value set to the empty string, exercising the
+    ///     separator-not-found branch in WriteQueryString.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_QueryStringPairWithoutEquals_EmitsEmptyValue()
+    {
+        var exporter = new HarExporter();
+        var flow = CreateFlowWithQueryString("https://example.com/?flag&lang=en");
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var queryString = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("request").GetProperty("queryString");
+
+        await Assert.That(queryString.GetArrayLength()).IsEqualTo(2);
+        await Assert.That(queryString[0].GetProperty("name").GetString()).IsEqualTo("flag");
+        await Assert.That(queryString[0].GetProperty("value").GetString()).IsEqualTo(string.Empty);
+        await Assert.That(queryString[1].GetProperty("name").GetString()).IsEqualTo("lang");
+        await Assert.That(queryString[1].GetProperty("value").GetString()).IsEqualTo("en");
+    }
+
+    /// <summary>
+    ///     Verifies that an absolute URL without a query string emits an empty queryString
+    ///     array (exercising the empty-query branch in WriteQueryString).
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_AbsoluteUrlWithoutQuery_EmitsEmptyQueryStringArray()
+    {
+        var exporter = new HarExporter();
+        var flow = CreateFlowWithQueryString("https://example.com/path");
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var queryString = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("request").GetProperty("queryString");
+
+        await Assert.That(queryString.GetArrayLength()).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a cookie pair without an "=" sign is skipped, exercising the
+    ///     separator-not-found branch in WriteCookies.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_CookieWithoutEquals_IsSkipped()
+    {
+        var exporter = new HarExporter();
+        var flow = CreateFlowWithCookie("flag; session=abc123");
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var cookies = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("request").GetProperty("cookies");
+
+        await Assert.That(cookies.GetArrayLength()).IsEqualTo(1);
+        await Assert.That(cookies[0].GetProperty("name").GetString()).IsEqualTo("session");
+    }
+
+    /// <summary>
+    ///     Verifies that a request without a Cookie header emits an empty cookies array,
+    ///     exercising the null-or-whitespace branch in WriteCookies.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_RequestWithoutCookies_EmitsEmptyCookieArray()
+    {
+        var exporter = new HarExporter();
+        var flow = CreateCompletedFlow();
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
+        var cookies = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("request").GetProperty("cookies");
+
+        await Assert.That(cookies.GetArrayLength()).IsEqualTo(0);
+    }
+
     private static TrafficFlow CreateCompletedFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9000", DateTimeOffset.UtcNow);

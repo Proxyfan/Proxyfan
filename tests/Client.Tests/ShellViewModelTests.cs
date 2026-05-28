@@ -88,6 +88,17 @@ public sealed class ShellViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that the SourceList property is exposed and not null.
+    /// </summary>
+    [Test]
+    public async Task SourceList_AfterConstruction_IsExposed()
+    {
+        var viewModel = CreateViewModel(new StubSystemProxy(), 8080);
+
+        await Assert.That(viewModel.SourceList).IsNotNull();
+    }
+
+    /// <summary>
     ///     Verifies that every Open* command delegates to the corresponding opener method exactly once.
     /// </summary>
     [Test]

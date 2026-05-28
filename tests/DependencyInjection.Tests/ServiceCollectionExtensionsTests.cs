@@ -73,6 +73,43 @@ public sealed class ServiceCollectionExtensionsTests
         await Assert.That(disposable).IsNull();
     }
 
+    /// <summary>
+    ///     Resolving the singletons that are wired in by AddProxyListener forces the
+    ///     DI factory lambdas to execute, covering the body of those registrations
+    ///     (HttpClient, IComposerHistoryStore, IUserPreferencesStore, RemoteDeviceTracker,
+    ///     IReverseProxyEngine alias).
+    /// </summary>
+    [Test]
+    public async Task AddProxyListener_ResolvingFactoryRegistrations_ExercisesFactoryLambdas()
+    {
+        var services = new ServiceCollection();
+        var configurationBuilder = new ConfigurationBuilder();
+        var configuration = configurationBuilder.Build();
+        services.AddLogging();
+        services.AddSingleton<IDomainEventBus, DomainEventBus>();
+        services.AddProxyListener(configuration);
+
+        ServiceProvider provider = services.BuildServiceProvider();
+        try
+        {
+            var httpClient = provider.GetService<System.Net.Http.HttpClient>();
+            var historyStore = provider.GetService<Proxyfan.Domain.Traffic.IComposerHistoryStore>();
+            var preferencesStore = provider.GetService<Proxyfan.Domain.Configuration.IUserPreferencesStore>();
+            var remoteDeviceTracker = provider.GetService<Proxyfan.Domain.RemoteDevices.RemoteDeviceTracker>();
+            var reverseProxyEngine = provider.GetService<Proxyfan.Domain.Proxy.IReverseProxyEngine>();
+
+            await Assert.That(httpClient).IsNotNull();
+            await Assert.That(historyStore).IsNotNull();
+            await Assert.That(preferencesStore).IsNotNull();
+            await Assert.That(remoteDeviceTracker).IsNotNull();
+            await Assert.That(reverseProxyEngine).IsNotNull();
+        }
+        finally
+        {
+            await provider.DisposeAsync();
+        }
+    }
+
     private static SampleImplementation CreateSampleImplementation()
     {
         var implementation = new SampleImplementation();

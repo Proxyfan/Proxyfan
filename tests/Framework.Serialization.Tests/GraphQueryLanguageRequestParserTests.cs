@@ -136,4 +136,56 @@ public sealed class GraphQueryLanguageRequestParserTests
         await Assert.That(request).IsNotNull();
         await Assert.That(request!.Variables).IsNull();
     }
+
+    /// <summary>
+    ///     A non-object JSON root (array, scalar) yields null.
+    /// </summary>
+    [Test]
+    public async Task FromJson_NonObjectRoot_ReturnsNull()
+    {
+        var request = GraphQueryLanguageRequestParser.FromJson("[1, 2, 3]");
+
+        await Assert.That(request).IsNull();
+    }
+
+    /// <summary>
+    ///     A JSON object whose <c>query</c> field is the empty string yields null.
+    /// </summary>
+    [Test]
+    public async Task FromJson_EmptyQueryString_ReturnsNull()
+    {
+        var request = GraphQueryLanguageRequestParser.FromJson("{\"query\":\"\"}");
+
+        await Assert.That(request).IsNull();
+    }
+
+    /// <summary>
+    ///     URL query pairs without an "=" separator are skipped, exercising the
+    ///     separator-not-found branch in <c>FromUrlQuery</c>.
+    /// </summary>
+    [Test]
+    public async Task FromUrlQuery_PairWithoutSeparator_IsSkipped()
+    {
+        var queryString = "flag&query=%7B%20x%20%7D";
+
+        var request = GraphQueryLanguageRequestParser.FromUrlQuery(queryString);
+
+        await Assert.That(request).IsNotNull();
+        await Assert.That(request!.Query).IsEqualTo("{ x }");
+    }
+
+    /// <summary>
+    ///     A URL query with <c>query</c> but no <c>operationName</c> recovers the operation
+    ///     name from the query source (exercising the null-coalescing branch).
+    /// </summary>
+    [Test]
+    public async Task FromUrlQuery_MissingOperationName_RecoveredFromQuery()
+    {
+        var queryString = "query=query%20Bar%20%7B%20y%20%7D";
+
+        var request = GraphQueryLanguageRequestParser.FromUrlQuery(queryString);
+
+        await Assert.That(request).IsNotNull();
+        await Assert.That(request!.OperationName).IsEqualTo("Bar");
+    }
 }

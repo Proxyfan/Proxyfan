@@ -117,6 +117,41 @@ public sealed class RemoteProcedureCallRelayTests
         await Assert.That(destination.Length).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     A single buffer containing one complete frame followed by the partial header of the
+    ///     next frame must capture exactly one message and retain the partial bytes for the
+    ///     next read. Exercises the <c>if (remaining &gt; 0)</c> branch of
+    ///     <c>DrainCompletedMessages</c>.
+    /// </summary>
+    [Test]
+    public async Task RelayAsync_CompleteFramePlusPartialNextHeader_KeepsRemainder()
+    {
+        var captured = new List<RemoteProcedureCallCapturedMessage>();
+        var relay = new RemoteProcedureCallRelay(
+            RemoteProcedureCallDirection.Outbound,
+            captured.Add,
+            TimeProvider.System);
+        var firstFrame = BuildFrame(false, new byte[] { 0xAA });
+        var secondFrame = BuildFrame(false, new byte[] { 0xBB, 0xCC });
+        var partialOfSecond = secondFrame.AsSpan(0, 2).ToArray();
+        var combined = new byte[firstFrame.Length + partialOfSecond.Length];
+        Array.Copy(firstFrame, 0, combined, 0, firstFrame.Length);
+        Array.Copy(partialOfSecond, 0, combined, firstFrame.Length, partialOfSecond.Length);
+        var remainingOfSecond = secondFrame.AsSpan(2).ToArray();
+        using var source = new ChunkedStream(combined, remainingOfSecond);
+        using var destination = new MemoryStream();
+
+        var count = await relay.RelayAsync(source, destination, CancellationToken.None);
+
+        await Assert.That(count).IsEqualTo(2);
+        await Assert.That(captured[0].Payload.ToArray()).IsEquivalentTo(new byte[] { 0xAA });
+        await Assert.That(captured[1].Payload.ToArray()).IsEquivalentTo(new byte[] { 0xBB, 0xCC });
+        var expectedDestination = new byte[firstFrame.Length + secondFrame.Length];
+        Array.Copy(firstFrame, 0, expectedDestination, 0, firstFrame.Length);
+        Array.Copy(secondFrame, 0, expectedDestination, firstFrame.Length, secondFrame.Length);
+        await Assert.That(destination.ToArray()).IsEquivalentTo(expectedDestination);
+    }
+
     private static byte[] BuildFrame(bool compressed, byte[] payload)
     {
         var frame = new byte[5 + payload.Length];

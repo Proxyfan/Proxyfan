@@ -38,4 +38,17 @@ public static class ParserTestArguments
     {
         return new[] { first, second };
     }
+
+    /// <summary>
+    ///     Builds a four-element string array.
+    /// </summary>
+    /// <param name="first">The first element.</param>
+    /// <param name="second">The second element.</param>
+    /// <param name="third">The third element.</param>
+    /// <param name="fourth">The fourth element.</param>
+    /// <returns>The constructed array.</returns>
+    public static string[] Four(string first, string second, string third, string fourth)
+    {
+        return new[] { first, second, third, fourth };
+    }
 }

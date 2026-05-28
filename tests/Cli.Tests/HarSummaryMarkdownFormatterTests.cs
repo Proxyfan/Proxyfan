@@ -91,6 +91,20 @@ public sealed class HarSummaryMarkdownFormatterTests
         await Assert.That(result.Contains("| --- |", StringComparison.Ordinal)).IsTrue();
     }
 
+    /// <summary>
+    ///     Verifies flows without a request render placeholders for method, URL and status.
+    /// </summary>
+    [Test]
+    public async Task Format_FlowWithoutRequest_RendersPlaceholders()
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);
+
+        var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
+
+        await Assert.That(result.Contains("(no request)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Contains("| - |", StringComparison.Ordinal)).IsTrue();
+    }
+
     private static TrafficFlow BuildFlow(string method, string url, int status)
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);

@@ -94,4 +94,5 @@ public sealed class HypertextTransferProtocolVersion2HpackHuffmanTests
 
         await Assert.That(encoded.Length).IsEqualTo(0);
     }
+
 }

@@ -151,6 +151,26 @@ public sealed class ReverseProxyEngineTests
         await Assert.That(engine.GetStates()).IsEmpty();
     }
 
+    /// <summary>
+    ///     Verifies starting a route on a port that is already bound fails gracefully,
+    ///     the listener is disposed, and the route is marked Faulted (covers the
+    ///     ProxyBindException catch branch of StartRouteAsync).
+    /// </summary>
+    [Test]
+    public async Task StartRouteAsync_PortAlreadyInUse_ReturnsFalseAndMarksFaulted()
+    {
+        using var blockingListener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        blockingListener.Start();
+        var blockedPort = ((System.Net.IPEndPoint)blockingListener.LocalEndpoint).Port;
+        await using var engine = CreateEngine(new StubBackendHealthProbe());
+        var route = CreateRoute("api", listenPort: blockedPort);
+
+        var started = await engine.StartRouteAsync(route, CancellationToken.None);
+
+        blockingListener.Stop();
+        await Assert.That(started).IsFalse();
+    }
+
     private static ReverseProxyEngine CreateEngine(IBackendHealthProbe probe)
     {
         var factory = new StubLoggerFactory();

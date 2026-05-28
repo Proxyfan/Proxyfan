@@ -196,6 +196,23 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         await Assert.That(text).IsEqualTo("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello");
     }
 
+    /// <summary>
+    ///     A response with a <c>Content-Length</c> larger than <see cref="int.MaxValue" /> bytes
+    ///     causes <c>ReadBodyAsync</c> to refuse the body and the parser to return null.
+    /// </summary>
+    [Test]
+    public async Task ReadResponseAsync_ContentLengthExceedsInt32_ReturnsNull()
+    {
+        var pipe = new Pipe();
+        var bytes = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 2147483648\r\n\r\n");
+        await pipe.Writer.WriteAsync(bytes);
+        await pipe.Writer.CompleteAsync();
+
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, CancellationToken.None);
+
+        await Assert.That(result).IsNull();
+    }
+
     private static async Task<byte[]> ReadAllAsync(PipeReader reader)
     {
         using var memoryStream = new System.IO.MemoryStream();

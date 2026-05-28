@@ -111,7 +111,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         var position = result.Buffer.GetPosition(totalLength);
         connection.Transport.Input.AdvanceTo(position);
         var endpoint = new IPEndPoint(request.DestinationAddress, request.DestinationPort);
-        await TunnelToEndpointAsync(connection, endpoint, isSocks5: false, cancellationToken).ConfigureAwait(false);
+        await TunnelToEndpointAsync(connection, endpoint, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task HandleSocks5Async(IProxyConnection connection, CancellationToken cancellationToken)
@@ -212,7 +212,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         await Task.WhenAll(forward, backward).ConfigureAwait(false);
     }
 
-    private async Task TunnelToEndpointAsync(IProxyConnection connection, IPEndPoint endpoint, bool isSocks5, CancellationToken cancellationToken)
+    private async Task TunnelToEndpointAsync(IProxyConnection connection, IPEndPoint endpoint, CancellationToken cancellationToken)
     {
         TcpClient? tunnelClient;
 
@@ -225,30 +225,13 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             LogConnectFailed(ex, endpoint.Address.ToString(), endpoint.Port);
-
-            if (isSocks5)
-            {
-                await SocksReplyWriter.WriteSocks5FailureReplyAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: false, cancellationToken).ConfigureAwait(false);
-            }
-
+            await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: false, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         using (tunnelClient)
         {
-            if (isSocks5)
-            {
-                await SocksReplyWriter.WriteSocks5SuccessReplyAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: true, cancellationToken).ConfigureAwait(false);
-            }
-
+            await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: true, cancellationToken).ConfigureAwait(false);
             await RelayAsync(connection, tunnelClient.GetStream(), cancellationToken).ConfigureAwait(false);
         }
     }

@@ -175,4 +175,62 @@ public sealed class CliArgumentParserTests
         await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Send);
         await Assert.That(command.SendRequest).IsNotNull();
     }
+
+    /// <summary>
+    ///     Verifies that "har-to-curl path/to/file.har" returns HarToCurl with the path.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarToCurlWithPath_ReturnsHarToCurl()
+    {
+        var args = ParserTestArguments.Two("har-to-curl", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarToCurl);
+        await Assert.That(command.PathArgument).IsEqualTo("capture.har");
+    }
+
+    /// <summary>
+    ///     Verifies that "har-to-curl --input path" uses the --input flag.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarToCurlWithInputFlag_UsesInputPath()
+    {
+        var args = ParserTestArguments.Three("har-to-curl", "--input", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarToCurl);
+        await Assert.That(command.PathArgument).IsEqualTo("capture.har");
+    }
+
+    /// <summary>
+    ///     Verifies that --input later in the arg list is still found (covers the false-branch
+    ///     of the per-iteration "is current arg --input" check in ExtractPath).
+    /// </summary>
+    [Test]
+    public async Task Parse_HarSummaryWithInputFlagAfterOtherArgs_FindsInputPath()
+    {
+        var args = ParserTestArguments.Four("har-summary", "padding", "--input", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarSummary);
+        await Assert.That(command.PathArgument).IsEqualTo("capture.har");
+    }
+
+    /// <summary>
+    ///     Verifies that --port later in the arg list is still found (covers the false-branch
+    ///     of the per-iteration "is current arg --port" check in ExtractPort).
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithPortFlagAfterOtherArgs_FindsPort()
+    {
+        var args = ParserTestArguments.Four("start", "padding", "--port", "9000");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Start);
+        await Assert.That(command.Port).IsEqualTo(9000);
+    }
 }

@@ -119,6 +119,34 @@ public sealed class ViewModelLocatorTests
         }
     }
 
+    /// <summary>
+    ///     Verifies that switching the data context from a <see cref="Type" /> back to
+    ///     <see langword="null" /> takes the early-return branch in the change handler and
+    ///     clears the previously assigned data context value.
+    /// </summary>
+    [Test]
+    public async Task SetDataContext_TypeThenNull_ResetsAttachedProperty()
+    {
+        ContainerLocator.Reset();
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<SampleViewModel>();
+            ServiceProvider provider = services.BuildServiceProvider();
+            ContainerLocator.Set(() => provider);
+            var control = new ContentControl();
+            ViewModelLocator.SetDataContext(control, typeof(SampleViewModel));
+
+            ViewModelLocator.SetDataContext(control, null);
+
+            await Assert.That(ViewModelLocator.GetDataContext(control)).IsNull();
+        }
+        finally
+        {
+            ContainerLocator.Reset();
+        }
+    }
+
     private sealed class TestApplication : Application
     {
     }

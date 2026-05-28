@@ -79,4 +79,40 @@ public sealed class UserPreferencesJsonSerializerTests
         await Assert.That(loaded.UpstreamProxyHost).IsEqualTo("corp-proxy.example.com");
         await Assert.That(loaded.UpstreamProxyPort).IsEqualTo(3128);
     }
+
+    /// <summary>
+    ///     Verifies that an empty preferences object (every field null) deserializes back to
+    ///     the defaults, exercising the null branch of every <c>??</c> coalesce in
+    ///     <see cref="UserPreferencesJsonSerializer.Deserialize" />.
+    /// </summary>
+    [Test]
+    public async Task Deserialize_AllFieldsNull_AppliesEveryDefault()
+    {
+        var json = "{\"schemaVersion\":1,\"preferences\":{}}";
+
+        var preferences = UserPreferencesJsonSerializer.Deserialize(json);
+
+        var defaults = UserPreferencesDefaults.Create();
+        await Assert.That(preferences.CaptureMaximumFlows).IsEqualTo(defaults.CaptureMaximumFlows);
+        await Assert.That(preferences.IsRegisterSystemProxyOnStartup).IsEqualTo(defaults.IsRegisterSystemProxyOnStartup);
+        await Assert.That(preferences.IsStartProxyOnLaunch).IsEqualTo(defaults.IsStartProxyOnLaunch);
+        await Assert.That(preferences.IsUpstreamProxyEnabled).IsEqualTo(defaults.IsUpstreamProxyEnabled);
+        await Assert.That(preferences.LogLevel).IsEqualTo(defaults.LogLevel);
+        await Assert.That(preferences.ProxyPort).IsEqualTo(defaults.ProxyPort);
+        await Assert.That(preferences.Theme).IsEqualTo(defaults.Theme);
+        await Assert.That(preferences.UpstreamProxyPort).IsEqualTo(defaults.UpstreamProxyPort);
+    }
+
+    /// <summary>
+    ///     Verifies that a payload missing the <c>preferences</c> property returns defaults.
+    /// </summary>
+    [Test]
+    public async Task Deserialize_MissingPreferencesObject_ReturnsDefaults()
+    {
+        var json = "{\"schemaVersion\":1}";
+
+        var preferences = UserPreferencesJsonSerializer.Deserialize(json);
+
+        await Assert.That(preferences.ProxyPort).IsEqualTo(8080);
+    }
 }

@@ -97,4 +97,20 @@ public sealed class ThemeViewModelTests
 
         await Assert.That(viewModel.SelectedOption!.Theme).IsEqualTo(AppTheme.System);
     }
+
+    /// <summary>
+    ///     Verifies that an unrecognized <see cref="AppTheme" /> value clears the selected
+    ///     option (exercises the post-loop fall-through return path in
+    ///     <c>ThemeViewModel.FindOption</c>).
+    /// </summary>
+    [Test]
+    public async Task ExternalChange_UnknownTheme_ClearsSelectedOption()
+    {
+        var service = new ThemeService(AppTheme.System);
+        var viewModel = new ThemeViewModel(service);
+
+        service.SwitchTheme((AppTheme)999);
+
+        await Assert.That(viewModel.SelectedOption).IsNull();
+    }
 }

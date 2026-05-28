@@ -92,6 +92,21 @@ public sealed class HypertextTransferProtocolVersion2HpackIntegerTests
     }
 
     /// <summary>
+    ///     A sequence of zero-payload continuation bytes that pushes the bit shift past 32
+    ///     must yield <c>null</c>. Each 0x80 byte contributes nothing to the accumulator but
+    ///     bumps <c>shift</c> by 7.
+    /// </summary>
+    [Test]
+    public async Task Decode_ContinuationShiftOverflow_ReturnsNull()
+    {
+        byte[] input = [0x1F, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80];
+
+        var result = HypertextTransferProtocolVersion2HpackInteger.Decode(input, 5);
+
+        await Assert.That(result.HasValue).IsFalse();
+    }
+
+    /// <summary>
     ///     <see cref="HypertextTransferProtocolVersion2HpackInteger.Encode" /> round-trips the
     ///     boundary value where the prefix is fully consumed and continuation bytes start.
     /// </summary>

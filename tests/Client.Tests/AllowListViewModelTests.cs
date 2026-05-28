@@ -162,4 +162,24 @@ public sealed class AllowListViewModelTests
 
         await Assert.That(viewModel.Patterns.Count).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     Verifies that an external enable propagates to the view model via ReloadPatterns,
+    ///     and that the resulting OnIsEnabledChanged callback short-circuits when the rule
+    ///     already matches the new value (covers L72-74 equality return and the L94-97 sync).
+    /// </summary>
+    [Test]
+    public async Task ExternalEnable_PropagatesToViewModel_DoesNotLoopBackToRule()
+    {
+        var rule = new MutableAllowListRule(priority: 50, isEnabled: false);
+        var viewModel = new AllowListViewModel(rule, InlineUserInterfaceScheduler.Instance);
+        var changeCountBefore = 0;
+        rule.Changed += () => changeCountBefore++;
+
+        rule.SetEnabled(true);
+
+        await Assert.That(viewModel.IsEnabled).IsTrue();
+        await Assert.That(changeCountBefore).IsEqualTo(1);
+        viewModel.Dispose();
+    }
 }

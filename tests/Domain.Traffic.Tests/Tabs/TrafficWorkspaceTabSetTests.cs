@@ -173,6 +173,7 @@ public sealed class TrafficWorkspaceTabSetTests
         set.Move(5, 0);
         set.Move(0, 5);
         set.Move(-1, 0);
+        set.Move(0, -1);
         await Assert.That(changedCount).IsEqualTo(0);
     }
 
@@ -198,5 +199,56 @@ public sealed class TrafficWorkspaceTabSetTests
         await Assert.That(snapshot[0].Name).IsEqualTo(TrafficWorkspaceTabSet.DefaultFirstTabName);
         await Assert.That(snapshot[1].Name).IsEqualTo("B");
         await Assert.That(snapshot[2].Name).IsEqualTo("C");
+    }
+
+    /// <summary>
+    ///     When no Changed subscriber is attached, Close still mutates state safely
+    ///     (covers the null-conditional branch of the Changed event invocation).
+    /// </summary>
+    [Test]
+    public async Task Close_WithoutChangedHandler_StillRemovesTab()
+    {
+        var set = new TrafficWorkspaceTabSet();
+        set.Add(new TrafficWorkspaceTab("B"));
+
+        set.Close(0);
+
+        await Assert.That(set.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     When no Changed subscriber is attached, Move still mutates state safely
+    ///     (covers the null-conditional branch of the Changed event invocation).
+    /// </summary>
+    [Test]
+    public async Task Move_WithoutChangedHandler_StillReordersTabs()
+    {
+        var set = new TrafficWorkspaceTabSet();
+        set.Add(new TrafficWorkspaceTab("B"));
+
+        set.Move(0, 1);
+
+        var snapshot = set.Snapshot();
+        await Assert.That(snapshot[0].Name).IsEqualTo("B");
+        await Assert.That(snapshot[1].Name).IsEqualTo(TrafficWorkspaceTabSet.DefaultFirstTabName);
+    }
+
+    /// <summary>
+    ///     When fromIndex is greater than ActiveTabIndex but toIndex remains above it as well,
+    ///     the active index is not adjusted (covers the false branch of the toIndex check
+    ///     in the second else-if).
+    /// </summary>
+    [Test]
+    public async Task Move_FromAfterActive_ToAlsoAfterActive_KeepsActiveIndex()
+    {
+        var set = new TrafficWorkspaceTabSet();
+        set.Add(new TrafficWorkspaceTab("B"));
+        set.Add(new TrafficWorkspaceTab("C"));
+        set.Add(new TrafficWorkspaceTab("D"));
+        set.Activate(1);
+
+        set.Move(2, 3);
+
+        await Assert.That(set.ActiveTabIndex).IsEqualTo(1);
     }
 }

@@ -140,6 +140,27 @@ public sealed class WebSocketRelayTests
         await Assert.That(captured.Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     A partial frame (only a single byte arrives before the rest, then the source closes)
+    ///     is forwarded byte-for-byte but produces no captured messages. Exercises the
+    ///     incomplete-frame / no-progress branches in <c>DrainCompletedFrames</c>.
+    /// </summary>
+    [Test]
+    public async Task RelayAsync_PartialFrameOnly_ForwardsButCapturesNothing()
+    {
+        var captured = new List<WebSocketMessage>();
+        var relay = new WebSocketRelay(WebSocketDirection.Inbound, captured.Add, TimeProvider.System);
+        var partialFrameSingleByte = new byte[] { 0x81 };
+        using var source = new MemoryStream(partialFrameSingleByte);
+        using var destination = new MemoryStream();
+
+        var count = await relay.RelayAsync(source, destination, CancellationToken.None);
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(captured.Count).IsEqualTo(0);
+        await Assert.That(destination.ToArray()).IsEquivalentTo(partialFrameSingleByte);
+    }
+
     private static byte[] BuildUnmaskedTextFrame(string text)
     {
         var payload = Encoding.UTF8.GetBytes(text);

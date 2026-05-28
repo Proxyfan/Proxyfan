@@ -99,6 +99,50 @@ public sealed class UnifiedDiffFormatterTests
         await Assert.That(formatted).DoesNotContain("--- Method");
     }
 
+    /// <summary>
+    ///     Verifies that a section containing both Equal and Insert segments renders
+    ///     the Equal segment with a leading space marker (covers the default branch of
+    ///     GetMarker).
+    /// </summary>
+    [Test]
+    public async Task Format_MixedEqualAndInsert_RendersSpaceMarkerForEqual()
+    {
+        var mixedSegments = new List<LineDiffSegment>
+        {
+            new()
+            {
+                NewLineNumber = 1,
+                OldLineNumber = 1,
+                Operation = LineDiffOperation.Equal,
+                Text = "context-line",
+            },
+            new()
+            {
+                NewLineNumber = 2,
+                OldLineNumber = null,
+                Operation = LineDiffOperation.Insert,
+                Text = "added-line",
+            },
+        };
+
+        var diff = new TrafficFlowDiff
+        {
+            IsIdentical = false,
+            Method = new List<LineDiffSegment>(),
+            RequestBody = new List<LineDiffSegment>(),
+            RequestHeaders = mixedSegments,
+            ResponseBody = new List<LineDiffSegment>(),
+            ResponseHeaders = new List<LineDiffSegment>(),
+            Status = new List<LineDiffSegment>(),
+            Url = new List<LineDiffSegment>(),
+        };
+
+        var formatted = UnifiedDiffFormatter.Format(diff);
+
+        await Assert.That(formatted).Contains(" context-line");
+        await Assert.That(formatted).Contains("+added-line");
+    }
+
     private static TrafficFlowDiff BuildEmptyDiff(bool isIdentical)
     {
         var diff = new TrafficFlowDiff

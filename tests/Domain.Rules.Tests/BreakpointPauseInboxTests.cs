@@ -83,6 +83,24 @@ public sealed class BreakpointPauseInboxTests
     }
 
     /// <summary>
+    ///     Aborting a pause that was never added is a no-op: no resolved-event fires and the
+    ///     pause's own state remains unresolved.
+    /// </summary>
+    [Test]
+    public async Task Abort_UnknownPause_DoesNotRaiseResolved()
+    {
+        var inbox = new BreakpointPauseInbox();
+        var pause = NewPause();
+        var raised = 0;
+        inbox.PauseResolved += _ => raised++;
+
+        inbox.Abort(pause);
+
+        await Assert.That(raised).IsEqualTo(0);
+        await Assert.That(pause.IsResolved).IsFalse();
+    }
+
+    /// <summary>
     ///     GetPending returns a defensive snapshot.
     /// </summary>
     [Test]

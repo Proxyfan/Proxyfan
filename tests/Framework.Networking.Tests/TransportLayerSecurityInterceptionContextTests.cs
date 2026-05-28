@@ -69,4 +69,22 @@ public sealed class TransportLayerSecurityInterceptionContextTests
         await Assert.That(second).IsNotNull();
         await Assert.That(ReferenceEquals(first, second)).IsFalse();
     }
+
+    /// <summary>
+    ///     Verifies that when the authority provider raises <c>Changed</c>, the context's leaf
+    ///     cache is cleared so subsequent requests produce fresh certificates.
+    /// </summary>
+    [Test]
+    public async Task GetLeafCertificateAsync_AfterAuthorityRegenerated_ReturnsFreshCertificate()
+    {
+        var proxyingList = new ServerNameIndicationProxyingList(isEnabled: false);
+        var provider = new MutableCertificateAuthorityProvider(new StubCertificateGenerator());
+        var context = new TransportLayerSecurityInterceptionContext(provider, proxyingList);
+
+        var first = await context.GetLeafCertificateAsync("regen.example.com", CancellationToken.None);
+        await provider.RegenerateAsync(CancellationToken.None);
+        var second = await context.GetLeafCertificateAsync("regen.example.com", CancellationToken.None);
+
+        await Assert.That(ReferenceEquals(first, second)).IsFalse();
+    }
 }

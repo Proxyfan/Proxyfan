@@ -37,11 +37,6 @@ public static class BasicAuthenticationParser
             base64 = trimmed;
         }
 
-        if (base64.Length == 0)
-        {
-            return null;
-        }
-
         byte[] decodedBytes;
 
         try

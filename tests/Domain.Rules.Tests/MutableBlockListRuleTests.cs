@@ -121,6 +121,42 @@ public sealed class MutableBlockListRuleTests
     }
 
     /// <summary>
+    ///     AddPattern walks past non-matching entries when checking for duplicates.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_DuplicateAfterNonMatching_KeepsRegistrySize()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: false);
+        var first = new MatchingRule("https://a.example.com/*", MatchingRuleKind.Wildcard);
+        var second = new MatchingRule("https://b.example.com/*", MatchingRuleKind.Wildcard);
+
+        rule.AddPattern(first);
+        rule.AddPattern(second);
+        rule.AddPattern(second);
+
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     RemovePattern walks past non-matching entries to remove the target.
+    /// </summary>
+    [Test]
+    public async Task RemovePattern_TargetAfterNonMatching_RemovesTarget()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: false);
+        var first = new MatchingRule("https://a.example.com/*", MatchingRuleKind.Wildcard);
+        var second = new MatchingRule("https://b.example.com/*", MatchingRuleKind.Wildcard);
+        rule.AddPattern(first);
+        rule.AddPattern(second);
+
+        rule.RemovePattern(second);
+
+        var remaining = rule.GetPatterns();
+        await Assert.That(remaining.Count).IsEqualTo(1);
+        await Assert.That(remaining[0].Pattern).IsEqualTo(first.Pattern);
+    }
+
+    /// <summary>
     ///     Removing a previously-registered pattern raises <see cref="MutableBlockListRule.Changed" />.
     /// </summary>
     [Test]

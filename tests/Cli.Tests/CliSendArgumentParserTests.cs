@@ -107,4 +107,32 @@ public sealed class CliSendArgumentParserTests
 
         await Assert.That(request!.Body).IsEqualTo("hello");
     }
+
+    /// <summary>
+    ///     Unknown tokens in the argument list are skipped over rather than aborting parsing.
+    /// </summary>
+    [Test]
+    public async Task Parse_UnknownTokens_AreSkipped()
+    {
+        var args = new[] { "send", "--unknown", "noop", "--url", "https://example.com" };
+
+        var request = CliSendArgumentParser.Parse(args);
+
+        await Assert.That(request).IsNotNull();
+        await Assert.That(request!.Url).IsEqualTo("https://example.com");
+    }
+
+    /// <summary>
+    ///     A header whose name trims to empty (only whitespace before the colon) must be
+    ///     silently dropped without polluting the headers dictionary.
+    /// </summary>
+    [Test]
+    public async Task Parse_HeaderWithBlankName_IsDropped()
+    {
+        var args = new[] { "send", "--url", "https://example.com", "--header", "   :value" };
+
+        var request = CliSendArgumentParser.Parse(args);
+
+        await Assert.That(request!.Headers.Count).IsEqualTo(0);
+    }
 }

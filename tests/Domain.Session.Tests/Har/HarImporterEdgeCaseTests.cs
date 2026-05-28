@@ -238,6 +238,169 @@ public sealed class HarImporterEdgeCaseTests
         await Assert.That(flows[0].Request!.Headers.Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies that whitespace _proxyfanClientEndPoint falls back to the "unknown" sentinel,
+    ///     exercising the white-space false branch in ExtractClientEndPoint.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_WhitespaceClientEndPoint_FallsBackToUnknown()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanClientEndPoint":"   ",
+                 "request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].ClientEndPoint).IsEqualTo("unknown");
+    }
+
+    /// <summary>
+    ///     Verifies that a non-string _proxyfanClientEndPoint is ignored (number) and the
+    ///     fallback "unknown" is returned (exercising the value-kind guard).
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_NumericClientEndPoint_FallsBackToUnknown()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanClientEndPoint":1234,
+                 "request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].ClientEndPoint).IsEqualTo("unknown");
+    }
+
+    /// <summary>
+    ///     Verifies that a populated _proxyfanComment is preserved on the imported flow.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_WithComment_PreservesComment()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanComment":"important capture",
+                 "request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Comment).IsEqualTo("important capture");
+    }
+
+    /// <summary>
+    ///     Verifies that a whitespace-only _proxyfanComment is dropped (null), exercising the
+    ///     IsNullOrWhiteSpace false branch in ExtractComment.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_WhitespaceComment_DropsToNull()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanComment":"   ",
+                 "request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Comment).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that a recognised _proxyfanColorTag is preserved on the imported flow.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_WithColorTag_PreservesTag()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanColorTag":"Red",
+                 "request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].ColorTag).IsEqualTo(Proxyfan.Domain.Traffic.TrafficFlowColorTag.Red);
+    }
+
+    /// <summary>
+    ///     Verifies that an unrecognised _proxyfanColorTag value falls back to None.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_UnknownColorTag_FallsBackToNone()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanColorTag":"Magenta",
+                 "request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].ColorTag).IsEqualTo(Proxyfan.Domain.Traffic.TrafficFlowColorTag.None);
+    }
+
+    /// <summary>
+    ///     Verifies that an empty-string httpVersion on the request falls back to the
+    ///     "HTTP/1.1" default, exercising the IsNullOrEmpty branch in ExtractStringOrDefault.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_EmptyHttpVersion_FallsBackToHttp11Default()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","httpVersion":"","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Request!.Version).IsEqualTo("HTTP/1.1");
+    }
+
+    /// <summary>
+    ///     Verifies that a response without a "content" property still imports with an empty body.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithoutContent_HasEmptyBody()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[]}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Response!.Body.Length).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that headers whose value field is missing are skipped.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_HeaderMissingValue_IsSkipped()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[{"name":"X"},{"name":"X","value":"y"}]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Request!.Headers.Count).IsEqualTo(1);
+    }
+
     private static async Task<System.Collections.Generic.IReadOnlyList<Proxyfan.Domain.Traffic.TrafficFlow>> ImportAsync(string harJson)
     {
         var importer = new HarImporter();

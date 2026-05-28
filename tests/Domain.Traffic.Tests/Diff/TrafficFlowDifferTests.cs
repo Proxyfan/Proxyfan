@@ -184,6 +184,50 @@ public sealed class TrafficFlowDifferTests
         await HasAnyNonEqual(diff.RequestHeaders);
     }
 
+    /// <summary>
+    ///     Verifies that diffing two flows that both lack a Request produces an identical diff.
+    ///     Exercises the null branch of every <c>Request?.</c> null-conditional access in
+    ///     <see cref="TrafficFlowDiffer.Diff" />.
+    /// </summary>
+    [Test]
+    public async Task Diff_BothFlowsMissingRequest_IsIdentical()
+    {
+        var flowOne = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+        var flowTwo = new TrafficFlow(Guid.NewGuid(), "127.0.0.1", DateTimeOffset.UtcNow);
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await Assert.That(diff.IsIdentical).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that diffing two flows whose response-body bytes only contain valid printable
+    ///     ASCII (above the 0x20 cutoff) reports an identical response body — i.e. it is rendered
+    ///     as text rather than a binary summary. Exercises the all-printable branch of
+    ///     <c>HasOnlyPrintableBytes</c>.
+    /// </summary>
+    [Test]
+    public async Task Diff_HighAsciiResponseBody_RendersAsText()
+    {
+        var bytes = new byte[] { 0x20, 0x21, 0x7E };
+        var flowOne = BuildFlowWithBytesBody(bytes);
+        var flowTwo = BuildFlowWithBytesBody(bytes);
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        var allEqual = true;
+        for (var index = 0; index < diff.ResponseBody.Count; index++)
+        {
+            if (diff.ResponseBody[index].Operation != LineDiffOperation.Equal)
+            {
+                allEqual = false;
+                break;
+            }
+        }
+
+        await Assert.That(allEqual).IsTrue();
+    }
+
     private static async Task HasAnyNonEqual(System.Collections.Generic.IReadOnlyList<LineDiffSegment> segments)
     {
         var hasNonEqual = false;

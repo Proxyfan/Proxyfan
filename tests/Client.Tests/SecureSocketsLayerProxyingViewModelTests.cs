@@ -165,4 +165,84 @@ public sealed class SecureSocketsLayerProxyingViewModelTests
 
         await Assert.That(list.IncludedPatterns).Contains("kept.example.com");
     }
+
+    /// <summary>
+    ///     Whitespace patterns are ignored by AddExcludedPatternCommand.
+    /// </summary>
+    [Test]
+    public async Task AddExcludedPatternCommand_WhitespacePattern_DoesNothing()
+    {
+        var list = new ServerNameIndicationProxyingList(isEnabled: true);
+        var viewModel = new SecureSocketsLayerProxyingViewModel(list, InlineUserInterfaceScheduler.Instance);
+        viewModel.NewExcludedPattern = "   ";
+
+        viewModel.AddExcludedPatternCommand.Execute(null);
+
+        await Assert.That(list.ExcludedPatterns.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     RemoveExcludedPatternCommand is a no-op when nothing is selected.
+    /// </summary>
+    [Test]
+    public async Task RemoveExcludedPatternCommand_NoSelection_DoesNothing()
+    {
+        var list = new ServerNameIndicationProxyingList(isEnabled: true);
+        list.AddExcludedPattern("kept.example.com");
+        var viewModel = new SecureSocketsLayerProxyingViewModel(list, InlineUserInterfaceScheduler.Instance);
+        viewModel.SelectedExcludedPattern = null;
+
+        viewModel.RemoveExcludedPatternCommand.Execute(null);
+
+        await Assert.That(list.ExcludedPatterns).Contains("kept.example.com");
+    }
+
+    /// <summary>
+    ///     When the underlying list is already enabled, setting <see cref="SecureSocketsLayerProxyingViewModel.IsEnabled" />
+    ///     to true does not call Enable again (covers the !_list.IsEnabled false branch).
+    /// </summary>
+    [Test]
+    public async Task IsEnabled_SetTrueWhenListAlreadyEnabled_NoOp()
+    {
+        var list = new ServerNameIndicationProxyingList(isEnabled: true);
+        var viewModel = new SecureSocketsLayerProxyingViewModel(list, InlineUserInterfaceScheduler.Instance);
+        viewModel.IsEnabled = false;
+        list.Enable();
+
+        viewModel.IsEnabled = true;
+
+        await Assert.That(list.IsEnabled).IsTrue();
+    }
+
+    /// <summary>
+    ///     When the underlying list is already disabled, setting <see cref="SecureSocketsLayerProxyingViewModel.IsEnabled" />
+    ///     to false does not call Disable again (covers the _list.IsEnabled false branch).
+    /// </summary>
+    [Test]
+    public async Task IsEnabled_SetFalseWhenListAlreadyDisabled_NoOp()
+    {
+        var list = new ServerNameIndicationProxyingList(isEnabled: false);
+        var viewModel = new SecureSocketsLayerProxyingViewModel(list, InlineUserInterfaceScheduler.Instance);
+
+        viewModel.IsEnabled = false;
+
+        await Assert.That(list.IsEnabled).IsFalse();
+    }
+
+    /// <summary>
+    ///     When external mutation propagates and the IsEnabled flags are already in sync,
+    ///     the OnListChanged handler skips the IsEnabled assignment (covers the false
+    ///     branch of the equality check).
+    /// </summary>
+    [Test]
+    public async Task ExternalAdd_WhenIsEnabledMatches_DoesNotReassignIsEnabled()
+    {
+        var list = new ServerNameIndicationProxyingList(isEnabled: true);
+        var viewModel = new SecureSocketsLayerProxyingViewModel(list, InlineUserInterfaceScheduler.Instance);
+
+        list.AddExcludedPattern("late.example.com");
+
+        await Assert.That(viewModel.ExcludedPatterns).Contains("late.example.com");
+        await Assert.That(viewModel.IsEnabled).IsTrue();
+    }
 }

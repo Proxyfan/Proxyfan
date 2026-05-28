@@ -116,4 +116,40 @@ public sealed class BypassPatternMatcherTests
 
         await Assert.That(match).IsTrue();
     }
+
+    /// <summary>
+    ///     A trailing star in the pattern consumes the remaining host characters
+    ///     (covers the trailing-* loop true branch).
+    /// </summary>
+    [Test]
+    public async Task HasMatch_PatternEndingWithStar_MatchesLongerHost()
+    {
+        var match = BypassPatternMatcher.HasMatch(["host*"], "hostnamesuffix");
+
+        await Assert.That(match).IsTrue();
+    }
+
+    /// <summary>
+    ///     A pattern longer than the host still terminates correctly when no wildcard remains
+    ///     (covers the patternIndex &gt;= pattern.Length branch of the main loop).
+    /// </summary>
+    [Test]
+    public async Task HasMatch_PatternLongerThanHost_ReturnsFalse()
+    {
+        var match = BypassPatternMatcher.HasMatch(["abcde"], "abc");
+
+        await Assert.That(match).IsFalse();
+    }
+
+    /// <summary>
+    ///     A pattern ending in consecutive stars exercises the trailing-star cleanup loop body
+    ///     more than once and must still consider the host matched.
+    /// </summary>
+    [Test]
+    public async Task HasMatch_PatternWithTrailingStars_ReturnsTrue()
+    {
+        var match = BypassPatternMatcher.HasMatch(["abc**"], "abc");
+
+        await Assert.That(match).IsTrue();
+    }
 }

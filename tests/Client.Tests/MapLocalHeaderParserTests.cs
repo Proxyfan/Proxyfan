@@ -90,4 +90,17 @@ public sealed class MapLocalHeaderParserTests
         await Assert.That(result[0].Key).IsEqualTo("Content-Type");
         await Assert.That(result[0].Value).IsEqualTo("application/json");
     }
+
+    /// <summary>
+    ///     A line whose name portion is only whitespace (e.g. <c>"  : value"</c>) has a non-zero
+    ///     separator position but produces an empty name after trimming. The parser skips it
+    ///     rather than emitting a header with an empty name.
+    /// </summary>
+    [Test]
+    public async Task Parse_WhitespaceOnlyName_IsIgnored()
+    {
+        var result = MapLocalHeaderParser.Parse("  : value-without-name");
+
+        await Assert.That(result.Count).IsEqualTo(0);
+    }
 }

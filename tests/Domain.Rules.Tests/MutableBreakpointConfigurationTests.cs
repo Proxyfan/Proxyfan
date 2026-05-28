@@ -161,6 +161,24 @@ public sealed class MutableBreakpointConfigurationTests
     }
 
     /// <summary>
+    ///     Removing a pattern that does not match any existing entry iterates the full
+    ///     pattern list and exits the loop naturally (covers the post-foreach branch).
+    /// </summary>
+    [Test]
+    public async Task RemovePattern_NotMatchingExistingPatterns_DoesNotRemoveAny()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.AddPattern(new MatchingRule("https://kept.example/*", MatchingRuleKind.Wildcard));
+        var count = 0;
+        configuration.Changed += () => count++;
+
+        configuration.RemovePattern(new MatchingRule("https://other.example/*", MatchingRuleKind.Wildcard));
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(configuration.HasRequestMatch("https://kept.example/path")).IsTrue();
+    }
+
+    /// <summary>
     ///     SetEnabled changes the IsEnabled property and raises Changed.
     /// </summary>
     [Test]

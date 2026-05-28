@@ -179,4 +179,88 @@ public sealed class HypertextTransferProtocolVersion2HpackEncoderDecoderRoundTri
 
         await Assert.That(() => decoder.Decode(tooLarge)).Throws<FormatException>();
     }
+
+    /// <summary>
+    ///     Encoding a sensitive header whose name does NOT appear in either the static or the
+    ///     dynamic table emits a literal-never-indexed representation with a literal name
+    ///     (the dynamic-table lookup path returning zero is taken), and the field is NOT
+    ///     stored in the dynamic table on either peer.
+    /// </summary>
+    [Test]
+    public async Task EncodeDecode_NeverIndexedBrandNewName_WritesLiteralNameAndDoesNotIndex()
+    {
+        var encoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var decoder = new HypertextTransferProtocolVersion2HpackDecoder();
+        var fields = new[]
+        {
+            new HypertextTransferProtocolVersion2HpackHeaderField("x-trace-secret", "abc", isSensitive: true),
+        };
+
+        var encoded = encoder.Encode(fields);
+        var decoded = decoder.Decode(encoded);
+
+        await Assert.That((encoded[0] & 0xF0)).IsEqualTo(0x10);
+        await Assert.That(encoded[0]).IsEqualTo((byte)0x10);
+        await Assert.That(decoded.Count).IsEqualTo(1);
+        await Assert.That(decoded[0].Name).IsEqualTo("x-trace-secret");
+        await Assert.That(decoded[0].Value).IsEqualTo("abc");
+        await Assert.That(decoded[0].IsSensitive).IsTrue();
+        await Assert.That(encoder.DynamicTable.Count).IsEqualTo(0);
+        await Assert.That(decoder.DynamicTable.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Encoding a sensitive header whose name appears only in the dynamic table (because a
+    ///     prior non-sensitive header registered it) emits a never-indexed representation that
+    ///     references the dynamic-table name index, exercising the
+    ///     combined-dynamic-index branch in <c>EncodeNeverIndexed</c>.
+    /// </summary>
+    [Test]
+    public async Task EncodeDecode_NeverIndexedDynamicTableName_UsesNameIndex()
+    {
+        var encoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var decoder = new HypertextTransferProtocolVersion2HpackDecoder();
+        var bootstrap = new[]
+        {
+            new HypertextTransferProtocolVersion2HpackHeaderField("x-trace-id", "non-sensitive"),
+        };
+        var sensitive = new[]
+        {
+            new HypertextTransferProtocolVersion2HpackHeaderField("x-trace-id", "secret-value", isSensitive: true),
+        };
+
+        _ = decoder.Decode(encoder.Encode(bootstrap));
+        var sensitiveEncoded = encoder.Encode(sensitive);
+        var decoded = decoder.Decode(sensitiveEncoded);
+
+        await Assert.That((sensitiveEncoded[0] & 0xF0)).IsEqualTo(0x10);
+        await Assert.That(sensitiveEncoded[0]).IsNotEqualTo((byte)0x10);
+        await Assert.That(decoded.Count).IsEqualTo(1);
+        await Assert.That(decoded[0].Name).IsEqualTo("x-trace-id");
+        await Assert.That(decoded[0].Value).IsEqualTo("secret-value");
+        await Assert.That(decoded[0].IsSensitive).IsTrue();
+        await Assert.That(encoder.DynamicTable.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     The shared-dynamic-table constructor reuses an externally supplied table so two
+    ///     encoders see the same dynamic state.
+    /// </summary>
+    [Test]
+    public async Task Constructor_SharedDynamicTable_ReusesSameTable()
+    {
+        var shared = new HypertextTransferProtocolVersion2HpackDynamicTable();
+        var encoderA = new HypertextTransferProtocolVersion2HpackEncoder(shared);
+        var encoderB = new HypertextTransferProtocolVersion2HpackEncoder(shared);
+        var fields = new[]
+        {
+            new HypertextTransferProtocolVersion2HpackHeaderField("x-custom", "value"),
+        };
+
+        _ = encoderA.Encode(fields);
+
+        await Assert.That(encoderA.DynamicTable).IsSameReferenceAs(shared);
+        await Assert.That(encoderB.DynamicTable).IsSameReferenceAs(shared);
+        await Assert.That(shared.Count).IsEqualTo(1);
+    }
 }

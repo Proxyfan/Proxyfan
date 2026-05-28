@@ -63,6 +63,19 @@ public sealed class BlockListRuleTests
         await Assert.That(action).IsNull();
     }
 
+    /// <summary>
+    ///     Verifies that IsEnabled and Priority property values supplied at construction
+    ///     are exposed via their getters.
+    /// </summary>
+    [Test]
+    public async Task Constructor_AnyArguments_ExposesIsEnabledAndPriority()
+    {
+        var blockList = new BlockListRule(Enumerable.Empty<MatchingRule>(), isEnabled: false, priority: 42);
+
+        await Assert.That(blockList.IsEnabled).IsFalse();
+        await Assert.That(blockList.Priority).IsEqualTo(42);
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

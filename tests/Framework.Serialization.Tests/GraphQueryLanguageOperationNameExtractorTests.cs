@@ -153,12 +153,47 @@ public sealed class GraphQueryLanguageOperationNameExtractorTests
     }
 
     /// <summary>
-    ///     A keyword followed by a non-identifier-start character (like '{' or '(') returns null.
+    ///     A keyword immediately followed by a digit (which is a valid identifier part char)
+    ///     is rejected — it forms a longer identifier rather than a keyword.
     /// </summary>
     [Test]
-    public async Task Extract_KeywordFollowedByPunctuation_ReturnsNull()
+    public async Task Extract_KeywordFollowedByDigit_IsNotMistakenForKeyword()
     {
-        var name = GraphQueryLanguageOperationNameExtractor.Extract("query (a: 1) { viewer { id } }");
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("query0 GetUser { user { id } }");
+
+        await Assert.That(name).IsNull();
+    }
+
+    /// <summary>
+    ///     An operation name that starts with an underscore is accepted.
+    /// </summary>
+    [Test]
+    public async Task Extract_OperationNameStartingWithUnderscore_ReturnsFullName()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("query _PrivateOp { viewer { id } }");
+
+        await Assert.That(name).IsEqualTo("_PrivateOp");
+    }
+
+    /// <summary>
+    ///     A single-character operation name is accepted (exercises the no-loop branch of
+    ///     <c>TryReadIdentifier</c>'s tail loop).
+    /// </summary>
+    [Test]
+    public async Task Extract_SingleCharacterOperationName_ReturnsFullName()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("query A { viewer { id } }");
+
+        await Assert.That(name).IsEqualTo("A");
+    }
+
+    /// <summary>
+    ///     A trailing comment with no newline at end of input is skipped to end-of-span.
+    /// </summary>
+    [Test]
+    public async Task Extract_CommentRunsToEndOfInput_IsTreatedAsWhitespace()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("# trailing comment that never ends");
 
         await Assert.That(name).IsNull();
     }

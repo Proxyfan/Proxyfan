@@ -136,4 +136,52 @@ public sealed class ConnectRequestParserTests
 
         await Assert.That(result).IsNull();
     }
+
+    /// <summary>
+    ///     Verifies that a request line with a method+authority but no HTTP version (missing
+    ///     the second space) returns null. Exercises the second <c>spaceIndex &lt; 0</c>
+    ///     branch in <c>ParseRequestLine</c>.
+    /// </summary>
+    [Test]
+    public async Task Parse_RequestLineMissingHttpVersion_ReturnsNull()
+    {
+        var bytes = Encoding.ASCII.GetBytes(
+            "CONNECT example.com:443\r\n\r\n");
+
+        var result = ConnectRequestParser.Parse(bytes);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that an authority whose host contains a carriage return is rejected,
+    ///     exercising the <c>!HasValidTarget</c> branch after the colon-separated parser
+    ///     extracts a valid port.
+    /// </summary>
+    [Test]
+    public async Task Parse_AuthorityHostContainsCarriageReturn_ReturnsNull()
+    {
+        var bytes = Encoding.ASCII.GetBytes(
+            "CONNECT bad\rhost:443 HTTP/1.1\r\n\r\n");
+
+        var result = ConnectRequestParser.Parse(bytes);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that an authority with only whitespace before the implicit default port
+    ///     is rejected, exercising the <c>!HasValidTarget</c> branch in the colonless
+    ///     authority path.
+    /// </summary>
+    [Test]
+    public async Task Parse_AuthorityWhitespaceOnlyHost_ReturnsNull()
+    {
+        var bytes = Encoding.ASCII.GetBytes(
+            "CONNECT \t HTTP/1.1\r\n\r\n");
+
+        var result = ConnectRequestParser.Parse(bytes);
+
+        await Assert.That(result).IsNull();
+    }
 }

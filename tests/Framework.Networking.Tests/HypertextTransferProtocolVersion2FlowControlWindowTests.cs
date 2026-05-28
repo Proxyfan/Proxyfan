@@ -115,4 +115,19 @@ public sealed class HypertextTransferProtocolVersion2FlowControlWindowTests
 
         await Assert.That(window.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize);
     }
+
+    /// <summary>
+    ///     A series of negative deltas that pushes the window below <see cref="int.MinValue" />
+    ///     must clamp to <see cref="int.MinValue" /> rather than overflowing.
+    /// </summary>
+    [Test]
+    public async Task ApplyInitialSizeDelta_BelowMinimum_ClampsToInt32Minimum()
+    {
+        var window = new HypertextTransferProtocolVersion2FlowControlWindow(0);
+
+        window.ApplyInitialSizeDelta(int.MinValue);
+        window.ApplyInitialSizeDelta(-1);
+
+        await Assert.That(window.Available).IsEqualTo(int.MinValue);
+    }
 }

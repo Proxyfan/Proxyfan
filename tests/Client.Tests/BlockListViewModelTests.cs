@@ -162,4 +162,24 @@ public sealed class BlockListViewModelTests
 
         await Assert.That(viewModel.Patterns.Count).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     Verifies that an external disable of an initially enabled rule propagates to the view
+    ///     model via ReloadPatterns and that OnIsEnabledChanged short-circuits when the rule
+    ///     already matches the new value.
+    /// </summary>
+    [Test]
+    public async Task ExternalDisable_PropagatesToViewModel_DoesNotLoopBackToRule()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        var viewModel = new BlockListViewModel(rule, InlineUserInterfaceScheduler.Instance);
+        var changeCountBefore = 0;
+        rule.Changed += () => changeCountBefore++;
+
+        rule.SetEnabled(false);
+
+        await Assert.That(viewModel.IsEnabled).IsFalse();
+        await Assert.That(changeCountBefore).IsEqualTo(1);
+        viewModel.Dispose();
+    }
 }

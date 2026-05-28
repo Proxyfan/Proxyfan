@@ -416,4 +416,31 @@ public sealed class ReverseProxySettingsViewModelTests
 
         await Assert.That(added.Status).IsEqualTo(ReverseProxyRouteStatus.Faulted);
     }
+
+    /// <summary>
+    ///     When the view model is constructed against an engine that already reports route state,
+    ///     <c>ReloadRoutes</c> seeds each route's status from the engine. Covers the non-empty
+    ///     branch of <c>BuildStatusMap</c>.
+    /// </summary>
+    [Test]
+    public async Task Construction_EngineReportsRouteState_SeedsRouteStatusFromEngine()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var route = new ReverseProxyRoute(
+            "preseeded",
+            "Preseeded",
+            9300,
+            "host",
+            80,
+            ReverseProxyTransportLayerSecurityMode.None);
+        _ = registry.CanAdd(route);
+
+        var engine = new StubReverseProxyEngine { NextStartResult = true };
+        await engine.StartRouteAsync(route, CancellationToken.None);
+
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(1);
+        await Assert.That(viewModel.Routes[0].Status).IsEqualTo(ReverseProxyRouteStatus.Healthy);
+    }
 }

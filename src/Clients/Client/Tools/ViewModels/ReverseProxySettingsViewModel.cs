@@ -172,13 +172,13 @@ public sealed partial class ReverseProxySettingsViewModel : ObservableObject
 
     private ReverseProxyRoute? TryBuildRoute()
     {
-        var name = (RouteName ?? string.Empty).Trim();
+        var name = RouteName.Trim();
         if (name.Length == 0)
         {
             return null;
         }
 
-        var host = (BackendHost ?? string.Empty).Trim();
+        var host = BackendHost.Trim();
         if (host.Length == 0)
         {
             return null;

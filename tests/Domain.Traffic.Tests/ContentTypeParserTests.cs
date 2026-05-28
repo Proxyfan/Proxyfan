@@ -19,6 +19,32 @@ public sealed class ContentTypeParserTests
     }
 
     /// <summary>
+    ///     A value composed solely of separator characters (e.g. <c>;;;</c>) has no media-type
+    ///     and must return null after the split-and-trim pass yields an empty token array.
+    /// </summary>
+    [Test]
+    public async Task Parse_OnlySeparators_ReturnsNull()
+    {
+        var parsed = ContentTypeParser.Parse(";;;");
+
+        await Assert.That(parsed).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies the parser preserves the raw input value on the returned instance for
+    ///     downstream consumers that need the original header text.
+    /// </summary>
+    [Test]
+    public async Task Parse_AnyValue_PreservesRawValueOnResult()
+    {
+        const string raw = "application/json; charset=utf-8";
+
+        var parsed = ContentTypeParser.Parse(raw);
+
+        await Assert.That(parsed!.RawValue).IsEqualTo(raw);
+    }
+
+    /// <summary>
     ///     Verifies that a bare media type is parsed without parameters.
     /// </summary>
     [Test]

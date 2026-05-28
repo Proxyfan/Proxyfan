@@ -117,4 +117,47 @@ public sealed class HypertextTransferProtocolVersion2HpackStringDecoderTests
 
         await Assert.That(result.Value).IsEqualTo(value);
     }
+
+    /// <summary>
+    ///     A single 0x7F prefix byte (length 127, continuation flag set) without any continuation
+    ///     bytes is a truncated HPACK integer; the decoder must throw because the length
+    ///     <see cref="HypertextTransferProtocolVersion2HpackInteger.Decode" /> returns null.
+    /// </summary>
+    [Test]
+    public async Task Decode_TruncatedLengthInteger_ThrowsFormatException()
+    {
+        var encoded = new byte[] { 0x7F };
+        var thrown = false;
+        try
+        {
+            HypertextTransferProtocolVersion2HpackStringDecoder.Decode(encoded);
+        }
+        catch (FormatException)
+        {
+            thrown = true;
+        }
+
+        await Assert.That(thrown).IsTrue();
+    }
+
+    /// <summary>
+    ///     A Huffman-flagged literal whose payload is not a valid Huffman sequence (a single
+    ///     trailing 0xFF byte) must produce a <see cref="FormatException" />.
+    /// </summary>
+    [Test]
+    public async Task Decode_HuffmanFlaggedButPayloadMalformed_ThrowsFormatException()
+    {
+        var encoded = new byte[] { 0x81, 0xFF };
+        var thrown = false;
+        try
+        {
+            HypertextTransferProtocolVersion2HpackStringDecoder.Decode(encoded);
+        }
+        catch (FormatException)
+        {
+            thrown = true;
+        }
+
+        await Assert.That(thrown).IsTrue();
+    }
 }

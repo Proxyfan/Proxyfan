@@ -91,6 +91,45 @@ public sealed class ReverseProxyRouteRegistryTests
         await Assert.That(removed).IsFalse();
     }
 
+    /// <summary>
+    ///     Adding two routes with different identifiers and different ports both succeed and
+    ///     both are present in <see cref="ReverseProxyRouteRegistry.Routes" />. Exercises the
+    ///     loop-falls-through branch in <see cref="ReverseProxyRouteRegistry.CanAdd" /> where
+    ///     the foreach over existing routes completes without short-circuiting.
+    /// </summary>
+    [Test]
+    public async Task CanAdd_TwoDistinctRoutes_BothSucceed()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        registry.CanAdd(CreateRoute("alpha", listenPort: 9000));
+
+        var secondAdded = registry.CanAdd(CreateRoute("beta", listenPort: 9001));
+
+        await Assert.That(secondAdded).IsTrue();
+        await Assert.That(registry.Routes.Count).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Removing one of several routes leaves the rest in place. Exercises the
+    ///     iterate-past-non-matching-entries branch in
+    ///     <see cref="ReverseProxyRouteRegistry.HasRemoved" />.
+    /// </summary>
+    [Test]
+    public async Task HasRemoved_SecondOfThreeRoutes_RemovesOnlyMatch()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        registry.CanAdd(CreateRoute("a", listenPort: 9000));
+        registry.CanAdd(CreateRoute("b", listenPort: 9001));
+        registry.CanAdd(CreateRoute("c", listenPort: 9002));
+
+        var removed = registry.HasRemoved("b");
+
+        await Assert.That(removed).IsTrue();
+        await Assert.That(registry.Routes.Count).IsEqualTo(2);
+        await Assert.That(registry.Routes[0].Identifier).IsEqualTo("a");
+        await Assert.That(registry.Routes[1].Identifier).IsEqualTo("c");
+    }
+
     private static ReverseProxyRoute CreateRoute(string identifier, int listenPort)
     {
         return new ReverseProxyRoute(

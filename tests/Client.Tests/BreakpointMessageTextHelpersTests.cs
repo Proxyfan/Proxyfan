@@ -132,4 +132,19 @@ public sealed class BreakpointMessageTextHelpersTests
         await Assert.That(result.Count).IsEqualTo(1);
         await Assert.That(result.Get("Host")).IsEqualTo("example.com");
     }
+
+    /// <summary>
+    ///     A line whose pre-colon portion contains only non-explicit-trim whitespace (e.g.
+    ///     a non-breaking space, U+00A0) trims to an empty header name and must be ignored.
+    /// </summary>
+    [Test]
+    public async Task ParseHeaders_NameTrimsToEmpty_IsIgnored()
+    {
+        var text = "\u00A0:value\nHost: example.com";
+
+        var result = BreakpointMessageTextHelpers.ParseHeaders(text);
+
+        await Assert.That(result.Count).IsEqualTo(1);
+        await Assert.That(result.Get("Host")).IsEqualTo("example.com");
+    }
 }

@@ -78,6 +78,23 @@ public sealed class ComposerHistoryServiceTests
     }
 
     /// <summary>
+    ///     Verifies that when every entry above the limit is starred, eviction returns
+    ///     without removing anything (covers the all-starred branch of EvictIfNecessary).
+    /// </summary>
+    [Test]
+    public async Task Add_AllEntriesStarredAndExceedsMaximum_DoesNotEvict()
+    {
+        var store = new InMemoryStore([]);
+        var service = new ComposerHistoryService(store, maximumEntries: 2);
+        service.Add(BuildEntry("https://example.com/first", isStarred: true));
+        service.Add(BuildEntry("https://example.com/second", isStarred: true));
+
+        service.Add(BuildEntry("https://example.com/third", isStarred: true));
+
+        await Assert.That(service.Entries.Count).IsEqualTo(3);
+    }
+
+    /// <summary>
     ///     Verifies the constructor rejects a maximum entries count less than one.
     /// </summary>
     [Test]

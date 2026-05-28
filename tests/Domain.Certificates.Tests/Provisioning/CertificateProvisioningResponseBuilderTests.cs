@@ -138,4 +138,16 @@ public sealed class CertificateProvisioningResponseBuilderTests
             certificate);
         await Assert.That(der.Body.ToArray()).IsEquivalentTo(android.Body.ToArray());
     }
+
+    /// <summary>
+    ///     A path consisting only of a query string strips to empty and falls back to the
+    ///     landing page (covers the <c>withoutQuery.Length == 0</c> branch).
+    /// </summary>
+    [Test]
+    public async Task Build_PathOnlyQueryString_ReturnsLandingPage()
+    {
+        using var certificate = CertificateTestFactory.Create("Proxyfan CA");
+        var response = CertificateProvisioningResponseBuilder.Build("?foo=bar", certificate);
+        await Assert.That(response.ContentType).IsEqualTo(MediaTypes.TextHypertextMarkup);
+    }
 }

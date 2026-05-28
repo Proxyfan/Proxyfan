@@ -272,6 +272,123 @@ public sealed class BreakpointViewModelTests
         await Assert.That(viewModel.Pauses.Count).IsEqualTo(0);
         await Assert.That(viewModel.Patterns.Count).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     Assigning IsEnabled to its current value short-circuits without notifying the configuration.
+    /// </summary>
+    [Test]
+    public async Task IsEnabled_SetToSameValue_DoesNotPropagateToConfiguration()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var inbox = new BreakpointPauseInbox();
+        var viewModel = new BreakpointViewModel(configuration, inbox, InlineUserInterfaceScheduler.Instance);
+        var changedCount = 0;
+        configuration.Changed += () => changedCount++;
+
+        viewModel.IsEnabled = true;
+
+        await Assert.That(configuration.IsEnabled).IsTrue();
+        await Assert.That(changedCount).IsEqualTo(0);
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     Assigning Phases to its current value short-circuits without notifying the configuration.
+    /// </summary>
+    [Test]
+    public async Task Phases_SetToSameValue_DoesNotPropagateToConfiguration()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var inbox = new BreakpointPauseInbox();
+        var viewModel = new BreakpointViewModel(configuration, inbox, InlineUserInterfaceScheduler.Instance);
+        var changedCount = 0;
+        configuration.Changed += () => changedCount++;
+
+        viewModel.Phases = viewModel.Phases;
+
+        await Assert.That(changedCount).IsEqualTo(0);
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     Resolving a pause that is NOT first in the list still removes the correct entry.
+    /// </summary>
+    [Test]
+    public async Task InboxPauseResolved_PauseNotFirstInList_RemovesCorrectEntry()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var inbox = new BreakpointPauseInbox();
+        var viewModel = new BreakpointViewModel(configuration, inbox, InlineUserInterfaceScheduler.Instance);
+        var first = BreakpointPauseFactory.CreateRequest("https://example.com/one");
+        var second = BreakpointPauseFactory.CreateRequest("https://example.com/two");
+        inbox.Add(first);
+        inbox.Add(second);
+        await Assert.That(viewModel.Pauses.Count).IsEqualTo(2);
+
+        inbox.Resolve(first, BreakpointDecisions.ResumeRequest(first.Request));
+
+        await Assert.That(viewModel.Pauses.Count).IsEqualTo(1);
+        await Assert.That(viewModel.Pauses[0].Pause.PauseId).IsEqualTo(second.PauseId);
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     A configuration whose IsEnabled state is mutated externally is synced into the
+    ///     view model on the next Changed notification.
+    /// </summary>
+    [Test]
+    public async Task ConfigurationChanged_ExternalSetEnabledFalse_SyncsIsEnabled()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var inbox = new BreakpointPauseInbox();
+        var viewModel = new BreakpointViewModel(configuration, inbox, InlineUserInterfaceScheduler.Instance);
+        await Assert.That(viewModel.IsEnabled).IsTrue();
+
+        configuration.SetEnabled(isEnabled: false);
+
+        await Assert.That(viewModel.IsEnabled).IsFalse();
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     A configuration whose Phases is mutated externally is synced into the view model
+    ///     on the next Changed notification.
+    /// </summary>
+    [Test]
+    public async Task ConfigurationChanged_ExternalSetPhases_SyncsPhases()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var inbox = new BreakpointPauseInbox();
+        var viewModel = new BreakpointViewModel(configuration, inbox, InlineUserInterfaceScheduler.Instance);
+        await Assert.That(viewModel.Phases).IsEqualTo(BreakpointPhase.Both);
+
+        configuration.SetPhases(BreakpointPhase.Request);
+
+        await Assert.That(viewModel.Phases).IsEqualTo(BreakpointPhase.Request);
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     Constructing the view model with a pre-populated inbox loads existing pauses and
+    ///     auto-selects the first one.
+    /// </summary>
+    [Test]
+    public async Task Constructor_InboxHasPendingPauses_LoadsAndSelectsFirst()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var inbox = new BreakpointPauseInbox();
+        var first = BreakpointPauseFactory.CreateRequest("https://example.com/one");
+        var second = BreakpointPauseFactory.CreateRequest("https://example.com/two");
+        inbox.Add(first);
+        inbox.Add(second);
+
+        var viewModel = new BreakpointViewModel(configuration, inbox, InlineUserInterfaceScheduler.Instance);
+
+        await Assert.That(viewModel.Pauses.Count).IsEqualTo(2);
+        await Assert.That(viewModel.SelectedPause).IsNotNull();
+        await Assert.That(viewModel.SelectedPause!.Pause.PauseId).IsEqualTo(first.PauseId);
+        viewModel.Dispose();
+    }
 }
 
 internal static class BreakpointPauseFactory

@@ -226,4 +226,21 @@ public sealed class ServerSentEventsParserTests
 
         await Assert.That(field!.Value).IsEqualTo("hello");
     }
+
+    /// <summary>
+    ///     Verifies that an unknown field name (other than data/event/id/retry) is silently
+    ///     ignored (covers the default switch arm of ApplyField).
+    /// </summary>
+    [Test]
+    public async Task Append_UnknownFieldName_IsSilentlyIgnored()
+    {
+        var parser = new ServerSentEventsParser();
+        var bytes = Encoding.UTF8.GetBytes("x-custom-field: ignored\ndata: payload\n\n");
+
+        parser.Append(bytes, DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].Data).IsEqualTo("payload");
+    }
 }

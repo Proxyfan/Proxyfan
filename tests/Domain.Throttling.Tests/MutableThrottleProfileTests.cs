@@ -120,6 +120,35 @@ public sealed class MutableThrottleProfileTests
         await Assert.That(raisedCount).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies that disabling an active profile with no subscriber attached is safe and
+    ///     still clears the profile. Exercises the null-conditional branch of the Changed event.
+    /// </summary>
+    [Test]
+    public async Task Disable_ActiveProfileNoSubscriber_ClearsProfile()
+    {
+        var holder = new MutableThrottleProfile(CreateProfile("p5"));
+
+        holder.Disable();
+
+        await Assert.That(holder.Profile).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that setting a profile when no subscriber is attached is safe and still
+    ///     stores the new reference. Exercises the null-conditional branch of the Changed event.
+    /// </summary>
+    [Test]
+    public async Task SetProfile_NewProfileNoSubscriber_StoresProfile()
+    {
+        var holder = new MutableThrottleProfile();
+        var profile = CreateProfile("p6");
+
+        holder.SetProfile(profile);
+
+        await Assert.That(holder.Profile).IsSameReferenceAs(profile);
+    }
+
     private static ThrottleProfile CreateProfile(string name)
     {
         var parameters = new ThrottleProfileParameters

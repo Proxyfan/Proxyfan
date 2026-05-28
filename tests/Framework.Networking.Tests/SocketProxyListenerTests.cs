@@ -169,4 +169,67 @@ public sealed class SocketProxyListenerTests
         var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
         await listener.StopAsync(CancellationToken.None);
     }
+
+    /// <summary>
+    ///     Verifies that disposing a listener that has never been started works without
+    ///     throwing, exercising the null-conditional branches in
+    ///     <see cref="SocketProxyListener.Dispose" />.
+    /// </summary>
+    [Test]
+    public async Task Dispose_NeverStarted_DoesNotThrow()
+    {
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+
+        listener.Dispose();
+
+        await Assert.That(listener.IsListening).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that disposing a listener directly after starting it (without an explicit
+    ///     stop) releases the underlying socket, semaphore, and cancellation source, exercising
+    ///     the non-null branches in <see cref="SocketProxyListener.Dispose" />.
+    /// </summary>
+    [Test]
+    public async Task Dispose_AfterStartWithoutStop_DoesNotThrow()
+    {
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
+
+        listener.Dispose();
+
+        await Assert.That(listener.IsListening).IsTrue();
+    }
+
+    /// <summary>
+    ///     When the connection handler throws a non-cancellation exception, the listener catches
+    ///     it and logs without propagating, allowing subsequent connections to proceed normally.
+    ///     Exercises the connection-error catch in <see cref="SocketProxyListener" />.
+    /// </summary>
+    [Test]
+    public async Task StartAsync_HandlerThrows_LogsAndContinues()
+    {
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var handlerInvoked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await listener.StartAsync(
+            (_, _) =>
+            {
+                handlerInvoked.TrySetResult();
+                throw new InvalidOperationException("intentional handler failure");
+            },
+            CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, listener.BoundPort!.Value);
+            await handlerInvoked.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            await listener.StopAsync(CancellationToken.None);
+        }
+
+        await Assert.That(listener.IsListening).IsFalse();
+    }
 }
