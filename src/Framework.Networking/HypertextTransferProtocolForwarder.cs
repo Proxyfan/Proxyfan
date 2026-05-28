@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
 using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using System;
 using System.IO.Pipelines;
@@ -26,6 +27,7 @@ public sealed class HypertextTransferProtocolForwarder
     private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger _logger;
     private readonly IServerSentEventsStore? _serverSentEventsStore;
+    private readonly MutableThrottleProfile? _throttleProfile;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IOptionsMonitor<UpstreamProxyOptions>? _upstreamProxy;
@@ -40,6 +42,7 @@ public sealed class HypertextTransferProtocolForwarder
         _hostResolver = dependencies.HostResolver;
         _logger = dependencies.Logger;
         _serverSentEventsStore = dependencies.ServerSentEventsStore;
+        _throttleProfile = dependencies.ThrottleProfile;
         _timeProvider = dependencies.TimeProvider;
         _trafficStore = dependencies.TrafficStore;
         _upstreamProxy = dependencies.UpstreamProxy;
@@ -69,6 +72,8 @@ public sealed class HypertextTransferProtocolForwarder
             var upstreamStream = upstreamClient.GetStream();
             try
             {
+                var uploadBytes = upstream.HeaderBytes.Length + requestExchange.Body.Length;
+                await ThrottleApplier.ApplyUploadBandwidthAsync(_throttleProfile, uploadBytes, cancellationToken).ConfigureAwait(false);
                 await upstreamStream.WriteAsync(upstream.HeaderBytes, cancellationToken).ConfigureAwait(false);
                 await upstreamStream.WriteAsync(requestExchange.Body, cancellationToken).ConfigureAwait(false);
                 await upstreamStream.FlushAsync(cancellationToken).ConfigureAwait(false);

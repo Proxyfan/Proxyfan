@@ -73,6 +73,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             HostResolver = dependencies.HostResolver,
             Logger = dependencies.Logger,
             ServerSentEventsStore = dependencies.ServerSentEventsStore,
+            ThrottleProfile = dependencies.ThrottleProfile,
             TimeProvider = timeProvider,
             TrafficStore = dependencies.TrafficStore,
             UpstreamProxy = dependencies.UpstreamProxy,
@@ -427,6 +428,8 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         _flowEventPublisher.PublishResponseReceived(flow, finalResponse);
         flow.Complete();
         await ApplyThrottleAsync(cancellationToken).ConfigureAwait(false);
+        var downloadBytes = finalExchange.HeaderBytes.Length + finalExchange.Body.Length;
+        await ThrottleApplier.ApplyDownloadBandwidthAsync(_throttleProfile, downloadBytes, cancellationToken).ConfigureAwait(false);
         await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(context.Connection.Transport.Output, finalExchange, cancellationToken).ConfigureAwait(false);
         _trafficStore.Add(flow);
         _flowEventPublisher.PublishFlowCompleted(flow);

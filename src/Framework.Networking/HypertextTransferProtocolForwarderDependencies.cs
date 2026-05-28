@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
 using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using System;
 
@@ -35,6 +36,12 @@ public sealed class HypertextTransferProtocolForwarderDependencies
     ///     Gets the optional SSE event store that retains captured events.
     /// </summary>
     public IServerSentEventsStore? ServerSentEventsStore { get; init; }
+
+    /// <summary>
+    ///     Gets the optional throttle profile holder consulted before writing the request to
+    ///     the upstream origin so user-configured upload bandwidth limits take effect.
+    /// </summary>
+    public MutableThrottleProfile? ThrottleProfile { get; init; }
 
     /// <summary>
     ///     Gets the time source used by the SSE stream handler.
