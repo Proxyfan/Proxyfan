@@ -14,7 +14,10 @@ public static class TransportLayerSecurityInterceptorHelpers
 {
     /// <summary>
     ///     Builds an <see cref="SslClientAuthenticationOptions" /> for use when the proxy connects
-    ///     to the upstream server as a TLS client.
+    ///     to the upstream server as a TLS client. Advertises only HTTP/1.1 via ALPN to keep the
+    ///     intercepted exchange bound to the parsers the proxy currently supports — HTTP/2
+    ///     primitives ship in <c>Framework.Networking</c> but the connection-level orchestrator
+    ///     is part of Milestone 3.
     /// </summary>
     /// <param name="target">The CONNECT target whose host is used for SNI.</param>
     /// <returns>A populated <see cref="SslClientAuthenticationOptions" />.</returns>
@@ -22,6 +25,7 @@ public static class TransportLayerSecurityInterceptorHelpers
     {
         var options = new SslClientAuthenticationOptions
         {
+            ApplicationProtocols = [SslApplicationProtocol.Http11],
             TargetHost = target.Host,
         };
         return options;
@@ -29,7 +33,10 @@ public static class TransportLayerSecurityInterceptorHelpers
 
     /// <summary>
     ///     Builds an <see cref="SslServerAuthenticationOptions" /> for use when the proxy presents
-    ///     the per-host leaf certificate to the intercepted client.
+    ///     the per-host leaf certificate to the intercepted client. Advertises only HTTP/1.1 via
+    ///     ALPN so that clients capable of HTTP/2 negotiate down to HTTP/1.1 instead of crashing
+    ///     inside the proxy when the unimplemented HTTP/2 connection orchestrator would otherwise
+    ///     be required.
     /// </summary>
     /// <param name="leafCertificate">The leaf certificate signed by the proxy CA.</param>
     /// <returns>A populated <see cref="SslServerAuthenticationOptions" />.</returns>
@@ -37,6 +44,7 @@ public static class TransportLayerSecurityInterceptorHelpers
     {
         var options = new SslServerAuthenticationOptions
         {
+            ApplicationProtocols = [SslApplicationProtocol.Http11],
             ClientCertificateRequired = false,
             ServerCertificate = leafCertificate,
         };

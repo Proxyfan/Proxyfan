@@ -30,6 +30,23 @@ public sealed class TransportLayerSecurityInterceptorHelpersTests
     }
 
     /// <summary>
+    ///     Verifies that the client TLS options advertise only HTTP/1.1 via ALPN. This
+    ///     prevents the proxy from negotiating HTTP/2 with upstream servers when the
+    ///     HTTP/2 connection-level orchestrator has not yet been implemented (Milestone 3).
+    /// </summary>
+    [Test]
+    public async Task CreateClientTransportLayerSecurityOptions_WithTarget_AdvertisesHttp11OnlyViaApplicationLayerProtocolNegotiation()
+    {
+        var target = new ConnectTarget("api.example.com", 443);
+
+        var options = TransportLayerSecurityInterceptorHelpers.CreateClientTransportLayerSecurityOptions(target);
+
+        await Assert.That(options.ApplicationProtocols).IsNotNull();
+        await Assert.That(options.ApplicationProtocols!).Count().IsEqualTo(1);
+        await Assert.That(options.ApplicationProtocols![0]).IsEqualTo(System.Net.Security.SslApplicationProtocol.Http11);
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions" />
     ///     populates the server certificate and disables client cert requirement.
     /// </summary>
@@ -42,6 +59,23 @@ public sealed class TransportLayerSecurityInterceptorHelpersTests
 
         await Assert.That(options.ServerCertificate).IsNotNull();
         await Assert.That(options.ClientCertificateRequired).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that the server TLS options advertise only HTTP/1.1 via ALPN. This forces
+    ///     intercepted clients (e.g. browsers, cURL) to use HTTP/1.1, preventing in-flight
+    ///     negotiation of HTTP/2 — which the proxy cannot yet orchestrate end-to-end.
+    /// </summary>
+    [Test]
+    public async Task CreateServerTransportLayerSecurityOptions_WithLeafCertificate_AdvertisesHttp11OnlyViaApplicationLayerProtocolNegotiation()
+    {
+        using var certificate = CreateSelfSignedCertificate("leaf.test");
+
+        var options = TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions(certificate);
+
+        await Assert.That(options.ApplicationProtocols).IsNotNull();
+        await Assert.That(options.ApplicationProtocols!).Count().IsEqualTo(1);
+        await Assert.That(options.ApplicationProtocols![0]).IsEqualTo(System.Net.Security.SslApplicationProtocol.Http11);
     }
 
     /// <summary>
