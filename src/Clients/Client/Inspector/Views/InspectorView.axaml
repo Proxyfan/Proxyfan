@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Proxyfan.Client.Inspector.Views.InspectorView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Proxyfan.Client.Inspector.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:inspectorViewModels="clr-namespace:Proxyfan.Client.Inspector.ViewModels"
              xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
@@ -10,6 +11,9 @@
              presentation:ViewModelLocator.DataContext="{x:Type inspectorViewModels:InspectorViewModel}"
              x:DataType="inspectorViewModels:InspectorViewModel"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <converters:ImageBytesToBitmapConverter x:Key="ImageBytesToBitmapConverter" />
+    </UserControl.Resources>
     <Grid RowDefinitions="*,*">
         <HeaderedContentControl Grid.Row="0"
                                 Header="{localization:Localize Key=Inspector_Section_Request}"
@@ -23,11 +27,20 @@
                              TextWrapping="NoWrap" />
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Body}">
-                    <TextBox AcceptsReturn="True"
-                             FontFamily="Consolas,Menlo,monospace"
-                             IsReadOnly="True"
-                             Text="{Binding RequestBodyText}"
-                             TextWrapping="NoWrap" />
+                    <Grid>
+                        <TextBox AcceptsReturn="True"
+                                 FontFamily="Consolas,Menlo,monospace"
+                                 IsReadOnly="True"
+                                 IsVisible="{Binding RequestBodyImageBytes, Converter={x:Static ObjectConverters.IsNull}}"
+                                 Text="{Binding RequestBodyText}"
+                                 TextWrapping="NoWrap" />
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      IsVisible="{Binding RequestBodyImageBytes, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                      VerticalScrollBarVisibility="Auto">
+                            <Image Source="{Binding RequestBodyImageBytes, Converter={StaticResource ImageBytesToBitmapConverter}}"
+                                   Stretch="None" />
+                        </ScrollViewer>
+                    </Grid>
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Query}">
                     <TextBox AcceptsReturn="True"
@@ -92,11 +105,20 @@
                              TextWrapping="NoWrap" />
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Body}">
-                    <TextBox AcceptsReturn="True"
-                             FontFamily="Consolas,Menlo,monospace"
-                             IsReadOnly="True"
-                             Text="{Binding ResponseBodyText}"
-                             TextWrapping="NoWrap" />
+                    <Grid>
+                        <TextBox AcceptsReturn="True"
+                                 FontFamily="Consolas,Menlo,monospace"
+                                 IsReadOnly="True"
+                                 IsVisible="{Binding ResponseBodyImageBytes, Converter={x:Static ObjectConverters.IsNull}}"
+                                 Text="{Binding ResponseBodyText}"
+                                 TextWrapping="NoWrap" />
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      IsVisible="{Binding ResponseBodyImageBytes, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                      VerticalScrollBarVisibility="Auto">
+                            <Image Source="{Binding ResponseBodyImageBytes, Converter={StaticResource ImageBytesToBitmapConverter}}"
+                                   Stretch="None" />
+                        </ScrollViewer>
+                    </Grid>
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Cookies}">
                     <TextBox AcceptsReturn="True"

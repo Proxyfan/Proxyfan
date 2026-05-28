@@ -24,11 +24,15 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _rawResponseText;
     [ObservableProperty]
+    private byte[]? _requestBodyImageBytes;
+    [ObservableProperty]
     private string _requestBodyText;
     [ObservableProperty]
     private string _requestCookiesText;
     [ObservableProperty]
     private string _requestHeadersText;
+    [ObservableProperty]
+    private byte[]? _responseBodyImageBytes;
     [ObservableProperty]
     private string _responseBodyText;
     [ObservableProperty]
@@ -54,9 +58,11 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _queryParametersText = string.Empty;
         _rawRequestText = string.Empty;
         _rawResponseText = string.Empty;
+        _requestBodyImageBytes = null;
         _requestBodyText = string.Empty;
         _requestCookiesText = string.Empty;
         _requestHeadersText = string.Empty;
+        _responseBodyImageBytes = null;
         _responseBodyText = string.Empty;
         _responseCookiesText = string.Empty;
         _responseHeadersText = string.Empty;
@@ -75,6 +81,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     {
         RequestHeadersText = InspectorTextFormatter.FormatHeaders(request.Headers);
         RequestBodyText = InspectorTextFormatter.FormatBody(request.Body, request.Headers);
+        RequestBodyImageBytes = InspectorImageExtractor.TryExtract(request.Body, request.Headers);
         QueryParametersText = QueryStringFormatter.Format(QueryStringParser.Parse(request.RequestUri));
         RequestCookiesText = InspectorCookieFormatter.FormatRequest(request);
         RawRequestText = RawHypertextTransferProtocolMessageFormatter.FormatRequest(request);
@@ -86,6 +93,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     {
         ResponseHeadersText = InspectorTextFormatter.FormatHeaders(response.Headers);
         ResponseBodyText = InspectorTextFormatter.FormatBody(response.Body, response.Headers);
+        ResponseBodyImageBytes = InspectorImageExtractor.TryExtract(response.Body, response.Headers);
         ResponseCookiesText = InspectorCookieFormatter.FormatResponse(response);
         RawResponseText = RawHypertextTransferProtocolMessageFormatter.FormatResponse(response);
     }
@@ -98,9 +106,11 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         RawRequestText = string.Empty;
         RawResponseText = string.Empty;
         RequestHeadersText = string.Empty;
+        RequestBodyImageBytes = null;
         RequestBodyText = string.Empty;
         RequestCookiesText = string.Empty;
         ResponseHeadersText = string.Empty;
+        ResponseBodyImageBytes = null;
         ResponseBodyText = string.Empty;
         ResponseCookiesText = string.Empty;
         SummaryText = string.Empty;
@@ -114,6 +124,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         QueryParametersText = string.Empty;
         RawRequestText = string.Empty;
         RequestHeadersText = string.Empty;
+        RequestBodyImageBytes = null;
         RequestBodyText = string.Empty;
         RequestCookiesText = string.Empty;
     }
@@ -122,6 +133,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     {
         RawResponseText = string.Empty;
         ResponseHeadersText = string.Empty;
+        ResponseBodyImageBytes = null;
         ResponseBodyText = string.Empty;
         ResponseCookiesText = string.Empty;
     }
