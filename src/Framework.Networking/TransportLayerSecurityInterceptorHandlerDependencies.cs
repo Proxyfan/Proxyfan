@@ -4,6 +4,7 @@ using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
+using System;
 
 namespace Proxyfan.Framework.Networking;
 
@@ -47,7 +48,20 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
+    ///     Gets the time provider used for WebSocket message timestamps. Defaults to
+    ///     <see cref="System.TimeProvider.System" /> when not supplied.
+    /// </summary>
+    public TimeProvider? TimeProvider { get; init; }
+
+    /// <summary>
     ///     Gets the store that persists captured traffic flows.
     /// </summary>
     public required ITrafficStore TrafficStore { get; init; }
+
+    /// <summary>
+    ///     Gets the optional WebSocket store used to capture frames when an intercepted
+    ///     wss:// upgrade succeeds. When <see langword="null" />, WebSocket upgrades still
+    ///     tunnel correctly but messages are not retained for inspection.
+    /// </summary>
+    public IWebSocketStore? WebSocketStore { get; init; }
 }

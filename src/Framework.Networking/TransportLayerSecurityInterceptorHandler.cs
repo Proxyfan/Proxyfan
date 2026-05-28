@@ -47,7 +47,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
     private readonly IRuleEngine? _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
+    private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
+    private readonly IWebSocketStore? _webSocketStore;
 
     static TransportLayerSecurityInterceptorHandler()
     {
@@ -72,6 +74,8 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _ruleEngine = dependencies.RuleEngine;
         _breakpointHandler = dependencies.BreakpointHandler;
         _scriptingHandler = dependencies.ScriptingHandler;
+        _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
+        _webSocketStore = dependencies.WebSocketStore;
     }
 
     /// <inheritdoc />
@@ -197,12 +201,27 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
 
     private TransportLayerSecurityInterceptionPipes CreateInterceptionPipes(SslStream clientSecureStream, SslStream serverSecureStream)
     {
-        var clientReader = PipeReader.Create(clientSecureStream);
-        var clientWriter = PipeWriter.Create(clientSecureStream);
-        var serverReader = PipeReader.Create(serverSecureStream);
-        var serverWriter = PipeWriter.Create(serverSecureStream);
+        var readerOptions = new StreamPipeReaderOptions(leaveOpen: true);
+        var writerOptions = new StreamPipeWriterOptions(leaveOpen: true);
+        var clientReader = PipeReader.Create(clientSecureStream, readerOptions);
+        var clientWriter = PipeWriter.Create(clientSecureStream, writerOptions);
+        var serverReader = PipeReader.Create(serverSecureStream, readerOptions);
+        var serverWriter = PipeWriter.Create(serverSecureStream, writerOptions);
         var pipes = new TransportLayerSecurityInterceptionPipes(clientReader, clientWriter, serverReader, serverWriter);
         return pipes;
+    }
+
+    private async Task DispatchInterceptedUpgradeAsync(
+        TransportLayerSecurityInterceptedUpgradeRequest upgradeRequest,
+        CancellationToken cancellationToken)
+    {
+        var upgradeHandler = new TransportLayerSecurityInterceptedUpgradeHandler(
+            _eventBus,
+            _logger,
+            _timeProvider,
+            _trafficStore,
+            _webSocketStore);
+        await upgradeHandler.HandleAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task InterceptAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
@@ -245,10 +264,17 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var serverTransportLayerSecurityOptions = TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions(leafCertificate);
         await clientSecureStream.AuthenticateAsServerAsync(serverTransportLayerSecurityOptions, cancellationToken).ConfigureAwait(false);
         var pipes = CreateInterceptionPipes(clientSecureStream, serverSecureStream);
+        var loopContext = new TransportLayerSecurityInterceptedLoopContext
+        {
+            ClientSecureStream = clientSecureStream,
+            Connection = connection,
+            Pipes = pipes,
+            ServerSecureStream = serverSecureStream,
+        };
 
         try
         {
-            await RunHypertextTransferProtocolLoopAsync(connection, pipes, cancellationToken).ConfigureAwait(false);
+            await RunHypertextTransferProtocolLoopAsync(loopContext, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -307,12 +333,11 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     }
 
     private async Task<bool> ProcessInterceptedExchangeAsync(
-        IProxyConnection connection,
-        TransportLayerSecurityInterceptionPipes pipes,
+        TransportLayerSecurityInterceptedLoopContext loopContext,
         HypertextTransferProtocolProxyRequestExchange requestExchange,
         CancellationToken cancellationToken)
     {
-        var flow = TransportLayerSecurityInterceptorHelpers.CreateTrafficFlow(connection);
+        var flow = TransportLayerSecurityInterceptorHelpers.CreateTrafficFlow(loopContext.Connection);
         PublishFlowCreated(flow);
         flow.SetRequest(requestExchange.Request);
         PublishRequestReceived(flow, requestExchange.Request);
@@ -331,10 +356,41 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
 
         var serveLocal = blockingAction as Domain.Rules.Pipeline.RequestPipelineAction.ServeLocalResponse;
-        var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(requestExchange, effectiveRequest);
+        if (serveLocal is null && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
+        {
+            var upgradeRequest = new TransportLayerSecurityInterceptedUpgradeRequest
+            {
+                Context = loopContext,
+                EffectiveRequest = effectiveRequest,
+                Flow = flow,
+                RequestExchange = requestExchange,
+            };
+            await DispatchInterceptedUpgradeAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        var forwardContext = new TransportLayerSecurityInterceptedForwardContext
+        {
+            EffectiveRequest = effectiveRequest,
+            Flow = flow,
+            Pipes = loopContext.Pipes,
+            RequestExchange = requestExchange,
+            ServeLocal = serveLocal,
+        };
+        return await ProcessInterceptedForwardAsync(forwardContext, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> ProcessInterceptedForwardAsync(
+        TransportLayerSecurityInterceptedForwardContext forwardContext,
+        CancellationToken cancellationToken)
+    {
+        var pipes = forwardContext.Pipes;
+        var effectiveRequest = forwardContext.EffectiveRequest;
+        var flow = forwardContext.Flow;
+        var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(forwardContext.RequestExchange, effectiveRequest);
         await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
-        var responseExchange = serveLocal is not null
-            ? HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(serveLocal.LocalResponse)
+        var responseExchange = forwardContext.ServeLocal is not null
+            ? HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(forwardContext.ServeLocal.LocalResponse)
             : await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipes.ServerReader, MaxHeaderBytes, effectiveRequest.Method, cancellationToken).ConfigureAwait(false);
 
         if (responseExchange is null)
@@ -423,20 +479,19 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     }
 
     private async Task RunHypertextTransferProtocolLoopAsync(
-        IProxyConnection connection,
-        TransportLayerSecurityInterceptionPipes pipes,
+        TransportLayerSecurityInterceptedLoopContext loopContext,
         CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var requestExchange = await HypertextTransferProtocolPipeHelpers.ReadRequestAsync(pipes.ClientReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
+            var requestExchange = await HypertextTransferProtocolPipeHelpers.ReadRequestAsync(loopContext.Pipes.ClientReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
 
             if (requestExchange is null)
             {
                 break;
             }
 
-            var canContinue = await ProcessInterceptedExchangeAsync(connection, pipes, requestExchange, cancellationToken).ConfigureAwait(false);
+            var canContinue = await ProcessInterceptedExchangeAsync(loopContext, requestExchange, cancellationToken).ConfigureAwait(false);
 
             if (!canContinue)
             {

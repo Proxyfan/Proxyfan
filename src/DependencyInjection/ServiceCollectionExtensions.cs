@@ -253,6 +253,8 @@ public static class ServiceCollectionExtensions
             RuleEngine = provider.GetService<IRuleEngine>(),
             BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
             ScriptingHandler = provider.GetService<IScriptingHandler>(),
+            TimeProvider = provider.GetService<TimeProvider>(),
+            WebSocketStore = provider.GetService<IWebSocketStore>(),
         };
         return dependencies;
     }
