@@ -2,7 +2,9 @@
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace Proxyfan.Client.Inspector.ViewModels;
 
@@ -12,6 +14,7 @@ namespace Proxyfan.Client.Inspector.ViewModels;
 /// </summary>
 public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 {
+    private readonly ObservableCollection<TimingPhaseViewModel> _timingPhases;
     private readonly TrafficListViewModel _trafficListViewModel;
     [ObservableProperty]
     private string _authorizationText;
@@ -43,6 +46,13 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private string _summaryText;
     [ObservableProperty]
     private string _timingText;
+    [ObservableProperty]
+    private string _totalDurationText;
+
+    /// <summary>
+    ///     Gets the phases of the currently selected flow's waterfall, mapped onto a fixed-width lane.
+    /// </summary>
+    public ReadOnlyObservableCollection<TimingPhaseViewModel> TimingPhases { get; }
 
     /// <summary>
     ///     Initializes a new <see cref="InspectorViewModel" /> and subscribes to selection changes.
@@ -68,6 +78,11 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _responseHeadersText = string.Empty;
         _summaryText = string.Empty;
         _timingText = string.Empty;
+        _totalDurationText = string.Empty;
+        var phaseCollection = new ObservableCollection<TimingPhaseViewModel>();
+        _timingPhases = phaseCollection;
+        var readOnlyPhases = new ReadOnlyObservableCollection<TimingPhaseViewModel>(_timingPhases);
+        TimingPhases = readOnlyPhases;
         trafficListViewModel.PropertyChanged += OnTrafficListPropertyChanged;
     }
 
@@ -115,6 +130,8 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         ResponseCookiesText = string.Empty;
         SummaryText = string.Empty;
         TimingText = string.Empty;
+        TotalDurationText = string.Empty;
+        _timingPhases.Clear();
     }
 
     private void ClearRequestSections()
@@ -178,11 +195,36 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         {
             SummaryText = FlowSummaryFormatter.Format(selectedFlow.Source);
             TimingText = FlowTimingFormatter.Format(selectedFlow.Source.Timings);
+            UpdateTimingWaterfall(selectedFlow.Source.Timings);
         }
         else
         {
             SummaryText = string.Empty;
             TimingText = string.Empty;
+            TotalDurationText = string.Empty;
+            _timingPhases.Clear();
+        }
+    }
+
+    private void UpdateTimingWaterfall(FlowTimings timings)
+    {
+        _timingPhases.Clear();
+        var phases = TimingWaterfallCalculator.Calculate(timings);
+
+        foreach (var phase in phases)
+        {
+            var phaseViewModel = new TimingPhaseViewModel(phase);
+            _timingPhases.Add(phaseViewModel);
+        }
+
+        if (timings.TotalDuration.HasValue)
+        {
+            TotalDurationText = timings.TotalDuration.Value.TotalMilliseconds
+                .ToString("F2", CultureInfo.InvariantCulture) + " ms";
+        }
+        else
+        {
+            TotalDurationText = string.Empty;
         }
     }
 }

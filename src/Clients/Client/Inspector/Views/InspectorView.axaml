@@ -85,11 +85,43 @@
                              TextWrapping="NoWrap" />
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Timing}">
-                    <TextBox AcceptsReturn="True"
-                             FontFamily="Consolas,Menlo,monospace"
-                             IsReadOnly="True"
-                             Text="{Binding TimingText}"
-                             TextWrapping="NoWrap" />
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <ItemsControl Grid.Row="0"
+                                      ItemsSource="{Binding TimingPhases}"
+                                      Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="100,500,Auto" Margin="0,2,0,2">
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Name}"
+                                                   VerticalAlignment="Center" />
+                                        <Canvas Grid.Column="1"
+                                                Height="14"
+                                                Background="#33888888">
+                                            <Border Background="#3399FF"
+                                                    Canvas.Left="{Binding BarMarginLeft}"
+                                                    Height="14"
+                                                    Width="{Binding BarWidth}" />
+                                        </Canvas>
+                                        <TextBlock Grid.Column="2"
+                                                   Margin="8,0,0,0"
+                                                   Text="{Binding DurationText}"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Grid.Row="1"
+                                   FontWeight="SemiBold"
+                                   Margin="4"
+                                   Text="{Binding TotalDurationText, StringFormat='Total: {0}'}" />
+                        <TextBox AcceptsReturn="True"
+                                 FontFamily="Consolas,Menlo,monospace"
+                                 Grid.Row="2"
+                                 IsReadOnly="True"
+                                 Text="{Binding TimingText}"
+                                 TextWrapping="NoWrap" />
+                    </Grid>
                 </TabItem>
             </TabControl>
         </HeaderedContentControl>
