@@ -130,6 +130,9 @@
   <data name="Traffic_Column_Code" xml:space="preserve">
     <value>Code</value>
   </data>
+  <data name="Traffic_Column_GraphQueryLanguageOperation" xml:space="preserve">
+    <value>GraphQL</value>
+  </data>
   <data name="Traffic_Column_Duration" xml:space="preserve">
     <value>Duration</value>
   </data>

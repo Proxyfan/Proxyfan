@@ -31,6 +31,12 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     public string ClientEndPoint { get; }
 
     /// <summary>
+    ///     Gets the Graph Query Language (GraphQL) operation name extracted from the request,
+    ///     or <see langword="null" /> when the request is not GraphQL.
+    /// </summary>
+    public string? GraphQueryLanguageOperationName { get; }
+
+    /// <summary>
     ///     Gets the target host extracted from the request.
     /// </summary>
     public string Host { get; }
@@ -82,6 +88,7 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     public TrafficFlowViewModel(RequestReceived requestEvent, int number)
     {
         ClientEndPoint = requestEvent.ClientEndPoint;
+        GraphQueryLanguageOperationName = TrafficFlowGraphQueryLanguageOperationExtractor.Extract(requestEvent.Request);
         Host = requestEvent.Request.Headers.Get("Host") ?? "(tunnel)";
         Id = requestEvent.TrafficFlowId;
         Method = requestEvent.Request.Method;
@@ -114,6 +121,7 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     public TrafficFlowViewModel(TrafficFlow flow, int number)
     {
         ClientEndPoint = flow.ClientEndPoint;
+        GraphQueryLanguageOperationName = TrafficFlowGraphQueryLanguageOperationExtractor.Extract(flow.Request);
         Host = flow.Request?.Headers.Get("Host") ?? "(tunnel)";
         Id = flow.Id;
         Method = flow.Request?.Method ?? "CONNECT";

@@ -146,6 +146,18 @@
                     </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <DataGridTemplateColumn Width="120">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_GraphQueryLanguageOperation}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <TextBlock Margin="4,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding GraphQueryLanguageOperationName}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTemplateColumn Width="80">
                 <DataGridTemplateColumn.Header>
                     <TextBlock Text="{localization:Localize Key=Traffic_Column_Duration}" />
