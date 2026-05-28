@@ -50,6 +50,13 @@
                              Text="{Binding RequestCookiesText}"
                              TextWrapping="NoWrap" />
                 </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_Authorization}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding AuthorizationText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Raw}">
                     <TextBox AcceptsReturn="True"
                              FontFamily="Consolas,Menlo,monospace"

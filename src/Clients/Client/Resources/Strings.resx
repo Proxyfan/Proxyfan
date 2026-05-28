@@ -208,6 +208,9 @@
   <data name="Inspector_Tab_Cookies" xml:space="preserve">
     <value>Cookies</value>
   </data>
+  <data name="Inspector_Tab_Authorization" xml:space="preserve">
+    <value>Auth</value>
+  </data>
   <data name="Inspector_Tab_Raw" xml:space="preserve">
     <value>Raw</value>
   </data>
