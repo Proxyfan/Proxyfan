@@ -36,6 +36,13 @@
                              Text="{Binding QueryParametersText}"
                              TextWrapping="NoWrap" />
                 </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_GraphQueryLanguage}">
+                    <TextBox AcceptsReturn="True"
+                             FontFamily="Consolas,Menlo,monospace"
+                             IsReadOnly="True"
+                             Text="{Binding GraphQueryLanguageText}"
+                             TextWrapping="NoWrap" />
+                </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Cookies}">
                     <TextBox AcceptsReturn="True"
                              FontFamily="Consolas,Menlo,monospace"

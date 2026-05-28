@@ -14,6 +14,8 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 {
     private readonly TrafficListViewModel _trafficListViewModel;
     [ObservableProperty]
+    private string _graphQueryLanguageText;
+    [ObservableProperty]
     private string _queryParametersText;
     [ObservableProperty]
     private string _rawRequestText;
@@ -45,6 +47,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     public InspectorViewModel(TrafficListViewModel trafficListViewModel)
     {
         _trafficListViewModel = trafficListViewModel;
+        _graphQueryLanguageText = string.Empty;
         _queryParametersText = string.Empty;
         _rawRequestText = string.Empty;
         _rawResponseText = string.Empty;
@@ -72,6 +75,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         QueryParametersText = QueryStringFormatter.Format(QueryStringParser.Parse(request.RequestUri));
         RequestCookiesText = InspectorCookieFormatter.FormatRequest(request);
         RawRequestText = RawHypertextTransferProtocolMessageFormatter.FormatRequest(request);
+        GraphQueryLanguageText = GraphQueryLanguageInspectorFormatter.Format(request);
     }
 
     private void ApplyResponse(HypertextTransferProtocolResponseData response)
@@ -84,6 +88,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void ClearAll()
     {
+        GraphQueryLanguageText = string.Empty;
         QueryParametersText = string.Empty;
         RawRequestText = string.Empty;
         RawResponseText = string.Empty;
@@ -99,6 +104,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void ClearRequestSections()
     {
+        GraphQueryLanguageText = string.Empty;
         QueryParametersText = string.Empty;
         RawRequestText = string.Empty;
         RequestHeadersText = string.Empty;

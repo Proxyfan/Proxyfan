@@ -199,6 +199,9 @@
   <data name="Inspector_Tab_Query" xml:space="preserve">
     <value>Query</value>
   </data>
+  <data name="Inspector_Tab_GraphQueryLanguage" xml:space="preserve">
+    <value>GraphQL</value>
+  </data>
   <data name="Inspector_Tab_Cookies" xml:space="preserve">
     <value>Cookies</value>
   </data>
