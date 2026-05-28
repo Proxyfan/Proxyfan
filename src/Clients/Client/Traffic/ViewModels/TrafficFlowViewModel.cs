@@ -13,6 +13,10 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     [ObservableProperty]
     private long _bodySize;
     [ObservableProperty]
+    private TrafficFlowColorTag _colorTag;
+    [ObservableProperty]
+    private string? _comment;
+    [ObservableProperty]
     private TimeSpan? _duration;
     [ObservableProperty]
     private TrafficFlowStatus _flowStatus;
@@ -86,6 +90,8 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         Request = requestEvent.Request;
         StartedAt = requestEvent.Timestamp;
         _bodySize = 0;
+        _colorTag = TrafficFlowColorTag.None;
+        _comment = null;
         _duration = null;
         _flowStatus = TrafficFlowStatus.Active;
         _response = null;
@@ -117,10 +123,34 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         Source = flow;
         StartedAt = flow.StartedAt;
         _bodySize = flow.Response?.Body.Length ?? 0;
+        _colorTag = flow.ColorTag;
+        _comment = flow.Comment;
         _duration = flow.Timings.TotalDuration;
         _flowStatus = flow.Status;
         _response = flow.Response;
         _statusCode = flow.Response?.StatusCode ?? 0;
+    }
+
+    /// <summary>
+    ///     Assigns the given color tag to this flow and propagates it to the
+    ///     underlying domain source.
+    /// </summary>
+    /// <param name="colorTag">The color to assign; use <see cref="TrafficFlowColorTag.None" /> to clear.</param>
+    public void ApplyColorTag(TrafficFlowColorTag colorTag)
+    {
+        ColorTag = colorTag;
+        Source.SetColorTag(colorTag);
+    }
+
+    /// <summary>
+    ///     Assigns the given comment to this flow and propagates it to the
+    ///     underlying domain source.
+    /// </summary>
+    /// <param name="comment">The comment text; <see langword="null" /> or whitespace clears it.</param>
+    public void ApplyComment(string? comment)
+    {
+        Comment = comment;
+        Source.SetComment(comment);
     }
 
     /// <summary>

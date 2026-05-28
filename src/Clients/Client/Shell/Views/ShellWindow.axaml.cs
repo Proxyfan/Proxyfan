@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Proxyfan.Client.Dialogs;
 using Proxyfan.Client.Files;
 using Proxyfan.Presentation;
 
@@ -8,6 +9,7 @@ namespace Proxyfan.Client.Shell.Views;
 /// <summary>
 ///     The main application window hosting the shell content for desktop platforms.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "XAML view code-behind: Avalonia-generated wiring with no testable logic.")]
 public partial class ShellWindow : Window
 {
     /// <summary>
@@ -35,5 +37,8 @@ public partial class ShellWindow : Window
 
         var picker = services.GetService<AvaloniaFilePickerService>();
         picker?.RegisterTopLevel(topLevel);
+
+        var prompt = services.GetService<AvaloniaTextPromptService>();
+        prompt?.RegisterOwner(this);
     }
 }

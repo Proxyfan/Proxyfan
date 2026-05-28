@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain.Traffic.Diff;
 using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Presentation.Threading;
 using System;
@@ -20,6 +21,7 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 /// </summary>
 public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 {
+    private readonly TrafficFlowDiffPool? _diffPool;
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
     private readonly IDisposable _requestReceivedSubscription;
@@ -57,7 +59,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     ///     Scheduler used to marshal collection mutations onto the UI thread.
     /// </param>
     public TrafficListViewModel(IDomainEventBus eventBus, IUserInterfaceScheduler userInterfaceScheduler)
-        : this(eventBus, userInterfaceScheduler, requestRepeater: null)
+        : this(eventBus, userInterfaceScheduler, requestRepeater: null, diffPool: null)
     {
     }
 
@@ -80,9 +82,37 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         IDomainEventBus eventBus,
         IUserInterfaceScheduler userInterfaceScheduler,
         IRequestRepeater? requestRepeater)
+        : this(eventBus, userInterfaceScheduler, requestRepeater, diffPool: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListViewModel" /> with a request repeater and a
+    ///     shared diff pool so the &quot;Add to Diff Pool&quot; context-menu action can stash the
+    ///     selected flow for later side-by-side comparison in the Diff Tool window.
+    /// </summary>
+    /// <param name="eventBus">
+    ///     The domain event bus used to subscribe to traffic events.
+    /// </param>
+    /// <param name="userInterfaceScheduler">
+    ///     Scheduler used to marshal collection mutations onto the UI thread.
+    /// </param>
+    /// <param name="requestRepeater">
+    ///     Optional request repeater. When <see langword="null" /> the Repeat commands no-op.
+    /// </param>
+    /// <param name="diffPool">
+    ///     Optional shared diff pool. When <see langword="null" /> the
+    ///     <see cref="AddSelectedToDiffPoolCommand" /> no-ops.
+    /// </param>
+    public TrafficListViewModel(
+        IDomainEventBus eventBus,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        IRequestRepeater? requestRepeater,
+        TrafficFlowDiffPool? diffPool)
     {
         _userInterfaceScheduler = userInterfaceScheduler;
         _requestRepeater = requestRepeater;
+        _diffPool = diffPool;
 
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
@@ -175,6 +205,47 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     public void RebuildVisibleFlows()
     {
         _userInterfaceScheduler.Post(RebuildVisibleFlowsOnUiThread);
+    }
+
+    [RelayCommand]
+    private void AddSelectedToDiffPool()
+    {
+        if (_diffPool is null)
+        {
+            return;
+        }
+
+        var flow = SelectedFlow;
+        if (flow is null)
+        {
+            return;
+        }
+
+        _diffPool.Add(flow.Source);
+    }
+
+    [RelayCommand]
+    private void ApplyColorTagToSelected(TrafficFlowColorTag colorTag)
+    {
+        var flow = SelectedFlow;
+        if (flow is null)
+        {
+            return;
+        }
+
+        flow.ApplyColorTag(colorTag);
+    }
+
+    [RelayCommand]
+    private void ApplyCommentToSelected(string? comment)
+    {
+        var flow = SelectedFlow;
+        if (flow is null)
+        {
+            return;
+        }
+
+        flow.ApplyComment(comment);
     }
 
     [RelayCommand]

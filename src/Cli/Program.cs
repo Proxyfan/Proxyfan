@@ -6,6 +6,7 @@ namespace Proxyfan.Cli;
 /// <summary>
 ///     Program entry point for the Proxyfan CLI.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "CLI entry point: process-level wiring (Console.CancelKeyPress, blocking GetResult) not unit-testable.")]
 public static class Program
 {
     /// <summary>

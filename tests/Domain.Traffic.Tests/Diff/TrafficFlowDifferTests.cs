@@ -139,6 +139,51 @@ public sealed class TrafficFlowDifferTests
         await HasAnyNonEqual(diff.ResponseBody);
     }
 
+    /// <summary>
+    ///     Verifies that bytes in the 0x0E-0x1F control range are treated as binary.
+    /// </summary>
+    [Test]
+    public async Task Diff_ControlByteInResponseBody_RendersAsBinarySummary()
+    {
+        var bytes = new byte[] { 0x10, 0x11, 0x12 };
+        var flowOne = BuildFlowWithBytesBody(bytes);
+        var flowTwo = BuildFlow("GET", "https://example.com/one", 200, "OK", "text");
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await HasAnyNonEqual(diff.ResponseBody);
+    }
+
+    /// <summary>
+    ///     Verifies that bytes equal to 0x08 (below the tab character 0x09) are treated as binary.
+    /// </summary>
+    [Test]
+    public async Task Diff_BackspaceByteInResponseBody_RendersAsBinarySummary()
+    {
+        var bytes = new byte[] { 0x08 };
+        var flowOne = BuildFlowWithBytesBody(bytes);
+        var flowTwo = BuildFlow("GET", "https://example.com/one", 200, "OK", "text");
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await HasAnyNonEqual(diff.ResponseBody);
+    }
+
+    /// <summary>
+    ///     Verifies that multi-value headers all appear in the diff output with newline joiners.
+    /// </summary>
+    [Test]
+    public async Task Diff_MultiValueRequestHeaders_FormatsEachOnSeparateLine()
+    {
+        var headersTwo = HeaderCollection.Empty.Add("X-A", "1").Add("X-A", "2").Add("X-B", "3");
+        var flowOne = BuildFlowGetExample();
+        var flowTwo = BuildFlowWithRequestHeaders(headersTwo);
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await HasAnyNonEqual(diff.RequestHeaders);
+    }
+
     private static async Task HasAnyNonEqual(System.Collections.Generic.IReadOnlyList<LineDiffSegment> segments)
     {
         var hasNonEqual = false;

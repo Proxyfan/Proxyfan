@@ -5,6 +5,7 @@ namespace Proxyfan.Client.Tools.Views;
 /// <summary>
 ///     User control for the Plugin Manager tool. Hosts the list of loaded plugins.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "XAML view code-behind: Avalonia-generated wiring with no testable logic.")]
 public partial class PluginManagerView : UserControl
 {
     /// <summary>

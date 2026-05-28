@@ -5,6 +5,7 @@ namespace Proxyfan.Client.Tools.Views;
 /// <summary>
 ///     User control for the Map Local tool. Hosts the editor for local-response mock rules.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "XAML view code-behind: Avalonia-generated wiring with no testable logic.")]
 public partial class MapLocalView : UserControl
 {
     /// <summary>

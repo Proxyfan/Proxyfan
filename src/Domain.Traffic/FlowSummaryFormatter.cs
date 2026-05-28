@@ -25,10 +25,26 @@ public static class FlowSummaryFormatter
 
         var builder = new StringBuilder();
         AppendFlowMetadata(builder, flow);
+        AppendAnnotations(builder, flow);
         AppendRequestSection(builder, flow.Request);
         AppendResponseSection(builder, flow.Response);
         AppendTotalDuration(builder, flow.Timings);
         return builder.ToString();
+    }
+
+    private static void AppendAnnotations(StringBuilder builder, TrafficFlow flow)
+    {
+        if (flow.ColorTag != TrafficFlowColorTag.None)
+        {
+            builder.Append("Color tag: ");
+            builder.AppendLine(flow.ColorTag.ToString());
+        }
+
+        if (!string.IsNullOrEmpty(flow.Comment))
+        {
+            builder.Append("Comment: ");
+            builder.AppendLine(flow.Comment);
+        }
     }
 
     private static void AppendFlowMetadata(StringBuilder builder, TrafficFlow flow)

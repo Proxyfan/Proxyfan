@@ -11,6 +11,7 @@ using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain.Traffic.Diff;
 using Proxyfan.Framework.Extensibility;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
@@ -48,6 +49,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));
         serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
         serviceCollection.AddSingleton<ITrafficStore, TrafficStore>();
+        serviceCollection.AddSingleton<TrafficFlowDiffPool>();
         serviceCollection.AddSingleton<ICertificateGenerator, RsaCertificateGenerator>();
         serviceCollection.AddSingleton<ICertificateStore, WindowsCertificateStore>();
         serviceCollection.AddSingleton<MutableCertificateAuthorityProvider>();

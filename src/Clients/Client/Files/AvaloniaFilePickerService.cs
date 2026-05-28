@@ -13,6 +13,7 @@ namespace Proxyfan.Client.Files;
 ///     <see cref="IStorageProvider" />. The active top-level (window) must be
 ///     registered via <see cref="RegisterTopLevel" /> before the picker can be shown.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "Avalonia/host plumbing: requires UI thread/desktop integration, not unit-testable.")]
 public sealed class AvaloniaFilePickerService : IFilePickerService
 {
     private TopLevel? _topLevel;

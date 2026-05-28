@@ -173,4 +173,78 @@ public sealed class PreferencesViewModelTests
         await Assert.That(snapshot.LogLevel).IsEqualTo("Warning");
         await Assert.That(snapshot.UpstreamProxyPort).IsEqualTo(3128);
     }
+
+    /// <summary>
+    ///     Verifies that a CaptureMaximumFlows value below 100 fails validation.
+    /// </summary>
+    [Test]
+    public async Task ApplyCommand_CaptureMaximumFlowsBelowMinimum_DoesNotPersist()
+    {
+        var store = new StubUserPreferencesStore();
+        var themeService = new ThemeService(AppTheme.System);
+        var viewModel = new PreferencesViewModel(store, themeService) { CaptureMaximumFlows = 50 };
+
+        viewModel.ApplyCommand.Execute(parameter: null);
+
+        await Assert.That(store.SaveCallCount).IsEqualTo(0);
+        await Assert.That(viewModel.StatusMessage).IsEqualTo("Invalid values");
+    }
+
+    /// <summary>
+    ///     Verifies that an out-of-range UpstreamProxyPort fails validation when upstream is enabled.
+    /// </summary>
+    [Test]
+    public async Task ApplyCommand_EnabledUpstreamPortOutOfRange_DoesNotPersist()
+    {
+        var store = new StubUserPreferencesStore();
+        var themeService = new ThemeService(AppTheme.System);
+        var viewModel = new PreferencesViewModel(store, themeService)
+        {
+            IsUpstreamProxyEnabled = true,
+            UpstreamProxyHost = "upstream.example.com",
+            UpstreamProxyPort = 0,
+        };
+
+        viewModel.ApplyCommand.Execute(parameter: null);
+
+        await Assert.That(store.SaveCallCount).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a port above 65535 fails validation.
+    /// </summary>
+    [Test]
+    public async Task ApplyCommand_ProxyPortAboveMaximum_DoesNotPersist()
+    {
+        var store = new StubUserPreferencesStore();
+        var themeService = new ThemeService(AppTheme.System);
+        var viewModel = new PreferencesViewModel(store, themeService) { ProxyPort = 70000 };
+
+        viewModel.ApplyCommand.Execute(parameter: null);
+
+        await Assert.That(store.SaveCallCount).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a fully-valid upstream configuration is persisted.
+    /// </summary>
+    [Test]
+    public async Task ApplyCommand_ValidUpstreamConfiguration_Persists()
+    {
+        var store = new StubUserPreferencesStore();
+        var themeService = new ThemeService(AppTheme.System);
+        var viewModel = new PreferencesViewModel(store, themeService)
+        {
+            IsUpstreamProxyEnabled = true,
+            UpstreamProxyHost = "upstream.example.com",
+            UpstreamProxyPort = 3128,
+        };
+
+        viewModel.ApplyCommand.Execute(parameter: null);
+
+        await Assert.That(store.SaveCallCount).IsEqualTo(1);
+        await Assert.That(store.LastSaved!.IsUpstreamProxyEnabled).IsTrue();
+        await Assert.That(store.LastSaved.UpstreamProxyHost).IsEqualTo("upstream.example.com");
+        await Assert.That(store.LastSaved.UpstreamProxyPort).IsEqualTo(3128);
+    }
 }

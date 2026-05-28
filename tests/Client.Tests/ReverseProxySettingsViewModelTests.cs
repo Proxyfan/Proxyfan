@@ -275,4 +275,145 @@ public sealed class ReverseProxySettingsViewModelTests
         await Assert.That(viewModel.Routes[0].Identifier).IsEqualTo("abc");
         await Assert.That(viewModel.Routes[0].Status).IsEqualTo(ReverseProxyRouteStatus.Stopped);
     }
+
+    /// <summary>
+    ///     Adding a route with a blank backend host is rejected.
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_BlankHost_DoesNothing()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "   ",
+            BackendPort = "80",
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding a route with a listen port outside the valid range is rejected.
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_ListenPortOutOfRange_DoesNothing()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "0",
+            BackendHost = "host",
+            BackendPort = "80",
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding a route with an unparseable backend port is rejected.
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_BackendPortNotANumber_DoesNothing()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "host",
+            BackendPort = "abc",
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding a route that conflicts with an existing identifier short-circuits at CanAdd.
+    ///     Achieved by pre-seeding the registry with a route whose identifier matches what
+    ///     CanAdd will detect (same listen port + backend tuple counts as duplicate).
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_DuplicateListenPort_DoesNothing()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var pre = new ReverseProxyRoute("pre", "Pre", 9100, "host", 80, ReverseProxyTransportLayerSecurityMode.None);
+        _ = registry.CanAdd(pre);
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Conflict",
+            ListenPort = "9100",
+            BackendHost = "other.host",
+            BackendPort = "80",
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(1);
+        await Assert.That(viewModel.Routes[0].Identifier).IsEqualTo("pre");
+    }
+
+    /// <summary>
+    ///     StartRouteCommand is a no-op for a null route argument.
+    /// </summary>
+    [Test]
+    public async Task StartRouteCommand_NullRoute_DoesNothing()
+    {
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(new ReverseProxyRouteRegistry(), engine, InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.StartRouteCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     StopRouteCommand is a no-op for a null route argument.
+    /// </summary>
+    [Test]
+    public async Task StopRouteCommand_NullRoute_DoesNothing()
+    {
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(new ReverseProxyRouteRegistry(), engine, InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.StopRouteCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     StopRouteCommand leaves the route status untouched when the engine reports the route was unknown.
+    /// </summary>
+    [Test]
+    public async Task StopRouteCommand_EngineReturnsFalse_DoesNotChangeStatus()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "host",
+            BackendPort = "80",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var added = viewModel.Routes[0];
+        added.Status = ReverseProxyRouteStatus.Faulted;
+
+        await viewModel.StopRouteCommand.ExecuteAsync(added);
+
+        await Assert.That(added.Status).IsEqualTo(ReverseProxyRouteStatus.Faulted);
+    }
 }

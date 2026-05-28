@@ -6,6 +6,7 @@ namespace Proxyfan.Client.Desktop;
 /// <summary>
 ///     Entry point for the client application.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "Avalonia/host plumbing: requires UI thread/desktop integration, not unit-testable.")]
 public static class Program
 {
     /// <summary>

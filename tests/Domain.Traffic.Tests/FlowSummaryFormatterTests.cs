@@ -111,4 +111,58 @@ public sealed class FlowSummaryFormatterTests
         var startedAt = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         return new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1", startedAt);
     }
+
+    /// <summary>
+    ///     Verifies that color tag annotation is rendered when set.
+    /// </summary>
+    [Test]
+    public async Task Format_FlowWithColorTag_IncludesColorTagLine()
+    {
+        var flow = CreatePendingFlow();
+        flow.SetColorTag(TrafficFlowColorTag.Red);
+
+        var result = FlowSummaryFormatter.Format(flow);
+
+        await Assert.That(result.Contains("Color tag: Red", StringComparison.Ordinal)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that the color tag line is omitted when no color tag has been set.
+    /// </summary>
+    [Test]
+    public async Task Format_FlowWithoutColorTag_OmitsColorTagLine()
+    {
+        var flow = CreatePendingFlow();
+
+        var result = FlowSummaryFormatter.Format(flow);
+
+        await Assert.That(result.Contains("Color tag:", StringComparison.Ordinal)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that a comment annotation is rendered when set.
+    /// </summary>
+    [Test]
+    public async Task Format_FlowWithComment_IncludesCommentLine()
+    {
+        var flow = CreatePendingFlow();
+        flow.SetComment("auth regression repro");
+
+        var result = FlowSummaryFormatter.Format(flow);
+
+        await Assert.That(result.Contains("Comment: auth regression repro", StringComparison.Ordinal)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that the comment line is omitted when no comment is set.
+    /// </summary>
+    [Test]
+    public async Task Format_FlowWithoutComment_OmitsCommentLine()
+    {
+        var flow = CreatePendingFlow();
+
+        var result = FlowSummaryFormatter.Format(flow);
+
+        await Assert.That(result.Contains("Comment:", StringComparison.Ordinal)).IsFalse();
+    }
 }

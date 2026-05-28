@@ -1,0 +1,73 @@
+<UserControl x:Class="Proxyfan.Client.Tools.Views.CustomColumnsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:columns="clr-namespace:Proxyfan.Domain.Traffic.Columns;assembly=Domain.Traffic"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:CustomColumnsViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:CustomColumnsViewModel}"
+             x:DataType="viewModels:CustomColumnsViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*">
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,8"
+                   Text="{localization:Localize Key=Tools_CustomColumns_Description}"
+                   TextWrapping="Wrap" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,*,Auto,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0"
+                     Margin="0,0,4,0"
+                     Text="{Binding NewColumnDisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_CustomColumns_DisplayNamePlaceholder}" />
+            <TextBox Grid.Column="1"
+                     Margin="0,0,4,0"
+                     Text="{Binding NewColumnHeaderKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="{localization:Localize Key=Tools_CustomColumns_HeaderKeyPlaceholder}" />
+            <ComboBox Grid.Column="2"
+                      Margin="0,0,4,0"
+                      MinWidth="100"
+                      SelectedItem="{Binding NewColumnSource, Mode=TwoWay}">
+                <columns:CustomColumnSource>Request</columns:CustomColumnSource>
+                <columns:CustomColumnSource>Response</columns:CustomColumnSource>
+            </ComboBox>
+            <Button Grid.Column="3"
+                    Command="{Binding AddColumnCommand}"
+                    Content="{localization:Localize Key=Tools_CustomColumns_AddColumn}"
+                    Padding="12,4" />
+        </Grid>
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox ItemsSource="{Binding Columns}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:CustomColumnEntryViewModel">
+                        <Grid ColumnDefinitions="*,*,Auto,Auto" Margin="4">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       Margin="8,0"
+                                       Text="{Binding HeaderKey}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       Margin="8,0"
+                                       Text="{Binding Source}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="3"
+                                    Command="{Binding $parent[ListBox].((viewModels:CustomColumnsViewModel)DataContext).RemoveColumnCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_CustomColumns_RemoveColumn}"
+                                    Padding="8,2" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </Grid>
+</UserControl>

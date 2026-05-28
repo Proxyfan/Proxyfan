@@ -10,6 +10,7 @@ namespace Proxyfan.Client.Tools;
 ///     from the DI container, instantiates the matching window, and shows it. If a window
 ///     of the requested type is already open, it is brought to the foreground.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "Avalonia/host plumbing: requires UI thread/desktop integration, not unit-testable.")]
 public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
 {
     private readonly IServiceProvider _serviceProvider;
@@ -18,6 +19,8 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private BreakpointWindow? _breakpointWindow;
     private CertificateManagerWindow? _certificateManagerWindow;
     private ComposerWindow? _composerWindow;
+    private CustomColumnsWindow? _customColumnsWindow;
+    private DiffToolWindow? _diffToolWindow;
     private DomainNameSystemSpoofingWindow? _domainNameSystemSpoofingWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
@@ -150,6 +153,52 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _composerWindow = null;
         };
         _composerWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenCustomColumns()
+    {
+        if (_customColumnsWindow is not null)
+        {
+            _customColumnsWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<CustomColumnsViewModel>();
+        var window = new CustomColumnsWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _customColumnsWindow = null;
+        };
+        _customColumnsWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenDiffTool()
+    {
+        if (_diffToolWindow is not null)
+        {
+            _diffToolWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<DiffToolViewModel>();
+        var window = new DiffToolWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            _diffToolWindow = null;
+        };
+        _diffToolWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

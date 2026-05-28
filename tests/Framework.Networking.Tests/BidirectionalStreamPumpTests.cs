@@ -1,3 +1,4 @@
+using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
 using System.IO;
 using System.Net;
@@ -65,8 +66,8 @@ public sealed class BidirectionalStreamPumpTests
     }
 
     /// <summary>
-    ///     Verifies the pump completes when the source stream returns EOF (zero-byte read).
-    /// </summary>
+///     Verifies the pump completes when the source stream returns EOF (zero-byte read).
+/// </summary>
     [Test]
     public async Task PumpAsync_SourceReturnsEndOfFile_PumpCompletes()
     {
@@ -77,6 +78,59 @@ public sealed class BidirectionalStreamPumpTests
         await BidirectionalStreamPump.PumpAsync(leftBuffer, rightBuffer, bufferSize: 1024, cts.Token);
 
         await Assert.That(rightBuffer.Length).IsEqualTo(0L);
+    }
+
+    /// <summary>
+    ///     Verifies that an IOException raised during a read terminates that pump direction
+    ///     gracefully without propagating the exception.
+    /// </summary>
+    [Test]
+    public async Task PumpAsync_SourceReadThrowsIoException_TerminatesDirectionWithoutThrowing()
+    {
+        var faultedLeft = new ThrowingStream(throwOnRead: new IOException("simulated"));
+        var rightBuffer = new MemoryStream();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await BidirectionalStreamPump.PumpAsync(faultedLeft, rightBuffer, bufferSize: 1024, cts.Token);
+    }
+
+    /// <summary>
+    ///     Verifies that a SocketException raised during a read terminates that direction.
+    /// </summary>
+    [Test]
+    public async Task PumpAsync_SourceReadThrowsSocketException_TerminatesDirectionWithoutThrowing()
+    {
+        var faultedLeft = new ThrowingStream(throwOnRead: new SocketException());
+        var rightBuffer = new MemoryStream();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await BidirectionalStreamPump.PumpAsync(faultedLeft, rightBuffer, bufferSize: 1024, cts.Token);
+    }
+
+    /// <summary>
+    ///     Verifies that an IOException raised during a write terminates that direction.
+    /// </summary>
+    [Test]
+    public async Task PumpAsync_DestinationWriteThrowsIoException_TerminatesDirectionWithoutThrowing()
+    {
+        var sourceLeft = new MemoryStream(Encoding.ASCII.GetBytes("payload"));
+        var faultedRight = new ThrowingStream(throwOnWrite: new IOException("simulated"));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await BidirectionalStreamPump.PumpAsync(sourceLeft, faultedRight, bufferSize: 1024, cts.Token);
+    }
+
+    /// <summary>
+    ///     Verifies that a SocketException raised during a write terminates that direction.
+    /// </summary>
+    [Test]
+    public async Task PumpAsync_DestinationWriteThrowsSocketException_TerminatesDirectionWithoutThrowing()
+    {
+        var sourceLeft = new MemoryStream(Encoding.ASCII.GetBytes("payload"));
+        var faultedRight = new ThrowingStream(throwOnWrite: new SocketException());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await BidirectionalStreamPump.PumpAsync(sourceLeft, faultedRight, bufferSize: 1024, cts.Token);
     }
 
     private static async Task<(Socket Outer, Socket Inner)> CreateConnectedPairAsync()

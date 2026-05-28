@@ -85,6 +85,12 @@
   <data name="Shell_Toolbar_FilterPlaceholder" xml:space="preserve">
     <value>Filter (host, method, path, status)</value>
   </data>
+  <data name="Shell_Tabs_New" xml:space="preserve">
+    <value>New tab</value>
+  </data>
+  <data name="Shell_Tabs_Close" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
   <data name="Shell_StatusBar_FlowCount" xml:space="preserve">
     <value>Flows:</value>
   </data>
@@ -105,6 +111,9 @@
   </data>
   <data name="Traffic_Column_Number" xml:space="preserve">
     <value>#</value>
+  </data>
+  <data name="Traffic_Column_ColorTag" xml:space="preserve">
+    <value></value>
   </data>
   <data name="Traffic_Column_Status" xml:space="preserve">
     <value>Status</value>
@@ -129,6 +138,45 @@
   </data>
   <data name="Traffic_Context_RepeatTenTimes" xml:space="preserve">
     <value>Repeat 10 Times</value>
+  </data>
+  <data name="Traffic_Context_AddToDiffPool" xml:space="preserve">
+    <value>Add to Diff Pool</value>
+  </data>
+  <data name="Traffic_Context_ColorTag" xml:space="preserve">
+    <value>Color Tag</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Red" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Orange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Yellow" xml:space="preserve">
+    <value>Yellow</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Green" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Blue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Purple" xml:space="preserve">
+    <value>Purple</value>
+  </data>
+  <data name="Traffic_Context_ColorTag_Gray" xml:space="preserve">
+    <value>Gray</value>
+  </data>
+  <data name="Traffic_Context_AddComment" xml:space="preserve">
+    <value>Add Comment...</value>
+  </data>
+  <data name="Traffic_Context_CommentDialog_Title" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="Traffic_Context_CommentDialog_Label" xml:space="preserve">
+    <value>Comment:</value>
   </data>
   <data name="Inspector_Section_RequestHeaders" xml:space="preserve">
     <value>Request Headers</value>
@@ -609,5 +657,47 @@
   </data>
   <data name="Tools_RemoteDevices_Forget" xml:space="preserve">
     <value>Forget</value>
+  </data>
+  <data name="Shell_Menu_DiffTool" xml:space="preserve">
+    <value>Diff Tool...</value>
+  </data>
+  <data name="Tools_DiffTool_Title" xml:space="preserve">
+    <value>Diff Tool</value>
+  </data>
+  <data name="Tools_DiffTool_PoolHeader" xml:space="preserve">
+    <value>Flows in pool</value>
+  </data>
+  <data name="Tools_DiffTool_LeftLabel" xml:space="preserve">
+    <value>Left (old)</value>
+  </data>
+  <data name="Tools_DiffTool_RightLabel" xml:space="preserve">
+    <value>Right (new)</value>
+  </data>
+  <data name="Tools_DiffTool_RemoveLeft" xml:space="preserve">
+    <value>Remove Selected</value>
+  </data>
+  <data name="Tools_DiffTool_Clear" xml:space="preserve">
+    <value>Clear Pool</value>
+  </data>
+  <data name="Shell_Menu_CustomColumns" xml:space="preserve">
+    <value>Custom Header Column...</value>
+  </data>
+  <data name="Tools_CustomColumns_Title" xml:space="preserve">
+    <value>Custom Header Columns</value>
+  </data>
+  <data name="Tools_CustomColumns_Description" xml:space="preserve">
+    <value>Add columns to the traffic list that display the value of a specific HTTP request or response header. Useful for tracking custom headers such as X-Request-Id or X-Correlation-Id.</value>
+  </data>
+  <data name="Tools_CustomColumns_DisplayNamePlaceholder" xml:space="preserve">
+    <value>Column name</value>
+  </data>
+  <data name="Tools_CustomColumns_HeaderKeyPlaceholder" xml:space="preserve">
+    <value>HTTP header (e.g., X-Request-Id)</value>
+  </data>
+  <data name="Tools_CustomColumns_AddColumn" xml:space="preserve">
+    <value>Add Column</value>
+  </data>
+  <data name="Tools_CustomColumns_RemoveColumn" xml:space="preserve">
+    <value>Remove</value>
   </data>
 </root>

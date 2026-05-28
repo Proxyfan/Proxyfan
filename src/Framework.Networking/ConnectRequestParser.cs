@@ -44,6 +44,12 @@ public static class ConnectRequestParser
         if (colonIndex < 0)
         {
             var host = authority.ToString();
+
+            if (!ConnectTargetValidator.HasValidTarget(host, DefaultTunnelPort))
+            {
+                return null;
+            }
+
             return new ConnectTarget(host, DefaultTunnelPort);
         }
 
@@ -61,6 +67,12 @@ public static class ConnectRequestParser
         }
 
         var hostString = hostSpan.ToString();
+
+        if (!ConnectTargetValidator.HasValidTarget(hostString, port))
+        {
+            return null;
+        }
+
         return new ConnectTarget(hostString, port);
     }
 

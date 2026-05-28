@@ -7,6 +7,7 @@ namespace Proxyfan.Client.Threading;
 ///     Avalonia-backed <see cref="IUserInterfaceScheduler" /> that delegates to
 ///     <see cref="Dispatcher.UIThread" /> for marshaling work onto the UI thread.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "Avalonia/host plumbing: requires UI thread/desktop integration, not unit-testable.")]
 public sealed class AvaloniaUserInterfaceScheduler : IUserInterfaceScheduler
 {
     /// <inheritdoc />

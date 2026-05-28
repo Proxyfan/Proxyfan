@@ -38,6 +38,18 @@ public interface IToolWindowOpener
     void OpenComposer();
 
     /// <summary>
+    ///     Opens the Custom Columns tool window. Idempotent: if the window is already
+    ///     open, it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenCustomColumns();
+
+    /// <summary>
+    ///     Opens the Diff Tool window. Idempotent: if the window is already open,
+    ///     it is brought to the foreground instead of being recreated.
+    /// </summary>
+    void OpenDiffTool();
+
+    /// <summary>
     ///     Opens the DNS Spoofing tool window. Idempotent: if the window is already
     ///     open, it is brought to the foreground instead of being recreated.
     /// </summary>

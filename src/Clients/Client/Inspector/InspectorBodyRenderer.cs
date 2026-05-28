@@ -13,6 +13,11 @@ namespace Proxyfan.Client.Inspector;
 /// </summary>
 public static class InspectorBodyRenderer
 {
+    static InspectorBodyRenderer()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     /// <summary>
     ///     Renders the body for display.
     /// </summary>

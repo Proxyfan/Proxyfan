@@ -33,6 +33,16 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public int OpenComposerCallCount { get; private set; }
 
     /// <summary>
+    ///     Gets the number of times <see cref="OpenCustomColumns" /> was invoked.
+    /// </summary>
+    public int OpenCustomColumnsCallCount { get; private set; }
+
+    /// <summary>
+    ///     Gets the number of times <see cref="OpenDiffTool" /> was invoked.
+    /// </summary>
+    public int OpenDiffToolCallCount { get; private set; }
+
+    /// <summary>
     ///     Gets the number of times <see cref="OpenDomainNameSystemSpoofing" /> was invoked.
     /// </summary>
     public int OpenDomainNameSystemSpoofingCallCount { get; private set; }
@@ -115,6 +125,18 @@ public sealed class StubToolWindowOpener : IToolWindowOpener
     public void OpenComposer()
     {
         OpenComposerCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenCustomColumns()
+    {
+        OpenCustomColumnsCallCount++;
+    }
+
+    /// <inheritdoc />
+    public void OpenDiffTool()
+    {
+        OpenDiffToolCallCount++;
     }
 
     /// <inheritdoc />

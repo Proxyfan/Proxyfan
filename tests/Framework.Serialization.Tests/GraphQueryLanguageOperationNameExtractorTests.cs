@@ -96,4 +96,70 @@ public sealed class GraphQueryLanguageOperationNameExtractorTests
 
         await Assert.That(name).IsNull();
     }
+
+    /// <summary>
+    ///     Null input returns null without throwing.
+    /// </summary>
+    [Test]
+    public async Task Extract_Null_ReturnsNull()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(null);
+
+        await Assert.That(name).IsNull();
+    }
+
+    /// <summary>
+    ///     A source consisting only of whitespace and comments returns null.
+    /// </summary>
+    [Test]
+    public async Task Extract_OnlyCommentsAndWhitespace_ReturnsNull()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("   \n# only a comment\n\t");
+
+        await Assert.That(name).IsNull();
+    }
+
+    /// <summary>
+    ///     Commas (which GraphQL treats as insignificant whitespace) are skipped between tokens.
+    /// </summary>
+    [Test]
+    public async Task Extract_CommasBetweenTokens_AreSkippedAsWhitespace()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(",,, query,,, GetUser { user { id } }");
+
+        await Assert.That(name).IsEqualTo("GetUser");
+    }
+
+    /// <summary>
+    ///     A keyword followed only by trailing whitespace (no identifier afterwards) returns null.
+    /// </summary>
+    [Test]
+    public async Task Extract_KeywordFollowedByOnlyWhitespace_ReturnsNull()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("query   ");
+
+        await Assert.That(name).IsNull();
+    }
+
+    /// <summary>
+    ///     Operation names containing digits (after the first character) are accepted.
+    /// </summary>
+    [Test]
+    public async Task Extract_OperationNameWithDigits_ReturnsFullName()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("query GetUser123 { user { id } }");
+
+        await Assert.That(name).IsEqualTo("GetUser123");
+    }
+
+    /// <summary>
+    ///     A keyword followed by a non-identifier-start character (like '{' or '(') returns null.
+    /// </summary>
+    [Test]
+    public async Task Extract_KeywordFollowedByPunctuation_ReturnsNull()
+    {
+        var name = GraphQueryLanguageOperationNameExtractor.Extract("query (a: 1) { viewer { id } }");
+
+        await Assert.That(name).IsNull();
+    }
 }

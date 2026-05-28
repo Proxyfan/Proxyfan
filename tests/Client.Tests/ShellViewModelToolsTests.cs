@@ -260,4 +260,25 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenRemoteDevicesCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenReverseProxyCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenDiffToolCommand delegates to <see cref="StubToolWindowOpener.OpenDiffTool" />.
+    /// </summary>
+    [Test]
+    public async Task OpenDiffToolCommand_WhenInvoked_OpensDiffToolWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenDiffToolCommand.Execute(null);
+
+        await Assert.That(opener.OpenDiffToolCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenComposerCallCount).IsEqualTo(0);
+    }
 }

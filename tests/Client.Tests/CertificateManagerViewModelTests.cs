@@ -135,6 +135,24 @@ public sealed class CertificateManagerViewModelTests
         await Assert.That(() => viewModel.Dispose()).ThrowsNothing();
     }
 
+    /// <summary>
+    ///     All long-running commands short-circuit when IsBusy is already set.
+    /// </summary>
+    [Test]
+    public async Task LongRunningCommands_IsBusyAlreadyTrue_AreShortCircuited()
+    {
+        var (viewModel, _, _, store) = Create();
+        viewModel.IsBusy = true;
+
+        await viewModel.InstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+        await viewModel.UninstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+        await viewModel.RegenerateCommand.ExecuteAsync(null).ConfigureAwait(false);
+        await viewModel.ExportCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(store.InstallCallCount).IsEqualTo(0);
+        await Assert.That(store.UninstallCallCount).IsEqualTo(0);
+    }
+
     private static (CertificateManagerViewModel ViewModel, StubCertificateGenerator Generator, MutableCertificateAuthorityProvider Provider, StubCertificateStore Store) Create(
         ShellViewModelFactory.StubFilePickerService? picker = null)
     {

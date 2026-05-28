@@ -1,0 +1,18 @@
+<Window x:Class="Proxyfan.Client.Tools.Views.CustomColumnsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+        xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+        xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+        xmlns:views="clr-namespace:Proxyfan.Client.Tools.Views"
+        Title="{localization:Localize Key=Tools_CustomColumns_Title}"
+        Width="640"
+        Height="420"
+        d:DataContext="{d:DesignInstance Type=viewModels:CustomColumnsViewModel}"
+        presentation:ViewModelLocator.DataContext="{x:Type viewModels:CustomColumnsViewModel}"
+        x:DataType="viewModels:CustomColumnsViewModel"
+        mc:Ignorable="d">
+    <views:CustomColumnsView />
+</Window>

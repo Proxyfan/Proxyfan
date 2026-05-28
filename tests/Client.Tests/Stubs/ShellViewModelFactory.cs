@@ -78,7 +78,8 @@ public static class ShellViewModelFactory
         var eventBus = new NoopEventBus();
         var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance);
         var sourceList = new SourceListViewModel(eventBus, trafficList, InlineUserInterfaceScheduler.Instance);
-        return new ShellViewModel(systemProxy, optionsMonitor, trafficList, sourceList, filePicker, harExporter, harImporter, toolWindowOpener);
+        var tabHost = new TabHostViewModel(trafficList);
+        return new ShellViewModel(systemProxy, optionsMonitor, tabHost, sourceList, filePicker, harExporter, harImporter, toolWindowOpener);
     }
 
     /// <summary>

@@ -1,7 +1,9 @@
 ﻿<UserControl x:Class="Proxyfan.Client.Traffic.Views.TrafficListView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Proxyfan.Client.Traffic.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:domainTraffic="clr-namespace:Proxyfan.Domain.Traffic;assembly=Domain.Traffic"
              xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
@@ -10,7 +12,8 @@
              presentation:ViewModelLocator.DataContext="{x:Type trafficViewModels:TrafficListViewModel}"
              x:DataType="trafficViewModels:TrafficListViewModel"
              mc:Ignorable="d">
-    <DataGrid AutoGenerateColumns="False"
+    <DataGrid x:Name="FlowGrid"
+              AutoGenerateColumns="False"
               CanUserReorderColumns="False"
               CanUserResizeColumns="True"
               CanUserSortColumns="False"
@@ -24,9 +27,53 @@
                           Header="{localization:Localize Key=Traffic_Context_Repeat}" />
                 <MenuItem Command="{Binding RepeatSelectedTenTimesCommand}"
                           Header="{localization:Localize Key=Traffic_Context_RepeatTenTimes}" />
+                <MenuItem Command="{Binding AddSelectedToDiffPoolCommand}"
+                          Header="{localization:Localize Key=Traffic_Context_AddToDiffPool}" />
+                <MenuItem Click="OnAddCommentClicked"
+                          Header="{localization:Localize Key=Traffic_Context_AddComment}" />
+                <MenuItem Header="{localization:Localize Key=Traffic_Context_ColorTag}">
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.None}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_None}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Red}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Red}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Orange}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Orange}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Yellow}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Yellow}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Green}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Green}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Blue}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Blue}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Purple}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Purple}" />
+                    <MenuItem Command="{Binding ApplyColorTagToSelectedCommand}"
+                              CommandParameter="{x:Static domainTraffic:TrafficFlowColorTag.Gray}"
+                              Header="{localization:Localize Key=Traffic_Context_ColorTag_Gray}" />
+                </MenuItem>
             </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
+            <DataGridTemplateColumn Width="24">
+                <DataGridTemplateColumn.Header>
+                    <TextBlock Text="{localization:Localize Key=Traffic_Column_ColorTag}" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="trafficViewModels:TrafficFlowViewModel">
+                        <Ellipse Width="10"
+                                 Height="10"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 Fill="{Binding ColorTag, Converter={x:Static converters:TrafficFlowColorTagToBrushConverter.Instance}}" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTemplateColumn Width="50">
                 <DataGridTemplateColumn.Header>
                     <TextBlock Text="{localization:Localize Key=Traffic_Column_Number}" />

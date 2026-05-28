@@ -146,4 +146,133 @@ public sealed class ConnectTunnelHandlerTests
         using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await handler.HandleAsync(connection, cancellationSource.Token);
     }
+
+    /// <summary>
+    ///     Verifies that a CONNECT request whose authority parses to an empty host is rejected with 502.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_EmptyHost_WritesErrorResponse()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        var request = Encoding.ASCII.GetBytes("CONNECT  HTTP/1.1\r\n\r\n");
+        await connection.InputWriter.WriteAsync(request);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var response = await connection.ReadAllOutputAsync();
+        var responseText = Encoding.ASCII.GetString(response);
+
+        await Assert.That(responseText.StartsWith("HTTP/1.1 502", StringComparison.Ordinal)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that an unparseable request line (no second space after method) results in 502.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_UnparseableRequestLine_WritesErrorResponse()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        var request = Encoding.ASCII.GetBytes("CONNECT-foo\r\n\r\n");
+        await connection.InputWriter.WriteAsync(request);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var response = await connection.ReadAllOutputAsync();
+        var responseText = Encoding.ASCII.GetString(response);
+
+        await Assert.That(responseText.StartsWith("HTTP/1.1 502", StringComparison.Ordinal)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that an unreachable target (loopback closed port) results in 502.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_UnreachableTarget_WritesErrorResponse()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        var request = Encoding.ASCII.GetBytes("CONNECT 127.0.0.1:1 HTTP/1.1\r\n\r\n");
+        await connection.InputWriter.WriteAsync(request);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var response = await connection.ReadAllOutputAsync();
+        var responseText = Encoding.ASCII.GetString(response);
+
+        await Assert.That(responseText.StartsWith("HTTP/1.1 502", StringComparison.Ordinal)).IsTrue();
+    }
+
+    /// <summary>
+    ///     End-to-end success path: handshake succeeds and the proxy writes "200 Connection Established"
+    ///     before the cancellation token tears the tunnel down.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_RealEchoServer_TunnelsBytesBothDirections()
+    {
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        using var acceptedSemaphore = new System.Threading.SemaphoreSlim(0, 1);
+        var serverTask = Task.Run(async () =>
+        {
+            try
+            {
+                using var client = await listener.AcceptTcpClientAsync();
+                acceptedSemaphore.Release();
+                using var stream = client.GetStream();
+                var buffer = new byte[64];
+                try
+                {
+                    while (true)
+                    {
+                        var read = await stream.ReadAsync(buffer);
+                        if (read == 0)
+                        {
+                            break;
+                        }
+                    }
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+            catch (System.IO.IOException)
+            {
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+            }
+        });
+
+        try
+        {
+            var handler = CreateHandler();
+            var connection = new StubFullDuplexProxyConnection();
+            var request = Encoding.ASCII.GetBytes($"CONNECT 127.0.0.1:{port} HTTP/1.1\r\n\r\n");
+            await connection.InputWriter.WriteAsync(request);
+
+            using var cancellationSource = new CancellationTokenSource();
+            var handleTask = handler.HandleAsync(connection, cancellationSource.Token);
+            await acceptedSemaphore.WaitAsync(TimeSpan.FromSeconds(10));
+            cancellationSource.Cancel();
+            await handleTask;
+            await connection.Transport.Output.CompleteAsync();
+            var response = await connection.ReadAllOutputAsync();
+            var responseText = Encoding.ASCII.GetString(response);
+
+            await Assert.That(responseText.StartsWith("HTTP/1.1 200 Connection Established", StringComparison.Ordinal)).IsTrue();
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
 }

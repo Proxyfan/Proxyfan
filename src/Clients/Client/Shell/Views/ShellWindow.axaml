@@ -15,6 +15,12 @@
         x:DataType="viewModels:ShellViewModel"
         WindowState="Maximized"
         mc:Ignorable="d">
+    <Window.KeyBindings>
+        <KeyBinding Command="{Binding TabHost.AddTabCommand}"
+                    Gesture="Ctrl+T" />
+        <KeyBinding Command="{Binding TabHost.CloseActiveTabCommand}"
+                    Gesture="Ctrl+W" />
+    </Window.KeyBindings>
     <Grid RowDefinitions="Auto,*">
         <Menu Grid.Row="0">
             <MenuItem Header="{localization:Localize Key=Shell_Menu_File}">
@@ -35,6 +41,10 @@
                           Header="{localization:Localize Key=Shell_Menu_Composer}" />
                 <MenuItem Command="{Binding OpenScriptingCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Scripting}" />
+                <MenuItem Command="{Binding OpenDiffToolCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_DiffTool}" />
+                <MenuItem Command="{Binding OpenCustomColumnsCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_CustomColumns}" />
                 <MenuItem Command="{Binding OpenMapLocalCommand}"
                           Header="{localization:Localize Key=Shell_Menu_MapLocal}" />
                 <MenuItem Command="{Binding OpenMapRemoteCommand}"

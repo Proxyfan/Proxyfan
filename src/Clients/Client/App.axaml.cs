@@ -8,6 +8,7 @@ using IApplicationLifetime = Avalonia.Controls.ApplicationLifetimes.IApplication
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Proxyfan.Client.Dialogs;
 using Proxyfan.Client.Files;
 using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Shell.ViewModels;
@@ -20,7 +21,9 @@ using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Session.Har;
+using Proxyfan.Domain.Traffic.Columns;
 using Proxyfan.Presentation;
+using Proxyfan.Presentation.Dialogs;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Theming;
@@ -35,6 +38,7 @@ namespace Proxyfan.Client;
 /// <summary>
 ///     The Avalonia application entry point for the multi-platform client.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "XAML view code-behind: Avalonia-generated wiring with no testable logic.")]
 public partial class App : Application
 {
     private readonly IHostBuilder _hostBuilder;
@@ -55,12 +59,15 @@ public partial class App : Application
             services.AddSingleton<TrafficListViewModel>();
             services.AddSingleton<SourceListViewModel>();
             services.AddSingleton<InspectorViewModel>();
+            services.AddSingleton<TabHostViewModel>();
             services.AddSingleton<ShellViewModel>();
             services.AddTransient<BlockListViewModel>();
             services.AddTransient<BreakpointViewModel>();
             services.AddTransient<AllowListViewModel>();
             services.AddTransient<CertificateManagerViewModel>();
             services.AddTransient<ComposerViewModel>();
+            services.AddTransient<CustomColumnsViewModel>();
+            services.AddTransient<DiffToolViewModel>();
             services.AddTransient<DomainNameSystemSpoofingViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
@@ -77,6 +84,9 @@ public partial class App : Application
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
             services.AddSingleton<AvaloniaFilePickerService>();
             services.AddSingleton<IFilePickerService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaFilePickerService>());
+            services.AddSingleton<AvaloniaTextPromptService>();
+            services.AddSingleton<ITextPromptService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaTextPromptService>());
+            services.AddSingleton<CustomColumnRegistry>();
             services.AddSingleton<IHarExporter, HarExporter>();
             services.AddSingleton<IHarImporter, HarImporter>();
             services.AddSingleton<ThemeService>(static _ =>

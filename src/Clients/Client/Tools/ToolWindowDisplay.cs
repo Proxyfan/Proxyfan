@@ -8,6 +8,7 @@ namespace Proxyfan.Client.Tools;
 ///     Helpers for showing tool windows. Centralizes the logic for choosing whether to
 ///     show a window owned by the main shell or as a top-level window.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage(Justification = "Avalonia/host plumbing: requires UI thread/desktop integration, not unit-testable.")]
 public static class ToolWindowDisplay
 {
     /// <summary>

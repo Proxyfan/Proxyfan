@@ -41,9 +41,16 @@ public sealed partial class ShellViewModel : ObservableObject
     public SourceListViewModel SourceList { get; }
 
     /// <summary>
-    ///     Gets the traffic list view model exposed for direct toolbar/status binding.
+    ///     Gets the tab host view model that manages the workspace tab strip and tracks
+    ///     per-tab filter and selection state.
     /// </summary>
-    public TrafficListViewModel TrafficList { get; }
+    public TabHostViewModel TabHost { get; }
+
+    /// <summary>
+    ///     Gets the traffic list view model exposed for direct toolbar/status binding.
+    ///     Shared across all workspace tabs.
+    /// </summary>
+    public TrafficListViewModel TrafficList => TabHost.TrafficList;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ShellViewModel" /> class.
@@ -54,8 +61,8 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="optionsMonitor">
     ///     Monitor for proxy configuration options, providing the bound port for registration.
     /// </param>
-    /// <param name="trafficListViewModel">
-    ///     The traffic list view model exposed for toolbar/status bar bindings.
+    /// <param name="tabHost">
+    ///     The tab host view model that manages workspace tabs and per-tab state.
     /// </param>
     /// <param name="sourceListViewModel">
     ///     The source list view model exposed for the left navigation panel.
@@ -67,7 +74,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public ShellViewModel(
         ISystemProxy systemProxy,
         IOptionsMonitor<ProxyOptions> optionsMonitor,
-        TrafficListViewModel trafficListViewModel,
+        TabHostViewModel tabHost,
         SourceListViewModel sourceListViewModel,
         IFilePickerService filePicker,
         IHarExporter harExporter,
@@ -81,7 +88,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _harImporter = harImporter;
         _toolWindowOpener = toolWindowOpener;
         _isSystemProxyEnabled = false;
-        TrafficList = trafficListViewModel;
+        TabHost = tabHost;
         SourceList = sourceListViewModel;
     }
 
@@ -122,6 +129,18 @@ public sealed partial class ShellViewModel : ObservableObject
     private void OpenComposer()
     {
         _toolWindowOpener.OpenComposer();
+    }
+
+    [RelayCommand]
+    private void OpenCustomColumns()
+    {
+        _toolWindowOpener.OpenCustomColumns();
+    }
+
+    [RelayCommand]
+    private void OpenDiffTool()
+    {
+        _toolWindowOpener.OpenDiffTool();
     }
 
     [RelayCommand]

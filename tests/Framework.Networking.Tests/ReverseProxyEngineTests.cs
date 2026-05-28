@@ -133,6 +133,24 @@ public sealed class ReverseProxyEngineTests
         await Assert.That(probe.ProbeCount).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies DisposeAsync stops all listeners and is idempotent.
+    /// </summary>
+    [Test]
+    public async Task DisposeAsync_WithStartedRoutes_StopsAllListenersAndIsIdempotent()
+    {
+        var engine = CreateEngine(new StubBackendHealthProbe());
+        var route1 = CreateRoute("api1", listenPort: 0);
+        var route2 = CreateRoute("api2", listenPort: 0);
+        await engine.StartRouteAsync(route1, CancellationToken.None);
+        await engine.StartRouteAsync(route2, CancellationToken.None);
+
+        await engine.DisposeAsync();
+        await engine.DisposeAsync();
+
+        await Assert.That(engine.GetStates()).IsEmpty();
+    }
+
     private static ReverseProxyEngine CreateEngine(IBackendHealthProbe probe)
     {
         var factory = new StubLoggerFactory();
