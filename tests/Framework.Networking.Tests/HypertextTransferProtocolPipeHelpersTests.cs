@@ -1,4 +1,4 @@
-﻿using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain.Traffic;
 using System;
 using System.IO.Pipelines;
 using System.Text;
@@ -108,7 +108,7 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         var pipe = new Pipe();
         await pipe.Writer.CompleteAsync();
 
-        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, CancellationToken.None);
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
 
         await Assert.That(result).IsNull();
     }
@@ -125,7 +125,7 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         await pipe.Writer.WriteAsync(bytes);
         await pipe.Writer.CompleteAsync();
 
-        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, CancellationToken.None);
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
 
         await Assert.That(result).IsNull();
     }
@@ -142,7 +142,7 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         await pipe.Writer.WriteAsync(bytes);
         await pipe.Writer.CompleteAsync();
 
-        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, CancellationToken.None);
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
 
         await Assert.That(result).IsNotNull();
         await Assert.That(result!.Response.StatusCode).IsEqualTo(200);
@@ -161,7 +161,7 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         await pipe.Writer.WriteAsync(bytes);
         await pipe.Writer.CompleteAsync();
 
-        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, CancellationToken.None);
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
 
         await Assert.That(result).IsNotNull();
         await Assert.That(Encoding.ASCII.GetString(result!.Body.Span)).IsEqualTo("hello-body-content");
@@ -208,7 +208,7 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         await pipe.Writer.WriteAsync(bytes);
         await pipe.Writer.CompleteAsync();
 
-        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, CancellationToken.None);
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
 
         await Assert.That(result).IsNull();
     }

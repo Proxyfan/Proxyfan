@@ -270,7 +270,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         await upstreamStream.WriteAsync(requestExchange.Body, cancellationToken).ConfigureAwait(false);
         await upstreamStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         var reader = PipeReader.Create(upstreamStream);
-        var responseExchange = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(reader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
+        var responseExchange = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(reader, MaxHeaderBytes, requestExchange.Request.Method, cancellationToken).ConfigureAwait(false);
         await reader.CompleteAsync().ConfigureAwait(false);
         return responseExchange;
     }
@@ -378,6 +378,8 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
         finalResponse = responseBreakpoint.ModifiedResponse ?? finalResponse;
+
+        finalResponse = ForwardedResponseRewriter.Rewrite(finalResponse);
 
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
         flow.SetResponse(finalResponse);

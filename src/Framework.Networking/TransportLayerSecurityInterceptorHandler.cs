@@ -335,7 +335,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
         var responseExchange = serveLocal is not null
             ? HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(serveLocal.LocalResponse)
-            : await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipes.ServerReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
+            : await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipes.ServerReader, MaxHeaderBytes, effectiveRequest.Method, cancellationToken).ConfigureAwait(false);
 
         if (responseExchange is null)
         {
@@ -362,6 +362,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var responseActions = _ruleEngine?.EvaluateResponse(context.EffectiveRequest, context.ResponseExchange.Response) ?? [];
         var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(context.ResponseExchange.Response, responseActions);
         finalResponse = await ApplyScriptingResponseAsync(context.Flow, context.EffectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+        finalResponse = ForwardedResponseRewriter.Rewrite(finalResponse);
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(context.ResponseExchange, finalResponse);
 
         context.Flow.SetResponse(finalResponse);

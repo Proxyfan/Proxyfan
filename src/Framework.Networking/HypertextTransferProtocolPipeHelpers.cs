@@ -39,7 +39,21 @@ public static class HypertextTransferProtocolPipeHelpers
             return null;
         }
 
-        var bodyBytes = await ReadBodyAsync(reader, HypertextTransferProtocolRequestParser.GetContentLength(request), cancellationToken).ConfigureAwait(false);
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyRequest(request);
+        byte[]? bodyBytes;
+
+        if (framing == HypertextTransferProtocolBodyFraming.Chunked)
+        {
+            bodyBytes = await HypertextTransferProtocolChunkedBodyReader.ReadAsync(reader, cancellationToken).ConfigureAwait(false);
+        }
+        else if (framing == HypertextTransferProtocolBodyFraming.ContentLength)
+        {
+            bodyBytes = await ReadBodyAsync(reader, HypertextTransferProtocolRequestParser.GetContentLength(request), cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            bodyBytes = [];
+        }
 
         if (bodyBytes is null)
         {
@@ -52,15 +66,19 @@ public static class HypertextTransferProtocolPipeHelpers
     }
 
     /// <summary>
-    ///     Reads a complete HTTP response exchange from the specified pipe.
+    ///     Reads a complete HTTP response exchange from the specified pipe. Body framing is
+    ///     determined per RFC 7230 § 3.3.3 using <paramref name="requestMethod" /> to honor the
+    ///     no-body rule for HEAD responses.
     /// </summary>
     /// <param name="reader">The pipe reader to consume response bytes from.</param>
     /// <param name="maxBytes">The maximum number of response header bytes to allow.</param>
+    /// <param name="requestMethod">The HTTP method of the request that produced this response.</param>
     /// <param name="cancellationToken">A token that cancels the read operation.</param>
     /// <returns>The parsed response exchange, or <see langword="null" /> when parsing fails.</returns>
     public static async Task<HypertextTransferProtocolProxyResponseExchange?> ReadResponseAsync(
         PipeReader reader,
         int maxBytes,
+        string requestMethod,
         CancellationToken cancellationToken)
     {
         var headerBytes = await PipeReaderHelper.ReadUntilEndOfHeadersAsync(reader, maxBytes, cancellationToken).ConfigureAwait(false);
@@ -77,17 +95,8 @@ public static class HypertextTransferProtocolPipeHelpers
             return null;
         }
 
-        var contentLength = HypertextTransferProtocolResponseParser.GetContentLength(response);
-        byte[]? bodyBytes;
-
-        if (contentLength >= 0)
-        {
-            bodyBytes = await ReadBodyAsync(reader, contentLength, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            bodyBytes = await ReadBodyUntilCloseAsync(reader, cancellationToken).ConfigureAwait(false);
-        }
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, requestMethod);
+        var bodyBytes = await ReadResponseBodyAsync(reader, response, framing, cancellationToken).ConfigureAwait(false);
 
         if (bodyBytes is null)
         {
@@ -216,5 +225,30 @@ public static class HypertextTransferProtocolPipeHelpers
                 return stream.ToArray();
             }
         }
+    }
+
+    private static async Task<byte[]?> ReadResponseBodyAsync(
+        PipeReader reader,
+        HypertextTransferProtocolResponseData response,
+        HypertextTransferProtocolBodyFraming framing,
+        CancellationToken cancellationToken)
+    {
+        if (framing == HypertextTransferProtocolBodyFraming.None)
+        {
+            return [];
+        }
+
+        if (framing == HypertextTransferProtocolBodyFraming.Chunked)
+        {
+            return await HypertextTransferProtocolChunkedBodyReader.ReadAsync(reader, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (framing == HypertextTransferProtocolBodyFraming.ContentLength)
+        {
+            var contentLength = HypertextTransferProtocolResponseParser.GetContentLength(response);
+            return await ReadBodyAsync(reader, contentLength, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await ReadBodyUntilCloseAsync(reader, cancellationToken).ConfigureAwait(false);
     }
 }
