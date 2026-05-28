@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.Configure<ProxyOptions>(configuration.GetSection(ProxyOptions.SectionKey));
         serviceCollection.AddSingleton<IValidateOptions<ProxyOptions>, ProxyOptionsValidator>();
         serviceCollection.AddSingleton<ITrafficStore, TrafficStore>();
+        serviceCollection.AddSingleton<IWebSocketStore, WebSocketStore>();
         serviceCollection.AddSingleton<TrafficFlowDiffPool>();
         serviceCollection.AddSingleton<ICertificateGenerator, RsaCertificateGenerator>();
         serviceCollection.AddSingleton<ICertificateStore, WindowsCertificateStore>();
@@ -235,6 +236,8 @@ public static class ServiceCollectionExtensions
             BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
             ScriptingHandler = provider.GetService<IScriptingHandler>(),
             CertificateAuthorityProvider = provider.GetService<MutableCertificateAuthorityProvider>(),
+            WebSocketStore = provider.GetService<IWebSocketStore>(),
+            TimeProvider = provider.GetService<TimeProvider>(),
         };
         return dependencies;
     }

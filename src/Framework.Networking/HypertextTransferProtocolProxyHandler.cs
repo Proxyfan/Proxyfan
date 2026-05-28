@@ -12,6 +12,7 @@ using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
 using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Text;
@@ -36,8 +37,10 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private readonly IRuleEngine _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
     private readonly MutableThrottleProfile? _throttleProfile;
+    private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IOptionsMonitor<UpstreamProxyOptions>? _upstreamProxy;
+    private readonly IWebSocketStore? _webSocketStore;
 
     static HypertextTransferProtocolProxyHandler()
     {
@@ -70,6 +73,8 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         _throttleProfile = dependencies.ThrottleProfile;
         _breakpointHandler = dependencies.BreakpointHandler;
         _certificateAuthorityProvider = dependencies.CertificateAuthorityProvider;
+        _webSocketStore = dependencies.WebSocketStore;
+        _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -222,11 +227,91 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         return candidatePrefix.SequenceEqual(prefix);
     }
 
+    private async Task CompleteUpgradeExchangeAsync(
+        UpgradeExchangeRequest request,
+        NetworkStream upstreamStream,
+        UpgradeResponseExchange upstreamUpgradeResponse,
+        CancellationToken cancellationToken)
+    {
+        var upstreamResponseExchange = upstreamUpgradeResponse.ResponseExchange;
+        var rewrittenResponse = UpgradeResponseRewriter.Rewrite(upstreamResponseExchange.Response);
+        var clientFacingExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(upstreamResponseExchange, rewrittenResponse);
+        request.Flow.SetResponse(rewrittenResponse);
+        PublishResponseReceived(request.Flow, rewrittenResponse);
+        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(request.Connection.Transport.Output, clientFacingExchange, cancellationToken).ConfigureAwait(false);
+
+        if (!WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request.EffectiveRequest, rewrittenResponse))
+        {
+            request.Flow.Complete();
+            _trafficStore.Add(request.Flow);
+            PublishFlowCompleted(request.Flow);
+            return;
+        }
+
+        var webSocketFlow = new WebSocketFlow(request.Flow);
+        _webSocketStore?.Add(webSocketFlow);
+
+        var clientStream = new DuplexPipeStream(request.Connection.Transport.Input, request.Connection.Transport.Output);
+        var prefixedUpstreamStream = new PrefixedReadStream(upstreamUpgradeResponse.PrefetchedBytes, upstreamStream);
+        Stream upstreamReadWriteStream = upstreamUpgradeResponse.PrefetchedBytes.Length == 0
+            ? upstreamStream
+            : prefixedUpstreamStream;
+        var tunnel = new WebSocketUpgradeTunnel(_timeProvider);
+
+        try
+        {
+            await tunnel.TunnelAsync(clientStream, upstreamReadWriteStream, webSocketFlow, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            request.Flow.Complete();
+            _trafficStore.Add(request.Flow);
+            PublishFlowCompleted(request.Flow);
+        }
+    }
+
     private TrafficFlow CreateTrafficFlow(IProxyConnection connection)
     {
         var clientEndPoint = connection.RemoteEndPoint?.ToString() ?? "unknown";
         var flow = new TrafficFlow(Guid.NewGuid(), clientEndPoint, DateTimeOffset.UtcNow);
         return flow;
+    }
+
+    private async Task<bool> DispatchUpgradeExchangeAsync(
+        UpgradeExchangeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var hostEndpoint = ParseHostEndpoint(request.EffectiveRequest.Headers);
+
+        if (hostEndpoint is null)
+        {
+            _logger.LogDebug("WebSocket upgrade request is missing a valid Host header.");
+            FailAndCompleteFlow(request.Flow);
+            return false;
+        }
+
+        var upstreamClient = new TcpClient();
+        try
+        {
+            await upstreamClient.ConnectAsync(hostEndpoint.Host, hostEndpoint.Port, cancellationToken).ConfigureAwait(false);
+            var upstreamStream = upstreamClient.GetStream();
+            await SendUpgradeRequestUpstreamAsync(request, upstreamStream, cancellationToken).ConfigureAwait(false);
+            var upstreamUpgradeResponse = await ReadUpgradeResponseFromUpstreamAsync(request, upstreamStream, cancellationToken).ConfigureAwait(false);
+
+            if (upstreamUpgradeResponse is null)
+            {
+                FailAndCompleteFlow(request.Flow);
+                return false;
+            }
+
+            await CompleteUpgradeExchangeAsync(request, upstreamStream, upstreamUpgradeResponse, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            upstreamClient.Dispose();
+        }
+
+        return false;
     }
 
     private void FailAndCompleteFlow(TrafficFlow flow)
@@ -429,6 +514,13 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
 
         effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
 
+        if (blockingAction is not RequestPipelineAction.ServeLocalResponse
+            && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
+        {
+            var upgradeRequest = UpgradeExchangeRequestFactory.Create(connection, effectiveRequest, flow, requestExchange);
+            return await DispatchUpgradeExchangeAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
+        }
+
         var responseExchange = await GetResponseExchangeAsync(blockingAction, requestExchange, effectiveRequest, cancellationToken).ConfigureAwait(false);
         if (responseExchange is null)
         {
@@ -436,13 +528,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
 
-        var context = new HypertextTransferProtocolResponsePhaseContext
-        {
-            Connection = connection,
-            EffectiveRequest = effectiveRequest,
-            Flow = flow,
-            ResponseExchange = responseExchange,
-        };
+        var context = HypertextTransferProtocolResponsePhaseContextFactory.Create(connection, effectiveRequest, flow, responseExchange);
         return await ProcessResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
     }
 
@@ -468,5 +554,39 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     {
         var responseReceivedEvent = new ResponseReceived(flow.Id, response, DateTimeOffset.UtcNow);
         _eventBus.Publish(responseReceivedEvent);
+    }
+
+    private async Task<UpgradeResponseExchange?> ReadUpgradeResponseFromUpstreamAsync(
+        UpgradeExchangeRequest request,
+        NetworkStream upstreamStream,
+        CancellationToken cancellationToken)
+    {
+        var pipeReaderOptions = new StreamPipeReaderOptions(leaveOpen: true);
+        var upstreamReader = PipeReader.Create(upstreamStream, pipeReaderOptions);
+        var upstreamResponseExchange = await HypertextTransferProtocolPipeHelpers
+            .ReadResponseAsync(upstreamReader, MaxHeaderBytes, request.EffectiveRequest.Method, cancellationToken).ConfigureAwait(false);
+
+        if (upstreamResponseExchange is null)
+        {
+            await upstreamReader.CompleteAsync().ConfigureAwait(false);
+            return null;
+        }
+
+        var prefetched = await PipeReaderDrainer.DrainBufferedBytesAsync(upstreamReader, cancellationToken).ConfigureAwait(false);
+        await upstreamReader.CompleteAsync().ConfigureAwait(false);
+        var upgradeExchange = new UpgradeResponseExchange(upstreamResponseExchange, prefetched);
+        return upgradeExchange;
+    }
+
+    private async Task SendUpgradeRequestUpstreamAsync(
+        UpgradeExchangeRequest request,
+        NetworkStream upstreamStream,
+        CancellationToken cancellationToken)
+    {
+        var rebuiltRequestExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(request.RequestExchange, request.EffectiveRequest);
+        var upstreamHeaderBytes = UpgradeRequestRewriter.RewriteHeaders(rebuiltRequestExchange.HeaderBytes, request.EffectiveRequest);
+        await upstreamStream.WriteAsync(upstreamHeaderBytes, cancellationToken).ConfigureAwait(false);
+        await upstreamStream.WriteAsync(rebuiltRequestExchange.Body, cancellationToken).ConfigureAwait(false);
+        await upstreamStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 }
