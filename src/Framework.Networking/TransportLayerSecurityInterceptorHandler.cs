@@ -47,6 +47,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
     private readonly IRuleEngine? _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
+    private readonly IServerSentEventsStore? _serverSentEventsStore;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IWebSocketStore? _webSocketStore;
@@ -76,6 +77,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _scriptingHandler = dependencies.ScriptingHandler;
         _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
         _webSocketStore = dependencies.WebSocketStore;
+        _serverSentEventsStore = dependencies.ServerSentEventsStore;
     }
 
     /// <inheritdoc />
@@ -175,6 +177,22 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         }
     }
 
+    private async Task<bool> CompleteInterceptedResponseAsync(
+        TransportLayerSecurityInterceptedForwardContext forwardContext,
+        HypertextTransferProtocolProxyResponseExchange responseExchange,
+        CancellationToken cancellationToken)
+    {
+        var context = new TransportLayerSecurityResponsePhaseContext
+        {
+            EffectiveRequest = forwardContext.EffectiveRequest,
+            Flow = forwardContext.Flow,
+            Pipes = forwardContext.Pipes,
+            ResponseExchange = responseExchange,
+        };
+        var keepAlive = await ProcessInterceptedResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
+        return keepAlive;
+    }
+
     private async Task CopyAndSignalAsync(
         PipeReader source,
         PipeWriter destination,
@@ -209,6 +227,30 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var serverWriter = PipeWriter.Create(serverSecureStream, writerOptions);
         var pipes = new TransportLayerSecurityInterceptionPipes(clientReader, clientWriter, serverReader, serverWriter);
         return pipes;
+    }
+
+    private async Task DispatchInterceptedServerSentEventsAsync(
+        TransportLayerSecurityInterceptedForwardContext forwardContext,
+        HypertextTransferProtocolResponseHeaderRead headerRead,
+        CancellationToken cancellationToken)
+    {
+        var streamRequest = new ServerSentEventsStreamRequest
+        {
+            Connection = forwardContext.Connection,
+            EffectiveRequest = forwardContext.EffectiveRequest,
+            Flow = forwardContext.Flow,
+            ResponseHeaderBytes = headerRead.HeaderBytes,
+            ResponseHeaders = headerRead.Response,
+            UpstreamPrefetched = [],
+            UpstreamStream = forwardContext.Pipes.ServerReader.AsStream(),
+        };
+        var handler = new ServerSentEventsStreamHandler(
+            _eventBus,
+            _logger,
+            _timeProvider,
+            _trafficStore,
+            _serverSentEventsStore);
+        await handler.HandleAsync(streamRequest, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task DispatchInterceptedUpgradeAsync(
@@ -371,6 +413,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
 
         var forwardContext = new TransportLayerSecurityInterceptedForwardContext
         {
+            Connection = loopContext.Connection,
             EffectiveRequest = effectiveRequest,
             Flow = flow,
             Pipes = loopContext.Pipes,
@@ -389,9 +432,29 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var flow = forwardContext.Flow;
         var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(forwardContext.RequestExchange, effectiveRequest);
         await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
-        var responseExchange = forwardContext.ServeLocal is not null
-            ? HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(forwardContext.ServeLocal.LocalResponse)
-            : await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipes.ServerReader, MaxHeaderBytes, effectiveRequest.Method, cancellationToken).ConfigureAwait(false);
+
+        if (forwardContext.ServeLocal is not null)
+        {
+            var localResponseExchange = HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(forwardContext.ServeLocal.LocalResponse);
+            return await CompleteInterceptedResponseAsync(forwardContext, localResponseExchange, cancellationToken).ConfigureAwait(false);
+        }
+
+        var headerRead = await HypertextTransferProtocolPipeHelpers.ReadResponseHeadersAsync(pipes.ServerReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
+
+        if (headerRead is null)
+        {
+            flow.Fail();
+            PublishFlowCompleted(flow);
+            return false;
+        }
+
+        if (ServerSentEventsResponseDetector.HasServerSentEventsResponse(headerRead.Response))
+        {
+            await DispatchInterceptedServerSentEventsAsync(forwardContext, headerRead, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        var responseExchange = await HypertextTransferProtocolPipeHelpers.ReadResponseBodyAsync(pipes.ServerReader, headerRead, effectiveRequest.Method, cancellationToken).ConfigureAwait(false);
 
         if (responseExchange is null)
         {
@@ -400,15 +463,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             return false;
         }
 
-        var context = new TransportLayerSecurityResponsePhaseContext
-        {
-            EffectiveRequest = effectiveRequest,
-            Flow = flow,
-            Pipes = pipes,
-            ResponseExchange = responseExchange,
-        };
-        var keepAlive = await ProcessInterceptedResponsePhaseAsync(context, cancellationToken).ConfigureAwait(false);
-        return keepAlive;
+        return await CompleteInterceptedResponseAsync(forwardContext, responseExchange, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<bool> ProcessInterceptedResponsePhaseAsync(

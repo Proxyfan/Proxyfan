@@ -1,3 +1,4 @@
+using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Traffic;
 
@@ -11,6 +12,12 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public sealed record TransportLayerSecurityInterceptedForwardContext
 {
+    /// <summary>
+    ///     Gets the client connection, used to write directly to the client when streaming
+    ///     a long-lived response (e.g. Server-Sent Events).
+    /// </summary>
+    public required IProxyConnection Connection { get; init; }
+
     /// <summary>
     ///     Gets the effective request after rules, breakpoints, and scripting modifications.
     /// </summary>
