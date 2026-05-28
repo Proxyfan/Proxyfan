@@ -152,6 +152,43 @@ public sealed class InspectorBodyRendererTests
         await Assert.That(result).IsEqualTo("raw");
     }
 
+    [Test]
+    public async Task Render_ApplicationProtobuf_PrettyPrintsAsFieldTree()
+    {
+        var body = new byte[] { 0x08, 0x96, 0x01 };
+        var headers = HeaderCollection.Empty.Add("Content-Type", "application/protobuf");
+
+        var result = InspectorBodyRenderer.Render(body, headers);
+
+        await Assert.That(result).IsEqualTo("Field 1 (varint): 150");
+    }
+
+    [Test]
+    public async Task Render_ApplicationXProtobuf_PrettyPrintsAsFieldTree()
+    {
+        var stringBytes = Encoding.UTF8.GetBytes("testing");
+        var body = new byte[2 + stringBytes.Length];
+        body[0] = 0x12;
+        body[1] = (byte)stringBytes.Length;
+        stringBytes.CopyTo(body, 2);
+        var headers = HeaderCollection.Empty.Add("Content-Type", "application/x-protobuf");
+
+        var result = InspectorBodyRenderer.Render(body, headers);
+
+        await Assert.That(result).IsEqualTo("Field 2 (string): \"testing\"");
+    }
+
+    [Test]
+    public async Task Render_VendorProtobufSuffix_PrettyPrintsAsFieldTree()
+    {
+        var body = new byte[] { 0x08, 0x2A };
+        var headers = HeaderCollection.Empty.Add("Content-Type", "application/vnd.acme+protobuf");
+
+        var result = InspectorBodyRenderer.Render(body, headers);
+
+        await Assert.That(result).IsEqualTo("Field 1 (varint): 42");
+    }
+
     private static byte[] Gzip(byte[] data)
     {
         using var output = new MemoryStream();

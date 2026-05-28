@@ -33,6 +33,12 @@ public static class InspectorBodyRenderer
 
         var decoded = DecodeContentEncoding(body, headers);
         var contentType = ParseContentType(headers);
+
+        if (HasProtobufMediaType(contentType))
+        {
+            return ProtobufPrettyPrinter.PrettyPrint(decoded);
+        }
+
         var charset = ResolveCharset(contentType);
         var text = DecodeText(decoded, charset);
         return PrettyPrintByMediaType(text, contentType);
@@ -81,6 +87,33 @@ public static class InspectorBodyRenderer
         }
 
         if (mediaType.EndsWith("+json", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasProtobufMediaType(ContentType? contentType)
+    {
+        if (contentType is null)
+        {
+            return false;
+        }
+
+        var mediaType = contentType.MediaType;
+
+        if (mediaType.Equals("application/protobuf", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (mediaType.Equals("application/x-protobuf", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (mediaType.EndsWith("+protobuf", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
