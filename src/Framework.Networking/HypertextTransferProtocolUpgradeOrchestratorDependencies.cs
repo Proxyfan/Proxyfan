@@ -1,3 +1,4 @@
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Traffic;
 using System;
 
@@ -13,6 +14,12 @@ public sealed class HypertextTransferProtocolUpgradeOrchestratorDependencies
     ///     Gets the publisher used to emit flow lifecycle and response events.
     /// </summary>
     public required HypertextTransferProtocolFlowEventPublisher FlowEventPublisher { get; init; }
+
+    /// <summary>
+    ///     Gets the optional DNS override resolver consulted before dialing the upstream host
+    ///     so user-configured DNS spoofing entries are honoured during HTTP Upgrade exchanges.
+    /// </summary>
+    public UpstreamHostResolver? HostResolver { get; init; }
 
     /// <summary>
     ///     Gets the time source used to timestamp tunnel events.

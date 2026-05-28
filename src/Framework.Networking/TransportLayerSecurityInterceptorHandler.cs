@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
@@ -44,6 +45,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly IBreakpointHandler? _breakpointHandler;
     private readonly TransportLayerSecurityInterceptionContext _context;
     private readonly IDomainEventBus _eventBus;
+    private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
     private readonly IRuleEngine? _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
@@ -70,6 +72,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     {
         _context = dependencies.Context;
         _eventBus = dependencies.EventBus;
+        _hostResolver = dependencies.HostResolver;
         _logger = dependencies.Logger;
         _trafficStore = dependencies.TrafficStore;
         _ruleEngine = dependencies.RuleEngine;
@@ -229,6 +232,23 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         return pipes;
     }
 
+    private async Task<TcpClient?> DialUpstreamOrFailAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var client = new TcpClient();
+            var effectiveHost = _hostResolver is null ? target.Host : _hostResolver.Resolve(target.Host);
+            await client.ConnectAsync(effectiveHost, target.Port, cancellationToken).ConfigureAwait(false);
+            return client;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogConnectFailed(ex, target.Host, target.Port);
+            await SendErrorResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+    }
+
     private async Task DispatchInterceptedServerSentEventsAsync(
         TransportLayerSecurityInterceptedForwardContext forwardContext,
         HypertextTransferProtocolResponseHeaderRead headerRead,
@@ -268,18 +288,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
 
     private async Task InterceptAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
     {
-        TcpClient? serverClient;
-
-        try
+        var serverClient = await DialUpstreamOrFailAsync(connection, target, cancellationToken).ConfigureAwait(false);
+        if (serverClient is null)
         {
-            var client = new TcpClient();
-            await client.ConnectAsync(target.Host, target.Port, cancellationToken).ConfigureAwait(false);
-            serverClient = client;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            LogConnectFailed(ex, target.Host, target.Port);
-            await SendErrorResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -569,18 +580,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
 
     private async Task TunnelAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
     {
-        TcpClient? tunnelClient;
-
-        try
+        var tunnelClient = await DialUpstreamOrFailAsync(connection, target, cancellationToken).ConfigureAwait(false);
+        if (tunnelClient is null)
         {
-            var client = new TcpClient();
-            await client.ConnectAsync(target.Host, target.Port, cancellationToken).ConfigureAwait(false);
-            tunnelClient = client;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            LogConnectFailed(ex, target.Host, target.Port);
-            await SendErrorResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
             return;
         }
 

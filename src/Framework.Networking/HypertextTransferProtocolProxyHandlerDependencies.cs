@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Certificates;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
@@ -37,6 +38,14 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     ///     Gets the domain event bus used to publish traffic capture events.
     /// </summary>
     public required IDomainEventBus EventBus { get; init; }
+
+    /// <summary>
+    ///     Gets the optional DNS override resolver used to redirect outbound connections to a
+    ///     user-configured IP address when a matching override exists in the
+    ///     <see cref="DomainNameSystemOverrideMap" />. When <see langword="null" />, the proxy
+    ///     uses operating-system DNS resolution.
+    /// </summary>
+    public UpstreamHostResolver? HostResolver { get; init; }
 
     /// <summary>
     ///     Gets the logger used for structured diagnostic output.

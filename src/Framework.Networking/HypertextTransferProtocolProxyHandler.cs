@@ -70,6 +70,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         var forwarderDependencies = new HypertextTransferProtocolForwarderDependencies
         {
             EventBus = dependencies.EventBus,
+            HostResolver = dependencies.HostResolver,
             Logger = dependencies.Logger,
             ServerSentEventsStore = dependencies.ServerSentEventsStore,
             TimeProvider = timeProvider,
@@ -81,6 +82,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         var upgradeOrchestratorDependencies = new HypertextTransferProtocolUpgradeOrchestratorDependencies
         {
             FlowEventPublisher = _flowEventPublisher,
+            HostResolver = dependencies.HostResolver,
             TimeProvider = timeProvider,
             TrafficStore = dependencies.TrafficStore,
             WebSocketStore = dependencies.WebSocketStore,

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
@@ -29,6 +30,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     ///     Gets the domain event bus used to publish captured traffic events.
     /// </summary>
     public required IDomainEventBus EventBus { get; init; }
+
+    /// <summary>
+    ///     Gets the optional DNS override resolver consulted before dialing the upstream
+    ///     server during TLS interception so user-configured DNS spoofing entries are
+    ///     honoured for intercepted HTTPS, tunneled HTTPS, and intercepted Upgrade flows.
+    /// </summary>
+    public UpstreamHostResolver? HostResolver { get; init; }
 
     /// <summary>
     ///     Gets the logger used for structured diagnostic output.

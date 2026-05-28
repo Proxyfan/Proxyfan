@@ -27,7 +27,7 @@ public sealed class ConnectTunnelHandlerRelayTests
     {
         using var upstream = StartEchoServer();
         var endPoint = (IPEndPoint)upstream.Listener.LocalEndpoint;
-        var handler = new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance);
+        var handler = new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance, null);
         var connection = new StubFullDuplexProxyConnection();
         var connectRequest = Encoding.ASCII.GetBytes($"CONNECT 127.0.0.1:{endPoint.Port} HTTP/1.1\r\nHost: 127.0.0.1:{endPoint.Port}\r\n\r\n");
         await connection.InputWriter.WriteAsync(connectRequest);

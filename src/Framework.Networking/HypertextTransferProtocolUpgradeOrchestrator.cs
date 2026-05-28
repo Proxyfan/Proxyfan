@@ -1,3 +1,4 @@
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Traffic;
 using System;
 using System.IO;
@@ -19,6 +20,7 @@ public sealed class HypertextTransferProtocolUpgradeOrchestrator
 {
     private const int MaxHeaderBytes = 65536;
     private readonly HypertextTransferProtocolFlowEventPublisher _flowEventPublisher;
+    private readonly UpstreamHostResolver? _hostResolver;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IWebSocketStore? _webSocketStore;
@@ -30,6 +32,7 @@ public sealed class HypertextTransferProtocolUpgradeOrchestrator
     public HypertextTransferProtocolUpgradeOrchestrator(HypertextTransferProtocolUpgradeOrchestratorDependencies dependencies)
     {
         _flowEventPublisher = dependencies.FlowEventPublisher;
+        _hostResolver = dependencies.HostResolver;
         _timeProvider = dependencies.TimeProvider;
         _trafficStore = dependencies.TrafficStore;
         _webSocketStore = dependencies.WebSocketStore;
@@ -53,7 +56,8 @@ public sealed class HypertextTransferProtocolUpgradeOrchestrator
         var upstreamClient = new TcpClient();
         try
         {
-            await upstreamClient.ConnectAsync(hostEndpoint.Host, hostEndpoint.Port, cancellationToken).ConfigureAwait(false);
+            var effectiveHost = _hostResolver is null ? hostEndpoint.Host : _hostResolver.Resolve(hostEndpoint.Host);
+            await upstreamClient.ConnectAsync(effectiveHost, hostEndpoint.Port, cancellationToken).ConfigureAwait(false);
             var upstreamStream = upstreamClient.GetStream();
             await SendUpgradeRequestUpstreamAsync(request, upstreamStream, cancellationToken).ConfigureAwait(false);
             var upstreamUpgradeResponse = await ReadUpgradeResponseFromUpstreamAsync(request, upstreamStream, cancellationToken).ConfigureAwait(false);

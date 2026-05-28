@@ -160,6 +160,6 @@ public sealed class SocksTunnelHandlerEdgeCaseTests
 
     private static SocksTunnelHandler CreateHandler()
     {
-        return new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance);
+        return new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance, null);
     }
 }

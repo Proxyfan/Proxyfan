@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using System;
 using System.Buffers;
@@ -21,6 +22,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 {
     private static readonly byte[] Socks5NoAcceptableMethods;
     private static readonly byte[] Socks5NoAuthSelection;
+    private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger<SocksTunnelHandler> _logger;
 
     static SocksTunnelHandler()
@@ -33,9 +35,16 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
     ///     Initializes a new <see cref="SocksTunnelHandler" />.
     /// </summary>
     /// <param name="logger">Logger for structured diagnostic output.</param>
-    public SocksTunnelHandler(ILogger<SocksTunnelHandler> logger)
+    /// <param name="hostResolver">
+    ///     Optional DNS override resolver consulted before dialing the SOCKS5-by-hostname
+    ///     destination. When <see langword="null" />, operating-system DNS resolution is used.
+    ///     The override does not apply to SOCKS4 / SOCKS5-by-IP destinations because those
+    ///     already specify the target as a raw IP address.
+    /// </param>
+    public SocksTunnelHandler(ILogger<SocksTunnelHandler> logger, UpstreamHostResolver? hostResolver)
     {
         _logger = logger;
+        _hostResolver = hostResolver;
     }
 
     /// <inheritdoc />
@@ -243,7 +252,8 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         try
         {
             var client = new TcpClient();
-            await client.ConnectAsync(host, port, cancellationToken).ConfigureAwait(false);
+            var effectiveHost = _hostResolver is null ? host : _hostResolver.Resolve(host);
+            await client.ConnectAsync(effectiveHost, port, cancellationToken).ConfigureAwait(false);
             tunnelClient = client;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

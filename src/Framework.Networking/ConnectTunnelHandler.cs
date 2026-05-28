@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using System;
 using System.Buffers;
@@ -25,6 +26,7 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
     private static readonly byte[] ConnectPrefix;
     private static readonly byte[] ErrorResponseBytes;
     private static readonly byte[] SuccessResponseBytes;
+    private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger<ConnectTunnelHandler> _logger;
 
     static ConnectTunnelHandler()
@@ -41,9 +43,14 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
     ///     Initializes a new <see cref="ConnectTunnelHandler" />.
     /// </summary>
     /// <param name="logger">Logger for structured diagnostic output.</param>
-    public ConnectTunnelHandler(ILogger<ConnectTunnelHandler> logger)
+    /// <param name="hostResolver">
+    ///     Optional DNS override resolver consulted before dialing the tunnel target. When
+    ///     <see langword="null" />, operating-system DNS resolution is used.
+    /// </param>
+    public ConnectTunnelHandler(ILogger<ConnectTunnelHandler> logger, UpstreamHostResolver? hostResolver)
     {
         _logger = logger;
+        _hostResolver = hostResolver;
     }
 
     /// <inheritdoc />
@@ -184,7 +191,8 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
         try
         {
             var client = new TcpClient();
-            await client.ConnectAsync(target.Host, target.Port, cancellationToken).ConfigureAwait(false);
+            var effectiveHost = _hostResolver is null ? target.Host : _hostResolver.Resolve(target.Host);
+            await client.ConnectAsync(effectiveHost, target.Port, cancellationToken).ConfigureAwait(false);
             tunnelClient = client;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

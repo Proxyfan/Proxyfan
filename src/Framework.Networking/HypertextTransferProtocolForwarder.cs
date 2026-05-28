@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Traffic;
 using System;
@@ -22,6 +23,7 @@ public sealed class HypertextTransferProtocolForwarder
 {
     private const int MaxHeaderBytes = 65536;
     private readonly IDomainEventBus _eventBus;
+    private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger _logger;
     private readonly IServerSentEventsStore? _serverSentEventsStore;
     private readonly TimeProvider _timeProvider;
@@ -35,6 +37,7 @@ public sealed class HypertextTransferProtocolForwarder
     public HypertextTransferProtocolForwarder(HypertextTransferProtocolForwarderDependencies dependencies)
     {
         _eventBus = dependencies.EventBus;
+        _hostResolver = dependencies.HostResolver;
         _logger = dependencies.Logger;
         _serverSentEventsStore = dependencies.ServerSentEventsStore;
         _timeProvider = dependencies.TimeProvider;
@@ -61,7 +64,8 @@ public sealed class HypertextTransferProtocolForwarder
         var upstreamClient = new TcpClient();
         try
         {
-            await upstreamClient.ConnectAsync(upstream.Target.Host, upstream.Target.Port, cancellationToken).ConfigureAwait(false);
+            var effectiveHost = _hostResolver is null ? upstream.Target.Host : _hostResolver.Resolve(upstream.Target.Host);
+            await upstreamClient.ConnectAsync(effectiveHost, upstream.Target.Port, cancellationToken).ConfigureAwait(false);
             var upstreamStream = upstreamClient.GetStream();
             try
             {

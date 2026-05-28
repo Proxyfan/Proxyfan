@@ -14,6 +14,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Domain.Certificates\Domain.Certificates.csproj" />
+        <ProjectReference Include="..\..\src\Domain.DomainNameSystemSpoofing\Domain.DomainNameSystemSpoofing.csproj" />
         <ProjectReference Include="..\..\src\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\..\src\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\..\src\Domain.Scripting\Domain.Scripting.csproj" />

@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
         serviceCollection.AddSingleton<MutableThrottleProfile>();
         serviceCollection.AddSingleton<DomainNameSystemOverrideMap>();
+        serviceCollection.AddSingleton<UpstreamHostResolver>();
         serviceCollection.AddSingleton(TimeProvider.System);
         AddRuleEngine(serviceCollection);
         AddScripting(serviceCollection);
@@ -230,6 +231,7 @@ public static class ServiceCollectionExtensions
         {
             TrafficStore = provider.GetRequiredService<ITrafficStore>(),
             EventBus = provider.GetRequiredService<Proxyfan.Domain.IDomainEventBus>(),
+            HostResolver = provider.GetService<UpstreamHostResolver>(),
             RuleEngine = provider.GetRequiredService<IRuleEngine>(),
             Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HypertextTransferProtocolProxyHandler>>(),
             UpstreamProxy = provider.GetService<IOptionsMonitor<UpstreamProxyOptions>>(),
@@ -251,6 +253,7 @@ public static class ServiceCollectionExtensions
             Context = provider.GetRequiredService<TransportLayerSecurityInterceptionContext>(),
             TrafficStore = provider.GetRequiredService<ITrafficStore>(),
             EventBus = provider.GetRequiredService<Proxyfan.Domain.IDomainEventBus>(),
+            HostResolver = provider.GetService<UpstreamHostResolver>(),
             Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TransportLayerSecurityInterceptorHandler>>(),
             RuleEngine = provider.GetService<IRuleEngine>(),
             BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),

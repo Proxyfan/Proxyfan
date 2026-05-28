@@ -196,7 +196,7 @@ public sealed class SocksTunnelHandlerTests
 
     private static SocksTunnelHandler CreateHandler()
     {
-        var handler = new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance);
+        var handler = new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance, null);
         return handler;
     }
 

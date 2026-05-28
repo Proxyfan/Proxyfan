@@ -24,7 +24,7 @@ public sealed class ConnectTunnelHandlerHandleAsyncTests
     [Test]
     public async Task HandleAsync_UnreachableHost_WritesBadGatewayResponse()
     {
-        var handler = new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance);
+        var handler = new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance, null);
         var connection = new StubFullDuplexProxyConnection();
         var requestBytes = Encoding.ASCII.GetBytes($"CONNECT 127.0.0.1:{UnreachablePort} HTTP/1.1\r\nHost: 127.0.0.1:{UnreachablePort}\r\n\r\n");
         await connection.InputWriter.WriteAsync(requestBytes);
@@ -50,7 +50,7 @@ public sealed class ConnectTunnelHandlerHandleAsyncTests
         var endPoint = (IPEndPoint)listener.LocalEndpoint;
         var acceptTask = AcceptAndCloseAsync(listener);
 
-        var handler = new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance);
+        var handler = new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance, null);
         var connection = new StubFullDuplexProxyConnection();
         var requestBytes = Encoding.ASCII.GetBytes($"CONNECT 127.0.0.1:{endPoint.Port} HTTP/1.1\r\nHost: 127.0.0.1:{endPoint.Port}\r\n\r\n");
         await connection.InputWriter.WriteAsync(requestBytes);

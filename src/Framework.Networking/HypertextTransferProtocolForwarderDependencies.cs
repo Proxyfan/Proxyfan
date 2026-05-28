@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Proxyfan.Domain;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Traffic;
 using System;
@@ -18,6 +19,12 @@ public sealed class HypertextTransferProtocolForwarderDependencies
     ///     Gets the domain event bus used by the SSE stream handler to publish response events.
     /// </summary>
     public required IDomainEventBus EventBus { get; init; }
+
+    /// <summary>
+    ///     Gets the optional DNS override resolver consulted before dialing the upstream host
+    ///     so user-configured DNS spoofing entries are honoured by HTTP/1.1 forwarding.
+    /// </summary>
+    public UpstreamHostResolver? HostResolver { get; init; }
 
     /// <summary>
     ///     Gets the logger used by the SSE stream handler.

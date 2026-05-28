@@ -15,7 +15,7 @@ public sealed class ConnectTunnelHandlerTests
 {
     private static ConnectTunnelHandler CreateHandler()
     {
-        return new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance);
+        return new ConnectTunnelHandler(NullLogger<ConnectTunnelHandler>.Instance, null);
     }
 
     /// <summary>
