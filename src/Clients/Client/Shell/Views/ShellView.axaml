@@ -60,9 +60,11 @@
                         VerticalAlignment="Center">
                     <TextBlock Text="{localization:Localize Key=Shell_Toolbar_SaveSession}" />
                 </Button>
-                <TextBox DockPanel.Dock="Left"
+                <TextBox AutomationProperties.Name="{localization:Localize Key=Shell_Toolbar_FilterTextBox_Automation}"
+                         DockPanel.Dock="Left"
                          Margin="8,2"
                          MinWidth="240"
+                         Name="FilterTextBox"
                          Text="{Binding TrafficList.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          VerticalAlignment="Center"
                          Watermark="{localization:Localize Key=Shell_Toolbar_FilterPlaceholder}" />
@@ -89,7 +91,8 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="0,0,0,1">
             <DockPanel LastChildFill="True">
-                <Button Command="{Binding TabHost.AddTabCommand}"
+                <Button AutomationProperties.Name="{localization:Localize Key=Shell_Tabs_New}"
+                        Command="{Binding TabHost.AddTabCommand}"
                         DockPanel.Dock="Right"
                         Margin="4,2"
                         Padding="8,2"
@@ -97,7 +100,8 @@
                         VerticalAlignment="Center">
                     <TextBlock Text="+" />
                 </Button>
-                <ListBox ItemsSource="{Binding TabHost.Tabs}"
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Shell_TabList_Automation}"
+                         ItemsSource="{Binding TabHost.Tabs}"
                          SelectedIndex="{Binding TabHost.ActiveTabIndex, Mode=TwoWay}"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
                          ScrollViewer.VerticalScrollBarVisibility="Disabled">
@@ -109,7 +113,8 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="viewModels:TabViewModel">
                             <DockPanel LastChildFill="True">
-                                <Button Command="{Binding $parent[ListBox].DataContext.TabHost.CloseTabCommand}"
+                                <Button AutomationProperties.Name="{localization:Localize Key=Shell_Tabs_Close}"
+                                        Command="{Binding $parent[ListBox].DataContext.TabHost.CloseTabCommand}"
                                         CommandParameter="{Binding}"
                                         DockPanel.Dock="Right"
                                         IsVisible="{Binding IsCloseable}"
@@ -136,7 +141,8 @@
                                FontWeight="SemiBold"
                                Margin="8,4"
                                Text="{localization:Localize Key=Shell_SourcePanel_Header}" />
-                    <ListBox ItemsSource="{Binding SourceList.Sources}"
+                    <ListBox AutomationProperties.Name="{localization:Localize Key=Shell_SourceList_Automation}"
+                             ItemsSource="{Binding SourceList.Sources}"
                              SelectedItem="{Binding SourceList.SelectedSource, Mode=TwoWay}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>

@@ -14,7 +14,8 @@
         <Border Grid.Row="0"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <DataGrid AutoGenerateColumns="False"
+            <DataGrid AutomationProperties.Name="{localization:Localize Key=Tools_RemoteDevices_List_Automation}"
+                      AutoGenerateColumns="False"
                       IsReadOnly="True"
                       ItemsSource="{Binding Devices}"
                       SelectedItem="{Binding SelectedDevice, Mode=TwoWay}">

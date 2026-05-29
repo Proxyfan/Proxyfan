@@ -220,6 +220,36 @@
   <data name="Inspector_Tab_Timing" xml:space="preserve">
     <value>Timing</value>
   </data>
+  <data name="Inspector_Tab_WebSocketMessages" xml:space="preserve">
+    <value>Messages</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterDirection" xml:space="preserve">
+    <value>Direction:</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterDirection_All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterDirection_Outbound" xml:space="preserve">
+    <value>Outbound</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterDirection_Inbound" xml:space="preserve">
+    <value>Inbound</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterContentType" xml:space="preserve">
+    <value>Type:</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterContentType_All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterContentType_Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterContentType_Binary" xml:space="preserve">
+    <value>Binary</value>
+  </data>
+  <data name="Inspector_WebSocket_FilterContentType_Control" xml:space="preserve">
+    <value>Control</value>
+  </data>
   <data name="Inspector_Section_Request" xml:space="preserve">
     <value>Request</value>
   </data>
@@ -274,6 +304,162 @@
   <data name="Shell_Menu_Preferences" xml:space="preserve">
     <value>Preferences...</value>
   </data>
+  <data name="Shell_Menu_KeyboardShortcuts" xml:space="preserve">
+    <value>Keyboard Shortcuts...</value>
+  </data>
+  <data name="Shell_UpdateBanner_Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Shell_UpdateBanner_Dismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
+  <data name="Shell_UpdateBanner_Automation" xml:space="preserve">
+    <value>Update notification banner</value>
+  </data>
+  <data name="Tools_Breakpoint_PhaseCombo_Automation" xml:space="preserve">
+    <value>Breakpoint phases</value>
+  </data>
+  <data name="Tools_Breakpoint_PauseList_Automation" xml:space="preserve">
+    <value>Pending breakpoint pauses</value>
+  </data>
+  <data name="Tools_DiffTool_FlowList_Automation" xml:space="preserve">
+    <value>Diff pool flows</value>
+  </data>
+  <data name="Tools_DiffTool_LeftList_Automation" xml:space="preserve">
+    <value>Left diff selection</value>
+  </data>
+  <data name="Tools_DiffTool_RightList_Automation" xml:space="preserve">
+    <value>Right diff selection</value>
+  </data>
+  <data name="Tools_ReverseProxy_RouteList_Automation" xml:space="preserve">
+    <value>Reverse proxy routes</value>
+  </data>
+  <data name="Tools_CustomColumns_List_Automation" xml:space="preserve">
+    <value>Configured columns</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_NewPattern_Automation" xml:space="preserve">
+    <value>New SSL pattern</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_HostnameBox_Automation" xml:space="preserve">
+    <value>Hostname to spoof</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_AddressBox_Automation" xml:space="preserve">
+    <value>Override IP address</value>
+  </data>
+  <data name="Tools_MapRemote_SchemeBox_Automation" xml:space="preserve">
+    <value>Destination scheme</value>
+  </data>
+  <data name="Tools_MapRemote_HostBox_Automation" xml:space="preserve">
+    <value>Destination host</value>
+  </data>
+  <data name="Tools_MapRemote_PortBox_Automation" xml:space="preserve">
+    <value>Destination port</value>
+  </data>
+  <data name="Tools_MapRemote_PathBox_Automation" xml:space="preserve">
+    <value>Destination path</value>
+  </data>
+  <data name="Tools_MapLocal_StatusBox_Automation" xml:space="preserve">
+    <value>Local response status code</value>
+  </data>
+  <data name="Tools_MapLocal_ReasonBox_Automation" xml:space="preserve">
+    <value>Local response reason phrase</value>
+  </data>
+  <data name="Tools_MapLocal_HeadersBox_Automation" xml:space="preserve">
+    <value>Local response headers</value>
+  </data>
+  <data name="Tools_MapLocal_BodyBox_Automation" xml:space="preserve">
+    <value>Local response body</value>
+  </data>
+  <data name="Tools_RuleList_NewPattern_Automation" xml:space="preserve">
+    <value>New pattern</value>
+  </data>
+  <data name="Tools_Theme_PickerList_Automation" xml:space="preserve">
+    <value>Theme list</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_List_Automation" xml:space="preserve">
+    <value>Keyboard shortcut bindings</value>
+  </data>
+  <data name="Inspector_WebSocket_MessageList_Automation" xml:space="preserve">
+    <value>WebSocket messages</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_List_Automation" xml:space="preserve">
+    <value>DNS spoofing entries</value>
+  </data>
+  <data name="Tools_SecureSocketsLayerProxying_PatternList_Automation" xml:space="preserve">
+    <value>SSL proxying patterns</value>
+  </data>
+  <data name="Tools_Preferences_Theme_Automation" xml:space="preserve">
+    <value>Application theme</value>
+  </data>
+  <data name="Tools_Preferences_Locale_Automation" xml:space="preserve">
+    <value>UI locale</value>
+  </data>
+  <data name="Tools_Preferences_LogLevel_Automation" xml:space="preserve">
+    <value>Log level</value>
+  </data>
+  <data name="Tools_PluginManager_List_Automation" xml:space="preserve">
+    <value>Installed plugins</value>
+  </data>
+  <data name="Tools_Throttle_PresetList_Automation" xml:space="preserve">
+    <value>Throttle presets</value>
+  </data>
+  <data name="Tools_RemoteDevices_List_Automation" xml:space="preserve">
+    <value>Connected remote devices</value>
+  </data>
+  <data name="Tools_MapLocal_List_Automation" xml:space="preserve">
+    <value>Map Local rules</value>
+  </data>
+  <data name="Tools_MapRemote_List_Automation" xml:space="preserve">
+    <value>Map Remote rules</value>
+  </data>
+  <data name="Tools_Scripting_RequestBox_Automation" xml:space="preserve">
+    <value>OnRequest C# script</value>
+  </data>
+  <data name="Tools_Scripting_ResponseBox_Automation" xml:space="preserve">
+    <value>OnResponse C# script</value>
+  </data>
+  <data name="Tools_Composer_Search_Automation" xml:space="preserve">
+    <value>Search history</value>
+  </data>
+  <data name="Tools_Composer_History_Automation" xml:space="preserve">
+    <value>Composer history</value>
+  </data>
+  <data name="Tools_Composer_Method_Automation" xml:space="preserve">
+    <value>HTTP method</value>
+  </data>
+  <data name="Tools_Composer_Url_Automation" xml:space="preserve">
+    <value>Request URL</value>
+  </data>
+  <data name="Tools_Composer_HeadersBox_Automation" xml:space="preserve">
+    <value>Request headers</value>
+  </data>
+  <data name="Tools_Composer_BodyBox_Automation" xml:space="preserve">
+    <value>Request body</value>
+  </data>
+  <data name="Tools_Composer_ResponseBox_Automation" xml:space="preserve">
+    <value>Response body</value>
+  </data>
+  <data name="Tools_Composer_CurlBox_Automation" xml:space="preserve">
+    <value>cURL command</value>
+  </data>
+  <data name="Tools_RuleList_PatternList_Automation" xml:space="preserve">
+    <value>Configured patterns</value>
+  </data>
+  <data name="Tools_RuleList_PatternKind_Automation" xml:space="preserve">
+    <value>Match kind</value>
+  </data>
+  <data name="Traffic_FlowGrid_Automation" xml:space="preserve">
+    <value>Captured traffic flows</value>
+  </data>
+  <data name="Shell_Toolbar_FilterTextBox_Automation" xml:space="preserve">
+    <value>Filter traffic</value>
+  </data>
+  <data name="Shell_SourceList_Automation" xml:space="preserve">
+    <value>Sources</value>
+  </data>
+  <data name="Shell_TabList_Automation" xml:space="preserve">
+    <value>Open tabs</value>
+  </data>
   <data name="Shell_Menu_DomainNameSystemSpoofing" xml:space="preserve">
     <value>DNS Spoofing...</value>
   </data>
@@ -312,6 +498,15 @@
   </data>
   <data name="Tools_ReverseProxy_BackendPortPlaceholder" xml:space="preserve">
     <value>Backend port</value>
+  </data>
+  <data name="Tools_ReverseProxy_Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Tools_ReverseProxy_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Tools_ReverseProxy_Cancel" xml:space="preserve">
+    <value>Cancel</value>
   </data>
   <data name="Tools_BlockList_Title" xml:space="preserve">
     <value>Block List</value>
@@ -396,6 +591,21 @@
   </data>
   <data name="Tools_Theme_Apply" xml:space="preserve">
     <value>Apply</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Title" xml:space="preserve">
+    <value>Keyboard Shortcuts</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_ActionColumn" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_GestureColumn" xml:space="preserve">
+    <value>Shortcut</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Reset" xml:space="preserve">
+    <value>Reset to defaults</value>
   </data>
   <data name="Tools_SecureSocketsLayerProxying_Title" xml:space="preserve">
     <value>SSL Proxying</value>
@@ -622,6 +832,33 @@
   <data name="Tools_DomainNameSystemSpoofing_Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
+  <data name="Tools_DomainNameSystemSpoofing_MasterOn" xml:space="preserve">
+    <value>DNS spoofing on</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_MasterOff" xml:space="preserve">
+    <value>DNS spoofing off</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_EnableAll" xml:space="preserve">
+    <value>Enable All</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_DisableAll" xml:space="preserve">
+    <value>Disable All</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_Refresh" xml:space="preserve">
+    <value>Refresh Counts</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_ColumnHostname" xml:space="preserve">
+    <value>Hostname / Pattern</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_ColumnAddress" xml:space="preserve">
+    <value>Target IP</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_ColumnKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="Tools_DomainNameSystemSpoofing_ColumnMatchCount" xml:space="preserve">
+    <value>Matches</value>
+  </data>
   <data name="Tools_PluginManager_Title" xml:space="preserve">
     <value>Plugin Manager</value>
   </data>
@@ -630,6 +867,42 @@
   </data>
   <data name="Tools_PluginManager_Refresh" xml:space="preserve">
     <value>Refresh</value>
+  </data>
+  <data name="Tools_PluginManager_Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="Tools_PluginManager_Enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Tools_PluginManager_OpenFolder" xml:space="preserve">
+    <value>Open Folder</value>
+  </data>
+  <data name="Tools_PluginManager_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Tools_PluginManager_RestartRequired" xml:space="preserve">
+    <value>Restart required for changes to fully take effect (loaded plugin assemblies remain in memory until restart).</value>
+  </data>
+  <data name="Tools_PluginManager_CheckForUpdates" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="Tools_PluginManager_CheckingForUpdates" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+  <data name="Tools_PluginManager_AvailableUpdates" xml:space="preserve">
+    <value>Available updates</value>
+  </data>
+  <data name="Tools_PluginManager_NoUpdates" xml:space="preserve">
+    <value>All plugins are up to date.</value>
+  </data>
+  <data name="Tools_PluginManager_UpdateCheckFailed" xml:space="preserve">
+    <value>Update check failed or feed not configured.</value>
+  </data>
+  <data name="Tools_PluginManager_UpdateIncompatible" xml:space="preserve">
+    <value>Requires newer API</value>
+  </data>
+  <data name="Tools_PluginManager_DirectoryChanged" xml:space="preserve">
+    <value>Plugins folder changed — reload to pick up changes.</value>
   </data>
   <data name="Shell_Menu_RemoteDevices" xml:space="preserve">
     <value>Remote Devices...</value>

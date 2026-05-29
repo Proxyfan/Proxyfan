@@ -13,6 +13,7 @@
              x:DataType="trafficViewModels:TrafficListViewModel"
              mc:Ignorable="d">
     <DataGrid x:Name="FlowGrid"
+              AutomationProperties.Name="{localization:Localize Key=Traffic_FlowGrid_Automation}"
               AutoGenerateColumns="False"
               CanUserReorderColumns="False"
               CanUserResizeColumns="True"

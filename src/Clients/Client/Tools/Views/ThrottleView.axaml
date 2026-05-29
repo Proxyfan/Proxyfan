@@ -24,7 +24,8 @@
         <Border Grid.Row="2"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <ListBox ItemsSource="{Binding Presets}"
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_Throttle_PresetList_Automation}"
+                     ItemsSource="{Binding Presets}"
                      SelectedItem="{Binding SelectedPreset, Mode=TwoWay}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:ThrottleProfilePresetViewModel">

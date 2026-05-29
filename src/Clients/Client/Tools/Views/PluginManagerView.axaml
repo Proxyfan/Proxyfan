@@ -10,13 +10,24 @@
              presentation:ViewModelLocator.DataContext="{x:Type viewModels:PluginManagerViewModel}"
              x:DataType="viewModels:PluginManagerViewModel"
              mc:Ignorable="d">
-    <Grid Margin="8" RowDefinitions="Auto,Auto,*">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Grid.Column="0"
                        FontWeight="SemiBold"
                        Text="{Binding Summary}"
                        VerticalAlignment="Center" />
             <Button Grid.Column="1"
+                    Command="{Binding CheckForUpdatesCommand}"
+                    Content="{localization:Localize Key=Tools_PluginManager_CheckForUpdates}"
+                    IsEnabled="{Binding !IsCheckingForUpdates}"
+                    Margin="0,0,8,0"
+                    Padding="12,4" />
+            <Button Grid.Column="2"
+                    Command="{Binding ReloadCommand}"
+                    Content="{localization:Localize Key=Tools_PluginManager_Reload}"
+                    Margin="0,0,8,0"
+                    Padding="12,4" />
+            <Button Grid.Column="3"
                     Command="{Binding RefreshCommand}"
                     Content="{localization:Localize Key=Tools_PluginManager_Refresh}"
                     Padding="12,4" />
@@ -27,6 +38,57 @@
                    Text="{localization:Localize Key=Tools_PluginManager_Description}"
                    TextWrapping="Wrap" />
         <Border Grid.Row="2"
+                Background="#FFFFF4CE"
+                BorderBrush="#FFE5C100"
+                BorderThickness="1"
+                IsVisible="{Binding IsRestartRequired}"
+                Margin="0,0,0,8"
+                Padding="8,6">
+            <TextBlock Foreground="#FF222222"
+                       Text="{localization:Localize Key=Tools_PluginManager_RestartRequired}"
+                       TextWrapping="Wrap" />
+        </Border>
+        <TextBlock Grid.Row="3"
+                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                   IsVisible="{Binding UpdateCheckStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Margin="0,0,0,8"
+                   Text="{Binding UpdateCheckStatus}"
+                   TextWrapping="Wrap" />
+        <Border Grid.Row="4"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1"
+                IsVisible="{Binding IsAnyUpdateAvailable}"
+                Margin="0,0,0,8">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold"
+                           Margin="8,8,8,4"
+                           Text="{localization:Localize Key=Tools_PluginManager_AvailableUpdates}" />
+                <ItemsControl ItemsSource="{Binding AvailableUpdates}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:PluginUpdateAvailabilityViewModel">
+                            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="8,6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                        <TextBlock FontSize="11"
+                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                   Text="{Binding Identifier}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               FontFamily="Consolas"
+                                               Text="{Binding VersionTransition}"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+        <Border Grid.Row="5"
+                AutomationProperties.Name="{localization:Localize Key=Tools_PluginManager_List_Automation}"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
             <ScrollViewer>
@@ -36,7 +98,7 @@
                             <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                                     BorderThickness="0,0,0,1"
                                     Padding="8">
-                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                                     <TextBlock Grid.Row="0"
                                                Grid.Column="0"
                                                FontWeight="SemiBold"
@@ -70,6 +132,25 @@
                                                Margin="0,4,0,0"
                                                Text="{Binding ErrorMessage}"
                                                TextWrapping="Wrap" />
+                                    <Grid Grid.Row="4"
+                                          Grid.Column="0"
+                                          Grid.ColumnSpan="2"
+                                          ColumnDefinitions="Auto,*,Auto,Auto"
+                                          Margin="0,8,0,0">
+                                        <CheckBox Grid.Column="0"
+                                                  Content="{localization:Localize Key=Tools_PluginManager_Enabled}"
+                                                  IsChecked="{Binding IsEnabled}" />
+                                        <Button Grid.Column="2"
+                                                Command="{Binding OpenFolderCommand}"
+                                                Content="{localization:Localize Key=Tools_PluginManager_OpenFolder}"
+                                                IsVisible="{Binding IsFolderAvailable}"
+                                                Margin="0,0,8,0"
+                                                Padding="10,4" />
+                                        <Button Grid.Column="3"
+                                                Command="{Binding RemoveCommand}"
+                                                Content="{localization:Localize Key=Tools_PluginManager_Remove}"
+                                                Padding="10,4" />
+                                    </Grid>
                                 </Grid>
                             </Border>
                         </DataTemplate>

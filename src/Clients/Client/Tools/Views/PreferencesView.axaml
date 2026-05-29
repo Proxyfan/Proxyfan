@@ -18,14 +18,16 @@
                         <Grid ColumnDefinitions="180,*">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center"
                                        Text="{localization:Localize Key=Tools_Preferences_Locale}" />
-                            <TextBox Grid.Column="1"
+                            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Preferences_Locale_Automation}"
+                                     Grid.Column="1"
                                      Text="{Binding Locale, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      Watermark="auto" />
                         </Grid>
                         <Grid ColumnDefinitions="180,*">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center"
                                        Text="{localization:Localize Key=Tools_Preferences_Theme}" />
-                            <ComboBox Grid.Column="1"
+                            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_Preferences_Theme_Automation}"
+                                      Grid.Column="1"
                                       Width="200"
                                       HorizontalAlignment="Left"
                                       SelectedItem="{Binding Theme, Mode=TwoWay}">
@@ -39,7 +41,8 @@
                         <Grid ColumnDefinitions="180,*">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center"
                                        Text="{localization:Localize Key=Tools_Preferences_LogLevel}" />
-                            <ComboBox Grid.Column="1"
+                            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_Preferences_LogLevel_Automation}"
+                                      Grid.Column="1"
                                       Width="200"
                                       HorizontalAlignment="Left"
                                       SelectedItem="{Binding LogLevel, Mode=TwoWay}">

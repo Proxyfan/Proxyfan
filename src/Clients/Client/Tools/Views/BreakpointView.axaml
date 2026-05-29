@@ -21,7 +21,8 @@
             <TextBlock Grid.Row="1"
                        Margin="0,0,0,4"
                        Text="{localization:Localize Key=Tools_Breakpoint_Phases}" />
-            <ComboBox Grid.Row="2"
+            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_PhaseCombo_Automation}"
+                      Grid.Row="2"
                       Margin="0,0,0,8"
                       SelectedItem="{Binding Phases, Mode=TwoWay}">
                 <rules:BreakpointPhase>Request</rules:BreakpointPhase>
@@ -82,7 +83,8 @@
                 <Border Grid.Column="0"
                         BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                         BorderThickness="1">
-                    <ListBox ItemsSource="{Binding Pauses}"
+                    <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_PauseList_Automation}"
+                             ItemsSource="{Binding Pauses}"
                              SelectedItem="{Binding SelectedPause, Mode=TwoWay}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:BreakpointPauseViewModel">

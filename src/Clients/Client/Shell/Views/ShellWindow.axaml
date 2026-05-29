@@ -20,8 +20,20 @@
                     Gesture="Ctrl+T" />
         <KeyBinding Command="{Binding TabHost.CloseActiveTabCommand}"
                     Gesture="Ctrl+W" />
+        <KeyBinding Command="{Binding TrafficList.ToggleCaptureCommand}"
+                    Gesture="Ctrl+R" />
+        <KeyBinding Command="{Binding TrafficList.ClearCommand}"
+                    Gesture="Ctrl+K" />
+        <KeyBinding Command="{Binding TrafficList.RemoveSelectedCommand}"
+                    Gesture="Delete" />
+        <KeyBinding Command="{Binding SaveSessionCommand}"
+                    Gesture="Ctrl+E" />
+        <KeyBinding Command="{Binding ToggleNoCachingCommand}"
+                    Gesture="Ctrl+Shift+N" />
+        <KeyBinding Command="{Binding ToggleBreakpointCommand}"
+                    Gesture="Ctrl+Shift+B" />
     </Window.KeyBindings>
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <Menu Grid.Row="0">
             <MenuItem Header="{localization:Localize Key=Shell_Menu_File}">
                 <MenuItem Command="{Binding OpenPreferencesCommand}"
@@ -65,10 +77,34 @@
             <MenuItem Header="{localization:Localize Key=Shell_Menu_View}">
                 <MenuItem Command="{Binding OpenThemeCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Theme}" />
+                <MenuItem Command="{Binding OpenKeyboardShortcutsCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_KeyboardShortcuts}" />
                 <MenuItem Command="{Binding OpenPluginManagerCommand}"
                           Header="{localization:Localize Key=Shell_Menu_PluginManager}" />
             </MenuItem>
         </Menu>
-        <views:ShellView Grid.Row="1" />
+        <Border Grid.Row="1"
+                AutomationProperties.Name="{localization:Localize Key=Shell_UpdateBanner_Automation}"
+                Background="#FFF5C97A"
+                BorderBrush="#FFB07710"
+                BorderThickness="0,0,0,1"
+                IsVisible="{Binding IsUpdateBannerVisible}"
+                Padding="12,6">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Foreground="#FF222222"
+                           Text="{Binding UpdateBannerMessage}" />
+                <Button Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Content="{localization:Localize Key=Shell_UpdateBanner_Download}"
+                        IsVisible="{Binding UpdateBannerDownloadUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <Button Grid.Column="2"
+                        Margin="8,0,0,0"
+                        Command="{Binding DismissUpdateBannerCommand}"
+                        Content="{localization:Localize Key=Shell_UpdateBanner_Dismiss}" />
+            </Grid>
+        </Border>
+        <views:ShellView Grid.Row="2" />
     </Grid>
 </Window>

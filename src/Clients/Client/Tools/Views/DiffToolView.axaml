@@ -32,7 +32,8 @@
                 <TextBlock Grid.Row="0"
                            Text="{localization:Localize Key=Tools_DiffTool_LeftLabel}"
                            Margin="0,0,0,4" />
-                <ListBox Grid.Row="1"
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_DiffTool_LeftList_Automation}"
+                         Grid.Row="1"
                          Height="120"
                          ItemsSource="{Binding Flows}"
                          SelectedItem="{Binding LeftFlow, Mode=TwoWay}">
@@ -47,7 +48,8 @@
                 <TextBlock Grid.Row="0"
                            Text="{localization:Localize Key=Tools_DiffTool_RightLabel}"
                            Margin="0,0,0,4" />
-                <ListBox Grid.Row="1"
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_DiffTool_RightList_Automation}"
+                         Grid.Row="1"
                          Height="120"
                          ItemsSource="{Binding Flows}"
                          SelectedItem="{Binding RightFlow, Mode=TwoWay}">

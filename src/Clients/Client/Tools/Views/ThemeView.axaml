@@ -17,7 +17,8 @@
         <Border Grid.Row="1"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <ListBox ItemsSource="{Binding Options}"
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_Theme_PickerList_Automation}"
+                     ItemsSource="{Binding Options}"
                      SelectedItem="{Binding SelectedOption, Mode=TwoWay}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:ThemeOptionViewModel">

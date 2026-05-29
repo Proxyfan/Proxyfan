@@ -10,14 +10,15 @@
              presentation:ViewModelLocator.DataContext="{x:Type viewModels:ReverseProxySettingsViewModel}"
              x:DataType="viewModels:ReverseProxySettingsViewModel"
              mc:Ignorable="d">
-    <Grid Margin="8" RowDefinitions="*,Auto">
+    <Grid Margin="8" RowDefinitions="*,Auto,Auto,Auto">
         <Border Grid.Row="0"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <ListBox ItemsSource="{Binding Routes}">
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_ReverseProxy_RouteList_Automation}"
+                     ItemsSource="{Binding Routes}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:ReverseProxyRouteViewModel">
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Margin="4">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="4">
                             <StackPanel Grid.Column="0">
                                 <TextBlock FontWeight="Bold" Text="{Binding Name}" />
                                 <TextBlock FontSize="11"
@@ -47,6 +48,11 @@
                                     Content="{localization:Localize Key=Tools_ReverseProxy_Probe}"
                                     Margin="2,0" />
                             <Button Grid.Column="5"
+                                    Command="{Binding $parent[ItemsControl].((viewModels:ReverseProxySettingsViewModel)DataContext).EditRouteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="{localization:Localize Key=Tools_ReverseProxy_Edit}"
+                                    Margin="2,0" />
+                            <Button Grid.Column="6"
                                     Command="{Binding $parent[ItemsControl].((viewModels:ReverseProxySettingsViewModel)DataContext).RemoveRouteCommand}"
                                     CommandParameter="{Binding}"
                                     Content="{localization:Localize Key=Tools_ReverseProxy_Remove}"
@@ -56,8 +62,13 @@
                 </ListBox.ItemTemplate>
             </ListBox>
         </Border>
-        <Grid Grid.Row="1"
-              ColumnDefinitions="*,*,*,*,Auto"
+        <TextBlock Grid.Row="1"
+                   Foreground="Red"
+                   IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Margin="0,4,0,0"
+                   Text="{Binding ValidationError}" />
+        <Grid Grid.Row="2"
+              ColumnDefinitions="*,*,*,*,Auto,Auto,Auto,Auto"
               Margin="0,8,0,0">
             <TextBox Grid.Column="0"
                      Margin="0,0,4,0"
@@ -75,9 +86,26 @@
                      Margin="0,0,4,0"
                      Text="{Binding BackendPort, Mode=TwoWay}"
                      Watermark="{localization:Localize Key=Tools_ReverseProxy_BackendPortPlaceholder}" />
-            <Button Grid.Column="4"
+            <ComboBox Grid.Column="4"
+                      ItemsSource="{Binding TransportLayerSecurityModes}"
+                      Margin="0,0,4,0"
+                      MinWidth="120"
+                      SelectedItem="{Binding TransportLayerSecurityMode, Mode=TwoWay}" />
+            <Button Grid.Column="5"
                     Command="{Binding AddRouteCommand}"
                     Content="{localization:Localize Key=Tools_ReverseProxy_Add}"
+                    IsVisible="{Binding EditingIdentifier, Converter={x:Static ObjectConverters.IsNull}}"
+                    Padding="12,4" />
+            <Button Grid.Column="6"
+                    Command="{Binding SaveEditCommand}"
+                    Content="{localization:Localize Key=Tools_ReverseProxy_Save}"
+                    IsVisible="{Binding EditingIdentifier, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Padding="12,4" />
+            <Button Grid.Column="7"
+                    Command="{Binding CancelEditCommand}"
+                    Content="{localization:Localize Key=Tools_ReverseProxy_Cancel}"
+                    IsVisible="{Binding EditingIdentifier, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Margin="4,0,0,0"
                     Padding="12,4" />
         </Grid>
     </Grid>

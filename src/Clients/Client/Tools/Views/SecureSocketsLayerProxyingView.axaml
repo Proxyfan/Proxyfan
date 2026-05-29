@@ -25,13 +25,15 @@
                            FontWeight="Bold"
                            Margin="0,0,0,4"
                            Text="{localization:Localize Key=Tools_SecureSocketsLayerProxying_IncludedLabel}" />
-                <ListBox Grid.Row="1"
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_SecureSocketsLayerProxying_PatternList_Automation}"
+                         Grid.Row="1"
                          ItemsSource="{Binding IncludedPatterns}"
                          SelectedItem="{Binding SelectedIncludedPattern, Mode=TwoWay}" />
                 <Grid Grid.Row="2"
                       ColumnDefinitions="*,Auto,Auto"
                       Margin="0,4,0,0">
-                    <TextBox Grid.Column="0"
+                    <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_SecureSocketsLayerProxying_NewPattern_Automation}"
+                             Grid.Column="0"
                              Text="{Binding NewIncludedPattern, Mode=TwoWay}"
                              Watermark="{localization:Localize Key=Tools_SecureSocketsLayerProxying_PatternWatermark}" />
                     <Button Grid.Column="1"
@@ -54,13 +56,15 @@
                            FontWeight="Bold"
                            Margin="0,0,0,4"
                            Text="{localization:Localize Key=Tools_SecureSocketsLayerProxying_ExcludedLabel}" />
-                <ListBox Grid.Row="1"
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_SecureSocketsLayerProxying_PatternList_Automation}"
+                         Grid.Row="1"
                          ItemsSource="{Binding ExcludedPatterns}"
                          SelectedItem="{Binding SelectedExcludedPattern, Mode=TwoWay}" />
                 <Grid Grid.Row="2"
                       ColumnDefinitions="*,Auto,Auto"
                       Margin="0,4,0,0">
-                    <TextBox Grid.Column="0"
+                    <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_SecureSocketsLayerProxying_NewPattern_Automation}"
+                             Grid.Column="0"
                              Text="{Binding NewExcludedPattern, Mode=TwoWay}"
                              Watermark="{localization:Localize Key=Tools_SecureSocketsLayerProxying_PatternWatermark}" />
                     <Button Grid.Column="1"

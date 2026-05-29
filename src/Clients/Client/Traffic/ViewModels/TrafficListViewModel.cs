@@ -349,6 +349,28 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
     }
 
+    [RelayCommand]
+    private void RemoveSelected()
+    {
+        var flow = SelectedFlow;
+        if (flow is null)
+        {
+            return;
+        }
+
+        _userInterfaceScheduler.Post(() => RemoveSelectedOnUiThread(flow));
+    }
+
+    private void RemoveSelectedOnUiThread(TrafficFlowViewModel viewModel)
+    {
+        _flowById.TryRemove(viewModel.Source.Id, out _);
+        Flows.Remove(viewModel);
+        if (ReferenceEquals(SelectedFlow, viewModel))
+        {
+            SelectedFlow = null;
+        }
+    }
+
     private async Task RepeatFlowAsync(
         TrafficFlowViewModel? flow,
         int repeatCount,

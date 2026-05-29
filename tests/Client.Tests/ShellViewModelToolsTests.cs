@@ -281,4 +281,26 @@ public sealed class ShellViewModelToolsTests
         await Assert.That(opener.OpenDiffToolCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenComposerCallCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     The OpenKeyboardShortcutsCommand delegates to
+    ///     <see cref="StubToolWindowOpener.OpenKeyboardShortcuts" />.
+    /// </summary>
+    [Test]
+    public async Task OpenKeyboardShortcutsCommand_WhenInvoked_OpensKeyboardShortcutsWindow()
+    {
+        var opener = new StubToolWindowOpener();
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            port: 8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            opener);
+
+        viewModel.OpenKeyboardShortcutsCommand.Execute(null);
+
+        await Assert.That(opener.OpenKeyboardShortcutsCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenThemeCallCount).IsEqualTo(0);
+    }
 }

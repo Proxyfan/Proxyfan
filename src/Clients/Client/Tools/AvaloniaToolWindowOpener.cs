@@ -22,6 +22,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private CustomColumnsWindow? _customColumnsWindow;
     private DiffToolWindow? _diffToolWindow;
     private DomainNameSystemSpoofingWindow? _domainNameSystemSpoofingWindow;
+    private KeyboardShortcutsWindow? _keyboardShortcutsWindow;
     private MapLocalWindow? _mapLocalWindow;
     private MapRemoteWindow? _mapRemoteWindow;
     private PluginManagerWindow? _pluginManagerWindow;
@@ -221,6 +222,28 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _domainNameSystemSpoofingWindow = null;
         };
         _domainNameSystemSpoofingWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenKeyboardShortcuts()
+    {
+        if (_keyboardShortcutsWindow is not null)
+        {
+            _keyboardShortcutsWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<KeyboardShortcutsViewModel>();
+        var window = new KeyboardShortcutsWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            _keyboardShortcutsWindow = null;
+        };
+        _keyboardShortcutsWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

@@ -6,9 +6,13 @@ using Microsoft.Extensions.Options;
 using Proxyfan.Client.Tools;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain.Updates;
 using Proxyfan.Presentation.Files;
+using Proxyfan.Presentation.Threading;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,21 +23,35 @@ namespace Proxyfan.Client.Shell.ViewModels;
 ///     View model for the application shell window, managing the system proxy
 ///     lifecycle controls and application exit.
 /// </summary>
-public sealed partial class ShellViewModel : ObservableObject
+public sealed partial class ShellViewModel : ObservableObject, IDisposable
 {
     private const string DefaultSessionFileName = "proxyfan-session.har";
     private const string HarExtension = "har";
     private const string HarTypeDescription = "HTTP Archive (HAR) file";
     private const string OpenSessionTitle = "Open HAR Session";
     private const string SaveSessionTitle = "Save Captured Session as HAR";
+    private readonly MutableBreakpointConfiguration _breakpointConfiguration;
     private readonly IFilePickerService _filePicker;
     private readonly IHarExporter _harExporter;
     private readonly IHarImporter _harImporter;
+    private readonly MutableNoCachingRule _noCachingRule;
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor;
     private readonly ISystemProxy _systemProxy;
     private readonly IToolWindowOpener _toolWindowOpener;
+    private readonly MutableUpdateNotification _updateNotification;
+    private readonly IUserInterfaceScheduler _userInterfaceScheduler;
+    [ObservableProperty]
+    private bool _isBreakpointEnabled;
+    [ObservableProperty]
+    private bool _isNoCachingEnabled;
     [ObservableProperty]
     private bool _isSystemProxyEnabled;
+    [ObservableProperty]
+    private bool _isUpdateBannerVisible;
+    [ObservableProperty]
+    private string? _updateBannerDownloadUrl;
+    [ObservableProperty]
+    private string? _updateBannerMessage;
 
     /// <summary>
     ///     Gets the source list view model exposed for the left panel.
@@ -71,6 +89,12 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="harExporter">The HAR exporter used when saving a session.</param>
     /// <param name="harImporter">The HAR importer used when opening a session.</param>
     /// <param name="toolWindowOpener">The opener used to display tool windows on user request.</param>
+    /// <param name="updateNotification">
+    ///     Observable update notification that surfaces newly discovered Proxyfan releases.
+    /// </param>
+    /// <param name="userInterfaceScheduler">Scheduler used to marshal banner updates onto the UI thread.</param>
+    /// <param name="noCachingRule">Toggleable global No-Caching rule.</param>
+    /// <param name="breakpointConfiguration">Toggleable global breakpoint configuration.</param>
     public ShellViewModel(
         ISystemProxy systemProxy,
         IOptionsMonitor<ProxyOptions> optionsMonitor,
@@ -79,7 +103,11 @@ public sealed partial class ShellViewModel : ObservableObject
         IFilePickerService filePicker,
         IHarExporter harExporter,
         IHarImporter harImporter,
-        IToolWindowOpener toolWindowOpener)
+        IToolWindowOpener toolWindowOpener,
+        MutableUpdateNotification updateNotification,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        MutableNoCachingRule noCachingRule,
+        MutableBreakpointConfiguration breakpointConfiguration)
     {
         _systemProxy = systemProxy;
         _optionsMonitor = optionsMonitor;
@@ -87,9 +115,45 @@ public sealed partial class ShellViewModel : ObservableObject
         _harExporter = harExporter;
         _harImporter = harImporter;
         _toolWindowOpener = toolWindowOpener;
+        _updateNotification = updateNotification;
+        _userInterfaceScheduler = userInterfaceScheduler;
+        _noCachingRule = noCachingRule;
+        _breakpointConfiguration = breakpointConfiguration;
         _isSystemProxyEnabled = false;
+        _isUpdateBannerVisible = false;
+        _isNoCachingEnabled = noCachingRule.IsEnabled;
+        _isBreakpointEnabled = breakpointConfiguration.IsEnabled;
         TabHost = tabHost;
         SourceList = sourceListViewModel;
+        _updateNotification.Changed += OnUpdateNotificationChanged;
+        ApplyUpdate(_updateNotification.Latest);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _updateNotification.Changed -= OnUpdateNotificationChanged;
+    }
+
+    private void ApplyUpdate(UpdateInfo? update)
+    {
+        if (update is null)
+        {
+            IsUpdateBannerVisible = false;
+            UpdateBannerMessage = null;
+            UpdateBannerDownloadUrl = null;
+            return;
+        }
+
+        UpdateBannerMessage = $"Proxyfan {update.Version} is available.";
+        UpdateBannerDownloadUrl = update.DownloadUrl;
+        IsUpdateBannerVisible = true;
+    }
+
+    [RelayCommand]
+    private void DismissUpdateBanner()
+    {
+        IsUpdateBannerVisible = false;
     }
 
     [RelayCommand]
@@ -99,6 +163,17 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             desktop.Shutdown();
         }
+    }
+
+    private void OnUpdateNotificationChanged(UpdateInfo? update)
+    {
+        if (_userInterfaceScheduler.HasAccess())
+        {
+            ApplyUpdate(update);
+            return;
+        }
+
+        _userInterfaceScheduler.Post(() => ApplyUpdate(update));
     }
 
     [RelayCommand]
@@ -147,6 +222,12 @@ public sealed partial class ShellViewModel : ObservableObject
     private void OpenDomainNameSystemSpoofing()
     {
         _toolWindowOpener.OpenDomainNameSystemSpoofing();
+    }
+
+    [RelayCommand]
+    private void OpenKeyboardShortcuts()
+    {
+        _toolWindowOpener.OpenKeyboardShortcuts();
     }
 
     [RelayCommand]
@@ -265,6 +346,22 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             await stream.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    [RelayCommand]
+    private void ToggleBreakpoint()
+    {
+        var newValue = !_breakpointConfiguration.IsEnabled;
+        _breakpointConfiguration.SetEnabled(newValue);
+        IsBreakpointEnabled = newValue;
+    }
+
+    [RelayCommand]
+    private void ToggleNoCaching()
+    {
+        var newValue = !_noCachingRule.IsEnabled;
+        _noCachingRule.SetEnabled(newValue);
+        IsNoCachingEnabled = newValue;
     }
 
     [RelayCommand]

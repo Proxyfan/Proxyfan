@@ -19,7 +19,8 @@
                    FontWeight="SemiBold"
                    Margin="0,0,0,4"
                    Text="{localization:Localize Key=Tools_Scripting_RequestPhase}" />
-        <TextBox Grid.Row="2"
+        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Scripting_RequestBox_Automation}"
+                 Grid.Row="2"
                  AcceptsReturn="True"
                  AcceptsTab="True"
                  FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
@@ -33,7 +34,8 @@
                        FontWeight="SemiBold"
                        Margin="0,0,0,4"
                        Text="{localization:Localize Key=Tools_Scripting_ResponsePhase}" />
-            <TextBox Grid.Row="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Scripting_ResponseBox_Automation}"
+                     Grid.Row="1"
                      AcceptsReturn="True"
                      AcceptsTab="True"
                      FontFamily="Cascadia Mono,Consolas,Menlo,monospace"

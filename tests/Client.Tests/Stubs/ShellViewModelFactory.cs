@@ -3,9 +3,11 @@ using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Domain.Updates;
 using Proxyfan.Presentation.Files;
 using System;
 using System.Collections.Generic;
@@ -73,13 +75,88 @@ public static class ShellViewModelFactory
         IHarImporter harImporter,
         StubToolWindowOpener toolWindowOpener)
     {
+        return Create(systemProxy, port, filePicker, harExporter, harImporter, toolWindowOpener, new MutableUpdateNotification());
+    }
+
+    /// <summary>
+    ///     Creates a new <see cref="ShellViewModel" /> wired with the supplied
+    ///     <paramref name="systemProxy" />, tool window opener, and update notification.
+    /// </summary>
+    /// <param name="systemProxy">The system proxy stub to wire in.</param>
+    /// <param name="port">The proxy port for <see cref="ProxyOptions" />.</param>
+    /// <param name="filePicker">The file picker stub.</param>
+    /// <param name="harExporter">The HAR exporter stub.</param>
+    /// <param name="harImporter">The HAR importer stub.</param>
+    /// <param name="toolWindowOpener">The tool window opener stub.</param>
+    /// <param name="updateNotification">The observable update notification used by the banner.</param>
+    /// <returns>A new <see cref="ShellViewModel" /> instance.</returns>
+    internal static ShellViewModel Create(
+        StubSystemProxy systemProxy,
+        int port,
+        IFilePickerService filePicker,
+        IHarExporter harExporter,
+        IHarImporter harImporter,
+        StubToolWindowOpener toolWindowOpener,
+        MutableUpdateNotification updateNotification)
+    {
+        var noCachingRule = new MutableNoCachingRule(priority: 400, isEnabled: false);
+        var breakpointConfiguration = new MutableBreakpointConfiguration(isEnabled: false);
+        return Create(
+            systemProxy,
+            port,
+            filePicker,
+            harExporter,
+            harImporter,
+            toolWindowOpener,
+            updateNotification,
+            noCachingRule,
+            breakpointConfiguration);
+    }
+
+    /// <summary>
+    ///     Creates a new <see cref="ShellViewModel" /> wired with the supplied
+    ///     <paramref name="systemProxy" />, tool window opener, update notification, and rule instances.
+    /// </summary>
+    /// <param name="systemProxy">The system proxy stub to wire in.</param>
+    /// <param name="port">The proxy port for <see cref="ProxyOptions" />.</param>
+    /// <param name="filePicker">The file picker stub.</param>
+    /// <param name="harExporter">The HAR exporter stub.</param>
+    /// <param name="harImporter">The HAR importer stub.</param>
+    /// <param name="toolWindowOpener">The tool window opener stub.</param>
+    /// <param name="updateNotification">The observable update notification used by the banner.</param>
+    /// <param name="noCachingRule">The mutable global No-Caching rule shared with the test.</param>
+    /// <param name="breakpointConfiguration">The mutable breakpoint configuration shared with the test.</param>
+    /// <returns>A new <see cref="ShellViewModel" /> instance.</returns>
+    internal static ShellViewModel Create(
+        StubSystemProxy systemProxy,
+        int port,
+        IFilePickerService filePicker,
+        IHarExporter harExporter,
+        IHarImporter harImporter,
+        StubToolWindowOpener toolWindowOpener,
+        MutableUpdateNotification updateNotification,
+        MutableNoCachingRule noCachingRule,
+        MutableBreakpointConfiguration breakpointConfiguration)
+    {
         var options = new ProxyOptions { Port = port };
         var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
         var eventBus = new NoopEventBus();
         var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance);
         var sourceList = new SourceListViewModel(eventBus, trafficList, InlineUserInterfaceScheduler.Instance);
         var tabHost = new TabHostViewModel(trafficList);
-        return new ShellViewModel(systemProxy, optionsMonitor, tabHost, sourceList, filePicker, harExporter, harImporter, toolWindowOpener);
+        return new ShellViewModel(
+            systemProxy,
+            optionsMonitor,
+            tabHost,
+            sourceList,
+            filePicker,
+            harExporter,
+            harImporter,
+            toolWindowOpener,
+            updateNotification,
+            InlineUserInterfaceScheduler.Instance,
+            noCachingRule,
+            breakpointConfiguration);
     }
 
     /// <summary>

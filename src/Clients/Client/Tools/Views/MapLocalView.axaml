@@ -17,11 +17,13 @@
                   IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                   Margin="0,0,0,8" />
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
-            <TextBox Grid.Column="0"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_NewPattern_Automation}"
+                     Grid.Column="0"
                      Margin="0,0,4,0"
                      Text="{Binding NewPatternText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_RuleList_PatternPlaceholder}" />
-            <ComboBox Grid.Column="1"
+            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_PatternKind_Automation}"
+                      Grid.Column="1"
                       Margin="0,0,4,0"
                       MinWidth="100"
                       SelectedItem="{Binding NewPatternKind, Mode=TwoWay}">
@@ -39,7 +41,8 @@
                        Margin="0,0,8,0"
                        Text="{localization:Localize Key=Tools_MapLocal_StatusCode}"
                        VerticalAlignment="Center" />
-            <TextBox Grid.Column="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapLocal_StatusBox_Automation}"
+                     Grid.Column="1"
                      Text="{Binding ResponseStatusCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </Grid>
         <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
@@ -47,13 +50,15 @@
                        Margin="0,0,8,0"
                        Text="{localization:Localize Key=Tools_MapLocal_ReasonPhrase}"
                        VerticalAlignment="Center" />
-            <TextBox Grid.Column="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapLocal_ReasonBox_Automation}"
+                     Grid.Column="1"
                      Text="{Binding ResponseReasonPhrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </Grid>
         <TextBlock Grid.Row="4"
                    Margin="0,4,0,2"
                    Text="{localization:Localize Key=Tools_MapLocal_Headers}" />
-        <TextBox Grid.Row="5"
+        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapLocal_HeadersBox_Automation}"
+                 Grid.Row="5"
                  AcceptsReturn="True"
                  Height="80"
                  Margin="0,2,0,4"
@@ -63,7 +68,8 @@
             <TextBlock Grid.Row="0"
                        Margin="0,4,0,2"
                        Text="{localization:Localize Key=Tools_MapLocal_Body}" />
-            <TextBox Grid.Row="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapLocal_BodyBox_Automation}"
+                     Grid.Row="1"
                      AcceptsReturn="True"
                      Margin="0,2,0,8"
                      Text="{Binding ResponseBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -74,7 +80,8 @@
             <Border Grid.Row="3"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="1">
-                <ListBox ItemsSource="{Binding Entries}">
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_MapLocal_List_Automation}"
+                         ItemsSource="{Binding Entries}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:MapLocalEntryViewModel">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="4">

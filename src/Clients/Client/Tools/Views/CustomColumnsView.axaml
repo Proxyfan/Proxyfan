@@ -40,7 +40,8 @@
         <Border Grid.Row="2"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <ListBox ItemsSource="{Binding Columns}">
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_CustomColumns_List_Automation}"
+                     ItemsSource="{Binding Columns}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:CustomColumnEntryViewModel">
                         <Grid ColumnDefinitions="*,*,Auto,Auto" Margin="4">

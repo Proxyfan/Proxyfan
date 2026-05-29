@@ -1,4 +1,6 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using Proxyfan.Client.Dialogs;
 using Proxyfan.Client.Files;
@@ -19,6 +21,36 @@ public partial class ShellWindow : Window
     {
         InitializeComponent();
         Opened += OnOpenedRegisterFilePicker;
+        KeyDown += OnKeyDownFocusFilter;
+    }
+
+    private void OnKeyDownFocusFilter(object? sender, KeyEventArgs eventArgs)
+    {
+        if (eventArgs.Key != Key.F || !eventArgs.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            return;
+        }
+
+        var filterTextBox = this.FindDescendantOfType<TextBox>(includeSelf: false);
+        TextBox? namedFilterTextBox = null;
+        foreach (var control in this.GetVisualDescendants())
+        {
+            if (control is TextBox textBox && string.Equals(textBox.Name, "FilterTextBox", System.StringComparison.Ordinal))
+            {
+                namedFilterTextBox = textBox;
+                break;
+            }
+        }
+
+        var target = namedFilterTextBox ?? filterTextBox;
+        if (target is null)
+        {
+            return;
+        }
+
+        target.Focus();
+        target.SelectAll();
+        eventArgs.Handled = true;
     }
 
     private void OnOpenedRegisterFilePicker(object? sender, System.EventArgs eventArgs)

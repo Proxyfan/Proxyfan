@@ -17,11 +17,13 @@
                   IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                   Margin="0,0,0,8" />
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
-            <TextBox Grid.Column="0"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_NewPattern_Automation}"
+                     Grid.Column="0"
                      Margin="0,0,4,0"
                      Text="{Binding NewPatternText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_RuleList_PatternPlaceholder}" />
-            <ComboBox Grid.Column="1"
+            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_PatternKind_Automation}"
+                      Grid.Column="1"
                       Margin="0,0,4,0"
                       MinWidth="100"
                       SelectedItem="{Binding NewPatternKind, Mode=TwoWay}">
@@ -34,19 +36,23 @@
                     Content="{localization:Localize Key=Tools_RuleList_AddPattern}"
                     Padding="12,4" />
         </Grid>
-        <TextBox Grid.Row="2"
+        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapRemote_SchemeBox_Automation}"
+                 Grid.Row="2"
                  Margin="0,4,0,4"
                  Text="{Binding DestinationScheme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  Watermark="{localization:Localize Key=Tools_MapRemote_Scheme}" />
-        <TextBox Grid.Row="3"
+        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapRemote_HostBox_Automation}"
+                 Grid.Row="3"
                  Margin="0,4,0,4"
                  Text="{Binding DestinationHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  Watermark="{localization:Localize Key=Tools_MapRemote_Host}" />
-        <TextBox Grid.Row="4"
+        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapRemote_PortBox_Automation}"
+                 Grid.Row="4"
                  Margin="0,4,0,4"
                  Text="{Binding DestinationPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  Watermark="{localization:Localize Key=Tools_MapRemote_Port}" />
-        <TextBox Grid.Row="5"
+        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapRemote_PathBox_Automation}"
+                 Grid.Row="5"
                  Margin="0,4,0,4"
                  Text="{Binding DestinationPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  Watermark="{localization:Localize Key=Tools_MapRemote_Path}" />
@@ -57,7 +63,8 @@
         <Border Grid.Row="7"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <ListBox ItemsSource="{Binding Entries}">
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_MapRemote_List_Automation}"
+                     ItemsSource="{Binding Entries}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:MapRemoteEntryViewModel">
                         <Grid ColumnDefinitions="*,*,Auto,Auto" Margin="4">

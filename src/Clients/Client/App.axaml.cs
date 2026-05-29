@@ -22,10 +22,12 @@ using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Traffic.Columns;
+using Proxyfan.Domain.Updates;
 using Proxyfan.Presentation;
 using Proxyfan.Presentation.Dialogs;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Localization;
+using Proxyfan.Presentation.Shortcuts;
 using Proxyfan.Presentation.Theming;
 using Proxyfan.Presentation.Threading;
 using System;
@@ -58,6 +60,7 @@ public partial class App : Application
             services.AddSingleton<ProxyServer>();
             services.AddSingleton<TrafficListViewModel>();
             services.AddSingleton<SourceListViewModel>();
+            services.AddSingleton<WebSocketInspectorViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<TabHostViewModel>();
             services.AddSingleton<ShellViewModel>();
@@ -69,6 +72,7 @@ public partial class App : Application
             services.AddTransient<CustomColumnsViewModel>();
             services.AddTransient<DiffToolViewModel>();
             services.AddTransient<DomainNameSystemSpoofingViewModel>();
+            services.AddTransient<KeyboardShortcutsViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
             services.AddTransient<PluginManagerViewModel>();
@@ -99,6 +103,22 @@ public partial class App : Application
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
                 var culture = LocaleResolver.Resolve(configuration["ui:locale"]);
                 return new LocalizationService(culture);
+            });
+            services.AddSingleton<FormattingService>();
+            services.AddSingleton<IShortcutBindingsStore>(static _ =>
+            {
+                var directory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Proxyfan");
+                System.IO.Directory.CreateDirectory(directory);
+                var path = System.IO.Path.Combine(directory, "shortcuts.json");
+                return new FileShortcutBindingsStore(path);
+            });
+            services.AddSingleton<ShortcutRegistry>(static serviceProvider =>
+            {
+                var store = serviceProvider.GetRequiredService<IShortcutBindingsStore>();
+                var bindings = store.Load();
+                return new ShortcutRegistry(bindings);
             });
             return;
 
@@ -182,6 +202,9 @@ public partial class App : Application
             themeService.ThemeChanged += (_, theme) => ApplyTheme(theme);
             host.Start();
             _ = host.Services.GetRequiredService<ProxyServer>();
+            host.Services.GetRequiredService<Framework.Extensibility.PluginActivationService>().EnsureLoaded();
+            host.Services.GetRequiredService<PeriodicUpdateChecker>().Start();
+            host.Services.GetRequiredService<PeriodicReverseProxyHealthChecker>().Start();
         }
         catch (Exception ex)
         {

@@ -10,17 +10,43 @@
              presentation:ViewModelLocator.DataContext="{x:Type viewModels:DomainNameSystemSpoofingViewModel}"
              x:DataType="viewModels:DomainNameSystemSpoofingViewModel"
              mc:Ignorable="d">
-    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,*">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
         <TextBlock Grid.Row="0"
                    Margin="0,0,0,8"
                    Text="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Description}"
                    TextWrapping="Wrap" />
-        <Grid Grid.Row="1" ColumnDefinitions="2*,*,Auto" Margin="0,0,0,8">
-            <TextBox Grid.Column="0"
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,0,0,8">
+            <ToggleSwitch Grid.Column="0"
+                          IsChecked="{Binding IsActive, Mode=TwoWay}"
+                          OffContent="{localization:Localize Key=Tools_DomainNameSystemSpoofing_MasterOff}"
+                          OnContent="{localization:Localize Key=Tools_DomainNameSystemSpoofing_MasterOn}" />
+            <TextBlock Grid.Column="1"
+                       Margin="16,0,8,0"
+                       Text="{Binding StatusDisplay}"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="2"
+                    Margin="0,0,4,0"
+                    Command="{Binding EnableAllEntriesCommand}"
+                    Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_EnableAll}"
+                    Padding="8,4" />
+            <Button Grid.Column="3"
+                    Margin="0,0,4,0"
+                    Command="{Binding DisableAllEntriesCommand}"
+                    Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_DisableAll}"
+                    Padding="8,4" />
+            <Button Grid.Column="4"
+                    Command="{Binding RefreshMatchCountsCommand}"
+                    Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Refresh}"
+                    Padding="8,4" />
+        </Grid>
+        <Grid Grid.Row="2" ColumnDefinitions="2*,*,Auto" Margin="0,0,0,8">
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_DomainNameSystemSpoofing_HostnameBox_Automation}"
+                     Grid.Column="0"
                      Margin="0,0,4,0"
                      Text="{Binding NewHostname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_DomainNameSystemSpoofing_HostnamePlaceholder}" />
-            <TextBox Grid.Column="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_DomainNameSystemSpoofing_AddressBox_Automation}"
+                     Grid.Column="1"
                      Margin="0,0,4,0"
                      Text="{Binding NewOverrideAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_DomainNameSystemSpoofing_AddressPlaceholder}" />
@@ -29,30 +55,64 @@
                     Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Add}"
                     Padding="12,4" />
         </Grid>
-        <TextBlock Grid.Row="2"
+        <TextBlock Grid.Row="3"
                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
                    IsVisible="{Binding ValidationMessage, Converter={x:Static ObjectConverters.IsNotNull}}"
                    Margin="0,0,0,8"
                    Text="{Binding ValidationMessage}"
                    TextWrapping="Wrap" />
-        <Border Grid.Row="3"
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,2*,*,Auto,Auto,Auto" Margin="0,0,0,4">
+            <TextBlock Grid.Column="0" Text="" Width="32" />
+            <TextBlock Grid.Column="1"
+                       FontWeight="SemiBold"
+                       Text="{localization:Localize Key=Tools_DomainNameSystemSpoofing_ColumnHostname}" />
+            <TextBlock Grid.Column="2"
+                       FontWeight="SemiBold"
+                       Margin="8,0"
+                       Text="{localization:Localize Key=Tools_DomainNameSystemSpoofing_ColumnAddress}" />
+            <TextBlock Grid.Column="3"
+                       FontWeight="SemiBold"
+                       Margin="8,0"
+                       Text="{localization:Localize Key=Tools_DomainNameSystemSpoofing_ColumnKind}" />
+            <TextBlock Grid.Column="4"
+                       FontWeight="SemiBold"
+                       Margin="8,0"
+                       Text="{localization:Localize Key=Tools_DomainNameSystemSpoofing_ColumnMatchCount}" />
+            <TextBlock Grid.Column="5"
+                       FontWeight="SemiBold"
+                       Margin="8,0"
+                       Text="" />
+        </Grid>
+        <Border Grid.Row="5"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <ListBox ItemsSource="{Binding Entries}">
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_DomainNameSystemSpoofing_List_Automation}"
+                     ItemsSource="{Binding Entries}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:DomainNameSystemSpoofingEntryViewModel">
-                        <Grid ColumnDefinitions="2*,*,Auto" Margin="4">
-                            <TextBlock Grid.Column="0"
+                        <Grid ColumnDefinitions="Auto,2*,*,Auto,Auto,Auto" Margin="4">
+                            <CheckBox Grid.Column="0"
+                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
                                        Text="{Binding Hostname}"
                                        TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
+                            <TextBlock Grid.Column="2"
                                        FontFamily="Consolas"
                                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                                        Margin="8,0"
                                        Text="{Binding OverrideAddress}"
                                        VerticalAlignment="Center" />
-                            <Button Grid.Column="2"
+                            <TextBlock Grid.Column="3"
+                                       Margin="8,0"
+                                       Text="{Binding KindDisplay}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4"
+                                       Margin="8,0"
+                                       Text="{Binding MatchCount}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="5"
                                     Command="{Binding $parent[ListBox].((viewModels:DomainNameSystemSpoofingViewModel)DataContext).RemoveEntryCommand}"
                                     CommandParameter="{Binding}"
                                     Content="{localization:Localize Key=Tools_DomainNameSystemSpoofing_Remove}"
