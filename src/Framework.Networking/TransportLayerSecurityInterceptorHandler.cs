@@ -137,51 +137,20 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         }
     }
 
-    private async Task<HypertextTransferProtocolRequestData> ApplyScriptingRequestAsync(
+    private async Task<HypertextTransferProtocolRequestData> ApplyRequestScriptingAsync(
         TrafficFlow flow,
         HypertextTransferProtocolRequestData effectiveRequest,
         CancellationToken cancellationToken)
     {
-        if (_scriptingHandler is null)
+        var bundle = new TransportLayerSecurityInterceptedScriptingRequestRequest
         {
-            return effectiveRequest;
-        }
-
-        try
-        {
-            var flowId = flow.Id.ToString();
-            var projected = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
-            return projected;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "TLS scripting request-phase hook threw; continuing with unmodified request");
-            return effectiveRequest;
-        }
-    }
-
-    private async Task<HypertextTransferProtocolResponseData> ApplyScriptingResponseAsync(
-        TrafficFlow flow,
-        HypertextTransferProtocolRequestData effectiveRequest,
-        HypertextTransferProtocolResponseData finalResponse,
-        CancellationToken cancellationToken)
-    {
-        if (_scriptingHandler is null)
-        {
-            return finalResponse;
-        }
-
-        try
-        {
-            var flowId = flow.Id.ToString();
-            var projected = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-            return projected;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "TLS scripting response-phase hook threw; continuing with unmodified response");
-            return finalResponse;
-        }
+            EffectiveRequest = effectiveRequest,
+            Flow = flow,
+            Handler = _scriptingHandler,
+            Logger = _logger,
+        };
+        var projected = await TransportLayerSecurityInterceptedScripting.ApplyRequestAsync(bundle, cancellationToken).ConfigureAwait(false);
+        return projected;
     }
 
     private async Task<bool> CompleteInterceptedResponseAsync(
@@ -278,6 +247,23 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await upgradeHandler.HandleAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task DispatchVersionTwoAsync(
+        IProxyConnection connection,
+        SslStream clientSecureStream,
+        SslStream serverSecureStream,
+        CancellationToken cancellationToken)
+    {
+        var request = new TransportLayerSecurityInterceptedVersion2DispatchRequest
+        {
+            ClientSecureStream = clientSecureStream,
+            Connection = connection,
+            EventBus = _eventBus,
+            ServerSecureStream = serverSecureStream,
+            TrafficStore = _trafficStore,
+        };
+        await TransportLayerSecurityInterceptedVersion2Dispatch.RunAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     private bool HasDroppedForPacketLoss(TrafficFlow flow)
     {
         if (!ThrottleApplier.HasPacketLossOccurred(_throttleProfile, _packetLossSampler))
@@ -314,13 +300,20 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     {
         await using var serverStream = serverClient.GetStream();
         await using var serverSecureStream = new SslStream(serverStream, false);
-        var clientTransportLayerSecurityOptions = TransportLayerSecurityInterceptorHelpers.CreateClientTransportLayerSecurityOptions(target);
-        await serverSecureStream.AuthenticateAsClientAsync(clientTransportLayerSecurityOptions, cancellationToken).ConfigureAwait(false);
+        var clientOptions = TransportLayerSecurityInterceptorHelpers.CreateClientTransportLayerSecurityOptions(target);
+        await serverSecureStream.AuthenticateAsClientAsync(clientOptions, cancellationToken).ConfigureAwait(false);
         var leafCertificate = await _context.GetLeafCertificateAsync(target.Host, cancellationToken).ConfigureAwait(false);
         using var clientStream = new DuplexPipeStream(connection.Transport.Input, connection.Transport.Output);
         await using var clientSecureStream = new SslStream(clientStream, false);
-        var serverTransportLayerSecurityOptions = TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions(leafCertificate);
-        await clientSecureStream.AuthenticateAsServerAsync(serverTransportLayerSecurityOptions, cancellationToken).ConfigureAwait(false);
+        var serverOptions = TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions(leafCertificate, serverSecureStream.NegotiatedApplicationProtocol);
+        await clientSecureStream.AuthenticateAsServerAsync(serverOptions, cancellationToken).ConfigureAwait(false);
+
+        if (clientSecureStream.NegotiatedApplicationProtocol == SslApplicationProtocol.Http2)
+        {
+            await DispatchVersionTwoAsync(connection, clientSecureStream, serverSecureStream, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var pipes = TransportLayerSecurityInterceptionPipesFactory.Create(clientSecureStream, serverSecureStream);
         var loopContext = new TransportLayerSecurityInterceptedLoopContext
         {
@@ -329,7 +322,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             Pipes = pipes,
             ServerSecureStream = serverSecureStream,
         };
-
         try
         {
             await RunHypertextTransferProtocolLoopAsync(loopContext, cancellationToken).ConfigureAwait(false);
@@ -411,7 +403,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             return false;
         }
         effectiveRequest = breakResult.ModifiedRequest ?? effectiveRequest;
-        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
+        effectiveRequest = await ApplyRequestScriptingAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
 
         var serveLocal = blockingAction as Domain.Rules.Pipeline.RequestPipelineAction.ServeLocalResponse;
         if (serveLocal is null && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
@@ -492,7 +484,15 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     {
         var responseActions = _ruleEngine?.EvaluateResponse(context.EffectiveRequest, context.ResponseExchange.Response) ?? [];
         var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(context.ResponseExchange.Response, responseActions);
-        finalResponse = await ApplyScriptingResponseAsync(context.Flow, context.EffectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+        var scriptingResponseRequest = new TransportLayerSecurityInterceptedScriptingResponseRequest
+        {
+            EffectiveRequest = context.EffectiveRequest,
+            FinalResponse = finalResponse,
+            Flow = context.Flow,
+            Handler = _scriptingHandler,
+            Logger = _logger,
+        };
+        finalResponse = await TransportLayerSecurityInterceptedScripting.ApplyResponseAsync(scriptingResponseRequest, cancellationToken).ConfigureAwait(false);
         finalResponse = ForwardedResponseRewriter.Rewrite(finalResponse);
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(context.ResponseExchange, finalResponse);
 

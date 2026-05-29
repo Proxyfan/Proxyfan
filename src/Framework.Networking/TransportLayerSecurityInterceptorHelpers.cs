@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Collections.Generic;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 
@@ -13,11 +14,10 @@ namespace Proxyfan.Framework.Networking;
 public static class TransportLayerSecurityInterceptorHelpers
 {
     /// <summary>
-    ///     Builds an <see cref="SslClientAuthenticationOptions" /> for use when the proxy connects
-    ///     to the upstream server as a TLS client. Advertises only HTTP/1.1 via ALPN to keep the
-    ///     intercepted exchange bound to the parsers the proxy currently supports — HTTP/2
-    ///     primitives ship in <c>Framework.Networking</c> but the connection-level orchestrator
-    ///     is part of Milestone 3.
+    ///     Builds an <see cref="SslClientAuthenticationOptions" /> for use when the proxy
+    ///     connects to the upstream server as a TLS client. Advertises both <c>h2</c> and
+    ///     <c>http/1.1</c> via ALPN so the upstream can negotiate either protocol; the proxy
+    ///     then mirrors the upstream's choice when accepting the intercepted client.
     /// </summary>
     /// <param name="target">The CONNECT target whose host is used for SNI.</param>
     /// <returns>A populated <see cref="SslClientAuthenticationOptions" />.</returns>
@@ -25,26 +25,48 @@ public static class TransportLayerSecurityInterceptorHelpers
     {
         var options = new SslClientAuthenticationOptions
         {
-            ApplicationProtocols = [SslApplicationProtocol.Http11],
+            ApplicationProtocols = [SslApplicationProtocol.Http2, SslApplicationProtocol.Http11],
             TargetHost = target.Host,
         };
         return options;
     }
 
     /// <summary>
-    ///     Builds an <see cref="SslServerAuthenticationOptions" /> for use when the proxy presents
-    ///     the per-host leaf certificate to the intercepted client. Advertises only HTTP/1.1 via
-    ///     ALPN so that clients capable of HTTP/2 negotiate down to HTTP/1.1 instead of crashing
-    ///     inside the proxy when the unimplemented HTTP/2 connection orchestrator would otherwise
-    ///     be required.
+    ///     Builds an <see cref="SslServerAuthenticationOptions" /> for use when the proxy
+    ///     presents the per-host leaf certificate to the intercepted client. The supplied
+    ///     <paramref name="negotiatedUpstreamProtocol" /> is offered exclusively so the client
+    ///     negotiates the same protocol the upstream chose — keeping the MITM end-to-end on
+    ///     either HTTP/1.1 or HTTP/2.
     /// </summary>
     /// <param name="leafCertificate">The leaf certificate signed by the proxy CA.</param>
+    /// <param name="negotiatedUpstreamProtocol">
+    ///     The ALPN protocol the upstream selected; offered exclusively to the client side so
+    ///     the proxy negotiates the same protocol on both sides of the MITM.
+    /// </param>
     /// <returns>A populated <see cref="SslServerAuthenticationOptions" />.</returns>
-    public static SslServerAuthenticationOptions CreateServerTransportLayerSecurityOptions(X509Certificate2 leafCertificate)
+    public static SslServerAuthenticationOptions CreateServerTransportLayerSecurityOptions(X509Certificate2 leafCertificate, SslApplicationProtocol negotiatedUpstreamProtocol)
     {
+        List<SslApplicationProtocol> protocols;
+        if (negotiatedUpstreamProtocol.Protocol.IsEmpty)
+        {
+            List<SslApplicationProtocol> fallback =
+            [
+                SslApplicationProtocol.Http11,
+            ];
+            protocols = fallback;
+        }
+        else
+        {
+            List<SslApplicationProtocol> matched =
+            [
+                negotiatedUpstreamProtocol,
+            ];
+            protocols = matched;
+        }
+
         var options = new SslServerAuthenticationOptions
         {
-            ApplicationProtocols = [SslApplicationProtocol.Http11],
+            ApplicationProtocols = protocols,
             ClientCertificateRequired = false,
             ServerCertificate = leafCertificate,
         };

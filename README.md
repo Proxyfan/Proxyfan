@@ -72,6 +72,7 @@ network conditions, replay requests, and capture everything to disk.
 ### Advanced protocols
 
 - **WebSocket inspector** — direction-tagged message timeline, opcode + size, JSON / hex preview, direction + content-type filters
+- **HTTP/2 native orchestration** — when both ends negotiate `h2` via ALPN the proxy runs a frame-relay orchestrator that preserves HPACK end-to-end while parsing HEADERS, CONTINUATION, DATA, and RST_STREAM into the same inspector view as HTTP/1.1 flows. HTTP/1.1 fallback remains automatic for clients/servers that don't negotiate `h2`.
 - **gRPC, Server-Sent Events** — parsed and displayed alongside HTTP traffic
 - **Reverse proxy** — define routes (listen port → backend host:port + TLS mode) with periodic health probing
 
@@ -165,8 +166,7 @@ Detailed design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](
 
 ## Roadmap
 
-- **HTTP/2 native orchestration** — primitives (frames, HPACK, streams, flow control) are in place; the orchestrator is in progress. HTTPS-over-HTTP/2 currently downgrades to HTTP/1.1 via ALPN (matches Charles / Fiddler default) so traffic IS still captured and decoded.
-- **gRPC over HTTP/2** — depends on the HTTP/2 orchestrator.
+- **gRPC over HTTP/2** — gRPC messages encoded in DATA frames are already inspected via the HTTP/2 orchestrator's body capture; first-class gRPC inspector tab + proto file import is on the v2.x roadmap.
 - **MSIX / MSI installers** — currently only the portable ZIP is built; tracked in [E12-F01](docs/BACKLOG.md).
 
 ## Roslyn analyzer rules
