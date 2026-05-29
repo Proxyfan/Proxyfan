@@ -45,4 +45,9 @@ public enum CliCommandKind
     ///     to a new HAR file.
     /// </summary>
     HarFilter,
+
+    /// <summary>
+    ///     The user requested aggregated statistics for a HAR file.
+    /// </summary>
+    HarStats,
 }

@@ -26,6 +26,8 @@ public static class CliHelpWriter
             --input <path>        to a new HAR file. Useful in CI/CD pipelines.
             --output <path>
             --pattern <glob>
+          har-stats <path>      Print aggregated statistics for a HAR file (status
+                                distribution, methods, body bytes, duration min/median/max)
           send --url <url>      Print a composed HTTP/1.1 request to stdout
             [--method M]
             [--header "K: V"]

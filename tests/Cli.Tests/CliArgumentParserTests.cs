@@ -266,4 +266,18 @@ public sealed class CliArgumentParserTests
         await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarFilter);
         await Assert.That(command.HarFilterOptions).IsNull();
     }
+
+    /// <summary>
+    ///     Verifies that "har-stats path/to/file.har" returns HarStats with the path.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarStatsWithPath_ReturnsHarStats()
+    {
+        var args = ParserTestArguments.Two("har-stats", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarStats);
+        await Assert.That(command.PathArgument).IsEqualTo("capture.har");
+    }
 }

@@ -63,6 +63,12 @@ public static class CliArgumentParser
             };
         }
 
+        if (string.Equals(command, "har-stats", StringComparison.OrdinalIgnoreCase))
+        {
+            var path = ExtractPath(args);
+            return new CliCommand(CliCommandKind.HarStats, DefaultPort, path);
+        }
+
         if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
         {
             var sendRequest = CliSendArgumentParser.Parse(args);

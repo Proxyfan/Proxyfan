@@ -79,6 +79,14 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 Write-Host '[1/2] Publishing Client.Desktop (win-x64, self-contained)...' -ForegroundColor Yellow
 
 $DesktopProject = Join-Path $RepositoryRoot 'src\Clients\Client.Desktop\Client.Desktop.csproj'
+
+# Clean obj caches to prevent cross-configuration state leaking from a prior Debug build
+# (Avalonia.Diagnostics is conditionally referenced and its presence in obj cache can
+# cause Debug builds to fail after a Release publish until obj is wiped).
+Get-ChildItem -Path (Join-Path $RepositoryRoot 'src') -Directory -Recurse |
+    Where-Object { $_.Name -eq 'obj' } |
+    ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+
 & dotnet publish $DesktopProject `
     --configuration $Configuration `
     --runtime win-x64 `
