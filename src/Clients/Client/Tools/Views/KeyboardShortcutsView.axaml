@@ -1,0 +1,51 @@
+<UserControl x:Class="Proxyfan.Client.Tools.Views.KeyboardShortcutsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:KeyboardShortcutsViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:KeyboardShortcutsViewModel}"
+             x:DataType="viewModels:KeyboardShortcutsViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="*,Auto,Auto">
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_KeyboardShortcuts_List_Automation}"
+                     ItemsSource="{Binding Bindings}"
+                     SelectedItem="{Binding SelectedEntry, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:KeyboardShortcutEntryViewModel">
+                        <Grid ColumnDefinitions="*,Auto" Margin="4">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding ActionLabel}"
+                                       VerticalAlignment="Center" />
+                            <Border Grid.Column="1"
+                                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                    BorderThickness="1"
+                                    Padding="6,2">
+                                <TextBlock FontFamily="Consolas"
+                                           Text="{Binding GestureText}"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+        <TextBlock Grid.Row="1"
+                   Margin="0,8,0,0"
+                   Text="{Binding StatusMessage}" />
+        <StackPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal" Spacing="8">
+            <Button Command="{Binding ResetCommand}"
+                    Content="{localization:Localize Key=Tools_KeyboardShortcuts_Reset}"
+                    Padding="12,4" />
+            <Button Command="{Binding SaveCommand}"
+                    Content="{localization:Localize Key=Tools_KeyboardShortcuts_Save}"
+                    Padding="12,4" />
+        </StackPanel>
+    </Grid>
+</UserControl>

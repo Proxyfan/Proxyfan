@@ -152,4 +152,59 @@ public sealed class ShortcutRegistryTests
 
         await Assert.That(registry.GetGesture(ShortcutAction.ToggleCapture)).IsEqualTo(existing);
     }
+
+    /// <summary>
+    ///     Verifies the seeded-bindings constructor overlays the supplied entries on top of
+    ///     the defaults.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithSeededBindings_OverlaysSuppliedEntries()
+    {
+        var custom = new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Alt };
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>
+        {
+            [ShortcutAction.Find] = custom,
+        };
+
+        var registry = new ShortcutRegistry(seed);
+
+        await Assert.That(registry.GetGesture(ShortcutAction.Find)).IsEqualTo(custom);
+    }
+
+    /// <summary>
+    ///     Verifies the seeded-bindings constructor preserves defaults for entries that the
+    ///     persisted file did not contain.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithSeededBindings_PreservesUnseededDefaults()
+    {
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>
+        {
+            [ShortcutAction.Find] = new() { Key = "Q", Modifiers = KeyboardModifier.Alt },
+        };
+
+        var registry = new ShortcutRegistry(seed);
+
+        var clearTraffic = registry.GetGesture(ShortcutAction.ClearTraffic);
+        await Assert.That(clearTraffic).IsNotNull();
+        await Assert.That(clearTraffic!.Key).IsEqualTo("K");
+        await Assert.That(clearTraffic.Modifiers).IsEqualTo(KeyboardModifier.Control);
+    }
+
+    /// <summary>
+    ///     Verifies the seeded-bindings constructor with an empty dictionary yields the full
+    ///     default binding set.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithEmptySeed_YieldsAllDefaults()
+    {
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>();
+
+        var registry = new ShortcutRegistry(seed);
+
+        foreach (var action in Enum.GetValues<ShortcutAction>())
+        {
+            await Assert.That(registry.GetGesture(action)).IsNotNull();
+        }
+    }
 }

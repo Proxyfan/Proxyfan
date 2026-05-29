@@ -25,6 +25,23 @@ public sealed class ShortcutRegistry
     }
 
     /// <summary>
+    ///     Initializes a new <see cref="ShortcutRegistry" /> seeded with the supplied bindings
+    ///     (typically loaded from <see cref="IShortcutBindingsStore" />). Missing entries fall
+    ///     back to the default binding for each action so that newly introduced shortcuts get a
+    ///     sensible default even when older persisted files do not contain them.
+    /// </summary>
+    /// <param name="initialBindings">The seed bindings, typically loaded from persistence.</param>
+    public ShortcutRegistry(IReadOnlyDictionary<ShortcutAction, KeyboardGesture> initialBindings)
+    {
+        _bindings = DefaultShortcutBindings.Build();
+
+        foreach (var entry in initialBindings)
+        {
+            _bindings[entry.Key] = entry.Value;
+        }
+    }
+
+    /// <summary>
     ///     Returns the action bound to the supplied gesture, or null when no binding exists.
     /// </summary>
     /// <param name="gesture">The gesture to look up.</param>
