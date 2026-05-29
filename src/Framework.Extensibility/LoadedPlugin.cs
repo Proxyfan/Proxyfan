@@ -30,17 +30,26 @@ public sealed class LoadedPlugin
     public PluginMetadata Metadata { get; }
 
     /// <summary>
+    ///     Gets the absolute path of the plugin's source directory on disk, or null when
+    ///     the entry did not originate from a discovered directory (e.g. tests, in-process
+    ///     loads).
+    /// </summary>
+    public string? SourceDirectory { get; }
+
+    /// <summary>
     ///     Initializes a new <see cref="LoadedPlugin" />.
     /// </summary>
     /// <param name="metadata">The plugin metadata.</param>
     /// <param name="instance">The instance, or null when load failed.</param>
     /// <param name="isLoaded">Whether the load succeeded.</param>
     /// <param name="errorMessage">The error message, or null on success.</param>
-    public LoadedPlugin(PluginMetadata metadata, IProxyfanPlugin? instance, bool isLoaded, string? errorMessage)
+    /// <param name="sourceDirectory">The plugin's source directory on disk, or null.</param>
+    public LoadedPlugin(PluginMetadata metadata, IProxyfanPlugin? instance, bool isLoaded, string? errorMessage, string? sourceDirectory)
     {
         Metadata = metadata;
         Instance = instance;
         IsLoaded = isLoaded;
         ErrorMessage = errorMessage;
+        SourceDirectory = sourceDirectory;
     }
 }

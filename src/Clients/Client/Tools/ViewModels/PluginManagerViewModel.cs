@@ -1,20 +1,51 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Framework.Extensibility;
+using Proxyfan.Plugin.Abstractions;
+using System;
 using System.Collections.ObjectModel;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
 ///     View model for the Plugin Manager tool window. Exposes the list of loaded plugins
-///     surfaced by <see cref="PluginRegistry" /> and provides a refresh command for
-///     re-reading the registry snapshot.
+///     surfaced by <see cref="PluginRegistry" />, drives <see cref="PluginActivationService" />
+///     for reload flows, surfaces remote update availability via <see cref="IPluginUpdateFeed" />,
+///     and tracks plugins-directory changes via <see cref="IPluginDirectoryWatcher" /> so
+///     that hot-added plugin folders are detected without manual refresh. Whether any user
+///     action requires a process restart for the change to fully take effect (assembly load
+///     contexts are sticky) is tracked via <see cref="IsRestartRequired" />.
 /// </summary>
-public sealed partial class PluginManagerViewModel : ObservableObject
+public sealed partial class PluginManagerViewModel : ObservableObject, IDisposable
 {
+    private readonly PluginActivationService _activationService;
+    private readonly IPluginDirectoryWatcher _directoryWatcher;
+    private readonly IPluginEnabledStateStore _enabledStateStore;
+    private readonly IPluginFolderOpener _folderOpener;
+    private readonly IPluginHost _pluginHost;
     private readonly PluginRegistry _registry;
+    private readonly IPluginUpdateFeed _updateFeed;
+    [ObservableProperty]
+    private bool _isAnyUpdateAvailable;
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+    private bool _isDisposed;
+    [ObservableProperty]
+    private bool _isRestartRequired;
+    [ObservableProperty]
+    private bool _isUpdateCheckFailed;
     [ObservableProperty]
     private string _summary;
+    [ObservableProperty]
+    private string _updateCheckStatus;
+
+    /// <summary>
+    ///     Gets the observable collection of available plugin updates surfaced by the most
+    ///     recent <see cref="CheckForUpdatesCommand" /> invocation.
+    /// </summary>
+    public ObservableCollection<PluginUpdateAvailabilityViewModel> AvailableUpdates { get; }
 
     /// <summary>
     ///     Gets the observable collection of plugin rows currently displayed.
@@ -23,14 +54,107 @@ public sealed partial class PluginManagerViewModel : ObservableObject
 
     /// <summary>
     ///     Initializes a new <see cref="PluginManagerViewModel" /> bound to the supplied
-    ///     plugin registry.
+    ///     plugin registry, enabled-state store, folder opener, activation service, update
+    ///     feed, plugin host, and directory watcher.
     /// </summary>
     /// <param name="registry">The plugin registry to expose.</param>
-    public PluginManagerViewModel(PluginRegistry registry)
+    /// <param name="enabledStateStore">The store used by rows to read + persist the user's enable choice.</param>
+    /// <param name="folderOpener">The folder opener used by rows for Open Folder commands.</param>
+    /// <param name="activationService">The activation service used by the Reload command.</param>
+    /// <param name="updateFeed">The remote update feed consulted by Check for Updates.</param>
+    /// <param name="pluginHost">The plugin host (used for API version compatibility checks against advertised updates).</param>
+    /// <param name="directoryWatcher">The plugin directory watcher that fires when subdirectories are added/removed.</param>
+    public PluginManagerViewModel(
+        PluginRegistry registry,
+        IPluginEnabledStateStore enabledStateStore,
+        IPluginFolderOpener folderOpener,
+        PluginActivationService activationService,
+        IPluginUpdateFeed updateFeed,
+        IPluginHost pluginHost,
+        IPluginDirectoryWatcher directoryWatcher)
     {
         _registry = registry;
+        _enabledStateStore = enabledStateStore;
+        _folderOpener = folderOpener;
+        _activationService = activationService;
+        _updateFeed = updateFeed;
+        _pluginHost = pluginHost;
+        _directoryWatcher = directoryWatcher;
         _summary = string.Empty;
+        _updateCheckStatus = string.Empty;
+        _isRestartRequired = false;
+        _isCheckingForUpdates = false;
+        _isUpdateCheckFailed = false;
         Plugins = [];
+        AvailableUpdates = [];
+        RefreshSnapshot();
+        _directoryWatcher.PluginsDirectoryChanged += OnDirectoryChanged;
+        _directoryWatcher.Start();
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        _directoryWatcher.PluginsDirectoryChanged -= OnDirectoryChanged;
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync(CancellationToken cancellationToken)
+    {
+        IsCheckingForUpdates = true;
+        IsUpdateCheckFailed = false;
+        UpdateCheckStatus = "Checking for updates…";
+        try
+        {
+            var manifest = await _updateFeed.FetchAsync(cancellationToken).ConfigureAwait(true);
+            if (manifest is null)
+            {
+                IsUpdateCheckFailed = true;
+                UpdateCheckStatus = "Update check failed or feed not configured.";
+                AvailableUpdates.Clear();
+                IsAnyUpdateAvailable = false;
+                return;
+            }
+
+            var availabilities = PluginUpdateAvailabilityResolver.Resolve(_registry, manifest, _pluginHost.ApiVersion);
+            AvailableUpdates.Clear();
+            foreach (var availability in availabilities)
+            {
+                var availabilityViewModel = new PluginUpdateAvailabilityViewModel(availability);
+                AvailableUpdates.Add(availabilityViewModel);
+            }
+
+            IsAnyUpdateAvailable = AvailableUpdates.Count > 0;
+            if (AvailableUpdates.Count == 0)
+            {
+                UpdateCheckStatus = "All plugins are up to date.";
+            }
+            else
+            {
+                UpdateCheckStatus = $"{AvailableUpdates.Count} update(s) available.";
+            }
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    private void OnDirectoryChanged()
+    {
+        IsRestartRequired = true;
+        UpdateCheckStatus = "Plugins folder changed — reload to pick up changes.";
+    }
+
+    private void OnPluginStateChanged()
+    {
+        IsRestartRequired = true;
         RefreshSnapshot();
     }
 
@@ -47,7 +171,7 @@ public sealed partial class PluginManagerViewModel : ObservableObject
         var failedCount = 0;
         foreach (var plugin in _registry.Plugins)
         {
-            var viewModel = new PluginItemViewModel(plugin);
+            var viewModel = new PluginItemViewModel(plugin, _enabledStateStore, _folderOpener, OnPluginStateChanged);
             Plugins.Add(viewModel);
             totalCount++;
             if (!plugin.IsLoaded)
@@ -58,5 +182,13 @@ public sealed partial class PluginManagerViewModel : ObservableObject
 
         var loadedCount = totalCount - failedCount;
         Summary = $"{totalCount} plugin(s) registered — {loadedCount} loaded, {failedCount} failed.";
+    }
+
+    [RelayCommand]
+    private void Reload()
+    {
+        _activationService.Reload();
+        IsRestartRequired = true;
+        RefreshSnapshot();
     }
 }

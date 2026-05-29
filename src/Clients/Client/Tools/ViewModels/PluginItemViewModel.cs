@@ -1,14 +1,25 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Framework.Extensibility;
+using System;
+using System.IO;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
-///     View model for a single loaded plugin row in the Plugin Manager, exposing the plugin's
-///     metadata and load status as bindable strings.
+///     View model for a single plugin row in the Plugin Manager. Exposes the plugin's
+///     metadata and load status as bindable strings, surfaces the user-controlled
+///     enabled state with persistence through <see cref="IPluginEnabledStateStore" />,
+///     and offers Open Folder + Remove commands for managing the plugin on disk.
 /// </summary>
 public sealed partial class PluginItemViewModel : ObservableObject
 {
+    private readonly IPluginEnabledStateStore _enabledStateStore;
+    private readonly IPluginFolderOpener _folderOpener;
+    private readonly PluginStateChangedCallback _onStateChanged;
+    [ObservableProperty]
+    private bool _isEnabled;
+
     /// <summary>
     ///     Gets the API version reported by the plugin.
     /// </summary>
@@ -35,6 +46,13 @@ public sealed partial class PluginItemViewModel : ObservableObject
     public string Identifier { get; }
 
     /// <summary>
+    ///     Gets a value indicating whether <see cref="OpenFolderCommand" /> can be invoked —
+    ///     true when the plugin has an associated source directory that still exists on
+    ///     disk, otherwise false.
+    /// </summary>
+    public bool IsFolderAvailable => SourceDirectory is not null && Directory.Exists(SourceDirectory);
+
+    /// <summary>
     ///     Gets a value indicating whether the plugin loaded successfully.
     /// </summary>
     public bool IsLoaded { get; }
@@ -45,7 +63,13 @@ public sealed partial class PluginItemViewModel : ObservableObject
     public string Name { get; }
 
     /// <summary>
-    ///     Gets a human-friendly status label ("Loaded" or "Failed").
+    ///     Gets the absolute path of the plugin's source directory on disk, or null when
+    ///     the entry did not originate from a discovered directory.
+    /// </summary>
+    public string? SourceDirectory { get; }
+
+    /// <summary>
+    ///     Gets a human-friendly status label ("Loaded", "Failed", or "Disabled").
     /// </summary>
     public string Status { get; }
 
@@ -55,11 +79,22 @@ public sealed partial class PluginItemViewModel : ObservableObject
     public string Version { get; }
 
     /// <summary>
-    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied loaded plugin.
+    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied loaded
+    ///     plugin.
     /// </summary>
     /// <param name="plugin">The loaded plugin to expose.</param>
-    public PluginItemViewModel(LoadedPlugin plugin)
+    /// <param name="enabledStateStore">The store used to read + persist the user's enable choice.</param>
+    /// <param name="folderOpener">The folder opener invoked by the Open Folder command.</param>
+    /// <param name="onStateChanged">Callback fired whenever the user toggles the enabled state or removes the plugin; the parent view model uses this to mark a restart as required and to refresh the snapshot.</param>
+    public PluginItemViewModel(
+        LoadedPlugin plugin,
+        IPluginEnabledStateStore enabledStateStore,
+        IPluginFolderOpener folderOpener,
+        PluginStateChangedCallback onStateChanged)
     {
+        _enabledStateStore = enabledStateStore;
+        _folderOpener = folderOpener;
+        _onStateChanged = onStateChanged;
         Identifier = plugin.Metadata.Id;
         Name = plugin.Metadata.Name;
         Version = plugin.Metadata.Version;
@@ -68,6 +103,7 @@ public sealed partial class PluginItemViewModel : ObservableObject
         ApiVersion = plugin.Metadata.ApiVersion;
         IsLoaded = plugin.IsLoaded;
         ErrorMessage = plugin.ErrorMessage;
+        SourceDirectory = plugin.SourceDirectory;
         if (plugin.IsLoaded)
         {
             Status = "Loaded";
@@ -76,5 +112,44 @@ public sealed partial class PluginItemViewModel : ObservableObject
         {
             Status = "Failed";
         }
+
+        var disabled = enabledStateStore.GetDisabledIdentifiers();
+        _isEnabled = !disabled.Contains(Identifier);
+    }
+
+    partial void OnIsEnabledChanged(bool value)
+    {
+        _enabledStateStore.SetEnabled(Identifier, value);
+        _onStateChanged();
+    }
+
+    [RelayCommand]
+    private void OpenFolder()
+    {
+        if (SourceDirectory is null)
+        {
+            return;
+        }
+
+        _folderOpener.Open(SourceDirectory);
+    }
+
+    [RelayCommand]
+    private void Remove()
+    {
+        _enabledStateStore.SetEnabled(Identifier, false);
+        if (SourceDirectory is not null)
+        {
+            try
+            {
+                Directory.Delete(SourceDirectory, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                _ = ex;
+            }
+        }
+
+        _onStateChanged();
     }
 }

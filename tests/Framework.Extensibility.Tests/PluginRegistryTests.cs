@@ -31,7 +31,7 @@ public sealed class PluginRegistryTests
         var host = new RecordingPluginHost("1.0");
         var plugin = new StubPlugin("1.0", () => host.RegisterInspectorTab("Stub"));
 
-        var loaded = registry.TryInitialize(plugin, host);
+        var loaded = registry.TryInitialize(plugin, host, null);
 
         await Assert.That(loaded.IsLoaded).IsTrue();
         await Assert.That(loaded.Instance).IsSameReferenceAs(plugin);
@@ -50,7 +50,7 @@ public sealed class PluginRegistryTests
         var host = new RecordingPluginHost("1.0");
         var plugin = new StubPlugin("2.0", () => host.RegisterInspectorTab("ShouldNotRun"));
 
-        var loaded = registry.TryInitialize(plugin, host);
+        var loaded = registry.TryInitialize(plugin, host, null);
 
         await Assert.That(loaded.IsLoaded).IsFalse();
         await Assert.That(loaded.Instance).IsNull();
@@ -68,7 +68,7 @@ public sealed class PluginRegistryTests
         var host = new RecordingPluginHost("1.0");
         var plugin = new StubPlugin("1.0", () => throw new InvalidOperationException("boom"));
 
-        var loaded = registry.TryInitialize(plugin, host);
+        var loaded = registry.TryInitialize(plugin, host, null);
 
         await Assert.That(loaded.IsLoaded).IsFalse();
         await Assert.That(loaded.ErrorMessage).IsEqualTo("boom");
