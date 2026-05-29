@@ -1,99 +1,197 @@
 # Proxyfan
 
-HTTP debugging proxy for inspecting, capturing, and modifying network traffic in real time on **Windows**.
+> **An open-source HTTP debugging proxy for Windows — a free alternative to Charles, Fiddler, and Burp Suite.**
 
-> **Platform:** Proxyfan targets **Windows 10 and later** exclusively. The architecture supports
-> future cross-platform expansion, but macOS and Linux are not on the current roadmap.
+[![CI](https://github.com/Proxyfan/Proxyfan/actions/workflows/ci.yml/badge.svg)](https://github.com/Proxyfan/Proxyfan/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dot.net)
 
-> **Development Status:** Proxyfan is currently under development.
+Proxyfan sits between your applications and the internet so you can see every HTTP and
+HTTPS request, inspect headers and bodies, modify traffic on the fly, simulate poor
+network conditions, replay requests, and capture everything to disk.
 
-## Overview
+> **Platform:** Proxyfan currently targets **Windows 10 and later**. The architecture
+> supports future cross-platform expansion via Avalonia; macOS and Linux are not yet on
+> the roadmap.
+>
+> **Status:** Active development. Most features below are complete and ship-ready; the
+> remaining items are listed under [Roadmap](#roadmap).
 
-Proxyfan is a desktop application for built with .NET. It sits between your applications and the internet, allowing you to see every HTTP and HTTPS request, inspect headers and bodies, modify traffic on the fly, and simulate network conditions.
+## Why Proxyfan?
 
-## Key Features
+| Capability | Proxyfan | Charles | Fiddler Classic | mitmproxy |
+| --- | :---: | :---: | :---: | :---: |
+| Cost | Free, MIT | Paid | Free* | Free, MIT |
+| Open source | ✅ | ❌ | ❌ | ✅ |
+| Native Windows UI | ✅ | ✅ (Java) | ✅ | ❌ (CLI/web) |
+| HTTPS interception (per-host opt-in) | ✅ | ✅ | ✅ | ✅ |
+| WebSocket inspector | ✅ | ✅ | ❌ | ✅ |
+| C# scripting (Roslyn) | ✅ | ❌ | ✅ (FiddlerScript) | Python |
+| Request composer + history | ✅ | ✅ | ✅ | ❌ |
+| Map Local / Map Remote | ✅ | ✅ | ✅ | ❌ |
+| Breakpoints (request + response) | ✅ | ✅ | ✅ | ✅ |
+| Network throttling presets | ✅ | ✅ | ❌ | ❌ |
+| Reverse proxy (port-based routing) | ✅ | ❌ | ❌ | ✅ |
+| Plugin system (isolated ALC) | ✅ | ❌ | ❌ | ❌ |
+| DNS spoofing | ✅ | ❌ | ❌ | ✅ |
+| Auto-update | ✅ | ✅ | ✅ | ❌ |
+| Telemetry-free, privacy-first | ✅ | ❌ | ❌ | ✅ |
+| HAR 1.2 import / export | ✅ | ✅ | ✅ | ✅ |
+| CLI for CI/CD | ✅ | ❌ | ❌ | ✅ |
 
-- **Traffic Capture** — Intercept HTTP/1.1 and HTTPS traffic with automatic system proxy registration
-- **HTTPS Decryption** — Man-in-the-middle TLS interception with per-domain control via the SSL Proxying List
-- **Traffic Inspection** — Headers, body (JSON, XML, HTML, images, hex), raw view, and timing breakdown
-- **Traffic Filtering** — Real-time filter bar with support for status codes, content types, methods, and text search
-- **Map Local** — Serve responses from local files instead of the remote server
-- **Map Remote** — Rewrite request URLs to redirect traffic to a different server
-- **Breakpoints** — Pause requests and responses mid-flight to inspect and edit before forwarding
-- **Scripting (C#)** — Write C# scripts with full Roslyn support to programmatically modify traffic
-- **Block / Allow Lists** — Control which domains are captured or blocked
-- **Network Throttling** — Simulate slow networks (3G, LTE, Satellite, etc.) with bandwidth limits and latency injection
-- **Session Management** — Save and load sessions in HAR 1.2 format
-- **Internationalization** — All user-visible text externalized to resource files for localization
-- **WebSocket, gRPC, SSE** — Inspect advanced protocol traffic (planned for v2.0)
-- **CLI Mode** — Headless proxy for CI/CD and automation (planned for v2.0)
+\* Fiddler Classic is freeware but closed source.
 
-## Architecture
+## Features
 
-Proxyfan follows a **modular monolith** architecture with domain-driven design boundaries:
+### Traffic capture & inspection
 
-- **Domain Layer** — Core business logic organized into bounded contexts (Proxy, Traffic, Rules, Scripting, Certificates, Session, Configuration)
-- **Framework Layer** — Infrastructure concerns (Networking, Serialization, Platform abstraction)
-- **Presentation Layer** — MVVM-based UI with Avalonia and CommunityToolkit.Mvvm
-- **Client Layer** — Application hosting and dependency injection
+- **System proxy registration** — one click to start intercepting all Windows HTTP traffic
+- **HTTPS decryption** — MITM TLS interception with per-domain control via the SSL Proxying List
+- **Inspector tabs** — Headers, Body, Query, GraphQL, Cookies, Authorization, Raw, Summary, Timing waterfall
+- **Body decoders** — JSON pretty-print, XML, HTML, images (preview), Protobuf, MessagePack, form-encoded, hex dump
+- **Real-time filter bar** — instant text + status code + method + content-type filtering with `Ctrl+F`
+- **Color tags + comments** — annotate flows for easy navigation
+- **Custom columns** — add header-key columns derived from request or response
+- **Source grouping** — left-pane source list groups flows by host
 
-## Getting Started
+### Traffic modification
 
-### Prerequisites
+- **Map Local** — serve canned local responses (with status, headers, body) for any URL pattern
+- **Map Remote** — rewrite request URLs to redirect traffic to a different scheme/host/port/path
+- **Breakpoints** — pause request and response phases mid-flight for live editing
+- **Block / Allow Lists** — wildcard / exact / regex matching, short-circuits the pipeline
+- **No-Caching rule** — strip cache headers from requests and responses (`Ctrl+Shift+N`)
+- **C# scripting (Roslyn)** — write `OnRequest` and `OnResponse` handlers with full BCL access; sandboxed in an isolated `AssemblyLoadContext` with memory + timeout limits
 
-- [.NET 10 SDK](https://dot.net/download) (version 10.0.104)
-- Windows 10 or later
-- PowerShell 7 (`pwsh`)
+### Network simulation
 
-### First-Time Setup
+- **Throttle profiles** — built-in 2G, 3G, 4G, WiFi, Slow / Bad Network, 100% Loss presets
+- **Per-direction bandwidth + latency + packet loss** — enforced per-connection
+- **DNS spoofing** — override hostname → IP mappings without editing the system hosts file
+
+### Advanced protocols
+
+- **WebSocket inspector** — direction-tagged message timeline, opcode + size, JSON / hex preview, direction + content-type filters
+- **gRPC, Server-Sent Events** — parsed and displayed alongside HTTP traffic
+- **Reverse proxy** — define routes (listen port → backend host:port + TLS mode) with periodic health probing
+
+### Productivity
+
+- **Request Composer** — build, send, and re-send ad-hoc HTTP requests with history, search, star
+- **Diff Tool** — compare two captured flows side-by-side (request body / response body / headers)
+- **Repeat selected** — replay any captured request 1× or 10×
+- **Export to cURL** — copy any request as a cURL command line
+- **Session save / load** — HAR 1.2 format (interoperates with Charles, Chrome DevTools, etc.)
+- **Configurable keyboard shortcuts** — every action rebindable with conflict detection; persisted to `%LOCALAPPDATA%\Proxyfan\shortcuts.json`
+
+### Operations
+
+- **Plugin system** — drop-in C# plugins loaded into isolated `AssemblyLoadContext` instances with hot reload, marketplace update checks, enable/disable per plugin
+- **Auto-update** — periodic GitHub Releases poll, in-app banner with version + changelog
+- **Configuration migration** — older `config.yaml` files are migrated forward at startup with backups
+- **Internationalization** — all user-visible text in `.resx`; locale follows Windows by default
+- **Themes** — Light, Dark, follow-System with runtime switching
+- **Accessibility** — `AutomationProperties.Name` on every interactive control; screen-reader friendly
+- **Privacy by default** — no telemetry, no external calls except user traffic and the update check; bodies never logged
+
+### Headless / CLI mode
+
+- `proxyfan-cli har-summary <file>` — human-readable summary of a HAR capture
+- `proxyfan-cli har-to-curl <file>` — emit a cURL command per captured request
+- `proxyfan-cli har-filter --input <in> --output <out> --pattern <glob>` — CI/CD slicing
+- `proxyfan-cli send --method POST --url ... --header "Accept: application/json" --body "..."` — one-off HTTP request
+- `proxyfan-cli help` — full command list
+
+## Install
+
+### Portable ZIP (recommended for trying out Proxyfan)
+
+1. Download the latest `Proxyfan-portable-<version>-win-x64.zip` from
+   [Releases](https://github.com/Proxyfan/Proxyfan/releases).
+2. Extract anywhere.
+3. Run `Client.Desktop.exe`.
+
+The portable build is fully self-contained — no .NET runtime install required.
+
+> Installer (MSI / MSIX) flows are tracked as follow-up work in [docs/BACKLOG.md](docs/BACKLOG.md).
+
+### Build from source
 
 ```powershell
+# First-time setup (installs workloads, restores packages)
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-Repository.ps1
-```
 
-This installs required workloads, restores packages, and builds the solution.
-
-### Build
-
-```powershell
-# Standard Debug build
+# Standard Debug build (regenerates docs/api/)
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1
 
-# Build and run tests
+# Build + tests
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -RunTests
 
-# Incremental build (skip package restore)
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -SkipRestore
-```
+# Portable ZIP build
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Build-Installer.ps1 -Version 1.0.0
 
-### Test
-
-```powershell
-# Full test suite
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Run-Tests.ps1
-
-# Tests only (skip rebuild)
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Run-Tests.ps1 -NoBuild
-```
-
-### Run
-
-```powershell
+# Run
 dotnet run --project src/Clients/Client.Desktop
 ```
 
-## Technology Stack
+## Architecture
 
-| Technology | Purpose |
-|------------|---------|
-| .NET 10 / C# 13 | Runtime and language |
-| Avalonia 11.3 | Cross-platform UI framework |
-| CommunityToolkit.Mvvm 8.4 | MVVM source generators |
-| System.IO.Pipelines | High-performance proxy I/O |
-| TUnit 1.12 | Testing framework |
-| ArchUnitNET 0.13 | Architecture conformance tests |
-| SonarAnalyzer.CSharp | Static analysis (enforced as errors) |
+Proxyfan follows a **modular monolith** architecture with **domain-driven design**
+boundaries and **vertical slice** feature organization.
+
+- **Domain Layer** — Core business logic organized into bounded contexts (Proxy, Traffic, Rules, Scripting, Certificates, Session, Configuration, Updates, RemoteDevices, DomainNameSystemSpoofing, Throttling)
+- **Framework Layer** — Infrastructure concerns (Networking — raw sockets + `System.IO.Pipelines`; Serialization — HAR/JSON/Protobuf/MessagePack; Platform — Windows certificate store, system proxy registration, registry; Extensibility — plugin loader)
+- **Presentation Layer** — Avalonia + CommunityToolkit.Mvvm + shortcuts + theming + localization
+- **Client Layer** — Application hosting, dependency injection, tool window opener
+
+Detailed design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](docs/DESIGN.md), [docs/BACKLOG.md](docs/BACKLOG.md).
+
+## Performance
+
+| Metric | Target |
+| --- | --- |
+| Proxy startup | < 1 second |
+| Request latency overhead | < 1 ms (excluding rules / throttling) |
+| Concurrent connections | 10,000+ |
+| Requests per minute | 50,000+ |
+| Traffic list scrolling | 100,000+ flows smooth |
+| Memory (idle / 10K flows) | < 100 MB / < 500 MB |
+
+## Privacy
+
+- **No telemetry.** Proxyfan never phones home.
+- **No external calls.** The only outbound traffic is user-captured traffic (forwarded to its real destination) and the periodic GitHub Releases poll for updates.
+- **Bodies never logged.** Headers are logged only at Trace level. `Authorization`, `Cookie`, and `Set-Cookie` are redacted by default.
+
+## Roadmap
+
+- **HTTP/2 native orchestration** — primitives (frames, HPACK, streams, flow control) are in place; the orchestrator is in progress. HTTPS-over-HTTP/2 currently downgrades to HTTP/1.1 via ALPN (matches Charles / Fiddler default) so traffic IS still captured and decoded.
+- **gRPC over HTTP/2** — depends on the HTTP/2 orchestrator.
+- **MSIX / MSI installers** — currently only the portable ZIP is built; tracked in [E12-F01](docs/BACKLOG.md).
+- **Configuration migration startup integration** — migration pipeline is fully built and tested; the App.axaml.cs startup hook is the remaining wiring step.
+
+## Roslyn analyzer rules
+
+Proxyfan builds with `TreatWarningsAsErrors=true` and the following project-wide rules are enforced as errors:
+
+- All analyzer diagnostics (no `#pragma warning disable` in `src/` or `tests/`)
+- `IDE0022` — methods use block bodies (no `=>` arrow methods with parameters)
+- `IDE0045` / `IDE0046` — use `if/else` instead of ternary for assignments and returns
+- `S121` — all `if`/`else` branches use curly braces
+- Automaticks analyzers (alphabetical using order, no LINQ, naming, member ordering, etc.)
+
+## Test suite
+
+- **TUnit** with **Microsoft.Testing.Platform**; one test project per source project under `tests/`
+- **ArchUnitNET** for architecture conformance (dependency rules, naming, no circular dependencies)
+- **AppAccessibilityArchitectureTests** — scans every `.axaml` for unlabelled interactive controls
+- **Hand-written stubs** in `Stubs/` subdirectories — no mocking frameworks
+- Current coverage: **99.0% line**, **97.2% branch**, **99.6% method**
+
+## Contributing
+
+See [AGENTS.md](AGENTS.md) for the development environment rules and the architecture overview.
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[MIT](LICENSE).
