@@ -27,7 +27,17 @@ public static class GitHubReleasesUpdateFeed
         async Task<UpdateInfo?> Fetch(CancellationToken cancellationToken)
         {
             var url = $"https://api.github.com/repos/{owner}/{repository}/releases/latest";
-            var response = await hypertextTransferProtocolClient.GetFromJsonAsync<GitHubReleaseResponse>(url, cancellationToken).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.UserAgent.ParseAdd("Proxyfan/1.0 (+https://github.com/Proxyfan/Proxyfan)");
+            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+            using var hypertextTransferProtocolResponse = await hypertextTransferProtocolClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+            if (!hypertextTransferProtocolResponse.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var response = await hypertextTransferProtocolResponse.Content.ReadFromJsonAsync<GitHubReleaseResponse>(cancellationToken).ConfigureAwait(false);
 
             if (response is null)
             {

@@ -98,18 +98,60 @@ public sealed class GitHubReleasesUpdateFeedTests
         await Assert.That(info!.DownloadUrl).IsEqualTo(string.Empty);
     }
 
+    /// <summary>
+    ///     A non-success status code yields null without throwing.
+    /// </summary>
+    [Test]
+    public async Task Create_NonSuccessStatusCode_ReturnsNull()
+    {
+        using var handler = new StubHttpMessageHandler(string.Empty, HttpStatusCode.Forbidden);
+        using var client = new HttpClient(handler);
+        var feed = GitHubReleasesUpdateFeed.Create(client, "x", "y");
+
+        var info = await feed.Invoke(CancellationToken.None);
+
+        await Assert.That(info).IsNull();
+    }
+
+    /// <summary>
+    ///     Each request must carry a User-Agent header so the GitHub API does not reject it.
+    /// </summary>
+    [Test]
+    public async Task Create_AnyRequest_SendsUserAgentHeader()
+    {
+        var json = """{"tag_name":"v1.0.0"}""";
+        using var handler = new StubHttpMessageHandler(json);
+        using var client = new HttpClient(handler);
+        var feed = GitHubReleasesUpdateFeed.Create(client, "x", "y");
+
+        _ = await feed.Invoke(CancellationToken.None);
+
+        await Assert.That(handler.LastUserAgent).IsNotNull();
+        await Assert.That(handler.LastUserAgent!.Contains("Proxyfan")).IsTrue();
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly string _responseBody;
+        private readonly HttpStatusCode _statusCode;
 
         public StubHttpMessageHandler(string responseBody)
+            : this(responseBody, HttpStatusCode.OK)
+        {
+        }
+
+        public StubHttpMessageHandler(string responseBody, HttpStatusCode statusCode)
         {
             _responseBody = responseBody;
+            _statusCode = statusCode;
         }
+
+        public string? LastUserAgent { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var response = new HttpResponseMessage(HttpStatusCode.OK);
+            LastUserAgent = request.Headers.UserAgent.ToString();
+            var response = new HttpResponseMessage(_statusCode);
             response.Content = new StringContent(_responseBody, Encoding.UTF8, "application/json");
             return Task.FromResult(response);
         }
