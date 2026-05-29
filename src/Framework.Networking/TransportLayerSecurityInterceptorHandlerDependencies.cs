@@ -4,6 +4,7 @@ using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using System;
 
@@ -44,6 +45,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     public required ILogger<TransportLayerSecurityInterceptorHandler> Logger { get; init; }
 
     /// <summary>
+    ///     Gets the optional packet-loss sampler used to drop intercepted request/response
+    ///     exchanges when network simulation calls for it. When <see langword="null" />, a
+    ///     default <see cref="Random" />-backed sampler is used.
+    /// </summary>
+    public PacketLossSampler? PacketLossSampler { get; init; }
+
+    /// <summary>
     ///     Gets the optional rule engine used to evaluate request- and response-phase rules
     ///     for intercepted (decrypted) traffic.
     /// </summary>
@@ -61,6 +69,13 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     ///     responses are still relayed correctly but events are not retained for inspection.
     /// </summary>
     public IServerSentEventsStore? ServerSentEventsStore { get; init; }
+
+    /// <summary>
+    ///     Gets the optional throttle profile holder used to bandwidth-limit response writes
+    ///     for intercepted TLS streams. When <see langword="null" /> or when no profile is
+    ///     active, writes pass through unthrottled.
+    /// </summary>
+    public MutableThrottleProfile? ThrottleProfile { get; init; }
 
     /// <summary>
     ///     Gets the time provider used for WebSocket message timestamps. Defaults to

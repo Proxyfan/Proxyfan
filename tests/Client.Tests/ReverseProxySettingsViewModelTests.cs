@@ -443,4 +443,349 @@ public sealed class ReverseProxySettingsViewModelTests
         await Assert.That(viewModel.Routes.Count).IsEqualTo(1);
         await Assert.That(viewModel.Routes[0].Status).IsEqualTo(ReverseProxyRouteStatus.Healthy);
     }
+
+    /// <summary>
+    ///     The view model exposes TLS modes for the editor combo box and defaults to None.
+    /// </summary>
+    [Test]
+    public async Task TransportLayerSecurityMode_DefaultEditor_StartsAsNone()
+    {
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(
+            new ReverseProxyRouteRegistry(),
+            engine,
+            InlineUserInterfaceScheduler.Instance);
+
+        await Assert.That(viewModel.TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.None);
+        await Assert.That(viewModel.TransportLayerSecurityModes.Count).IsEqualTo(3);
+    }
+
+    /// <summary>
+    ///     Adding a route with the editor TLS mode set to Terminate persists the choice onto the route.
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_TerminateTls_RoutePersistsMode()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+            TransportLayerSecurityMode = ReverseProxyTransportLayerSecurityMode.Terminate,
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(registry.Routes.Count).IsEqualTo(1);
+        await Assert.That(registry.Routes[0].TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.Terminate);
+    }
+
+    /// <summary>
+    ///     Adding a route that collides with the forward proxy port surfaces the validation error.
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_PortConflictsWithForwardProxy_SetsValidationError()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var forwardProxyOptions = new StubOptionsMonitor<ProxyOptions>(new ProxyOptions { Port = 8080 });
+        var viewModel = new ReverseProxySettingsViewModel(
+            registry,
+            engine,
+            InlineUserInterfaceScheduler.Instance,
+            forwardProxyOptions)
+        {
+            RouteName = "Api",
+            ListenPort = "8080",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+        await Assert.That(viewModel.ValidationError).IsNotNull();
+    }
+
+    /// <summary>
+    ///     Adding a route with a duplicate listen port (registry rejection) populates ValidationError.
+    /// </summary>
+    [Test]
+    public async Task AddRouteCommand_RegistryRejectsDuplicate_SetsValidationError()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        _ = registry.CanAdd(new ReverseProxyRoute("pre", "Pre", 9100, "host", 80, ReverseProxyTransportLayerSecurityMode.None));
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Conflict",
+            ListenPort = "9100",
+            BackendHost = "other.host",
+            BackendPort = "80",
+        };
+
+        viewModel.AddRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.ValidationError).IsNotNull();
+    }
+
+    /// <summary>
+    ///     EditRouteCommand populates the editor fields from the selected route and switches to save mode.
+    /// </summary>
+    [Test]
+    public async Task EditRouteCommand_KnownRoute_PopulatesEditorAndEntersEditMode()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+            TransportLayerSecurityMode = ReverseProxyTransportLayerSecurityMode.Terminate,
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var existing = viewModel.Routes[0];
+
+        viewModel.EditRouteCommand.Execute(existing);
+
+        await Assert.That(viewModel.EditingIdentifier).IsEqualTo(existing.Identifier);
+        await Assert.That(viewModel.RouteName).IsEqualTo("Api");
+        await Assert.That(viewModel.ListenPort).IsEqualTo("9100");
+        await Assert.That(viewModel.BackendHost).IsEqualTo("api.example.com");
+        await Assert.That(viewModel.BackendPort).IsEqualTo("443");
+        await Assert.That(viewModel.TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.Terminate);
+    }
+
+    /// <summary>
+    ///     EditRouteCommand with a null argument is a no-op.
+    /// </summary>
+    [Test]
+    public async Task EditRouteCommand_NullArgument_DoesNothing()
+    {
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(new ReverseProxyRouteRegistry(), engine, InlineUserInterfaceScheduler.Instance);
+
+        viewModel.EditRouteCommand.Execute(null);
+
+        await Assert.That(viewModel.EditingIdentifier).IsNull();
+    }
+
+    /// <summary>
+    ///     SaveEditCommand applies edits in place and resets the editor.
+    /// </summary>
+    [Test]
+    public async Task SaveEditCommand_ChangedFields_UpdatesRouteAndResetsEditor()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var existing = viewModel.Routes[0];
+
+        viewModel.EditRouteCommand.Execute(existing);
+        viewModel.RouteName = "Api v2";
+        viewModel.BackendHost = "api.v2.example.com";
+        viewModel.SaveEditCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(1);
+        await Assert.That(viewModel.Routes[0].Name).IsEqualTo("Api v2");
+        await Assert.That(viewModel.Routes[0].Route.BackendHost).IsEqualTo("api.v2.example.com");
+        await Assert.That(viewModel.EditingIdentifier).IsNull();
+        await Assert.That(registry.Routes[0].Name).IsEqualTo("Api v2");
+    }
+
+    /// <summary>
+    ///     SaveEditCommand without a current edit is a no-op.
+    /// </summary>
+    [Test]
+    public async Task SaveEditCommand_NotEditing_DoesNothing()
+    {
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(new ReverseProxyRouteRegistry(), engine, InlineUserInterfaceScheduler.Instance);
+
+        viewModel.SaveEditCommand.Execute(null);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     SaveEditCommand sets ValidationError when the editor validation fails (e.g., empty name).
+    /// </summary>
+    [Test]
+    public async Task SaveEditCommand_InvalidEditor_SetsValidationError()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var existing = viewModel.Routes[0];
+        viewModel.EditRouteCommand.Execute(existing);
+
+        viewModel.RouteName = string.Empty;
+        viewModel.SaveEditCommand.Execute(null);
+
+        await Assert.That(viewModel.ValidationError).IsNotNull();
+        await Assert.That(viewModel.EditingIdentifier).IsEqualTo(existing.Identifier);
+    }
+
+    /// <summary>
+    ///     SaveEditCommand surfaces a validation error when the replacement port collides with another route.
+    /// </summary>
+    [Test]
+    public async Task SaveEditCommand_PortCollidesWithOtherRoute_SetsValidationError()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance);
+
+        viewModel.RouteName = "A";
+        viewModel.ListenPort = "9000";
+        viewModel.BackendHost = "host.a";
+        viewModel.BackendPort = "80";
+        viewModel.AddRouteCommand.Execute(null);
+
+        viewModel.RouteName = "B";
+        viewModel.ListenPort = "9001";
+        viewModel.BackendHost = "host.b";
+        viewModel.BackendPort = "80";
+        viewModel.AddRouteCommand.Execute(null);
+
+        var second = viewModel.Routes[1];
+        viewModel.EditRouteCommand.Execute(second);
+        viewModel.ListenPort = "9000";
+        viewModel.SaveEditCommand.Execute(null);
+
+        await Assert.That(viewModel.ValidationError).IsNotNull();
+        await Assert.That(registry.Routes[1].ListenPort).IsEqualTo(9001);
+    }
+
+    /// <summary>
+    ///     CancelEditCommand clears the editor and the editing identifier.
+    /// </summary>
+    [Test]
+    public async Task CancelEditCommand_DuringEdit_ResetsEditor()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        viewModel.EditRouteCommand.Execute(viewModel.Routes[0]);
+
+        viewModel.CancelEditCommand.Execute(null);
+
+        await Assert.That(viewModel.EditingIdentifier).IsNull();
+        await Assert.That(viewModel.RouteName).IsEqualTo(string.Empty);
+        await Assert.That(viewModel.BackendHost).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>
+    ///     The view model updates the route status when the engine raises StatusChanged for a known route.
+    /// </summary>
+    [Test]
+    public async Task EngineStatusChanged_KnownRoute_UpdatesStatusViaScheduler()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var added = viewModel.Routes[0];
+
+        engine.RaiseStatusChanged(added.Identifier, ReverseProxyRouteStatus.Unhealthy);
+
+        await Assert.That(added.Status).IsEqualTo(ReverseProxyRouteStatus.Unhealthy);
+    }
+
+    /// <summary>
+    ///     The view model ignores StatusChanged events for routes it does not know about.
+    /// </summary>
+    [Test]
+    public async Task EngineStatusChanged_UnknownRoute_IsIgnored()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance);
+
+        engine.RaiseStatusChanged("nope", ReverseProxyRouteStatus.Unhealthy);
+
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Disposing the view model unsubscribes from the engine so later events do not update routes.
+    /// </summary>
+    [Test]
+    public async Task Dispose_AfterStatusSubscription_UnsubscribesFromEngine()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var added = viewModel.Routes[0];
+        var statusBeforeDispose = added.Status;
+
+        viewModel.Dispose();
+        engine.RaiseStatusChanged(added.Identifier, ReverseProxyRouteStatus.Unhealthy);
+
+        await Assert.That(added.Status).IsEqualTo(statusBeforeDispose);
+    }
+
+    /// <summary>
+    ///     Removing the route currently under edit also clears the editor state.
+    /// </summary>
+    [Test]
+    public async Task RemoveRouteCommand_RouteUnderEdit_ResetsEditor()
+    {
+        var registry = new ReverseProxyRouteRegistry();
+        var engine = new StubReverseProxyEngine();
+        var viewModel = new ReverseProxySettingsViewModel(registry, engine, InlineUserInterfaceScheduler.Instance)
+        {
+            RouteName = "Api",
+            ListenPort = "9100",
+            BackendHost = "api.example.com",
+            BackendPort = "443",
+        };
+        viewModel.AddRouteCommand.Execute(null);
+        var added = viewModel.Routes[0];
+        viewModel.EditRouteCommand.Execute(added);
+
+        viewModel.RemoveRouteCommand.Execute(added);
+
+        await Assert.That(viewModel.EditingIdentifier).IsNull();
+        await Assert.That(viewModel.Routes.Count).IsEqualTo(0);
+    }
 }

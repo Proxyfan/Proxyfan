@@ -53,6 +53,13 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     public required ILogger<HypertextTransferProtocolProxyHandler> Logger { get; init; }
 
     /// <summary>
+    ///     Gets the optional packet-loss sampler used to drop entire request/response
+    ///     exchanges when network simulation calls for it. When <see langword="null" />,
+    ///     a default <see cref="Random" />-backed sampler is used.
+    /// </summary>
+    public PacketLossSampler? PacketLossSampler { get; init; }
+
+    /// <summary>
     ///     Gets the rule engine used to evaluate request- and response-phase rules.
     /// </summary>
     public required IRuleEngine RuleEngine { get; init; }

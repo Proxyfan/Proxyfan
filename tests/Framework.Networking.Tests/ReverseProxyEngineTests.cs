@@ -175,7 +175,8 @@ public sealed class ReverseProxyEngineTests
     {
         var factory = new StubLoggerFactory();
         var logger = new StubLogger<ReverseProxyEngine>();
-        return new ReverseProxyEngine(probe, factory, logger);
+        var engine = new ReverseProxyEngine(probe, factory, logger, hypertextTransferProtocolHandler: null);
+        return engine;
     }
 
     private static ReverseProxyRoute CreateRoute(string identifier, int listenPort)

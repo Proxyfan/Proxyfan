@@ -24,7 +24,7 @@ public sealed class ReverseProxyRouteListenerFactoryTests
             ReverseProxyTransportLayerSecurityMode.None);
         using var factory = new StubLoggerFactory();
 
-        using var listener = ReverseProxyRouteListenerFactory.Create(route, factory);
+        using var listener = ReverseProxyRouteListenerFactory.Create(route, factory, hypertextTransferProtocolHandler: null);
 
         await Assert.That(listener.GetRoute()).IsSameReferenceAs(route);
     }

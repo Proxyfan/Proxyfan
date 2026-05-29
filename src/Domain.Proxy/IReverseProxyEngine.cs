@@ -12,6 +12,12 @@ namespace Proxyfan.Domain.Proxy;
 public interface IReverseProxyEngine
 {
     /// <summary>
+    ///     Raised whenever the engine observes that a route's status has changed
+    ///     (start, stop, probe outcome, periodic health check).
+    /// </summary>
+    event ReverseProxyRouteStatusChanged? StatusChanged;
+
+    /// <summary>
     ///     Gets a snapshot of all routes the engine currently manages, with their statuses.
     /// </summary>
     /// <returns>The current set of route states.</returns>

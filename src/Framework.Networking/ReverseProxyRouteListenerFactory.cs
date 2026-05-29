@@ -14,10 +14,18 @@ public static class ReverseProxyRouteListenerFactory
     /// </summary>
     /// <param name="route">The route to listen for.</param>
     /// <param name="loggerFactory">The logger factory.</param>
+    /// <param name="hypertextTransferProtocolHandler">
+    ///     Optional HTTP capture handler. When non-null, HTTP-shaped traffic on
+    ///     non-TLS routes is fully captured and processed by the rule pipeline.
+    /// </param>
     /// <returns>A new listener instance.</returns>
-    public static ReverseProxyRouteListener Create(ReverseProxyRoute route, ILoggerFactory loggerFactory)
+    public static ReverseProxyRouteListener Create(
+        ReverseProxyRoute route,
+        ILoggerFactory loggerFactory,
+        ReverseProxyHypertextTransferProtocolHandler? hypertextTransferProtocolHandler)
     {
         var logger = loggerFactory.CreateLogger<ReverseProxyRouteListener>();
-        return new ReverseProxyRouteListener(route, logger);
+        var listener = new ReverseProxyRouteListener(route, logger, hypertextTransferProtocolHandler);
+        return listener;
     }
 }

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Domain.DomainNameSystemSpoofing;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Net;
 
 namespace Proxyfan.Client.Tools.ViewModels;
@@ -9,11 +10,15 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// <summary>
 ///     View model for the DNS Spoofing tool window. Manages the live
 ///     <see cref="DomainNameSystemOverrideMap" /> through an observable collection of
-///     entries and provides commands for adding and removing overrides.
+///     entries and provides commands for adding, removing, enabling and disabling
+///     overrides, plus a master active toggle. Match counts are surfaced on demand
+///     via <see cref="RefreshMatchCountsCommand" />.
 /// </summary>
 public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
 {
     private readonly DomainNameSystemOverrideMap _map;
+    [ObservableProperty]
+    private bool _isActive;
     [ObservableProperty]
     private string _newHostname;
     [ObservableProperty]
@@ -27,8 +32,37 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
     public ObservableCollection<DomainNameSystemSpoofingEntryViewModel> Entries { get; }
 
     /// <summary>
+    ///     Gets a status string suitable for display in the tool window header
+    ///     (e.g. <c>Active — spoofing 3 of 5 domains</c> or <c>Inactive</c>).
+    /// </summary>
+    public string StatusDisplay
+    {
+        get
+        {
+            if (!IsActive)
+            {
+                return "Inactive";
+            }
+
+            var enabled = 0;
+            for (var index = 0; index < Entries.Count; index += 1)
+            {
+                if (Entries[index].IsEnabled)
+                {
+                    enabled += 1;
+                }
+            }
+
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"Active — spoofing {enabled} of {Entries.Count} domains");
+        }
+    }
+
+    /// <summary>
     ///     Initializes a new <see cref="DomainNameSystemSpoofingViewModel" /> bound to
-    ///     the supplied override map.
+    ///     the supplied override map. Pre-existing entries on the map are surfaced
+    ///     immediately.
     /// </summary>
     /// <param name="map">The domain DNS override map to read from and mutate.</param>
     public DomainNameSystemSpoofingViewModel(DomainNameSystemOverrideMap map)
@@ -37,17 +71,24 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
         _newHostname = string.Empty;
         _newOverrideAddress = string.Empty;
         _validationMessage = null;
+        _isActive = map.IsActive;
         Entries = [];
+        foreach (var entry in map.GetSnapshot())
+        {
+            var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+            viewModel.PropertyChanged += OnEntryPropertyChanged;
+            Entries.Add(viewModel);
+        }
     }
 
     [RelayCommand]
     private void AddEntry()
     {
-        var hostname = NewHostname.Trim();
+        var rawHostname = NewHostname;
         var addressText = NewOverrideAddress.Trim();
-        if (hostname.Length == 0)
+        if (!DomainPatternValidator.HasValidPattern(rawHostname))
         {
-            ValidationMessage = "Hostname is required.";
+            ValidationMessage = "Hostname must be a valid domain name (e.g. api.example.com) or a wildcard pattern (e.g. *.example.com).";
             return;
         }
 
@@ -57,19 +98,66 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
             return;
         }
 
-        if (_map.HasOverride(hostname))
+        if (_map.HasOverride(rawHostname))
         {
-            ValidationMessage = $"Override for '{hostname}' already exists.";
+            ValidationMessage = $"Override for '{rawHostname.Trim()}' already exists.";
             return;
         }
 
-        var entry = new DomainNameSystemOverrideEntry(hostname, address);
+        var entry = new DomainNameSystemOverrideEntry(rawHostname, address);
         _map.Add(entry);
         var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        viewModel.PropertyChanged += OnEntryPropertyChanged;
         Entries.Add(viewModel);
         NewHostname = string.Empty;
         NewOverrideAddress = string.Empty;
         ValidationMessage = null;
+        OnPropertyChanged(nameof(StatusDisplay));
+    }
+
+    [RelayCommand]
+    private void DisableAllEntries()
+    {
+        for (var index = 0; index < Entries.Count; index += 1)
+        {
+            Entries[index].IsEnabled = false;
+        }
+    }
+
+    [RelayCommand]
+    private void EnableAllEntries()
+    {
+        for (var index = 0; index < Entries.Count; index += 1)
+        {
+            Entries[index].IsEnabled = true;
+        }
+    }
+
+    private void OnEntryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(DomainNameSystemSpoofingEntryViewModel.IsEnabled))
+        {
+            OnPropertyChanged(nameof(StatusDisplay));
+        }
+    }
+
+    partial void OnIsActiveChanged(bool value)
+    {
+        if (_map.IsActive != value)
+        {
+            _map.IsActive = value;
+        }
+
+        OnPropertyChanged(nameof(StatusDisplay));
+    }
+
+    [RelayCommand]
+    private void RefreshMatchCounts()
+    {
+        for (var index = 0; index < Entries.Count; index += 1)
+        {
+            Entries[index].RefreshMatchCount();
+        }
     }
 
     [RelayCommand]
@@ -80,8 +168,20 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
             return;
         }
 
-        _map.HasRemoved(viewModel.Hostname);
+        viewModel.PropertyChanged -= OnEntryPropertyChanged;
+        _map.HasRemoved(viewModel.Entry.CanonicalPattern);
         Entries.Remove(viewModel);
         ValidationMessage = null;
+        OnPropertyChanged(nameof(StatusDisplay));
+    }
+
+    [RelayCommand]
+    private void ResetMatchCounts()
+    {
+        for (var index = 0; index < Entries.Count; index += 1)
+        {
+            Entries[index].Entry.ResetMatchCount();
+            Entries[index].RefreshMatchCount();
+        }
     }
 }

@@ -29,6 +29,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private readonly HypertextTransferProtocolFlowEventPublisher _flowEventPublisher;
     private readonly HypertextTransferProtocolForwarder _forwarder;
     private readonly ILogger<HypertextTransferProtocolProxyHandler> _logger;
+    private readonly PacketLossSampler _packetLossSampler;
     private readonly IRuleEngine _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
     private readonly MutableThrottleProfile? _throttleProfile;
@@ -64,6 +65,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         _throttleProfile = dependencies.ThrottleProfile;
         _breakpointHandler = dependencies.BreakpointHandler;
         _certificateAuthorityProvider = dependencies.CertificateAuthorityProvider;
+        _packetLossSampler = dependencies.PacketLossSampler ?? DefaultPacketLossSamplers.Shared;
         var timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
         var flowEventPublisher = new HypertextTransferProtocolFlowEventPublisher(dependencies.EventBus);
         _flowEventPublisher = flowEventPublisher;
@@ -371,6 +373,18 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         return connectionValue.Contains("close", StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool HasDroppedForPacketLoss(TrafficFlow flow)
+    {
+        if (!ThrottleApplier.HasPacketLossOccurred(_throttleProfile, _packetLossSampler))
+        {
+            return false;
+        }
+
+        FailAndCompleteFlow(flow);
+        _trafficStore.Add(flow);
+        return true;
+    }
+
     private ConnectTarget? ParseHostEndpoint(HeaderCollection headers)
     {
         var hostValue = headers.Get("Host");
@@ -445,24 +459,24 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         _flowEventPublisher.PublishFlowCreated(flow);
         flow.SetRequest(requestExchange.Request);
         _flowEventPublisher.PublishRequestReceived(flow, requestExchange.Request);
-
+        if (HasDroppedForPacketLoss(flow))
+        {
+            return false;
+        }
         if (_certificateAuthorityProvider is not null
             && CertificateProvisioningResponder.HasProvisioningTarget(requestExchange.Request))
         {
             await HandleProvisioningRequestAsync(connection, flow, requestExchange.Request, cancellationToken).ConfigureAwait(false);
             return false;
         }
-
         var requestActions = _ruleEngine.EvaluateRequest(requestExchange.Request);
         var effectiveRequest = HypertextTransferProtocolRuleApplicator.ApplyRequestModifications(requestExchange.Request, requestActions);
         var blockingAction = HypertextTransferProtocolRuleApplicator.FindBlockingAction(requestActions);
-
         if (blockingAction is RequestPipelineAction.Block)
         {
             await HandleBlockedRequestAsync(connection, flow, cancellationToken).ConfigureAwait(false);
             return false;
         }
-
         var requestBreakpoint = await ApplyRequestBreakpointAsync(effectiveRequest, blockingAction, cancellationToken).ConfigureAwait(false);
         if (requestBreakpoint.IsAborting)
         {
@@ -471,14 +485,11 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         }
         effectiveRequest = requestBreakpoint.ModifiedRequest ?? effectiveRequest;
         effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
-
         if (blockingAction is not RequestPipelineAction.ServeLocalResponse
             && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
         {
-            var upgradeRequest = UpgradeExchangeRequestFactory.Create(connection, effectiveRequest, flow, requestExchange);
-            return await DispatchUpgradeExchangeAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
+            return await DispatchUpgradeExchangeAsync(UpgradeExchangeRequestFactory.Create(connection, effectiveRequest, flow, requestExchange), cancellationToken).ConfigureAwait(false);
         }
-
         var forwardAndProcessRequest = new HypertextTransferProtocolForwardAndProcessRequest
         {
             BlockingAction = blockingAction,

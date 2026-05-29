@@ -25,5 +25,12 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependenciesTests
 
         await Assert.That(dependencies.RuleEngine).IsNull();
         await Assert.That(dependencies.BreakpointHandler).IsNull();
+        await Assert.That(dependencies.ScriptingHandler).IsNull();
+        await Assert.That(dependencies.HostResolver).IsNull();
+        await Assert.That(dependencies.ServerSentEventsStore).IsNull();
+        await Assert.That(dependencies.WebSocketStore).IsNull();
+        await Assert.That(dependencies.ThrottleProfile).IsNull();
+        await Assert.That(dependencies.PacketLossSampler).IsNull();
+        await Assert.That(dependencies.TimeProvider).IsNull();
     }
 }

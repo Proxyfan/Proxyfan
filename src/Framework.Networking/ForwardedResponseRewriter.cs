@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Proxyfan.Framework.Networking;
 
@@ -9,7 +10,9 @@ namespace Proxyfan.Framework.Networking;
 ///     (Via) and § 6.1 (hop-by-hop header removal). Strips hop-by-hop headers that must not be
 ///     forwarded (Connection, Keep-Alive, Proxy-Authenticate, Proxy-Authorization, Proxy-Connection,
 ///     plus any header listed in the response's <c>Connection</c> header) and appends or extends
-///     the <c>Via</c> chain with this proxy's identity.
+///     the <c>Via</c> chain with this proxy's identity. Normalizes body framing by stripping
+///     <c>Transfer-Encoding</c> and setting <c>Content-Length</c> to the decoded body length
+///     (chunked-decoded bodies must not be re-emitted under chunked framing).
 /// </summary>
 public static class ForwardedResponseRewriter
 {
@@ -21,18 +24,20 @@ public static class ForwardedResponseRewriter
         var headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Connection",
+            "Content-Length",
             "Keep-Alive",
             "Proxy-Authenticate",
             "Proxy-Authorization",
             "Proxy-Connection",
+            "Transfer-Encoding",
         };
         AlwaysStrippedHeaders = headers;
     }
 
     /// <summary>
     ///     Returns a new <see cref="HypertextTransferProtocolResponseData" /> with hop-by-hop
-    ///     headers stripped and the <c>Via</c> chain extended with this proxy's identity. The
-    ///     original response is returned unchanged when no rewriting was needed.
+    ///     headers stripped, body framing normalized to <c>Content-Length</c> matching the
+    ///     decoded body length, and the <c>Via</c> chain extended with this proxy's identity.
     /// </summary>
     /// <param name="response">The response received from upstream.</param>
     /// <returns>A response with safely rewritten headers ready to forward to the client.</returns>
@@ -68,6 +73,7 @@ public static class ForwardedResponseRewriter
             }
         }
 
+        sanitized = sanitized.Add("Content-Length", response.Body.Length.ToString(CultureInfo.InvariantCulture));
         var viaValue = hasExistingVia ? existingViaChain + ", " + ProxyViaIdentity : ProxyViaIdentity;
         sanitized = sanitized.Add("Via", viaValue);
 

@@ -5,8 +5,8 @@ using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
-using Proxyfan.Domain.Traffic.Events;
 using System;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
@@ -47,9 +47,11 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly IDomainEventBus _eventBus;
     private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
+    private readonly PacketLossSampler _packetLossSampler;
     private readonly IRuleEngine? _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
     private readonly IServerSentEventsStore? _serverSentEventsStore;
+    private readonly MutableThrottleProfile? _throttleProfile;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IWebSocketStore? _webSocketStore;
@@ -81,6 +83,8 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
         _webSocketStore = dependencies.WebSocketStore;
         _serverSentEventsStore = dependencies.ServerSentEventsStore;
+        _throttleProfile = dependencies.ThrottleProfile;
+        _packetLossSampler = dependencies.PacketLossSampler ?? DefaultPacketLossSamplers.Shared;
     }
 
     /// <inheritdoc />
@@ -220,18 +224,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         }
     }
 
-    private TransportLayerSecurityInterceptionPipes CreateInterceptionPipes(SslStream clientSecureStream, SslStream serverSecureStream)
-    {
-        var readerOptions = new StreamPipeReaderOptions(leaveOpen: true);
-        var writerOptions = new StreamPipeWriterOptions(leaveOpen: true);
-        var clientReader = PipeReader.Create(clientSecureStream, readerOptions);
-        var clientWriter = PipeWriter.Create(clientSecureStream, writerOptions);
-        var serverReader = PipeReader.Create(serverSecureStream, readerOptions);
-        var serverWriter = PipeWriter.Create(serverSecureStream, writerOptions);
-        var pipes = new TransportLayerSecurityInterceptionPipes(clientReader, clientWriter, serverReader, serverWriter);
-        return pipes;
-    }
-
     private async Task<TcpClient?> DialUpstreamOrFailAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
     {
         try
@@ -286,6 +278,19 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await upgradeHandler.HandleAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
     }
 
+    private bool HasDroppedForPacketLoss(TrafficFlow flow)
+    {
+        if (!ThrottleApplier.HasPacketLossOccurred(_throttleProfile, _packetLossSampler))
+        {
+            return false;
+        }
+
+        flow.Fail();
+        TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
+        _trafficStore.Add(flow);
+        return true;
+    }
+
     private async Task InterceptAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
     {
         var serverClient = await DialUpstreamOrFailAsync(connection, target, cancellationToken).ConfigureAwait(false);
@@ -316,7 +321,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await using var clientSecureStream = new SslStream(clientStream, false);
         var serverTransportLayerSecurityOptions = TransportLayerSecurityInterceptorHelpers.CreateServerTransportLayerSecurityOptions(leafCertificate);
         await clientSecureStream.AuthenticateAsServerAsync(serverTransportLayerSecurityOptions, cancellationToken).ConfigureAwait(false);
-        var pipes = CreateInterceptionPipes(clientSecureStream, serverSecureStream);
+        var pipes = TransportLayerSecurityInterceptionPipesFactory.Create(clientSecureStream, serverSecureStream);
         var loopContext = new TransportLayerSecurityInterceptedLoopContext
         {
             ClientSecureStream = clientSecureStream,
@@ -391,9 +396,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         CancellationToken cancellationToken)
     {
         var flow = TransportLayerSecurityInterceptorHelpers.CreateTrafficFlow(loopContext.Connection);
-        PublishFlowCreated(flow);
+        TransportLayerSecurityInterceptorEvents.PublishFlowCreated(_eventBus, flow);
         flow.SetRequest(requestExchange.Request);
-        PublishRequestReceived(flow, requestExchange.Request);
+        TransportLayerSecurityInterceptorEvents.PublishRequestReceived(_eventBus, flow, requestExchange.Request);
 
         var requestActions = _ruleEngine?.EvaluateRequest(requestExchange.Request) ?? [];
         var effectiveRequest = HypertextTransferProtocolRuleApplicator.ApplyRequestModifications(requestExchange.Request, requestActions);
@@ -402,7 +407,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         if (breakResult.IsAborting)
         {
             flow.Fail();
-            PublishFlowCompleted(flow);
+            TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
             return false;
         }
         effectiveRequest = breakResult.ModifiedRequest ?? effectiveRequest;
@@ -441,6 +446,10 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var pipes = forwardContext.Pipes;
         var effectiveRequest = forwardContext.EffectiveRequest;
         var flow = forwardContext.Flow;
+        if (HasDroppedForPacketLoss(flow))
+        {
+            return false;
+        }
         var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(forwardContext.RequestExchange, effectiveRequest);
         await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
 
@@ -455,7 +464,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         if (headerRead is null)
         {
             flow.Fail();
-            PublishFlowCompleted(flow);
+            TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
             return false;
         }
 
@@ -470,7 +479,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         if (responseExchange is null)
         {
             flow.Fail();
-            PublishFlowCompleted(flow);
+            TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
             return false;
         }
 
@@ -488,36 +497,14 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(context.ResponseExchange, finalResponse);
 
         context.Flow.SetResponse(finalResponse);
-        PublishResponseReceived(context.Flow, finalResponse);
+        TransportLayerSecurityInterceptorEvents.PublishResponseReceived(_eventBus, context.Flow, finalResponse);
         context.Flow.Complete();
+        var downloadBytes = finalExchange.HeaderBytes.Length + finalExchange.Body.Length;
+        await ThrottleApplier.ApplyDownloadBandwidthAsync(_throttleProfile, downloadBytes, cancellationToken).ConfigureAwait(false);
         await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(context.Pipes.ClientWriter, finalExchange, cancellationToken).ConfigureAwait(false);
         _trafficStore.Add(context.Flow);
-        PublishFlowCompleted(context.Flow);
+        TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, context.Flow);
         return TransportLayerSecurityInterceptorHelpers.HasKeepAlive(context.EffectiveRequest, finalResponse);
-    }
-
-    private void PublishFlowCompleted(TrafficFlow flow)
-    {
-        var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
-        _eventBus.Publish(completedEvent);
-    }
-
-    private void PublishFlowCreated(TrafficFlow flow)
-    {
-        var createdEvent = new TrafficFlowCreated(flow.Id, DateTimeOffset.UtcNow);
-        _eventBus.Publish(createdEvent);
-    }
-
-    private void PublishRequestReceived(TrafficFlow flow, HypertextTransferProtocolRequestData request)
-    {
-        var requestReceivedEvent = new RequestReceived(flow.Id, request, flow.ClientEndPoint, DateTimeOffset.UtcNow);
-        _eventBus.Publish(requestReceivedEvent);
-    }
-
-    private void PublishResponseReceived(TrafficFlow flow, HypertextTransferProtocolResponseData response)
-    {
-        var responseReceivedEvent = new ResponseReceived(flow.Id, response, DateTimeOffset.UtcNow);
-        _eventBus.Publish(responseReceivedEvent);
     }
 
     private async Task RelayAsync(IProxyConnection connection, NetworkStream serverStream, CancellationToken cancellationToken)
@@ -598,6 +585,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         HypertextTransferProtocolProxyRequestExchange requestExchange,
         CancellationToken cancellationToken)
     {
+        await ThrottleApplier.ApplyLatencyAsync(_throttleProfile, cancellationToken).ConfigureAwait(false);
+        var totalBytes = requestExchange.HeaderBytes.Length + requestExchange.Body.Length;
+        await ThrottleApplier.ApplyUploadBandwidthAsync(_throttleProfile, totalBytes, cancellationToken).ConfigureAwait(false);
         await serverWriter.WriteAsync(requestExchange.HeaderBytes, cancellationToken).ConfigureAwait(false);
         await serverWriter.WriteAsync(requestExchange.Body, cancellationToken).ConfigureAwait(false);
         await serverWriter.FlushAsync(cancellationToken).ConfigureAwait(false);

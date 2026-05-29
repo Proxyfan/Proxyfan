@@ -33,20 +33,26 @@ public static class OriginRequestRewriter
         var alwaysStripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Connection",
+            "Content-Length",
             "Keep-Alive",
             "Proxy-Authenticate",
             "Proxy-Authorization",
             "Proxy-Connection",
+            "Transfer-Encoding",
         };
         AlwaysStrippedHeaders = alwaysStripped;
     }
 
     /// <summary>
     ///     Returns the rewritten header bytes for forwarding directly to an origin server. The
-    ///     body bytes are unchanged and should be written after the returned header bytes.
+    ///     body bytes are unchanged and should be written after the returned header bytes. The
+    ///     rewriter normalizes body framing: <c>Transfer-Encoding</c> and <c>Content-Length</c>
+    ///     are stripped from the inbound headers; when the request carries a decoded body, a
+    ///     fresh <c>Content-Length</c> matching the body length is injected (chunked-decoded
+    ///     bodies must not be re-emitted under chunked framing).
     /// </summary>
     /// <param name="originalHeaderBytes">The original request header bytes from the client.</param>
-    /// <param name="request">The parsed request data (used for method, URI, version).</param>
+    /// <param name="request">The parsed request data (used for method, URI, version, body length).</param>
     /// <returns>The rewritten header bytes ending with the CRLF CRLF terminator.</returns>
     public static byte[] RewriteHeaders(ReadOnlyMemory<byte> originalHeaderBytes, HypertextTransferProtocolRequestData request)
     {
@@ -74,6 +80,13 @@ public static class OriginRequestRewriter
         {
             rebuilt.Append("Via: ");
             rebuilt.Append(ViaToken);
+            rebuilt.Append("\r\n");
+        }
+
+        if (request.Body.Length > 0)
+        {
+            rebuilt.Append("Content-Length: ");
+            rebuilt.Append(request.Body.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
             rebuilt.Append("\r\n");
         }
 

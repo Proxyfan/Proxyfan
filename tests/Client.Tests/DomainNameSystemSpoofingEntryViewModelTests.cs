@@ -34,4 +34,61 @@ public sealed class DomainNameSystemSpoofingEntryViewModelTests
 
         await Assert.That(viewModel.OverrideAddress).IsEqualTo("::1");
     }
+
+    /// <summary>
+    ///     Verifies that exact entries display the "Exact" kind label.
+    /// </summary>
+    [Test]
+    public async Task Constructor_FromExactEntry_KindDisplayIsExact()
+    {
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+
+        await Assert.That(viewModel.KindDisplay).IsEqualTo("Exact");
+    }
+
+    /// <summary>
+    ///     Verifies that wildcard entries display the "Wildcard" kind label.
+    /// </summary>
+    [Test]
+    public async Task Constructor_FromWildcardEntry_KindDisplayIsWildcard()
+    {
+        var entry = new DomainNameSystemOverrideEntry("*.example.com", IPAddress.Loopback);
+
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+
+        await Assert.That(viewModel.KindDisplay).IsEqualTo("Wildcard");
+    }
+
+    /// <summary>
+    ///     Verifies that toggling IsEnabled on the view model writes through to the underlying entry.
+    /// </summary>
+    [Test]
+    public async Task IsEnabled_SetFalse_WritesThroughToEntry()
+    {
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+
+        viewModel.IsEnabled = false;
+
+        await Assert.That(entry.IsEnabled).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies RefreshMatchCount pulls the latest counter value from the entry.
+    /// </summary>
+    [Test]
+    public async Task RefreshMatchCount_AfterEntryRecordsMatches_SurfacesUpdatedCount()
+    {
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        entry.RecordMatch();
+        entry.RecordMatch();
+        entry.RecordMatch();
+
+        viewModel.RefreshMatchCount();
+
+        await Assert.That(viewModel.MatchCount).IsEqualTo(3);
+    }
 }

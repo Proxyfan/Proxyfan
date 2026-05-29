@@ -183,6 +183,57 @@ public sealed class ForwardedResponseRewriterTests
         await Assert.That(rewritten.Headers.HasHeader("Connection")).IsFalse();
     }
 
+    [Test]
+    public async Task Rewrite_ChunkedTransferEncoding_StripsAndNormalizesContentLength()
+    {
+        var body = new byte[] { 1, 2, 3, 4, 5 };
+        var headers = HeaderCollection.Empty
+            .Add("Transfer-Encoding", "chunked")
+            .Add("Content-Type", "text/plain");
+        var response = new HypertextTransferProtocolResponseData(new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = body,
+            Headers = headers,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        });
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("Transfer-Encoding")).IsFalse();
+        await Assert.That(rewritten.Headers.Get("Content-Length")).IsEqualTo("5");
+    }
+
+    [Test]
+    public async Task Rewrite_ExistingContentLength_OverwrittenWithBodyLength()
+    {
+        var body = new byte[] { 1, 2, 3 };
+        var headers = HeaderCollection.Empty.Add("Content-Length", "999");
+        var response = new HypertextTransferProtocolResponseData(new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = body,
+            Headers = headers,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        });
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.Get("Content-Length")).IsEqualTo("3");
+    }
+
+    [Test]
+    public async Task Rewrite_EmptyBody_SetsContentLengthZero()
+    {
+        var response = CreateResponse(HeaderCollection.Empty);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.Get("Content-Length")).IsEqualTo("0");
+    }
+
     private static HypertextTransferProtocolResponseData CreateResponse(HeaderCollection headers)
     {
         var parameters = new HypertextTransferProtocolResponseDataParameters

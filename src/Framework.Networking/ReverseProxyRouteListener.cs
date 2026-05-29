@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Proxyfan.Domain.Proxy;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -11,12 +13,16 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     A reverse proxy route listener: binds a TCP port and for each accepted client
-///     connection opens a parallel connection to the configured backend and pumps bytes
-///     bidirectionally until either side closes.
+///     connection either inspects the first bytes to detect HTTP/1.1 — in which case it
+///     dispatches to the supplied <see cref="ReverseProxyHypertextTransferProtocolHandler" />
+///     for full capture and rule processing — or otherwise pumps bytes bidirectionally to the
+///     configured backend.
 /// </summary>
 public sealed partial class ReverseProxyRouteListener : IDisposable
 {
     private const int BufferSize = 16384;
+    private const int PeekByteCount = 8;
+    private readonly ReverseProxyHypertextTransferProtocolHandler? _hypertextTransferProtocolHandler;
     private readonly ILogger<ReverseProxyRouteListener> _logger;
     private readonly List<Task> _pendingForwards;
     private readonly ReverseProxyRoute _route;
@@ -34,10 +40,20 @@ public sealed partial class ReverseProxyRouteListener : IDisposable
     /// </summary>
     /// <param name="route">The route to bind and forward.</param>
     /// <param name="logger">The diagnostic logger.</param>
-    public ReverseProxyRouteListener(ReverseProxyRoute route, ILogger<ReverseProxyRouteListener> logger)
+    /// <param name="hypertextTransferProtocolHandler">
+    ///     Optional HTTP capture handler. When non-null and the route uses
+    ///     <see cref="ReverseProxyTransportLayerSecurityMode.None" />, HTTP-shaped client
+    ///     traffic is handed to the handler for full rule/capture processing; non-HTTP traffic
+    ///     and TLS-enabled routes always fall through to raw bidirectional TCP forwarding.
+    /// </param>
+    public ReverseProxyRouteListener(
+        ReverseProxyRoute route,
+        ILogger<ReverseProxyRouteListener> logger,
+        ReverseProxyHypertextTransferProtocolHandler? hypertextTransferProtocolHandler)
     {
         _route = route;
         _logger = logger;
+        _hypertextTransferProtocolHandler = hypertextTransferProtocolHandler;
         _pendingForwards = [];
     }
 
@@ -147,24 +163,28 @@ public sealed partial class ReverseProxyRouteListener : IDisposable
         LogStopped(_route.Identifier);
     }
 
-    private async Task ForwardConnectionAsync(TcpClient client, CancellationToken cancellationToken)
+    private async Task ForwardConnectionAsync(Socket socket, CancellationToken cancellationToken)
     {
-        using (client)
+        try
         {
-            using var backend = new TcpClient();
-            try
+            if (await TryHandleAsHypertextTransferProtocolAsync(socket, cancellationToken).ConfigureAwait(false))
             {
-                await backend.ConnectAsync(_route.BackendHost, _route.BackendPort, cancellationToken).ConfigureAwait(false);
-            }
-            catch (SocketException ex)
-            {
-                LogBackendConnectError(ex, _route.BackendHost, _route.BackendPort);
                 return;
             }
 
-            using var clientStream = client.GetStream();
-            using var backendStream = backend.GetStream();
-            await BidirectionalStreamPump.PumpAsync(clientStream, backendStream, BufferSize, cancellationToken).ConfigureAwait(false);
+            await PumpRawTransportControlProtocolAsync(socket, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex)
+        {
+            _ = ex;
+        }
+        catch (IOException ex)
+        {
+            _ = ex;
+        }
+        finally
+        {
+            socket.Dispose();
         }
     }
 
@@ -180,14 +200,32 @@ public sealed partial class ReverseProxyRouteListener : IDisposable
     [LoggerMessage(Level = LogLevel.Information, Message = "Reverse proxy route {Identifier} stopped")]
     private partial void LogStopped(string identifier);
 
+    private async Task PumpRawTransportControlProtocolAsync(Socket socket, CancellationToken cancellationToken)
+    {
+        using var backend = new TcpClient();
+        try
+        {
+            await backend.ConnectAsync(_route.BackendHost, _route.BackendPort, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException ex)
+        {
+            LogBackendConnectError(ex, _route.BackendHost, _route.BackendPort);
+            return;
+        }
+
+        using var clientStream = new NetworkStream(socket, ownsSocket: false);
+        using var backendStream = backend.GetStream();
+        await BidirectionalStreamPump.PumpAsync(clientStream, backendStream, BufferSize, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task RunAcceptLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            TcpClient client;
+            Socket socket;
             try
             {
-                client = await _listener!.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
+                socket = await _listener!.AcceptSocketAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -202,12 +240,46 @@ public sealed partial class ReverseProxyRouteListener : IDisposable
                 break;
             }
 
-            var forwardTask = ForwardConnectionAsync(client, cancellationToken);
+            var forwardTask = ForwardConnectionAsync(socket, cancellationToken);
             lock (_pendingForwards)
             {
                 _pendingForwards.Add(forwardTask);
                 _pendingForwards.RemoveAll(static task => task.IsCompleted);
             }
         }
+    }
+
+    private async Task<bool> TryHandleAsHypertextTransferProtocolAsync(Socket socket, CancellationToken cancellationToken)
+    {
+        if (_hypertextTransferProtocolHandler is null || _route.TransportLayerSecurityMode != ReverseProxyTransportLayerSecurityMode.None)
+        {
+            return false;
+        }
+
+        var peekBuffer = new byte[PeekByteCount];
+        int peekLength;
+        try
+        {
+            peekLength = await socket.ReceiveAsync(peekBuffer, SocketFlags.Peek, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+
+        var peeked = new ReadOnlySequence<byte>(peekBuffer, 0, peekLength);
+
+        if (!_hypertextTransferProtocolHandler.CanHandle(peeked))
+        {
+            return false;
+        }
+
+        var connection = new SocketConnection(socket);
+        await using (connection.ConfigureAwait(false))
+        {
+            await _hypertextTransferProtocolHandler.HandleAsync(connection, _route, cancellationToken).ConfigureAwait(false);
+        }
+
+        return true;
     }
 }

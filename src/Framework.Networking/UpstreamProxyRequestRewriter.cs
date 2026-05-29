@@ -1,5 +1,7 @@
 ﻿using Proxyfan.Domain.Traffic;
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace Proxyfan.Framework.Networking;
@@ -9,18 +11,32 @@ namespace Proxyfan.Framework.Networking;
 ///     The request line is rewritten to use the absolute URI form expected by HTTP/1.1 proxies
 ///     (e.g. <c>GET http://example.com/path HTTP/1.1</c> rather than <c>GET /path HTTP/1.1</c>).
 ///     When a <c>Proxy-Authorization</c> header value is supplied it is injected (replacing any
-///     existing one) immediately after the rewritten request line.
+///     existing one). Body framing is normalized: <c>Transfer-Encoding</c> and
+///     <c>Content-Length</c> are stripped from the inbound headers, and a fresh
+///     <c>Content-Length</c> matching the decoded body length is injected when a body is
+///     present (chunked-decoded bodies must not be re-emitted under chunked framing).
 /// </summary>
 public static class UpstreamProxyRequestRewriter
 {
     private const string ProxyAuthorizationHeaderName = "Proxy-Authorization";
+    private static readonly HashSet<string> StrippedFramingHeaders;
+
+    static UpstreamProxyRequestRewriter()
+    {
+        var stripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Content-Length",
+            "Transfer-Encoding",
+        };
+        StrippedFramingHeaders = stripped;
+    }
 
     /// <summary>
     ///     Returns the header bytes rewritten with an absolute-URI request line. The body bytes
     ///     are unchanged and should be written after the returned header bytes.
     /// </summary>
     /// <param name="originalHeaderBytes">The original request header bytes from the client.</param>
-    /// <param name="request">The parsed request data (used for method, URI, version).</param>
+    /// <param name="request">The parsed request data (used for method, URI, version, body length).</param>
     /// <returns>The rewritten header bytes.</returns>
     public static byte[] RewriteHeaders(ReadOnlyMemory<byte> originalHeaderBytes, HypertextTransferProtocolRequestData request)
     {
@@ -32,10 +48,12 @@ public static class UpstreamProxyRequestRewriter
     ///     <paramref name="proxyAuthorization" /> is non-null, an injected
     ///     <c>Proxy-Authorization</c> header. Any pre-existing <c>Proxy-Authorization</c>
     ///     header in the original bytes is stripped so the upstream sees exactly the supplied
-    ///     credentials.
+    ///     credentials. Inbound <c>Transfer-Encoding</c> and <c>Content-Length</c> are always
+    ///     stripped; when the request carries a decoded body a fresh <c>Content-Length</c>
+    ///     matching the body length is injected.
     /// </summary>
     /// <param name="originalHeaderBytes">The original request header bytes from the client.</param>
-    /// <param name="request">The parsed request data (used for method, URI, version).</param>
+    /// <param name="request">The parsed request data (used for method, URI, version, body length).</param>
     /// <param name="proxyAuthorization">
     ///     The header value for <c>Proxy-Authorization</c>, or <see langword="null" /> to leave the
     ///     header omitted. Built by <see cref="ProxyAuthorizationHeader.Build" />.
@@ -53,25 +71,66 @@ public static class UpstreamProxyRequestRewriter
 
         var absoluteUri = BuildAbsoluteRequestUri(request);
         var newRequestLine = $"{request.Method} {absoluteUri} {request.Version}";
-        var newLineBytes = Encoding.ASCII.GetBytes(newRequestLine);
 
-        if (proxyAuthorization is null)
+        var headerSection = Encoding.ASCII.GetString(span[(firstLineEnd + 2)..]);
+        var rebuilt = new StringBuilder(headerSection.Length + newRequestLine.Length + 96);
+        rebuilt.Append(newRequestLine);
+        rebuilt.Append("\r\n");
+        AppendFilteredHeaderLines(rebuilt, headerSection, proxyAuthorization);
+        AppendTrailingHeaders(rebuilt, request, proxyAuthorization);
+        rebuilt.Append("\r\n");
+        return Encoding.ASCII.GetBytes(rebuilt.ToString());
+    }
+
+    private static void AppendFilteredHeaderLines(StringBuilder destination, string headerSection, string? proxyAuthorization)
+    {
+        var lines = headerSection.Split("\r\n");
+
+        foreach (var line in lines)
         {
-            var preservedHeaderSection = span[firstLineEnd..];
-            var rewritten = new byte[newLineBytes.Length + preservedHeaderSection.Length];
-            newLineBytes.CopyTo(rewritten.AsSpan());
-            preservedHeaderSection.CopyTo(rewritten.AsSpan(newLineBytes.Length));
-            return rewritten;
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            var colonIndex = line.IndexOf(':');
+
+            if (colonIndex > 0)
+            {
+                var name = line[..colonIndex];
+
+                if (proxyAuthorization is not null && string.Equals(name, ProxyAuthorizationHeaderName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (StrippedFramingHeaders.Contains(name))
+                {
+                    continue;
+                }
+            }
+
+            destination.Append(line);
+            destination.Append("\r\n");
+        }
+    }
+
+    private static void AppendTrailingHeaders(StringBuilder destination, HypertextTransferProtocolRequestData request, string? proxyAuthorization)
+    {
+        if (proxyAuthorization is not null)
+        {
+            destination.Append(ProxyAuthorizationHeaderName);
+            destination.Append(": ");
+            destination.Append(proxyAuthorization);
+            destination.Append("\r\n");
         }
 
-        var headerSection = StripExistingProxyAuthorization(span[firstLineEnd..]);
-        var authLine = $"\r\n{ProxyAuthorizationHeaderName}: {proxyAuthorization}";
-        var authBytes = Encoding.ASCII.GetBytes(authLine);
-        var rewrittenWithAuth = new byte[newLineBytes.Length + authBytes.Length + headerSection.Length];
-        newLineBytes.CopyTo(rewrittenWithAuth.AsSpan());
-        authBytes.CopyTo(rewrittenWithAuth.AsSpan(newLineBytes.Length));
-        headerSection.CopyTo(rewrittenWithAuth.AsSpan(newLineBytes.Length + authBytes.Length));
-        return rewrittenWithAuth;
+        if (request.Body.Length > 0)
+        {
+            destination.Append("Content-Length: ");
+            destination.Append(request.Body.Length.ToString(CultureInfo.InvariantCulture));
+            destination.Append("\r\n");
+        }
     }
 
     private static string BuildAbsoluteRequestUri(HypertextTransferProtocolRequestData request)
@@ -100,32 +159,5 @@ public static class UpstreamProxyRequestRewriter
         }
 
         return -1;
-    }
-
-    private static byte[] StripExistingProxyAuthorization(ReadOnlySpan<byte> headersIncludingLeadingCarriageReturnLineFeed)
-    {
-        var text = Encoding.ASCII.GetString(headersIncludingLeadingCarriageReturnLineFeed);
-        var lines = text.Split("\r\n");
-        var filtered = new System.Collections.Generic.List<string>(lines.Length);
-
-        foreach (var line in lines)
-        {
-            var colonIndex = line.IndexOf(':');
-
-            if (colonIndex > 0)
-            {
-                var name = line[..colonIndex];
-
-                if (string.Equals(name, ProxyAuthorizationHeaderName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-            }
-
-            filtered.Add(line);
-        }
-
-        var rebuilt = string.Join("\r\n", filtered);
-        return Encoding.ASCII.GetBytes(rebuilt);
     }
 }

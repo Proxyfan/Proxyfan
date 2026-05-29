@@ -1,4 +1,4 @@
-﻿using Proxyfan.Domain.Proxy;
+using Proxyfan.Domain.Proxy;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
 using System.Net;
@@ -29,7 +29,7 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
             "127.0.0.1",
             GetFreePort(),
             ReverseProxyTransportLayerSecurityMode.None);
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         await listener.StartAsync(CancellationToken.None);
         await listener.StopAsync(CancellationToken.None);
 
@@ -52,7 +52,7 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
             "127.0.0.1",
             GetFreePort(),
             ReverseProxyTransportLayerSecurityMode.None);
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         try
         {
             await listener.StartAsync(CancellationToken.None);
@@ -86,7 +86,7 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
             unreachableBackendPort,
             ReverseProxyTransportLayerSecurityMode.None);
 
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         try
         {
             await listener.StartAsync(CancellationToken.None);
@@ -109,7 +109,7 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
 
     /// <summary>
     ///     Disposing the listener while it is still bound (without first calling StopAsync) is
-    ///     safe — the listener is torn down and the accept loop exits via ObjectDisposedException.
+    ///     safe � the listener is torn down and the accept loop exits via ObjectDisposedException.
     ///     Exercises the disposed-without-stop fault path in
     ///     <see cref="ReverseProxyRouteListener.RunAcceptLoopAsync" />.
     /// </summary>
@@ -123,7 +123,7 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
             "127.0.0.1",
             GetFreePort(),
             ReverseProxyTransportLayerSecurityMode.None);
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         await listener.StartAsync(CancellationToken.None);
         listener.Dispose();
     }

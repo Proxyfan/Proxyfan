@@ -13,8 +13,12 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxyEngine
 {
+    /// <inheritdoc />
+    public event ReverseProxyRouteStatusChanged? StatusChanged;
+
     private readonly Lock _gate;
     private readonly IBackendHealthProbe _healthProbe;
+    private readonly ReverseProxyHypertextTransferProtocolHandler? _hypertextTransferProtocolHandler;
     private readonly Dictionary<string, ReverseProxyRouteListener> _listeners;
     private readonly ILogger<ReverseProxyEngine> _logger;
     private readonly ILoggerFactory _loggerFactory;
@@ -27,14 +31,20 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
     /// <param name="healthProbe">The probe used to check backend availability.</param>
     /// <param name="loggerFactory">Logger factory for per-listener loggers.</param>
     /// <param name="logger">Engine logger.</param>
+    /// <param name="hypertextTransferProtocolHandler">
+    ///     Optional HTTP capture handler injected so each route listener can fully capture
+    ///     HTTP-shaped traffic on TLS-disabled routes.
+    /// </param>
     public ReverseProxyEngine(
         IBackendHealthProbe healthProbe,
         ILoggerFactory loggerFactory,
-        ILogger<ReverseProxyEngine> logger)
+        ILogger<ReverseProxyEngine> logger,
+        ReverseProxyHypertextTransferProtocolHandler? hypertextTransferProtocolHandler)
     {
         _healthProbe = healthProbe;
         _loggerFactory = loggerFactory;
         _logger = logger;
+        _hypertextTransferProtocolHandler = hypertextTransferProtocolHandler;
         _listeners = [];
         _statuses = [];
         var gate = new Lock();
@@ -123,9 +133,20 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
             status = ReverseProxyRouteStatus.Unhealthy;
         }
 
+        var fireEvent = false;
         lock (_gate)
         {
+            if (!_statuses.TryGetValue(identifier, out var previous) || previous != status)
+            {
+                fireEvent = true;
+            }
+
             _statuses[identifier] = status;
+        }
+
+        if (fireEvent)
+        {
+            StatusChanged?.Invoke(identifier, status);
         }
 
         return status;
@@ -147,7 +168,7 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
             }
         }
 
-        var listener = ReverseProxyRouteListenerFactory.Create(route, _loggerFactory);
+        var listener = ReverseProxyRouteListenerFactory.Create(route, _loggerFactory, _hypertextTransferProtocolHandler);
         try
         {
             await listener.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -161,6 +182,7 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
             }
 
             listener.Dispose();
+            StatusChanged?.Invoke(route.Identifier, ReverseProxyRouteStatus.Faulted);
             return false;
         }
 
@@ -170,6 +192,7 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
             _statuses[route.Identifier] = ReverseProxyRouteStatus.Healthy;
         }
 
+        StatusChanged?.Invoke(route.Identifier, ReverseProxyRouteStatus.Healthy);
         return true;
     }
 
@@ -194,6 +217,7 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
 
         await listener.StopAsync(cancellationToken).ConfigureAwait(false);
         listener.Dispose();
+        StatusChanged?.Invoke(identifier, ReverseProxyRouteStatus.Stopped);
         return true;
     }
 

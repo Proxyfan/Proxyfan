@@ -35,7 +35,7 @@ public sealed class ReverseProxyRouteListenerTests
             backendPort,
             ReverseProxyTransportLayerSecurityMode.None);
 
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         try
         {
             await listener.StartAsync(CancellationToken.None);
@@ -87,7 +87,7 @@ public sealed class ReverseProxyRouteListenerTests
             65500,
             ReverseProxyTransportLayerSecurityMode.None);
 
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         try
         {
             await Assert.That(async () => await listener.StartAsync(CancellationToken.None)).Throws<ProxyBindException>();
@@ -112,7 +112,7 @@ public sealed class ReverseProxyRouteListenerTests
             "127.0.0.1",
             65500,
             ReverseProxyTransportLayerSecurityMode.None);
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
 
         await listener.StopAsync(CancellationToken.None);
 
@@ -133,7 +133,7 @@ public sealed class ReverseProxyRouteListenerTests
             "127.0.0.1",
             65500,
             ReverseProxyTransportLayerSecurityMode.None);
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>());
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
 
         await Assert.That(listener.GetRoute()).IsSameReferenceAs(route);
         listener.Dispose();

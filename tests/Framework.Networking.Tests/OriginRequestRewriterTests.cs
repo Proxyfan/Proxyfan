@@ -314,6 +314,65 @@ public sealed class OriginRequestRewriterTests
         await Assert.That(asString).Contains("MalformedLineNoColon");
     }
 
+    [Test]
+    public async Task RewriteHeaders_ChunkedRequestWithDecodedBody_StripsTransferEncodingAndSetsContentLength()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "POST /api HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\n\r\n");
+        var bodyBytes = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = bodyBytes,
+            Headers = HeaderCollection.Empty.Add("Host", "example.com").Add("Transfer-Encoding", "chunked"),
+            Method = "POST",
+            RequestUri = new Uri("/api", UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var rewritten = OriginRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("Transfer-Encoding");
+        await Assert.That(asString).Contains("Content-Length: 8");
+    }
+
+    [Test]
+    public async Task RewriteHeaders_RequestWithDecodedBodyAndOldContentLength_OverwritesContentLength()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "POST /api HTTP/1.1\r\nHost: example.com\r\nContent-Length: 999\r\n\r\n");
+        var bodyBytes = new byte[] { 1, 2, 3 };
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = bodyBytes,
+            Headers = HeaderCollection.Empty.Add("Host", "example.com").Add("Content-Length", "999"),
+            Method = "POST",
+            RequestUri = new Uri("/api", UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var rewritten = OriginRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).Contains("Content-Length: 3");
+        await Assert.That(asString).DoesNotContain("Content-Length: 999");
+    }
+
+    [Test]
+    public async Task RewriteHeaders_GetRequestNoBody_OmitsContentLength()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "GET /api HTTP/1.1\r\nHost: example.com\r\n\r\n");
+        var request = BuildRelativeRequest("GET", "/api");
+
+        var rewritten = OriginRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("Content-Length");
+    }
+
     private static HypertextTransferProtocolRequestData BuildAbsoluteRequest(string method, string absoluteUri)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

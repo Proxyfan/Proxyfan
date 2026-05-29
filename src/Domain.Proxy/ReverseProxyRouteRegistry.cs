@@ -86,4 +86,46 @@ public sealed class ReverseProxyRouteRegistry
             return false;
         }
     }
+
+    /// <summary>
+    ///     Replaces the route with the supplied identifier with <paramref name="replacement" />.
+    ///     The replacement must keep the same identifier and must not collide with another
+    ///     route's listen port.
+    /// </summary>
+    /// <param name="identifier">The identifier of the route to replace.</param>
+    /// <param name="replacement">The new route definition.</param>
+    /// <returns><see langword="true" /> when the route was replaced.</returns>
+    public bool HasReplaced(string identifier, ReverseProxyRoute replacement)
+    {
+        if (!string.Equals(identifier, replacement.Identifier, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            var existingIndex = -1;
+            for (var index = 0; index < _routes.Count; index++)
+            {
+                if (string.Equals(_routes[index].Identifier, identifier, StringComparison.Ordinal))
+                {
+                    existingIndex = index;
+                    continue;
+                }
+
+                if (_routes[index].ListenPort == replacement.ListenPort)
+                {
+                    return false;
+                }
+            }
+
+            if (existingIndex < 0)
+            {
+                return false;
+            }
+
+            _routes[existingIndex] = replacement;
+            return true;
+        }
+    }
 }

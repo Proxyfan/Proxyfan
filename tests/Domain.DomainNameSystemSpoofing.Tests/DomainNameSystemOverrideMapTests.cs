@@ -127,4 +127,192 @@ public sealed class DomainNameSystemOverrideMapTests
         await Assert.That(resolved).IsSameReferenceAs(newAddress);
         await Assert.That(map.Count).IsEqualTo(1);
     }
+
+    /// <summary>
+    ///     Verifies that newly created maps default to active.
+    /// </summary>
+    [Test]
+    public async Task IsActive_OnNewMap_DefaultsToTrue()
+    {
+        var map = new DomainNameSystemOverrideMap();
+
+        await Assert.That(map.IsActive).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that disabling the master toggle stops resolution but preserves entries.
+    /// </summary>
+    [Test]
+    public async Task Resolve_WhenInactive_ReturnsNullAndPreservesEntries()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var address = IPAddress.Parse("10.0.0.1");
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", address));
+        map.IsActive = false;
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsNull();
+        await Assert.That(map.HasOverride("api.example.com")).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that re-enabling the master toggle resumes resolution.
+    /// </summary>
+    [Test]
+    public async Task Resolve_AfterReactivating_ReturnsAddress()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var address = IPAddress.Parse("10.0.0.1");
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", address));
+        map.IsActive = false;
+        map.IsActive = true;
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsSameReferenceAs(address);
+    }
+
+    /// <summary>
+    ///     Verifies that disabled entries are skipped during resolution.
+    /// </summary>
+    [Test]
+    public async Task Resolve_WhenEntryDisabled_ReturnsNull()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        entry.IsEnabled = false;
+        map.Add(entry);
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that match counter is incremented on every successful resolution.
+    /// </summary>
+    [Test]
+    public async Task Resolve_OnMatch_IncrementsEntryMatchCount()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        map.Add(entry);
+
+        map.Resolve("api.example.com");
+        map.Resolve("api.example.com");
+
+        await Assert.That(entry.MatchCount).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Verifies a wildcard pattern matches a sub-domain.
+    /// </summary>
+    [Test]
+    public async Task Resolve_WildcardPatternMatchingSubdomain_ReturnsAddress()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var address = IPAddress.Parse("10.0.0.5");
+        map.Add(new DomainNameSystemOverrideEntry("*.example.com", address));
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsSameReferenceAs(address);
+    }
+
+    /// <summary>
+    ///     Verifies the wildcard does NOT match the apex.
+    /// </summary>
+    [Test]
+    public async Task Resolve_WildcardPatternAgainstApex_ReturnsNull()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        map.Add(new DomainNameSystemOverrideEntry("*.example.com", IPAddress.Loopback));
+
+        var resolved = map.Resolve("example.com");
+
+        await Assert.That(resolved).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies an exact entry wins over an overlapping wildcard.
+    /// </summary>
+    [Test]
+    public async Task Resolve_ExactAndOverlappingWildcard_ExactWins()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var exactAddress = IPAddress.Parse("10.0.0.1");
+        var wildcardAddress = IPAddress.Parse("10.0.0.2");
+        map.Add(new DomainNameSystemOverrideEntry("*.example.com", wildcardAddress));
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", exactAddress));
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsSameReferenceAs(exactAddress);
+    }
+
+    /// <summary>
+    ///     Verifies the longest enabled wildcard suffix wins when several wildcards overlap.
+    /// </summary>
+    [Test]
+    public async Task Resolve_MultipleOverlappingWildcards_LongestSuffixWins()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var shortAddress = IPAddress.Parse("10.0.0.1");
+        var longAddress = IPAddress.Parse("10.0.0.2");
+        map.Add(new DomainNameSystemOverrideEntry("*.com", shortAddress));
+        map.Add(new DomainNameSystemOverrideEntry("*.example.com", longAddress));
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsSameReferenceAs(longAddress);
+    }
+
+    /// <summary>
+    ///     Verifies that a disabled exact entry falls through to an enabled wildcard.
+    /// </summary>
+    [Test]
+    public async Task Resolve_DisabledExactAndEnabledWildcard_FallsThroughToWildcard()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var exact = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Parse("10.0.0.1"));
+        exact.IsEnabled = false;
+        var wildcardAddress = IPAddress.Parse("10.0.0.2");
+        var wildcard = new DomainNameSystemOverrideEntry("*.example.com", wildcardAddress);
+        map.Add(exact);
+        map.Add(wildcard);
+
+        var resolved = map.Resolve("api.example.com");
+
+        await Assert.That(resolved).IsSameReferenceAs(wildcardAddress);
+    }
+
+    /// <summary>
+    ///     Verifies GetSnapshot returns all entries (enabled and disabled) in insertion order.
+    /// </summary>
+    [Test]
+    public async Task GetSnapshot_WithMultipleEntries_ReturnsAllEntries()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback));
+        map.Add(new DomainNameSystemOverrideEntry("*.other.com", IPAddress.Loopback));
+
+        var snapshot = map.GetSnapshot();
+
+        await Assert.That(snapshot).HasCount(2);
+        await Assert.That(snapshot[0].Hostname).IsEqualTo("api.example.com");
+        await Assert.That(snapshot[1].Hostname).IsEqualTo("*.other.com");
+    }
+
+    /// <summary>
+    ///     Verifies HasOverride matches by canonical pattern (case-insensitive, dot-stripped).
+    /// </summary>
+    [Test]
+    public async Task HasOverride_TrailingDotAndMixedCase_MatchesCanonical()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback));
+
+        await Assert.That(map.HasOverride("API.Example.COM.")).IsTrue();
+    }
 }
