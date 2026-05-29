@@ -83,4 +83,59 @@ public sealed class IsolatedPluginInstanceFactoryTests
             Directory.Delete(directory, recursive: true);
         }
     }
+
+    /// <summary>
+    ///     Verifies that a valid candidate whose manifest references the test assembly's
+    ///     <c>TestPlugin</c> type produces a fully-instantiated plugin.
+    /// </summary>
+    [Test]
+    public async Task Create_ValidAssemblyAndPluginEntryType_ReturnsLoadedPluginInstance()
+    {
+        var factory = new IsolatedPluginInstanceFactory();
+        var directory = CreateTempDirectory();
+        try
+        {
+            var hostAssemblyPath = typeof(IsolatedPluginInstanceFactoryTests).Assembly.Location;
+            var stagedFileName = "PluginUnderTest_" + Path.GetRandomFileName() + ".dll";
+            File.Copy(hostAssemblyPath, Path.Combine(directory, stagedFileName));
+            var metadata = new PluginMetadata("p", "P", "1", "A", "D", "1.0");
+            var entryTypeName = typeof(Stubs.TestPlugin).FullName!;
+            var manifest = new PluginManifest(metadata, stagedFileName, entryTypeName);
+            var candidate = PluginCandidates.Valid(directory, manifest);
+
+            var result = factory.Create(candidate);
+
+            try
+            {
+                await Assert.That(result.IsSuccess).IsTrue();
+                await Assert.That(result.Plugin).IsNotNull();
+                await Assert.That(result.LoadContext).IsNotNull();
+            }
+            finally
+            {
+                if (result.LoadContext is PluginLoadContext pluginContext)
+                {
+                    PluginLoadContextUnloader.Unload(pluginContext);
+                }
+            }
+        }
+        finally
+        {
+            BestEffortDelete(directory);
+        }
+    }
+
+    private static void BestEffortDelete(string path)
+    {
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (System.IO.IOException)
+        {
+        }
+        catch (System.UnauthorizedAccessException)
+        {
+        }
+    }
 }

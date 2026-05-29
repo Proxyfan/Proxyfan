@@ -168,7 +168,6 @@ Detailed design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](
 - **HTTP/2 native orchestration** — primitives (frames, HPACK, streams, flow control) are in place; the orchestrator is in progress. HTTPS-over-HTTP/2 currently downgrades to HTTP/1.1 via ALPN (matches Charles / Fiddler default) so traffic IS still captured and decoded.
 - **gRPC over HTTP/2** — depends on the HTTP/2 orchestrator.
 - **MSIX / MSI installers** — currently only the portable ZIP is built; tracked in [E12-F01](docs/BACKLOG.md).
-- **Configuration migration startup integration** — migration pipeline is fully built and tested; the App.axaml.cs startup hook is the remaining wiring step.
 
 ## Roslyn analyzer rules
 
@@ -186,7 +185,7 @@ Proxyfan builds with `TreatWarningsAsErrors=true` and the following project-wide
 - **ArchUnitNET** for architecture conformance (dependency rules, naming, no circular dependencies)
 - **AppAccessibilityArchitectureTests** — scans every `.axaml` for unlabelled interactive controls
 - **Hand-written stubs** in `Stubs/` subdirectories — no mocking frameworks
-- Current coverage: **99.0% line**, **97.2% branch**, **99.6% method**
+- Current coverage: **97.5% line**, **94.8% branch**, **99.3% method** (every assembly ≥ 90% line and ≥ 90% branch).
 
 ## Contributing
 

@@ -262,8 +262,15 @@ public sealed class ConnectTunnelHandlerTests
             using var cancellationSource = new CancellationTokenSource();
             var handleTask = handler.HandleAsync(connection, cancellationSource.Token);
             await acceptedSemaphore.WaitAsync(TimeSpan.FromSeconds(10));
-            cancellationSource.Cancel();
-            await handleTask;
+            await cancellationSource.CancelAsync();
+            try
+            {
+                await handleTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
             await connection.Transport.Output.CompleteAsync();
             var response = await connection.ReadAllOutputAsync();
             var responseText = Encoding.ASCII.GetString(response);

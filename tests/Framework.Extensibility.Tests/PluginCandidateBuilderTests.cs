@@ -86,4 +86,30 @@ public sealed class PluginCandidateBuilderTests
             Directory.Delete(directory, recursive: true);
         }
     }
+
+    /// <summary>
+    ///     Verifies that an I/O failure while reading the manifest is captured as an invalid
+    ///     candidate carrying the IO error message (covers the <see cref="IOException" /> catch
+    ///     branch).
+    /// </summary>
+    [Test]
+    public async Task Build_ManifestExclusivelyLocked_ReturnsInvalidWithIoError()
+    {
+        var directory = CreateTempDirectory();
+        var manifestPath = Path.Combine(directory, "plugin.manifest");
+        try
+        {
+            File.WriteAllText(manifestPath, "id=p");
+            using var locker = new FileStream(manifestPath, FileMode.Open, FileAccess.Read, FileShare.None);
+
+            var candidate = PluginCandidateBuilder.Build(directory, "plugin.manifest");
+
+            await Assert.That(candidate.IsValid).IsFalse();
+            await Assert.That(candidate.ErrorMessage).IsNotNull();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
 }

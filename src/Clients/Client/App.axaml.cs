@@ -35,6 +35,7 @@ using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Resources;
 
 namespace Proxyfan.Client;
@@ -53,7 +54,23 @@ public partial class App : Application
     /// </summary>
     public App()
     {
+        var userConfigurationDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Proxyfan");
+        var migrationResult = AppStartupConfigurationMigrationRunner.Run(userConfigurationDirectory);
+
         _hostBuilder = Host.CreateDefaultBuilder();
+        _hostBuilder.ConfigureAppConfiguration((_, configurationBuilder) =>
+        {
+            var migratedSnapshot = migrationResult.Snapshot;
+            var migratedPairs = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in migratedSnapshot.Enumerate())
+            {
+                migratedPairs[pair.Key] = pair.Value;
+            }
+
+            configurationBuilder.AddInMemoryCollection(migratedPairs);
+        });
         _hostBuilder.ConfigureServices((context, services) =>
         {
             services.AddSingletonAsImplementedInterfaces(ResolveApplicationLifetime);

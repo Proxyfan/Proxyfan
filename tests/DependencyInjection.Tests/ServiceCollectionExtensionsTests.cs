@@ -110,6 +110,47 @@ public sealed class ServiceCollectionExtensionsTests
         }
     }
 
+    /// <summary>
+    ///     Resolving the auto-update, plugin, and reverse-proxy health-checker singletons
+    ///     forces the matching factory lambdas to execute, covering the
+    ///     <c>&lt;AddAutoUpdate&gt;b__*</c>, <c>&lt;AddPlugins&gt;b__*</c>, and
+    ///     <c>&lt;AddReverseProxy&gt;b__*</c> closures.
+    /// </summary>
+    [Test]
+    public async Task AddProxyListener_ResolvingUpdatePluginReverseProxyFactories_ExercisesLambdas()
+    {
+        var services = new ServiceCollection();
+        var configurationBuilder = new ConfigurationBuilder();
+        var configuration = configurationBuilder.Build();
+        services.AddLogging();
+        services.AddSingleton<IDomainEventBus, DomainEventBus>();
+        services.AddProxyListener(configuration);
+
+        ServiceProvider provider = services.BuildServiceProvider();
+        try
+        {
+            var updateFeedFunction = provider.GetService<Proxyfan.Domain.Updates.UpdateFeedFunction>();
+            var updateChecker = provider.GetService<Proxyfan.Domain.Updates.IUpdateChecker>();
+            var enabledStateStore = provider.GetService<Proxyfan.Framework.Extensibility.IPluginEnabledStateStore>();
+            var rootProvider = provider.GetService<Proxyfan.Framework.Extensibility.PluginRootDirectoryProvider>();
+            var pluginHost = provider.GetService<Proxyfan.Plugin.Abstractions.IPluginHost>();
+            var pluginUpdateManifestUrlProvider = provider.GetService<Proxyfan.Framework.Extensibility.PluginUpdateManifestUrlProvider>();
+            var healthChecker = provider.GetService<Proxyfan.Domain.Proxy.PeriodicReverseProxyHealthChecker>();
+
+            await Assert.That(updateFeedFunction).IsNotNull();
+            await Assert.That(updateChecker).IsNotNull();
+            await Assert.That(enabledStateStore).IsNotNull();
+            await Assert.That(rootProvider).IsNotNull();
+            await Assert.That(pluginHost).IsNotNull();
+            await Assert.That(pluginUpdateManifestUrlProvider).IsNotNull();
+            await Assert.That(healthChecker).IsNotNull();
+        }
+        finally
+        {
+            await provider.DisposeAsync();
+        }
+    }
+
     private static SampleImplementation CreateSampleImplementation()
     {
         var implementation = new SampleImplementation();

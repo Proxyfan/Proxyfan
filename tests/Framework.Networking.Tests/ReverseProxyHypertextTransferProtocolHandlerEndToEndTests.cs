@@ -198,6 +198,99 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
         }
     }
 
+    /// <summary>
+    ///     When the backend port is closed, the forwarder fails and the handler completes the
+    ///     flow as failed and publishes a <see cref="TrafficFlowCompleted" /> with that status,
+    ///     then exits the per-connection loop.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_BackendUnreachable_FailsFlowAndPublishesCompletedEvent()
+    {
+        var backendPort = GetFreePort();
+        var listenPort = GetFreePort();
+        var trafficStore = new TrafficStore();
+        var eventBus = new RecordingDomainEventBus();
+        var ruleEngine = new RuleEngine([], []);
+        var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
+        var listener = CreateListener(listenPort, backendPort, handler);
+
+        try
+        {
+            await listener.StartAsync(CancellationToken.None);
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, listenPort);
+            var stream = client.GetStream();
+            var request = $"GET /unreachable HTTP/1.1\r\nHost: 127.0.0.1:{listenPort}\r\nConnection: close\r\n\r\n";
+            var requestBytes = Encoding.ASCII.GetBytes(request);
+            await stream.WriteAsync(requestBytes, CancellationToken.None);
+            await stream.FlushAsync(CancellationToken.None);
+
+            using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: false);
+            await reader.ReadToEndAsync(CancellationToken.None);
+
+            var completedEvent = await PollForCompletedAsync(eventBus, TimeSpan.FromSeconds(5));
+            await Assert.That(completedEvent).IsNotNull();
+            await Assert.That(completedEvent!.Status).IsEqualTo(TrafficFlowStatus.Failed);
+        }
+        finally
+        {
+            await listener.StopAsync(CancellationToken.None);
+            listener.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     An HTTP/1.0 request that succeeds is still served, but the handler does not keep
+    ///     the connection open after the response (HasCanKeepClientConnectionAlive returns
+    ///     false for HTTP/1.0).
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Http10Request_ClosesConnectionAfterResponse()
+    {
+        var backendPort = GetFreePort();
+        using var backendCancellation = new CancellationTokenSource();
+        var capturedHost = new TaskCompletionSource<string>();
+        var backendTask = RunRawBackendAsync(backendPort, "ten-body", capturedHost, backendCancellation.Token);
+
+        var listenPort = GetFreePort();
+        var trafficStore = new TrafficStore();
+        var eventBus = new DomainEventBus(NullLogger<DomainEventBus>.Instance);
+        var ruleEngine = new RuleEngine([], []);
+        var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
+        var listener = CreateListener(listenPort, backendPort, handler);
+
+        try
+        {
+            await listener.StartAsync(CancellationToken.None);
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, listenPort);
+            var stream = client.GetStream();
+            var request = $"GET /ten HTTP/1.0\r\nHost: 127.0.0.1:{listenPort}\r\n\r\n";
+            var requestBytes = Encoding.ASCII.GetBytes(request);
+            await stream.WriteAsync(requestBytes, CancellationToken.None);
+            await stream.FlushAsync(CancellationToken.None);
+
+            using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: false);
+            var rawResponse = await reader.ReadToEndAsync(CancellationToken.None);
+
+            await Assert.That(rawResponse).Contains("ten-body");
+        }
+        finally
+        {
+            await listener.StopAsync(CancellationToken.None);
+            listener.Dispose();
+            await backendCancellation.CancelAsync();
+            try
+            {
+                await backendTask;
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException or IOException)
+            {
+                _ = ex;
+            }
+        }
+    }
+
     private static ReverseProxyHypertextTransferProtocolHandler CreateHandler(
         IDomainEventBus eventBus,
         IRuleEngine ruleEngine,
@@ -254,6 +347,74 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
         }
 
         return null;
+    }
+
+    private static async Task<Proxyfan.Domain.Traffic.Events.TrafficFlowCompleted?> PollForCompletedAsync(
+        RecordingDomainEventBus bus,
+        TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            var match = bus.FirstOrDefaultOf<Proxyfan.Domain.Traffic.Events.TrafficFlowCompleted>();
+            if (match is not null)
+            {
+                return match;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(25), TimeProvider.System, CancellationToken.None);
+        }
+
+        return null;
+    }
+
+    private sealed class RecordingDomainEventBus : IDomainEventBus
+    {
+        private readonly System.Collections.Generic.List<IDomainEvent> _events;
+        private readonly object _lock;
+
+        public RecordingDomainEventBus()
+        {
+            _events = [];
+            _lock = new object();
+        }
+
+        public void Publish<TEvent>(TEvent domainEvent) where TEvent : IDomainEvent
+        {
+            lock (_lock)
+            {
+                _events.Add(domainEvent);
+            }
+        }
+
+        public IDisposable Subscribe<TEvent>(DomainEventHandler<TEvent> handler) where TEvent : IDomainEvent
+        {
+            _ = handler;
+            return new NoOpDisposable();
+        }
+
+        public TEvent? FirstOrDefaultOf<TEvent>() where TEvent : class, IDomainEvent
+        {
+            lock (_lock)
+            {
+                foreach (var domainEvent in _events)
+                {
+                    if (domainEvent is TEvent typed)
+                    {
+                        return typed;
+                    }
+                }
+
+                return null;
+            }
+        }
+
+        private sealed class NoOpDisposable : IDisposable
+        {
+            public void Dispose()
+            {
+            }
+        }
     }
 
     private static async Task RunRawBackendAsync(

@@ -111,4 +111,63 @@ public sealed class PluginInstanceCreatorTests
             BestEffortDelete(directory);
         }
     }
+
+    /// <summary>
+    ///     Verifies that InstantiateFromContext succeeds when the entry type is a public
+    ///     IProxyfanPlugin with a parameterless constructor.
+    /// </summary>
+    [Test]
+    public async Task InstantiateFromContext_ValidPluginEntryType_ReturnsSuccess()
+    {
+        var hostAssemblyPath = typeof(PluginInstanceCreatorTests).Assembly.Location;
+        var directory = CreateTempDirectory();
+        try
+        {
+            var stagedAssemblyPath = Path.Combine(directory, Path.GetFileName(hostAssemblyPath));
+            File.Copy(hostAssemblyPath, stagedAssemblyPath);
+            var context = new PluginLoadContext(stagedAssemblyPath);
+            var metadata = new PluginMetadata("p", "P", "1", "A", "D", "1.0");
+            var entryTypeName = typeof(Proxyfan.Framework.Extensibility.Tests.Stubs.TestPlugin).FullName!;
+            var manifest = new PluginManifest(metadata, Path.GetFileName(hostAssemblyPath), entryTypeName);
+
+            var result = PluginInstanceCreator.InstantiateFromContext(context, stagedAssemblyPath, manifest);
+
+            await Assert.That(result.IsSuccess).IsTrue();
+            await Assert.That(result.Plugin).IsNotNull();
+            await Assert.That(result.LoadContext).IsSameReferenceAs(context);
+
+            PluginLoadContextUnloader.Unload(context);
+        }
+        finally
+        {
+            BestEffortDelete(directory);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that InstantiateFromContext fails when LoadFromAssemblyPath throws (the
+    ///     file is not a valid PE assembly).
+    /// </summary>
+    [Test]
+    public async Task InstantiateFromContext_InvalidAssemblyFile_ReturnsFailure()
+    {
+        var directory = CreateTempDirectory();
+        try
+        {
+            var fakePath = Path.Combine(directory, "Garbage.dll");
+            File.WriteAllText(fakePath, "not a real assembly file");
+            var context = new PluginLoadContext(fakePath);
+            var metadata = new PluginMetadata("p", "P", "1", "A", "D", "1.0");
+            var manifest = new PluginManifest(metadata, "Garbage.dll", "Some.Type");
+
+            var result = PluginInstanceCreator.InstantiateFromContext(context, fakePath, manifest);
+
+            await Assert.That(result.IsSuccess).IsFalse();
+            await Assert.That(result.ErrorMessage).Contains("Failed to load assembly");
+        }
+        finally
+        {
+            BestEffortDelete(directory);
+        }
+    }
 }
