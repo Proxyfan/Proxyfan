@@ -55,12 +55,23 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     public ReadOnlyObservableCollection<TimingPhaseViewModel> TimingPhases { get; }
 
     /// <summary>
+    ///     Gets the child view model that surfaces WebSocket message inspection.
+    /// </summary>
+    public WebSocketInspectorViewModel WebSocket { get; }
+
+    /// <summary>
     ///     Initializes a new <see cref="InspectorViewModel" /> and subscribes to selection changes.
     /// </summary>
     /// <param name="trafficListViewModel">
     ///     The traffic list view model whose selected flow is observed.
     /// </param>
-    public InspectorViewModel(TrafficListViewModel trafficListViewModel)
+    /// <param name="webSocketInspectorViewModel">
+    ///     The child WebSocket inspector view model surfaced through the
+    ///     <see cref="WebSocket" /> property.
+    /// </param>
+    public InspectorViewModel(
+        TrafficListViewModel trafficListViewModel,
+        WebSocketInspectorViewModel webSocketInspectorViewModel)
     {
         _trafficListViewModel = trafficListViewModel;
         _authorizationText = string.Empty;
@@ -83,6 +94,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _timingPhases = phaseCollection;
         var readOnlyPhases = new ReadOnlyObservableCollection<TimingPhaseViewModel>(_timingPhases);
         TimingPhases = readOnlyPhases;
+        WebSocket = webSocketInspectorViewModel;
         trafficListViewModel.PropertyChanged += OnTrafficListPropertyChanged;
     }
 
@@ -90,6 +102,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _trafficListViewModel.PropertyChanged -= OnTrafficListPropertyChanged;
+        WebSocket.Dispose();
     }
 
     private void ApplyRequest(HypertextTransferProtocolRequestData request)

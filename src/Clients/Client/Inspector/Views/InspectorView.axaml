@@ -166,6 +166,83 @@
                              Text="{Binding RawResponseText}"
                              TextWrapping="NoWrap" />
                 </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_WebSocketMessages}"
+                         IsVisible="{Binding WebSocket.IsWebSocket}">
+                    <Grid ColumnDefinitions="*,2,2*"
+                          RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="3"
+                                   FontStyle="Italic"
+                                   Margin="4,2,4,4"
+                                   Text="{Binding WebSocket.ConnectionStatusText}" />
+                        <StackPanel Grid.Row="1"
+                                    Grid.ColumnSpan="3"
+                                    Margin="4,0,4,4"
+                                    Orientation="Horizontal"
+                                    Spacing="6">
+                            <TextBlock Text="{localization:Localize Key=Inspector_WebSocket_FilterDirection}"
+                                       VerticalAlignment="Center" />
+                            <ComboBox MinWidth="120"
+                                      SelectedIndex="{Binding WebSocket.DirectionFilterIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterDirection_All}" />
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterDirection_Outbound}" />
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterDirection_Inbound}" />
+                            </ComboBox>
+                            <TextBlock Margin="12,0,0,0"
+                                       Text="{localization:Localize Key=Inspector_WebSocket_FilterContentType}"
+                                       VerticalAlignment="Center" />
+                            <ComboBox MinWidth="120"
+                                      SelectedIndex="{Binding WebSocket.ContentTypeFilterIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterContentType_All}" />
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterContentType_Text}" />
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterContentType_Binary}" />
+                                <ComboBoxItem Content="{localization:Localize Key=Inspector_WebSocket_FilterContentType_Control}" />
+                            </ComboBox>
+                        </StackPanel>
+                        <ListBox AutomationProperties.Name="{localization:Localize Key=Inspector_WebSocket_MessageList_Automation}"
+                                 Grid.Row="2"
+                                 Grid.Column="0"
+                                 ItemsSource="{Binding WebSocket.Messages}"
+                                 SelectedItem="{Binding WebSocket.SelectedMessage, Mode=TwoWay}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+                                        <TextBlock Grid.Column="0"
+                                                   FontWeight="Bold"
+                                                   Margin="0,0,6,0"
+                                                   Text="{Binding DirectionGlyph}" />
+                                        <TextBlock Grid.Column="1"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding TimestampText}" />
+                                        <TextBlock Grid.Column="2"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding OpcodeText}" />
+                                        <TextBlock Grid.Column="3"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding PayloadSizeText}" />
+                                        <TextBlock Grid.Column="4"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Text="{Binding PayloadPreview}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <GridSplitter Grid.Row="2"
+                                      Grid.Column="1"
+                                      Background="#33888888"
+                                      Width="2" />
+                        <TextBox AcceptsReturn="True"
+                                 FontFamily="Consolas,Menlo,monospace"
+                                 Grid.Row="2"
+                                 Grid.Column="2"
+                                 IsReadOnly="True"
+                                 Text="{Binding WebSocket.SelectedMessageDetailText}"
+                                 TextWrapping="NoWrap" />
+                    </Grid>
+                </TabItem>
             </TabControl>
         </HeaderedContentControl>
     </Grid>

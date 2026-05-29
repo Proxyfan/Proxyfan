@@ -1,4 +1,4 @@
-using Proxyfan.Client.Inspector.ViewModels;
+﻿using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
@@ -23,7 +23,7 @@ public sealed class InspectorViewModelAdditionalTests
     {
         var bus = new StubBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var flow = CreateTrafficFlowWithResponse();
         var flowViewModel = new TrafficFlowViewModel(flow, 1);
 
@@ -42,7 +42,7 @@ public sealed class InspectorViewModelAdditionalTests
     {
         var bus = new StubBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var populatedFlow = CreateTrafficFlowWithResponse();
         var populatedViewModel = new TrafficFlowViewModel(populatedFlow, 1);
         trafficListViewModel.SelectedFlow = populatedViewModel;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Traffic.Tests;
@@ -71,6 +72,78 @@ public sealed class WebSocketFlowTests
 
         await Assert.That(webSocketFlow.IsClosed).IsTrue();
         await Assert.That(webSocketFlow.ClosedAt).IsEqualTo(firstClose);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="WebSocketFlow.MessageRecorded" /> fires once per recorded
+    ///     message and the handler receives the recorded message instance.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_WithSubscriber_FiresEventOncePerMessage()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var captured = new List<WebSocketMessage>();
+        webSocketFlow.MessageRecorded += captured.Add;
+        var message = new WebSocketMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text, new byte[] { 1 }, DateTimeOffset.UtcNow);
+
+        webSocketFlow.RecordMessage(message);
+
+        await Assert.That(captured.Count).IsEqualTo(1);
+        await Assert.That(captured[0]).IsSameReferenceAs(message);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="WebSocketFlow.Closed" /> fires exactly once even when
+    ///     <see cref="WebSocketFlow.MarkClosed" /> is invoked multiple times.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_WithSubscriber_FiresEventOnce()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var fireCount = 0;
+        webSocketFlow.Closed += () => fireCount++;
+
+        webSocketFlow.MarkClosed(DateTimeOffset.UtcNow);
+        webSocketFlow.MarkClosed(DateTimeOffset.UtcNow.AddSeconds(1));
+
+        await Assert.That(fireCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that the <see cref="WebSocketFlow.MessageRecorded" /> event handler is
+    ///     invoked outside the internal lock so it can call back into the flow without deadlocking.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_HandlerReentersFlow_DoesNotDeadlock()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var reentrantCount = 0;
+        webSocketFlow.MessageRecorded += _ => reentrantCount = webSocketFlow.Messages.Count;
+
+        var message = new WebSocketMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text, new byte[] { 1 }, DateTimeOffset.UtcNow);
+        webSocketFlow.RecordMessage(message);
+
+        await Assert.That(reentrantCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="WebSocketFlow.MarkClosed" /> handlers can read the
+    ///     <see cref="WebSocketFlow.IsClosed" /> state without deadlocking.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_HandlerReadsState_DoesNotDeadlock()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var observedClosed = false;
+        webSocketFlow.Closed += () => observedClosed = webSocketFlow.IsClosed;
+
+        webSocketFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        await Assert.That(observedClosed).IsTrue();
     }
 
     private static TrafficFlow CreateUnderlyingFlow(out Guid id)

@@ -1,4 +1,4 @@
-using Proxyfan.Client.Inspector.ViewModels;
+﻿using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
@@ -22,7 +22,7 @@ public sealed class InspectorViewModelTests
     {
         var bus = new StubDomainEventBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
 
         await Assert.That(inspectorViewModel.RequestHeadersText).IsEqualTo(string.Empty);
         await Assert.That(inspectorViewModel.RequestBodyText).IsEqualTo(string.Empty);
@@ -38,7 +38,7 @@ public sealed class InspectorViewModelTests
     {
         var bus = new StubDomainEventBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);
 
@@ -55,7 +55,7 @@ public sealed class InspectorViewModelTests
     {
         var bus = new StubDomainEventBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);
         trafficListViewModel.SelectedFlow = flowViewModel;
@@ -74,7 +74,7 @@ public sealed class InspectorViewModelTests
     {
         var bus = new StubDomainEventBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var requestEvent = CreateRequestEvent();
         var flowViewModel = new TrafficFlowViewModel(requestEvent, 1);
 

@@ -12,6 +12,22 @@ namespace Proxyfan.Domain.Traffic;
 /// </summary>
 public sealed class WebSocketFlow
 {
+    /// <summary>
+    ///     Raised after the flow transitions to a closed state via
+    ///     <see cref="MarkClosed" />. Fires at most once per flow.
+    ///     Handlers run synchronously on the calling thread; UI subscribers
+    ///     must marshal back to the UI thread themselves.
+    /// </summary>
+    public event WebSocketFlowClosedHandler? Closed;
+
+    /// <summary>
+    ///     Raised after a message is appended via <see cref="RecordMessage" />.
+    ///     Handlers run synchronously on the calling thread (typically a
+    ///     background relay thread); UI subscribers must marshal back to the
+    ///     UI thread themselves.
+    /// </summary>
+    public event WebSocketMessageRecordedHandler? MessageRecorded;
+
     private readonly Lock _gate;
     private readonly List<WebSocketMessage> _messages;
     private DateTimeOffset? _closedAt;
@@ -85,6 +101,7 @@ public sealed class WebSocketFlow
     /// <param name="closedAt">The wall-clock instant the close was observed.</param>
     public void MarkClosed(DateTimeOffset closedAt)
     {
+        bool fire;
         lock (_gate)
         {
             if (_closedAt.HasValue)
@@ -93,6 +110,12 @@ public sealed class WebSocketFlow
             }
 
             _closedAt = closedAt;
+            fire = true;
+        }
+
+        if (fire)
+        {
+            Closed?.Invoke();
         }
     }
 
@@ -106,5 +129,7 @@ public sealed class WebSocketFlow
         {
             _messages.Add(message);
         }
+
+        MessageRecorded?.Invoke(message);
     }
 }

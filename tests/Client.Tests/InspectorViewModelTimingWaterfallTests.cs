@@ -1,4 +1,4 @@
-using Proxyfan.Client.Inspector.ViewModels;
+﻿using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
@@ -23,7 +23,7 @@ public sealed class InspectorViewModelTimingWaterfallTests
     {
         var bus = new StubBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
 
         await Assert.That(inspectorViewModel.TimingPhases.Count).IsEqualTo(0);
         await Assert.That(inspectorViewModel.TotalDurationText).IsEqualTo(string.Empty);
@@ -38,7 +38,7 @@ public sealed class InspectorViewModelTimingWaterfallTests
     {
         var bus = new StubBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var flow = CreateFlowWithMeasurableTimings();
         var flowViewModel = new TrafficFlowViewModel(flow, 1);
 
@@ -57,7 +57,7 @@ public sealed class InspectorViewModelTimingWaterfallTests
     {
         var bus = new StubBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
-        using var inspectorViewModel = new InspectorViewModel(trafficListViewModel);
+        using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
         var flow = CreateFlowWithMeasurableTimings();
         var flowViewModel = new TrafficFlowViewModel(flow, 1);
         trafficListViewModel.SelectedFlow = flowViewModel;
