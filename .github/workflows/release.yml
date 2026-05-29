@@ -1,0 +1,59 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.2.3)'
+        required: true
+        default: '0.0.0-local'
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  portable:
+    name: Build portable ZIP (win-x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              if ($env:GITHUB_REF -like 'refs/tags/v*') {
+                  $version = $env:GITHUB_REF.Substring('refs/tags/v'.Length)
+              } else {
+                  $version = '0.0.0-local'
+              }
+          }
+          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Resolved version: $version"
+
+      - name: Build portable ZIP
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          ./.tools/Build-Installer.ps1 -Version '${{ steps.version.outputs.version }}'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxyfan-portable-${{ steps.version.outputs.version }}-win-x64
+          path: artifacts/installer/*.zip
+          if-no-files-found: error
