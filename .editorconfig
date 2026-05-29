@@ -169,6 +169,11 @@ resharper_web_config_module_not_resolved_highlighting = error
 resharper_web_config_type_not_resolved_highlighting = error
 resharper_web_config_wrong_module_highlighting = error
 
+# Plugin loader: AssemblyLoadContext + Activator are the entire purpose of these files;
+# ATXRF030 (reflection ban) is fundamentally incompatible with extensible plugin loading.
+[src/Framework.Extensibility/{PluginLoadContext,PluginInstanceCreator,PluginSharedContractAssemblies}.cs]
+dotnet_diagnostic.ATXRF030.severity = none
+
 [*]
 charset = utf-8-bom
 end_of_line = crlf

@@ -124,6 +124,25 @@ function Invoke-Tests {
     return $false
 }
 
+function Invoke-ResourceValidation {
+    Write-Step 'Validating resource keys...'
+    $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+    & "$ScriptDir\Test-ResourceKeys.ps1" -Path $RepoRoot | Out-Null
+    $ExitCode = $LASTEXITCODE
+
+    $Stopwatch.Stop()
+    $Elapsed = $Stopwatch.Elapsed.ToString('mm\:ss')
+
+    if ($ExitCode -eq 0) {
+        Write-Success "Resource keys validated ($Elapsed)"
+        return $true
+    }
+
+    Write-Failure "Resource key validation failed ($Elapsed)"
+    return $false
+}
+
 function Show-Help {
     Write-Host ''
     Write-Host 'Proxyfan Build Script' -ForegroundColor Cyan
@@ -179,6 +198,12 @@ try {
     # Step 2: Build
     if (-not (Invoke-Build)) {
         Write-Host "`nBuild failed." -ForegroundColor Red
+        exit 1
+    }
+
+    # Step 2b: Resource key validation
+    if (-not (Invoke-ResourceValidation)) {
+        Write-Host "`nResource validation failed." -ForegroundColor Red
         exit 1
     }
 
