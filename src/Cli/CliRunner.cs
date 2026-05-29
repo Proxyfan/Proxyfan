@@ -48,6 +48,9 @@ public sealed class CliRunner
             case CliCommandKind.HarToCurl:
                 return await CliHarToCurlHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
 
+            case CliCommandKind.HarFilter:
+                return await CliHarFilterHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
+
             case CliCommandKind.Send:
                 return await CliSendHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
 

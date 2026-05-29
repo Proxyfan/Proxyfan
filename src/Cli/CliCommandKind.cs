@@ -39,4 +39,10 @@ public enum CliCommandKind
     ///     The user requested to convert a HAR file's entries to cURL command lines.
     /// </summary>
     HarToCurl,
+
+    /// <summary>
+    ///     The user requested to filter a HAR file by URL pattern, writing matching entries
+    ///     to a new HAR file.
+    /// </summary>
+    HarFilter,
 }

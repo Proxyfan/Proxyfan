@@ -6,6 +6,12 @@ namespace Proxyfan.Cli;
 public sealed class CliCommand
 {
     /// <summary>
+    ///     Gets the optional <see cref="CliCommandKind.HarFilter" /> options when this is a
+    ///     HarFilter command, otherwise <see langword="null" />.
+    /// </summary>
+    public CliHarFilterOptions? HarFilterOptions { get; init; }
+
+    /// <summary>
     ///     Gets the parsed command kind.
     /// </summary>
     public CliCommandKind Kind { get; }

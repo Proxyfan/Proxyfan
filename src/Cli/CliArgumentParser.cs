@@ -54,6 +54,15 @@ public static class CliArgumentParser
             return new CliCommand(CliCommandKind.HarToCurl, DefaultPort, path);
         }
 
+        if (string.Equals(command, "har-filter", StringComparison.OrdinalIgnoreCase))
+        {
+            var options = CliHarFilterArgumentParser.Parse(args);
+            return new CliCommand(CliCommandKind.HarFilter, DefaultPort, options?.InputPath)
+            {
+                HarFilterOptions = options,
+            };
+        }
+
         if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
         {
             var sendRequest = CliSendArgumentParser.Parse(args);

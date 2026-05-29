@@ -233,4 +233,37 @@ public sealed class CliArgumentParserTests
         await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Start);
         await Assert.That(command.Port).IsEqualTo(9000);
     }
+
+    /// <summary>
+    ///     Verifies that the har-filter verb with all required flags returns HarFilter
+    ///     with the populated options.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarFilterWithAllFlags_ReturnsHarFilterWithOptions()
+    {
+        string[] args = ["har-filter", "--input", "a.har", "--output", "b.har", "--pattern", "*.example.com/*"];
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarFilter);
+        await Assert.That(command.HarFilterOptions).IsNotNull();
+        await Assert.That(command.HarFilterOptions!.InputPath).IsEqualTo("a.har");
+        await Assert.That(command.HarFilterOptions.OutputPath).IsEqualTo("b.har");
+        await Assert.That(command.HarFilterOptions.Pattern).IsEqualTo("*.example.com/*");
+    }
+
+    /// <summary>
+    ///     Verifies that the har-filter verb with no flags returns HarFilter with null options
+    ///     so the handler can surface a helpful error message.
+    /// </summary>
+    [Test]
+    public async Task Parse_HarFilterWithoutFlags_ReturnsHarFilterWithNullOptions()
+    {
+        string[] args = ["har-filter"];
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.HarFilter);
+        await Assert.That(command.HarFilterOptions).IsNull();
+    }
 }

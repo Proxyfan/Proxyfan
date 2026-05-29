@@ -226,4 +226,22 @@ public sealed class CliRunnerTests
             File.Delete(temporaryFile);
         }
     }
+
+    /// <summary>
+    ///     Verifies the HarFilter command is dispatched and reaches its handler when options
+    ///     are missing (returns the handler's error code).
+    /// </summary>
+    [Test]
+    public async Task RunAsync_HarFilterWithoutOptions_RoutesToHandler()
+    {
+        var runner = new CliRunner();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var command = new CliCommand(CliCommandKind.HarFilter, 8080, null);
+
+        var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+        await Assert.That(exitCode).IsEqualTo(9);
+        await Assert.That(error.ToString()).Contains("har-filter requires");
+    }
 }

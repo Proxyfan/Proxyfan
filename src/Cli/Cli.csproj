@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\Domain.Session\Domain.Session.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
     </ItemGroup>

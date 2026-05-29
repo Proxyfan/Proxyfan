@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Cli\Cli.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Rules\Domain.Rules.csproj" />
     </ItemGroup>
 
 </Project>
