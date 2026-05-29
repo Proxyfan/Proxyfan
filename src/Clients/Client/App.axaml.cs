@@ -1,7 +1,9 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
+#if DEBUG
 using Avalonia.Diagnostics;
+#endif
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using IApplicationLifetime = Avalonia.Controls.ApplicationLifetimes.IApplicationLifetime;
