@@ -30,11 +30,13 @@
                 <rules:BreakpointPhase>Both</rules:BreakpointPhase>
             </ComboBox>
             <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
-                <TextBox Grid.Column="0"
+                <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_NewPattern_Automation}"
+                         Grid.Column="0"
                          Margin="0,0,4,0"
                          Text="{Binding NewPatternText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Watermark="{localization:Localize Key=Tools_RuleList_PatternPlaceholder}" />
-                <ComboBox Grid.Column="1"
+                <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_PatternKind_Automation}"
+                          Grid.Column="1"
                           Margin="0,0,4,0"
                           MinWidth="100"
                           SelectedItem="{Binding NewPatternKind, Mode=TwoWay}">
@@ -50,7 +52,8 @@
             <Border Grid.Row="4"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="1">
-                <ListBox ItemsSource="{Binding Patterns}">
+                <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_RuleList_PatternList_Automation}"
+                         ItemsSource="{Binding Patterns}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:BlockListPatternViewModel">
                             <Grid ColumnDefinitions="*,Auto,Auto" Margin="4">
@@ -105,31 +108,36 @@
                         <TextBlock Grid.Row="0"
                                    Margin="0,0,0,4"
                                    Text="{localization:Localize Key=Tools_Breakpoint_RequestUrl}" />
-                        <TextBox Grid.Row="1"
+                        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_RequestUrlBox_Automation}"
+                                 Grid.Row="1"
                                  Margin="0,0,0,8"
                                  Text="{Binding RequestUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Grid.Row="2"
                                    Margin="0,0,0,4"
                                    Text="{localization:Localize Key=Tools_Breakpoint_Method}" />
-                        <TextBox Grid.Row="3"
+                        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_MethodBox_Automation}"
+                                 Grid.Row="3"
                                  Margin="0,0,0,8"
                                  Text="{Binding Method, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <Grid Grid.Row="4" ColumnDefinitions="*,*" Margin="0,0,0,8">
                             <StackPanel Grid.Column="0" Margin="0,0,4,0" Orientation="Vertical">
                                 <TextBlock Margin="0,0,0,4"
                                            Text="{localization:Localize Key=Tools_Breakpoint_StatusCode}" />
-                                <TextBox Text="{Binding StatusCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_StatusBox_Automation}"
+                                         Text="{Binding StatusCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="4,0,0,0" Orientation="Vertical">
                                 <TextBlock Margin="0,0,0,4"
                                            Text="{localization:Localize Key=Tools_Breakpoint_ReasonPhrase}" />
-                                <TextBox Text="{Binding ReasonPhrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_ReasonBox_Automation}"
+                                         Text="{Binding ReasonPhrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
                         </Grid>
                         <TextBlock Grid.Row="5"
                                    Margin="0,0,0,4"
                                    Text="{localization:Localize Key=Tools_Breakpoint_Headers}" />
-                        <TextBox Grid.Row="6"
+                        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_HeadersBox_Automation}"
+                                 Grid.Row="6"
                                  AcceptsReturn="True"
                                  Height="100"
                                  Margin="0,0,0,8"
@@ -137,7 +145,8 @@
                         <TextBlock Grid.Row="7"
                                    Margin="0,0,0,4"
                                    Text="{localization:Localize Key=Tools_Breakpoint_Body}" />
-                        <TextBox Grid.Row="8"
+                        <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Breakpoint_BodyBox_Automation}"
+                                 Grid.Row="8"
                                  AcceptsReturn="True"
                                  Margin="0,0,0,0"
                                  Text="{Binding BodyText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

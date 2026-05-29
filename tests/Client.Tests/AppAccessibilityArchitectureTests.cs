@@ -73,13 +73,7 @@ public sealed partial class AppAccessibilityArchitectureTests
         // controls outside this list.
         var allowList = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "BreakpointView.axaml",
-            "CustomColumnsView.axaml",
-            "DiffToolView.axaml",
             "InspectorView.axaml",
-            "PreferencesView.axaml",
-            "RemoteDevicesView.axaml",
-            "ReverseProxyView.axaml",
             "TextPromptWindow.axaml",
         };
         return allowList;

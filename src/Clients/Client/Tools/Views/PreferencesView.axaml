@@ -90,7 +90,8 @@
                         <Grid ColumnDefinitions="180,*">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center"
                                        Text="{localization:Localize Key=Tools_Preferences_UpstreamHost}" />
-                            <TextBox Grid.Column="1"
+                            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_Preferences_UpstreamHost_Automation}"
+                                     Grid.Column="1"
                                      IsEnabled="{Binding IsUpstreamProxyEnabled}"
                                      Text="{Binding UpstreamProxyHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      Watermark="corp-proxy.example.com" />

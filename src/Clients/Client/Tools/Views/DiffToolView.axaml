@@ -64,7 +64,8 @@
         <Border Grid.Row="2"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1">
-            <TextBox AcceptsReturn="True"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_DiffTool_DiffBox_Automation}"
+                     AcceptsReturn="True"
                      FontFamily="Cascadia Code,Consolas,monospace"
                      IsReadOnly="True"
                      Text="{Binding DiffText, Mode=OneWay}"

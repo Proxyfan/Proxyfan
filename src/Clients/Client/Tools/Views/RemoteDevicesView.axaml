@@ -42,7 +42,8 @@
             </DataGrid>
         </Border>
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,8,0,0">
-            <TextBox Grid.Column="0"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_RemoteDevices_RenameBox_Automation}"
+                     Grid.Column="0"
                      Margin="0,0,4,0"
                      Text="{Binding RenameText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_RemoteDevices_RenamePlaceholder}" />

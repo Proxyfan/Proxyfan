@@ -17,15 +17,18 @@
                    Text="{localization:Localize Key=Tools_CustomColumns_Description}"
                    TextWrapping="Wrap" />
         <Grid Grid.Row="1" ColumnDefinitions="*,*,Auto,Auto" Margin="0,0,0,8">
-            <TextBox Grid.Column="0"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_CustomColumns_DisplayNameBox_Automation}"
+                     Grid.Column="0"
                      Margin="0,0,4,0"
                      Text="{Binding NewColumnDisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_CustomColumns_DisplayNamePlaceholder}" />
-            <TextBox Grid.Column="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_CustomColumns_HeaderKeyBox_Automation}"
+                     Grid.Column="1"
                      Margin="0,0,4,0"
                      Text="{Binding NewColumnHeaderKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Watermark="{localization:Localize Key=Tools_CustomColumns_HeaderKeyPlaceholder}" />
-            <ComboBox Grid.Column="2"
+            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_CustomColumns_SourceCombo_Automation}"
+                      Grid.Column="2"
                       Margin="0,0,4,0"
                       MinWidth="100"
                       SelectedItem="{Binding NewColumnSource, Mode=TwoWay}">

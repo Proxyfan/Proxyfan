@@ -70,23 +70,28 @@
         <Grid Grid.Row="2"
               ColumnDefinitions="*,*,*,*,Auto,Auto,Auto,Auto"
               Margin="0,8,0,0">
-            <TextBox Grid.Column="0"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_ReverseProxy_RouteNameBox_Automation}"
+                     Grid.Column="0"
                      Margin="0,0,4,0"
                      Text="{Binding RouteName, Mode=TwoWay}"
                      Watermark="{localization:Localize Key=Tools_ReverseProxy_NamePlaceholder}" />
-            <TextBox Grid.Column="1"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_ReverseProxy_ListenPortBox_Automation}"
+                     Grid.Column="1"
                      Margin="0,0,4,0"
                      Text="{Binding ListenPort, Mode=TwoWay}"
                      Watermark="{localization:Localize Key=Tools_ReverseProxy_ListenPortPlaceholder}" />
-            <TextBox Grid.Column="2"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_ReverseProxy_BackendHostBox_Automation}"
+                     Grid.Column="2"
                      Margin="0,0,4,0"
                      Text="{Binding BackendHost, Mode=TwoWay}"
                      Watermark="{localization:Localize Key=Tools_ReverseProxy_BackendHostPlaceholder}" />
-            <TextBox Grid.Column="3"
+            <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_ReverseProxy_BackendPortBox_Automation}"
+                     Grid.Column="3"
                      Margin="0,0,4,0"
                      Text="{Binding BackendPort, Mode=TwoWay}"
                      Watermark="{localization:Localize Key=Tools_ReverseProxy_BackendPortPlaceholder}" />
-            <ComboBox Grid.Column="4"
+            <ComboBox AutomationProperties.Name="{localization:Localize Key=Tools_ReverseProxy_TlsModeCombo_Automation}"
+                      Grid.Column="4"
                       ItemsSource="{Binding TransportLayerSecurityModes}"
                       Margin="0,0,4,0"
                       MinWidth="120"

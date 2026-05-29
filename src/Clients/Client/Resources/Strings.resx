@@ -337,6 +337,57 @@
   <data name="Tools_CustomColumns_List_Automation" xml:space="preserve">
     <value>Configured columns</value>
   </data>
+  <data name="Tools_Breakpoint_RequestUrlBox_Automation" xml:space="preserve">
+    <value>Paused request URL</value>
+  </data>
+  <data name="Tools_Breakpoint_MethodBox_Automation" xml:space="preserve">
+    <value>Paused HTTP method</value>
+  </data>
+  <data name="Tools_Breakpoint_StatusBox_Automation" xml:space="preserve">
+    <value>Paused status code</value>
+  </data>
+  <data name="Tools_Breakpoint_ReasonBox_Automation" xml:space="preserve">
+    <value>Paused reason phrase</value>
+  </data>
+  <data name="Tools_Breakpoint_HeadersBox_Automation" xml:space="preserve">
+    <value>Paused headers</value>
+  </data>
+  <data name="Tools_Breakpoint_BodyBox_Automation" xml:space="preserve">
+    <value>Paused body</value>
+  </data>
+  <data name="Tools_ReverseProxy_RouteNameBox_Automation" xml:space="preserve">
+    <value>Route name</value>
+  </data>
+  <data name="Tools_ReverseProxy_ListenPortBox_Automation" xml:space="preserve">
+    <value>Listen port</value>
+  </data>
+  <data name="Tools_ReverseProxy_BackendHostBox_Automation" xml:space="preserve">
+    <value>Backend host</value>
+  </data>
+  <data name="Tools_ReverseProxy_BackendPortBox_Automation" xml:space="preserve">
+    <value>Backend port</value>
+  </data>
+  <data name="Tools_ReverseProxy_TlsModeCombo_Automation" xml:space="preserve">
+    <value>TLS mode</value>
+  </data>
+  <data name="Tools_CustomColumns_DisplayNameBox_Automation" xml:space="preserve">
+    <value>Column display name</value>
+  </data>
+  <data name="Tools_CustomColumns_HeaderKeyBox_Automation" xml:space="preserve">
+    <value>Header key</value>
+  </data>
+  <data name="Tools_CustomColumns_SourceCombo_Automation" xml:space="preserve">
+    <value>Column source</value>
+  </data>
+  <data name="Tools_RemoteDevices_RenameBox_Automation" xml:space="preserve">
+    <value>Device display name</value>
+  </data>
+  <data name="Tools_Preferences_UpstreamHost_Automation" xml:space="preserve">
+    <value>Upstream proxy host</value>
+  </data>
+  <data name="Tools_DiffTool_DiffBox_Automation" xml:space="preserve">
+    <value>Computed diff</value>
+  </data>
   <data name="Tools_SecureSocketsLayerProxying_NewPattern_Automation" xml:space="preserve">
     <value>New SSL pattern</value>
   </data>
