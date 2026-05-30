@@ -12,6 +12,16 @@ namespace Proxyfan.Domain.Traffic;
 /// </summary>
 public sealed class ServerSentEventsFlow
 {
+    /// <summary>
+    ///     Raised when <see cref="MarkClosed" /> records the first close observation.
+    /// </summary>
+    public event ServerSentEventsFlowClosedHandler? Closed;
+
+    /// <summary>
+    ///     Raised whenever <see cref="RecordEvent" /> appends a new event.
+    /// </summary>
+    public event ServerSentEventsFlowEventRecordedHandler? EventRecorded;
+
     private readonly List<ServerSentEvent> _events;
     private readonly Lock _gate;
     private DateTimeOffset? _closedAt;
@@ -81,14 +91,23 @@ public sealed class ServerSentEventsFlow
     /// <param name="closedAt">The wall-clock instant the close was observed.</param>
     public void MarkClosed(DateTimeOffset closedAt)
     {
+        bool isFirstClose;
         lock (_gate)
         {
             if (_closedAt.HasValue)
             {
-                return;
+                isFirstClose = false;
             }
+            else
+            {
+                _closedAt = closedAt;
+                isFirstClose = true;
+            }
+        }
 
-            _closedAt = closedAt;
+        if (isFirstClose)
+        {
+            Closed?.Invoke();
         }
     }
 
@@ -102,5 +121,7 @@ public sealed class ServerSentEventsFlow
         {
             _events.Add(serverSentEvent);
         }
+
+        EventRecorded?.Invoke(serverSentEvent);
     }
 }

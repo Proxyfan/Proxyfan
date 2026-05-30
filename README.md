@@ -73,6 +73,7 @@ network conditions, replay requests, and capture everything to disk.
 
 - **WebSocket inspector** — direction-tagged message timeline, opcode + size, JSON / hex preview, direction + content-type filters
 - **HTTP/2 native orchestration** — when both ends negotiate `h2` via ALPN the proxy runs a frame-relay orchestrator that preserves HPACK end-to-end while parsing HEADERS, CONTINUATION, DATA, and RST_STREAM into the same inspector view as HTTP/1.1 flows. HTTP/1.1 fallback remains automatic for clients/servers that don't negotiate `h2`.
+- **Server-Sent Events inspector** — chronological event list per SSE flow with event-type filter, live updates as new events arrive, full event detail (type, id, retry hint, data) in the side panel
 - **gRPC, Server-Sent Events** — parsed and displayed alongside HTTP traffic
 - **Reverse proxy** — define routes (listen port → backend host:port + TLS mode) with periodic health probing
 
@@ -81,6 +82,7 @@ network conditions, replay requests, and capture everything to disk.
 - **Request Composer** — build, send, and re-send ad-hoc HTTP requests with history, search, star
 - **Diff Tool** — compare two captured flows side-by-side (request body / response body / headers)
 - **Repeat selected** — replay any captured request 1× or 10×
+- **Copy as cURL / Copy URL / Copy as Raw HTTP** — right-click any captured flow to copy a reproducible representation to the clipboard
 - **Export to cURL** — copy any request as a cURL command line
 - **Session save / load** — HAR 1.2 format (interoperates with Charles, Chrome DevTools, etc.)
 - **Configurable keyboard shortcuts** — every action rebindable with conflict detection; persisted to `%LOCALAPPDATA%\Proxyfan\shortcuts.json`

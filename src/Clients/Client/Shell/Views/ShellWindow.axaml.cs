@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
+using Proxyfan.Client.Clipboard;
 using Proxyfan.Client.Dialogs;
 using Proxyfan.Client.Files;
 using Proxyfan.Presentation;
@@ -69,6 +70,9 @@ public partial class ShellWindow : Window
 
         var picker = services.GetService<AvaloniaFilePickerService>();
         picker?.RegisterTopLevel(topLevel);
+
+        var clipboard = services.GetService<AvaloniaClipboardService>();
+        clipboard?.RegisterTopLevel(topLevel);
 
         var prompt = services.GetService<AvaloniaTextPromptService>();
         prompt?.RegisterOwner(this);

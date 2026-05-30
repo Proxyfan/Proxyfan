@@ -30,6 +30,14 @@
                           Header="{localization:Localize Key=Traffic_Context_RepeatTenTimes}" />
                 <MenuItem Command="{Binding AddSelectedToDiffPoolCommand}"
                           Header="{localization:Localize Key=Traffic_Context_AddToDiffPool}" />
+                <Separator />
+                <MenuItem Command="{Binding CopySelectedUrlCommand}"
+                          Header="{localization:Localize Key=Traffic_Context_CopyUrl}" />
+                <MenuItem Command="{Binding CopySelectedAsCurlCommand}"
+                          Header="{localization:Localize Key=Traffic_Context_CopyAsCurl}" />
+                <MenuItem Command="{Binding CopySelectedAsRawHypertextTransferProtocolCommand}"
+                          Header="{localization:Localize Key=Traffic_Context_CopyAsRawHttp}" />
+                <Separator />
                 <MenuItem Click="OnAddCommentClicked"
                           Header="{localization:Localize Key=Traffic_Context_AddComment}" />
                 <MenuItem Header="{localization:Localize Key=Traffic_Context_ColorTag}">

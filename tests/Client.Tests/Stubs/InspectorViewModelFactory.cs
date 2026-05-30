@@ -14,7 +14,7 @@ internal static class InspectorViewModelFactory
     /// <summary>
     ///     Creates a new <see cref="InspectorViewModel" /> wired to the supplied
     ///     <paramref name="trafficListViewModel" /> and an empty in-memory
-    ///     <see cref="WebSocketStore" />.
+    ///     <see cref="WebSocketStore" /> + <see cref="ServerSentEventsStore" />.
     /// </summary>
     /// <param name="trafficListViewModel">The traffic list view model to bind to.</param>
     /// <returns>A configured <see cref="InspectorViewModel" />.</returns>
@@ -25,7 +25,12 @@ internal static class InspectorViewModelFactory
             trafficListViewModel,
             webSocketStore,
             InlineUserInterfaceScheduler.Instance);
-        return new InspectorViewModel(trafficListViewModel, webSocketInspector);
+        var serverSentEventsStore = new ServerSentEventsStore();
+        var serverSentEventsInspector = new ServerSentEventsInspectorViewModel(
+            trafficListViewModel,
+            serverSentEventsStore,
+            InlineUserInterfaceScheduler.Instance);
+        return new InspectorViewModel(trafficListViewModel, webSocketInspector, serverSentEventsInspector);
     }
 
     /// <summary>
@@ -44,6 +49,11 @@ internal static class InspectorViewModelFactory
             trafficListViewModel,
             webSocketStore,
             InlineUserInterfaceScheduler.Instance);
-        return new InspectorViewModel(trafficListViewModel, webSocketInspector);
+        var serverSentEventsStore = new ServerSentEventsStore();
+        var serverSentEventsInspector = new ServerSentEventsInspectorViewModel(
+            trafficListViewModel,
+            serverSentEventsStore,
+            InlineUserInterfaceScheduler.Instance);
+        return new InspectorViewModel(trafficListViewModel, webSocketInspector, serverSentEventsInspector);
     }
 }

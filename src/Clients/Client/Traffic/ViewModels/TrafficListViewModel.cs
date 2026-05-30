@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
@@ -21,6 +21,7 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 /// </summary>
 public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 {
+    private readonly Proxyfan.Presentation.Clipboard.IClipboardService? _clipboardService;
     private readonly TrafficFlowDiffPool? _diffPool;
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
@@ -109,10 +110,32 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         IUserInterfaceScheduler userInterfaceScheduler,
         IRequestRepeater? requestRepeater,
         TrafficFlowDiffPool? diffPool)
+        : this(eventBus, userInterfaceScheduler, requestRepeater, diffPool, clipboardService: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListViewModel" /> with a request repeater, a
+    ///     shared diff pool, and a clipboard service so the &quot;Copy URL&quot;,
+    ///     &quot;Copy as cURL&quot;, and &quot;Copy as Raw HTTP&quot; context-menu actions can
+    ///     publish text to the system clipboard.
+    /// </summary>
+    /// <param name="eventBus">The domain event bus.</param>
+    /// <param name="userInterfaceScheduler">The UI scheduler.</param>
+    /// <param name="requestRepeater">Optional request repeater.</param>
+    /// <param name="diffPool">Optional shared diff pool.</param>
+    /// <param name="clipboardService">Optional clipboard service used by the copy commands.</param>
+    public TrafficListViewModel(
+        IDomainEventBus eventBus,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        IRequestRepeater? requestRepeater,
+        TrafficFlowDiffPool? diffPool,
+        Proxyfan.Presentation.Clipboard.IClipboardService? clipboardService)
     {
         _userInterfaceScheduler = userInterfaceScheduler;
         _requestRepeater = requestRepeater;
         _diffPool = diffPool;
+        _clipboardService = clipboardService;
 
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
@@ -260,6 +283,45 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         Flows.Clear();
         SelectedFlow = null;
         Interlocked.Exchange(ref _nextNumber, 0);
+    }
+
+    [RelayCommand]
+    private async Task CopySelectedAsCurlAsync(CancellationToken cancellationToken)
+    {
+        var request = SelectedFlow?.Source?.Request;
+        if (request is null || _clipboardService is null)
+        {
+            return;
+        }
+
+        var curl = CurlCommandConverter.ToCurl(request);
+        await _clipboardService.SetTextAsync(curl, cancellationToken).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private async Task CopySelectedAsRawHypertextTransferProtocolAsync(CancellationToken cancellationToken)
+    {
+        var request = SelectedFlow?.Source?.Request;
+        if (request is null || _clipboardService is null)
+        {
+            return;
+        }
+
+        var raw = RawHypertextTransferProtocolMessageFormatter.FormatRequest(request);
+        await _clipboardService.SetTextAsync(raw, cancellationToken).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private async Task CopySelectedUrlAsync(CancellationToken cancellationToken)
+    {
+        var request = SelectedFlow?.Source?.Request;
+        if (request is null || _clipboardService is null)
+        {
+            return;
+        }
+
+        var url = request.RequestUri.ToString();
+        await _clipboardService.SetTextAsync(url, cancellationToken).ConfigureAwait(false);
     }
 
     private bool HasHostFilterMatch(TrafficFlowViewModel flow)

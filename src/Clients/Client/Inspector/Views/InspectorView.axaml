@@ -243,6 +243,71 @@
                                  TextWrapping="NoWrap" />
                     </Grid>
                 </TabItem>
+                <TabItem Header="{localization:Localize Key=Inspector_Tab_ServerSentEvents}"
+                         IsVisible="{Binding ServerSentEvents.IsServerSentEvents}">
+                    <Grid ColumnDefinitions="*,2,2*"
+                          RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="3"
+                                   FontStyle="Italic"
+                                   Margin="4,2,4,4"
+                                   Text="{Binding ServerSentEvents.ConnectionStatusText}" />
+                        <StackPanel Grid.Row="1"
+                                    Grid.ColumnSpan="3"
+                                    Margin="4,0,4,4"
+                                    Orientation="Horizontal"
+                                    Spacing="6">
+                            <TextBlock Text="{localization:Localize Key=Inspector_ServerSentEvents_FilterType}"
+                                       VerticalAlignment="Center" />
+                            <TextBox MinWidth="160"
+                                     Text="{Binding ServerSentEvents.EventTypeFilter, Mode=TwoWay}"
+                                     Watermark="{localization:Localize Key=Inspector_ServerSentEvents_FilterTypePlaceholder}" />
+                        </StackPanel>
+                        <ListBox AutomationProperties.Name="{localization:Localize Key=Inspector_ServerSentEvents_EventList_Automation}"
+                                 Grid.Row="2"
+                                 Grid.Column="0"
+                                 ItemsSource="{Binding ServerSentEvents.Events}"
+                                 SelectedItem="{Binding ServerSentEvents.SelectedEvent, Mode=TwoWay}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+                                        <TextBlock Grid.Column="0"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding TimestampText}" />
+                                        <TextBlock Grid.Column="1"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding EventTypeText}" />
+                                        <TextBlock Grid.Column="2"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding IdText}" />
+                                        <TextBlock Grid.Column="3"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Margin="0,0,8,0"
+                                                   Text="{Binding SizeText}" />
+                                        <TextBlock Grid.Column="4"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Text="{Binding DataPreview}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <GridSplitter Grid.Row="2"
+                                      Grid.Column="1"
+                                      Background="#33888888"
+                                      Width="2" />
+                        <TextBox AcceptsReturn="True"
+                                 FontFamily="Consolas,Menlo,monospace"
+                                 Grid.Row="2"
+                                 Grid.Column="2"
+                                 IsReadOnly="True"
+                                 Text="{Binding ServerSentEvents.SelectedEventDetailText}"
+                                 TextWrapping="NoWrap" />
+                    </Grid>
+                </TabItem>
             </TabControl>
         </HeaderedContentControl>
     </Grid>

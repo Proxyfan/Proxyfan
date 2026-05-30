@@ -80,6 +80,7 @@ public partial class App : Application
             services.AddSingleton<TrafficListViewModel>();
             services.AddSingleton<SourceListViewModel>();
             services.AddSingleton<WebSocketInspectorViewModel>();
+            services.AddSingleton<ServerSentEventsInspectorViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<TabHostViewModel>();
             services.AddSingleton<ShellViewModel>();
@@ -107,6 +108,8 @@ public partial class App : Application
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
             services.AddSingleton<AvaloniaFilePickerService>();
             services.AddSingleton<IFilePickerService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaFilePickerService>());
+            services.AddSingleton<Proxyfan.Client.Clipboard.AvaloniaClipboardService>();
+            services.AddSingleton<Proxyfan.Presentation.Clipboard.IClipboardService>(static serviceProvider => serviceProvider.GetRequiredService<Proxyfan.Client.Clipboard.AvaloniaClipboardService>());
             services.AddSingleton<AvaloniaTextPromptService>();
             services.AddSingleton<ITextPromptService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaTextPromptService>());
             services.AddSingleton<CustomColumnRegistry>();

@@ -50,6 +50,11 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private string _totalDurationText;
 
     /// <summary>
+    ///     Gets the child view model that surfaces Server-Sent Events (SSE) inspection.
+    /// </summary>
+    public ServerSentEventsInspectorViewModel ServerSentEvents { get; }
+
+    /// <summary>
     ///     Gets the phases of the currently selected flow's waterfall, mapped onto a fixed-width lane.
     /// </summary>
     public ReadOnlyObservableCollection<TimingPhaseViewModel> TimingPhases { get; }
@@ -69,9 +74,14 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     ///     The child WebSocket inspector view model surfaced through the
     ///     <see cref="WebSocket" /> property.
     /// </param>
+    /// <param name="serverSentEventsInspectorViewModel">
+    ///     The child SSE inspector view model surfaced through the
+    ///     <see cref="ServerSentEvents" /> property.
+    /// </param>
     public InspectorViewModel(
         TrafficListViewModel trafficListViewModel,
-        WebSocketInspectorViewModel webSocketInspectorViewModel)
+        WebSocketInspectorViewModel webSocketInspectorViewModel,
+        ServerSentEventsInspectorViewModel serverSentEventsInspectorViewModel)
     {
         _trafficListViewModel = trafficListViewModel;
         _authorizationText = string.Empty;
@@ -95,6 +105,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         var readOnlyPhases = new ReadOnlyObservableCollection<TimingPhaseViewModel>(_timingPhases);
         TimingPhases = readOnlyPhases;
         WebSocket = webSocketInspectorViewModel;
+        ServerSentEvents = serverSentEventsInspectorViewModel;
         trafficListViewModel.PropertyChanged += OnTrafficListPropertyChanged;
     }
 
@@ -103,6 +114,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     {
         _trafficListViewModel.PropertyChanged -= OnTrafficListPropertyChanged;
         WebSocket.Dispose();
+        ServerSentEvents.Dispose();
     }
 
     private void ApplyRequest(HypertextTransferProtocolRequestData request)

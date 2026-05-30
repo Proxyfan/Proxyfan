@@ -73,6 +73,47 @@ public sealed class ServerSentEventsFlowTests
         await Assert.That(sseFlow.Events[1]).IsSameReferenceAs(secondEvent);
     }
 
+    /// <summary>
+    ///     <see cref="ServerSentEventsFlow.RecordEvent" /> raises
+    ///     <see cref="ServerSentEventsFlow.EventRecorded" /> on every append.
+    /// </summary>
+    [Test]
+    public async Task RecordEvent_WithSubscriber_FiresEventRecorded()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        var captured = new System.Collections.Generic.List<ServerSentEvent>();
+        sseFlow.EventRecorded += serverSentEvent => captured.Add(serverSentEvent);
+        var first = new ServerSentEvent("a", null, null, null, DateTimeOffset.UtcNow);
+        var second = new ServerSentEvent("b", null, null, null, DateTimeOffset.UtcNow);
+
+        sseFlow.RecordEvent(first);
+        sseFlow.RecordEvent(second);
+
+        await Assert.That(captured.Count).IsEqualTo(2);
+        await Assert.That(captured[0]).IsSameReferenceAs(first);
+        await Assert.That(captured[1]).IsSameReferenceAs(second);
+    }
+
+    /// <summary>
+    ///     <see cref="ServerSentEventsFlow.MarkClosed(DateTimeOffset)" /> raises the
+    ///     <see cref="ServerSentEventsFlow.Closed" /> event on the first observation and
+    ///     ignores subsequent calls.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_CalledTwice_FiresClosedOnlyOnce()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        var fireCount = 0;
+        sseFlow.Closed += () => fireCount++;
+
+        sseFlow.MarkClosed(DateTimeOffset.UtcNow);
+        sseFlow.MarkClosed(DateTimeOffset.UtcNow.AddSeconds(1));
+
+        await Assert.That(fireCount).IsEqualTo(1);
+    }
+
     private static TrafficFlow CreateUnderlyingFlow(out Guid id)
     {
         id = Guid.NewGuid();
