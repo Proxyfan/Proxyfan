@@ -79,12 +79,19 @@ function ConvertTo-MsiProductVersion([string]$VersionString) {
             $core = $core.Substring(0, $idx)
         }
     }
-    $parts = $core -split '\.' | Where-Object { $_ -match '^\d+$' }
+    $parts = @($core -split '\.' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ })
     while ($parts.Count -lt 3) {
-        $parts += '0'
+        $parts += 0
     }
     if ($parts.Count -gt 4) {
         $parts = $parts[0..3]
+    }
+    # Windows Installer constrains ProductVersion to major (0-255).minor (0-255).build (0-65535)
+    # [.revision (ignored for upgrade detection)]. Calendar-based major versions emitted by the
+    # release workflow (e.g. 2026.M.D) exceed the limit and trigger WiX warning WIX1148. Map them
+    # by subtracting 2000 (2026 -> 26), preserving relative ordering for years 2000..2255.
+    if ($parts[0] -gt 255 -and $parts[0] -ge 2000 -and $parts[0] -le 2255) {
+        $parts[0] = $parts[0] - 2000
     }
     return ($parts -join '.')
 }

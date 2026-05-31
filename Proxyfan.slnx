@@ -50,6 +50,8 @@
     <Project Path="tests/DependencyInjection.Tests/DependencyInjection.Tests.csproj" />
     <Project Path="tests/Presentation.Tests/Presentation.Tests.csproj" />
     <Project Path="tests/Client.Tests/Client.Tests.csproj" />
+    <Project Path="tests/Client.EndToEndTests/Client.EndToEndTests.csproj" />
+    <Project Path="tests/Client.UiAutomationTests/Client.UiAutomationTests.csproj" />
   </Folder>
 
 </Solution>

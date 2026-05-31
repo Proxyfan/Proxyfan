@@ -1,59 +1,151 @@
 name: release
 
+# Automatic last-known-good release pipeline.
+#
+# Each push to `main` triggers a build + test gate; on success the workflow
+# computes the next available Automaticks-style calendar version (`YYYY.M.D`
+# with an optional `.N` suffix when multiple releases happen on the same day,
+# e.g. `2026.5.28`, `2026.5.28.1`), builds the portable ZIP + MSI installers,
+# pushes the version tag, and publishes a GitHub release whose assets include
+# both installers. GitHub automatically attaches the matching "Source code
+# (zip)" and "Source code (tar.gz)" archives to every release.
+
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish (e.g. 1.2.3)'
-        required: true
-        default: '0.0.0-local'
 
 permissions:
   contents: write
   packages: read
 
+# Queue concurrent main pushes so version probing + tag push run serially.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 jobs:
-  portable:
-    name: Build portable ZIP (win-x64)
+  release:
+    name: Build, test, and publish release
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history + tags are required to probe for the next available
+          # calendar version and to push a new release tag.
+          fetch-depth: 0
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
-      - name: Resolve version
-        id: version
+      - name: Skip if HEAD already released
+        id: gate
         shell: pwsh
         run: |
-          $version = '${{ inputs.version }}'
-          if ([string]::IsNullOrWhiteSpace($version)) {
-              if ($env:GITHUB_REF -like 'refs/tags/v*') {
-                  $version = $env:GITHUB_REF.Substring('refs/tags/v'.Length)
-              } else {
-                  $version = '0.0.0-local'
-              }
+          $existing = git tag --points-at HEAD |
+              Where-Object { $_ -match '^\d{4}\.\d{1,2}\.\d{1,2}(\.\d+)?$' }
+          if ($existing) {
+              Write-Host "HEAD is already released as: $($existing -join ', '). Skipping."
+              "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
-          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Resolved version: $version"
+          else {
+              "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
 
-      - name: Build portable ZIP
+      - name: Build
+        if: steps.gate.outputs.skip == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
-        run: |
-          ./.tools/Build-Installer.ps1 -Version '${{ steps.version.outputs.version }}'
+        run: ./.tools/Invoke-Build.ps1 -Configuration Release
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: proxyfan-portable-${{ steps.version.outputs.version }}-win-x64
-          path: artifacts/installer/*.zip
-          if-no-files-found: error
+      - name: Test
+        if: steps.gate.outputs.skip == 'false'
+        shell: pwsh
+        run: ./.tools/Run-Tests.ps1 -Configuration Release -NoBuild
+
+      - name: Compute version
+        if: steps.gate.outputs.skip == 'false'
+        id: version
+        shell: pwsh
+        run: |
+          # Refresh tags one more time so a tag created by a queued earlier run
+          # (or out-of-band by a maintainer) is observed before we probe.
+          git fetch --tags --quiet origin
+          $today   = [DateTime]::UtcNow
+          $base    = '{0}.{1}.{2}' -f $today.Year, $today.Month, $today.Day
+          $version = $base
+          $n       = 1
+          while ($true) {
+              git rev-parse --verify --quiet "refs/tags/$version" *> $null
+              if ($LASTEXITCODE -ne 0) { break }
+              $version = "$base.$n"
+              $n++
+              if ($n -gt 100) {
+                  Write-Error "Exhausted version candidates for $base; revisit the versioning scheme."
+                  exit 1
+              }
+          }
+          Write-Host "Computed version: $version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Install WiX toolset
+        if: steps.gate.outputs.skip == 'false'
+        shell: pwsh
+        run: dotnet tool install --global wix
+
+      - name: Build installers (portable ZIP + MSI)
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: ./.tools/Build-Installer.ps1 -Version '${{ steps.version.outputs.version }}' -BuildMsi
+
+      - name: Verify installer artifacts
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: pwsh
+        run: |
+          $assets = @(
+              "artifacts/installer/Proxyfan-portable-$env:VERSION-win-x64.zip",
+              "artifacts/installer/Proxyfan-$env:VERSION-win-x64.msi"
+          )
+          foreach ($path in $assets) {
+              if (-not (Test-Path $path)) {
+                  throw "Expected release asset missing: $path"
+              }
+              $sizeMb = [math]::Round((Get-Item $path).Length / 1MB, 2)
+              Write-Host "Found $path ($sizeMb MB)"
+          }
+
+      - name: Push release tag
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: pwsh
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag $env:VERSION $env:GITHUB_SHA
+          # Atomic remote-side collision check: fails if another runner pushed
+          # the same tag in between version probing and this step.
+          git push origin "refs/tags/$env:VERSION"
+
+      - name: Create GitHub release
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: pwsh
+        run: |
+          gh release create $env:VERSION `
+            --verify-tag `
+            --title $env:VERSION `
+            --generate-notes `
+            "artifacts/installer/Proxyfan-portable-$env:VERSION-win-x64.zip" `
+            "artifacts/installer/Proxyfan-$env:VERSION-win-x64.msi"

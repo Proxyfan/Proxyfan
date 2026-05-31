@@ -41,5 +41,8 @@
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     <!-- Security fix: pin transitive Tmds.DBus.Protocol to patched version (CVE-2026-39959 / GHSA-xrw6-gwf8-vvr9) -->
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <!-- FlaUI: Windows UI Automation library used by tests/Client.UiAutomationTests -->
+    <PackageVersion Include="FlaUI.Core" Version="5.0.0" />
+    <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
 </ItemGroup>
 </Project>

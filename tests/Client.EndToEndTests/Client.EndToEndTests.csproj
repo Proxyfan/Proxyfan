@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
+        <!--
+            E2E UI tests boot a headless Avalonia app and exercise real Views.
+            They are deliberately excluded from CI:
+              - The CI workflow (.github/workflows/ci.yml) runs `Run-Tests.ps1`
+                without -IncludeEndToEnd, which sets EXCLUDE_END_TO_END=true.
+              - The release workflow (.github/workflows/release.yml) does the same.
+              - Locally, `Run-Tests.ps1 -IncludeEndToEnd` opts in.
+            The property below is the gate `Run-Tests.ps1` checks on.
+        -->
+        <IsEndToEndTestProject>true</IsEndToEndTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="TUnit" />
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Themes.Fluent" />
+        <PackageReference Include="Avalonia.Headless" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="Microsoft.Extensions.Options" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Clients\Client\Client.csproj" />
+        <ProjectReference Include="..\..\src\Domain\Domain.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Proxy\Domain.Proxy.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Rules\Domain.Rules.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Session\Domain.Session.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Throttling\Domain.Throttling.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Traffic\Domain.Traffic.csproj" />
+        <ProjectReference Include="..\..\src\Domain.Updates\Domain.Updates.csproj" />
+        <ProjectReference Include="..\..\src\Presentation\Presentation.csproj" />
+    </ItemGroup>
+
+    <!--
+        Reuse the well-tested stubs from Client.Tests instead of duplicating them.
+        Linking individual files keeps both projects in sync.
+    -->
+    <ItemGroup>
+        <Compile Include="..\Client.Tests\Stubs\InlineUserInterfaceScheduler.cs"
+                 Link="Stubs\Imported\InlineUserInterfaceScheduler.cs" />
+        <Compile Include="..\Client.Tests\Stubs\ShellViewModelFactory.cs"
+                 Link="Stubs\Imported\ShellViewModelFactory.cs" />
+        <Compile Include="..\Client.Tests\Stubs\StubOptionsMonitor.cs"
+                 Link="Stubs\Imported\StubOptionsMonitor.cs" />
+        <Compile Include="..\Client.Tests\Stubs\StubSystemProxy.cs"
+                 Link="Stubs\Imported\StubSystemProxy.cs" />
+        <Compile Include="..\Client.Tests\Stubs\StubToolWindowOpener.cs"
+                 Link="Stubs\Imported\StubToolWindowOpener.cs" />
+    </ItemGroup>
+
+</Project>

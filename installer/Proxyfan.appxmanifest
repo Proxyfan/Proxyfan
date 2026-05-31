@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Proxyfan MSIX package manifest.
+
+    Built into an .msix via MakeAppx.exe (Windows 10 SDK 10.0.19041.0 or later)
+    by .tools/Build-MsixPackage.ps1. The resulting package is installable via
+    Add-AppxPackage; UI automation tests can launch the installed app via
+    its AppUserModelId 'Proxyfan_Proxyfan!App'.
+
+    The manifest is intentionally minimal:
+    - No protocol associations, no startup tasks, no background services.
+    - rescap:runFullTrust is required because Proxyfan binds raw TCP sockets
+      and (optionally) writes to HKCU registry for system proxy registration.
+      A non-elevated user can install rescap:runFullTrust packages but the
+      cert chain must be trusted (developer install: use a self-signed cert
+      added to LocalMachine\TrustedPeople).
+-->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap rescap">
+
+    <Identity Name="Proxyfan.Proxyfan"
+              Publisher="CN=Proxyfan"
+              Version="0.0.1.0"
+              ProcessorArchitecture="x64" />
+
+    <Properties>
+        <DisplayName>Proxyfan</DisplayName>
+        <PublisherDisplayName>Proxyfan</PublisherDisplayName>
+        <Description>HTTP debugging proxy for inspecting, capturing, and modifying network traffic.</Description>
+        <Logo>Assets\StoreLogo.png</Logo>
+    </Properties>
+
+    <Dependencies>
+        <TargetDeviceFamily Name="Windows.Desktop"
+                            MinVersion="10.0.19041.0"
+                            MaxVersionTested="10.0.26200.0" />
+    </Dependencies>
+
+    <Resources>
+        <Resource Language="en-us" />
+    </Resources>
+
+    <Applications>
+        <Application Id="App"
+                     Executable="Client.Desktop.exe"
+                     EntryPoint="Windows.FullTrustApplication">
+            <uap:VisualElements DisplayName="Proxyfan"
+                                Description="HTTP debugging proxy"
+                                BackgroundColor="transparent"
+                                Square150x150Logo="Assets\Square150x150Logo.png"
+                                Square44x44Logo="Assets\Square44x44Logo.png">
+                <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+            </uap:VisualElements>
+        </Application>
+    </Applications>
+
+    <Capabilities>
+        <rescap:Capability Name="runFullTrust" />
+    </Capabilities>
+
+</Package>

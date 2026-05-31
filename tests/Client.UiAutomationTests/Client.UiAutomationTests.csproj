@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            Target net10.0-windows because FlaUI is Windows-only and uses
+            Win32 UI Automation interop. The base monolith targets net10.0 so this
+            project is the only Windows-specific consumer of the build.
+        -->
+        <TargetFramework>net10.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
+
+        <!--
+            True end-to-end tests that launch a *real* Proxyfan.exe and drive
+            it through Windows UI Automation via FlaUI. They are intentionally
+            excluded from CI/release pipelines:
+              - Run-Tests.ps1 default skips this project.
+              - Run-Tests.ps1 -IncludeEndToEnd opts in locally.
+            These tests grab the global mouse and keyboard while they execute;
+            they MUST run sequentially (enforced by [NotInParallel] on every
+            class) and MUST NOT run on a CI agent.
+        -->
+        <IsEndToEndTestProject>true</IsEndToEndTestProject>
+
+        <!--
+            Embed the absolute path to the freshly built Client.Desktop.exe as
+            assembly metadata so test code can locate it without scanning the
+            filesystem. The path is computed at build time and survives test
+            output-directory copies.
+            Note: Directory.Build.props sets AppendTargetFrameworkToOutputPath=false
+            so the output lives directly under bin/$(Configuration), no TFM suffix.
+        -->
+        <ProxyfanDesktopExePath>$(MSBuildThisFileDirectory)..\..\src\Clients\Client.Desktop\bin\$(Configuration)\Client.Desktop.exe</ProxyfanDesktopExePath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="TUnit" />
+        <PackageReference Include="FlaUI.Core" />
+        <PackageReference Include="FlaUI.UIA3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Force a build of the Client.Desktop project before these tests run,
+            without importing its assembly references.
+        -->
+        <ProjectReference Include="..\..\src\Clients\Client.Desktop\Client.Desktop.csproj"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <AssemblyMetadata Include="ProxyfanDesktopExePath" Value="$(ProxyfanDesktopExePath)" />
+    </ItemGroup>
+
+</Project>

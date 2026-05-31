@@ -7,6 +7,13 @@
     Microsoft.Testing.Platform runner. Prints a summary of passed/failed
     counts on failure.
 
+    End-to-end UI tests (test projects that set
+    `<IsEndToEndTestProject>true</IsEndToEndTestProject>` in their csproj)
+    are EXCLUDED by default. They render real Avalonia windows on a headless
+    dispatcher and are intentionally slower; the CI workflow excludes them so
+    pipeline runs stay fast and free of any UI-thread flakiness. Pass
+    `-IncludeEndToEnd` to opt in locally.
+
 .PARAMETER Configuration
     MSBuild build configuration to run tests under. Defaults to 'Debug'.
     Use 'Release' to match the CI pipeline.
@@ -16,12 +23,17 @@
     output. Pass this flag when tests are invoked immediately after a
     successful build (e.g. from Invoke-Build.ps1 or Initialize-Repository.ps1).
 
+.PARAMETER IncludeEndToEnd
+    Also run end-to-end UI test projects (those that set
+    `<IsEndToEndTestProject>true</IsEndToEndTestProject>` in their csproj).
+    Off by default and intentionally NOT enabled in any CI workflow.
+
 .PARAMETER Help
     Display this help message and exit.
 
 .EXAMPLE
     .\.tools\Run-Tests.ps1
-    Run the full test suite (Debug configuration).
+    Run the full non-E2E test suite (Debug configuration).
 
 .EXAMPLE
     .\.tools\Run-Tests.ps1 -Configuration Release
@@ -30,6 +42,10 @@
 .EXAMPLE
     .\.tools\Run-Tests.ps1 -NoBuild
     Run tests without rebuilding first (fastest when the code is already built).
+
+.EXAMPLE
+    .\.tools\Run-Tests.ps1 -IncludeEndToEnd
+    Run everything including the end-to-end UI test projects.
 #>
 
 [CmdletBinding()]
@@ -37,6 +53,7 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
     [switch]$NoBuild,
+    [switch]$IncludeEndToEnd,
     [switch]$Help
 )
 
@@ -57,15 +74,26 @@ function Show-Help {
     Write-Host 'Usage: .\.tools\Run-Tests.ps1 [options]'
     Write-Host ''
     Write-Host 'Options:'
-    Write-Host '  -Configuration   Build configuration: Debug (default) or Release'
-    Write-Host '  -NoBuild         Skip rebuild and test against existing output'
-    Write-Host '  -Help            Show this help message'
+    Write-Host '  -Configuration     Build configuration: Debug (default) or Release'
+    Write-Host '  -NoBuild           Skip rebuild and test against existing output'
+    Write-Host '  -IncludeEndToEnd   Also run end-to-end UI test projects (excluded by default)'
+    Write-Host '  -Help              Show this help message'
     Write-Host ''
     Write-Host 'Examples:'
-    Write-Host '  .\.tools\Run-Tests.ps1                         # Run tests (Debug)'
-    Write-Host '  .\.tools\Run-Tests.ps1 -Configuration Release  # Run tests (Release)'
-    Write-Host '  .\.tools\Run-Tests.ps1 -NoBuild                # Skip rebuild'
+    Write-Host '  .\.tools\Run-Tests.ps1                            # Non-E2E tests (Debug)'
+    Write-Host '  .\.tools\Run-Tests.ps1 -Configuration Release     # Non-E2E tests (Release)'
+    Write-Host '  .\.tools\Run-Tests.ps1 -NoBuild                   # Skip rebuild'
+    Write-Host '  .\.tools\Run-Tests.ps1 -IncludeEndToEnd           # Include E2E UI tests locally'
     Write-Host ''
+}
+
+# ─── Project discovery ─────────────────────────────────────────────────────────
+
+function Test-IsEndToEndProject {
+    param([string]$CsprojPath)
+
+    $content = Get-Content $CsprojPath -Raw
+    return $content -match '<IsEndToEndTestProject>\s*true\s*</IsEndToEndTestProject>'
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -86,14 +114,34 @@ try {
     Write-Host '  Proxyfan Test Runner' -ForegroundColor Cyan
     Write-Host '========================================' -ForegroundColor Cyan
 
-    Write-Step "Running tests (configuration: $Configuration)..."
+    $AllTestProjects = Get-ChildItem -Path (Join-Path $RepoRoot 'tests') -Recurse -Filter '*.csproj'
+    $EndToEndProjects = $AllTestProjects | Where-Object { Test-IsEndToEndProject $_.FullName }
+    if ($IncludeEndToEnd) {
+        $ProjectsToRun = $AllTestProjects
+        Write-Info ("Including {0} end-to-end UI test project(s)." -f $EndToEndProjects.Count)
+    }
+    else {
+        $ProjectsToRun = $AllTestProjects | Where-Object { -not (Test-IsEndToEndProject $_.FullName) }
+        if ($EndToEndProjects.Count -gt 0) {
+            Write-Info ("Excluding {0} end-to-end UI test project(s) (pass -IncludeEndToEnd to opt in)." -f $EndToEndProjects.Count)
+        }
+    }
+
+    Write-Step "Running tests (configuration: $Configuration, projects: $($ProjectsToRun.Count))..."
     $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-    $TestArgs = @('test', '--solution', 'Proxyfan.slnx', '-c', $Configuration, '-v', 'minimal')
-    if ($NoBuild) { $TestArgs += '--no-build' }
-
-    $Output   = & dotnet @TestArgs 2>&1
-    $ExitCode = $LASTEXITCODE
+    $AggregateExitCode = 0
+    $CombinedOutput = New-Object System.Collections.Generic.List[string]
+    foreach ($project in $ProjectsToRun) {
+        $TestArgs = @('test', '--project', $project.FullName, '-c', $Configuration, '-v', 'minimal')
+        if ($NoBuild) { $TestArgs += '--no-build' }
+        $Output   = & dotnet @TestArgs 2>&1
+        $ExitCode = $LASTEXITCODE
+        $CombinedOutput.AddRange([string[]]@($Output | ForEach-Object { "$_" }))
+        if ($ExitCode -ne 0) {
+            $AggregateExitCode = $ExitCode
+        }
+    }
 
     $Stopwatch.Stop()
     $Elapsed = $Stopwatch.Elapsed.ToString('mm\:ss')
@@ -101,7 +149,7 @@ try {
     Write-Host ''
     Write-Host '========================================' -ForegroundColor Cyan
 
-    if ($ExitCode -eq 0) {
+    if ($AggregateExitCode -eq 0) {
         Write-Host "  All tests passed! ($Elapsed)" -ForegroundColor Green
         Write-Host '========================================' -ForegroundColor Cyan
         Write-Host ''
@@ -112,14 +160,14 @@ try {
     Write-Host '========================================' -ForegroundColor Cyan
     Write-Host ''
 
-    $FailedTests = $Output | Where-Object { $_ -match '^\s*failed\s+\S+\.\S+' }
+    $FailedTests = $CombinedOutput | Where-Object { $_ -match '^\s*failed\s+\S+\.\S+' }
     if ($FailedTests) {
         Write-Info 'Failed tests:'
         $FailedTests | ForEach-Object { Write-Info "  $($_.Trim())" }
         Write-Host ''
     }
 
-    $FailedProjects = $Output |
+    $FailedProjects = $CombinedOutput |
         Where-Object { $_ -match '\.dll \(' -and $_ -notmatch '\bpassed\b' -and $_ -notmatch 'Running tests from' } |
         ForEach-Object { $_.Trim() } |
         Select-Object -Unique
@@ -132,7 +180,7 @@ try {
         Write-Host ''
     }
 
-    $SummaryLines = $Output | Select-String -Pattern '^\s+(total:|failed:|error:|succeeded:|skipped:)' |
+    $SummaryLines = $CombinedOutput | Select-String -Pattern '^\s+(total:|failed:|error:|succeeded:|skipped:)' |
                     ForEach-Object { $_.Line.Trim() }
     if ($SummaryLines) {
         Write-Info 'Summary:'
