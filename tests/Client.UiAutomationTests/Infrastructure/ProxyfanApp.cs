@@ -83,12 +83,20 @@ public sealed class ProxyfanApp : IAsyncDisposable
     /// </summary>
     public int ProxyPort { get; }
 
-    private ProxyfanApp(Application application, UIA3Automation automation, string userDataDirectory, int port)
+    /// <summary>
+    ///     Whether this app was launched via the MSIX install path (and therefore
+    ///     must be uninstalled on dispose). When <see langword="false" /> the app
+    ///     was started via direct .exe launch with env-var sandbox.
+    /// </summary>
+    public bool InstalledViaMsix { get; }
+
+    private ProxyfanApp(Application application, UIA3Automation automation, string userDataDirectory, int port, bool installedViaMsix)
     {
         _application = application;
         _automation = automation;
         _userDataDirectory = userDataDirectory;
         ProxyPort = port;
+        InstalledViaMsix = installedViaMsix;
     }
 
     /// <summary>
@@ -102,10 +110,97 @@ public sealed class ProxyfanApp : IAsyncDisposable
     /// </param>
     /// <param name="readyTimeout">
     ///     How long to wait for the main window to become responsive. Defaults to
-    ///     30 seconds — generous enough for a cold-start JIT pass on a slow CI agent.
+    ///     30 seconds — generous enough for a cold-start JIT pass on a slow agent.
     /// </param>
     /// <returns>The launched, ready-to-drive <see cref="ProxyfanApp" />.</returns>
     public static ProxyfanApp Launch(bool enableProxyListener = false, TimeSpan? readyTimeout = null)
+    {
+        if (UseMsixInstall)
+        {
+            return LaunchViaMsix(readyTimeout ?? TimeSpan.FromSeconds(45));
+        }
+
+        return LaunchViaDirectExe(enableProxyListener, readyTimeout ?? TimeSpan.FromSeconds(30));
+    }
+
+    /// <summary>
+    ///     When <see langword="true" />, every <see cref="Launch" /> call installs
+    ///     the signed MSIX, launches via <c>shell:AppsFolder\&lt;AUMID&gt;</c>,
+    ///     then uninstalls on dispose — exactly what an end user does on a fresh
+    ///     install. Defaults to <see langword="true" />; set the
+    ///     <c>PROXYFAN_UI_TESTS_SKIP_MSIX</c> environment variable to opt out and
+    ///     use the faster direct-.exe path (~2 s/test vs. ~60 s/test).
+    /// </summary>
+    public static bool UseMsixInstall { get; } =
+        !string.Equals(
+            Environment.GetEnvironmentVariable("PROXYFAN_UI_TESTS_SKIP_MSIX"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static ProxyfanApp LaunchViaMsix(TimeSpan readyTimeout)
+    {
+        var msixPath = MsixInstaller.EnsurePackageBuiltAndSigned();
+        // Make sure no stale install lingers from a prior crashed test.
+        MsixInstaller.Uninstall();
+        MsixInstaller.Install(msixPath);
+
+        Process? launchedProcess = null;
+        UIA3Automation? automation = null;
+        Application? application = null;
+        try
+        {
+            launchedProcess = MsixInstaller.LaunchAndAttach(readyTimeout);
+            application = Application.Attach(launchedProcess.Id);
+            automation = new UIA3Automation();
+            var window = application.GetMainWindow(automation, readyTimeout)
+                ?? throw new InvalidOperationException(
+                    "Installed MSIX Client.Desktop.exe did not present a main window within the ready timeout.");
+            try
+            {
+                window.SetForeground();
+            }
+            catch
+            {
+                // Best-effort.
+            }
+
+            // MSIX path: no temp user-data directory (the MSIX containerises
+            // user data per-package), and proxy port is the one baked into
+            // appsettings.json (default 8080). We pass 0 as a sentinel so
+            // tests do not assert a specific port.
+            var instance = new ProxyfanApp(application, automation, userDataDirectory: msixPath, port: 0, installedViaMsix: true);
+            instance._cachedMainWindow = window;
+            return instance;
+        }
+        catch
+        {
+            automation?.Dispose();
+            try
+            {
+                application?.Close();
+            }
+            catch
+            {
+                // Best-effort.
+            }
+            try
+            {
+                if (launchedProcess is not null && !launchedProcess.HasExited)
+                {
+                    launchedProcess.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+                // Best-effort.
+            }
+
+            MsixInstaller.Uninstall();
+            throw;
+        }
+    }
+
+    private static ProxyfanApp LaunchViaDirectExe(bool enableProxyListener, TimeSpan readyTimeout)
     {
         var port = AllocateEphemeralPort();
         var userDataDirectory = Path.Combine(
@@ -121,14 +216,10 @@ public sealed class ProxyfanApp : IAsyncDisposable
             UseShellExecute = false,
             CreateNoWindow = false,
         };
-        // Redirecting LOCALAPPDATA flips Environment.SpecialFolder.LocalApplicationData
-        // for the child process, which is what App.axaml.cs reads to locate the user
-        // configuration directory.
         processStartInfo.Environment["LOCALAPPDATA"] = userDataDirectory;
         processStartInfo.Environment["proxy__port"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         processStartInfo.Environment["proxy__isAutoStart"] = enableProxyListener ? "true" : "false";
         processStartInfo.Environment["proxy__isRegisterSystemProxy"] = "false";
-        // Make sure no background plug-in update or auto-update check fires during the test.
         processStartInfo.Environment["updates__isEnabled"] = "false";
 
         var application = Application.Launch(processStartInfo);
@@ -136,21 +227,18 @@ public sealed class ProxyfanApp : IAsyncDisposable
         try
         {
             automation = new UIA3Automation();
-            var window = application.GetMainWindow(automation, readyTimeout ?? TimeSpan.FromSeconds(30))
+            var window = application.GetMainWindow(automation, readyTimeout)
                 ?? throw new InvalidOperationException("Client.Desktop.exe did not present a main window within the ready timeout.");
-            // Bring the window to the front so the developer can watch the test drive it,
-            // and so subsequent FlaUI mouse events hit the right control.
             try
             {
                 window.SetForeground();
             }
-            catch (Exception)
+            catch
             {
-                // Best-effort; SetForeground throws if focus assistance blocks it, but the
-                // automation still works against the off-screen / background window.
+                // Best-effort.
             }
 
-            var instance = new ProxyfanApp(application, automation, userDataDirectory, port);
+            var instance = new ProxyfanApp(application, automation, userDataDirectory, port, installedViaMsix: false);
             instance._cachedMainWindow = window;
             return instance;
         }
@@ -283,24 +371,40 @@ public sealed class ProxyfanApp : IAsyncDisposable
             // Best-effort.
         }
 
-        for (var attempt = 0; attempt < 5; attempt++)
+        if (InstalledViaMsix)
         {
+            // Uninstall the MSIX so the next test starts from a true fresh
+            // install. Best-effort; the install step also pre-uninstalls.
             try
             {
-                if (Directory.Exists(_userDataDirectory))
+                MsixInstaller.Uninstall();
+            }
+            catch
+            {
+                // Best-effort.
+            }
+        }
+        else
+        {
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                try
                 {
-                    Directory.Delete(_userDataDirectory, recursive: true);
-                }
+                    if (Directory.Exists(_userDataDirectory))
+                    {
+                        Directory.Delete(_userDataDirectory, recursive: true);
+                    }
 
-                break;
-            }
-            catch (IOException)
-            {
-                Thread.Sleep(200);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                Thread.Sleep(200);
+                    break;
+                }
+                catch (IOException)
+                {
+                    Thread.Sleep(200);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Thread.Sleep(200);
+                }
             }
         }
 

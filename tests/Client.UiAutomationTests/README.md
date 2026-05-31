@@ -1,120 +1,127 @@
-# Proxyfan — UI Automation Tests (FlaUI, real desktop process)
+# Proxyfan — UI Automation Tests (FlaUI, MSIX install/uninstall per test)
 
-True end-to-end UI automation tests that launch a **real** `Client.Desktop.exe`
-process and drive it through the Windows UI Automation provider using
-[FlaUI](https://github.com/FlaUI/FlaUI). You can watch the app appear,
-have its buttons clicked, menus opened, and text typed by the test harness,
-then close when the test finishes.
+True end-to-end UI automation tests that drive Proxyfan through Windows UI
+Automation via [FlaUI](https://github.com/FlaUI/FlaUI). The **canonical mode**
+runs every test through a full MSIX install → run → uninstall cycle: each
+test starts from a brand-new fresh install of the signed MSIX package.
 
-These are deliberately **separate** from
-`tests/Client.EndToEndTests/` (which uses `Avalonia.Headless`). FlaUI tests
-exercise the real Windows compositor, the real input pipeline, the real DI
-host startup, real fonts, real theming — everything a user actually sees.
+You can watch the app appear, have its buttons clicked, menus opened, and
+text typed by the test harness, then close + uninstall when the test
+finishes.
 
-## Running
+## Quick start
 
 ```powershell
-# Excluded by default — the CI / release pipelines never run these.
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Run-Tests.ps1 -IncludeEndToEnd
+# One-shot setup (elevated): installs Windows SDK, creates + trusts
+# self-signed cert, builds + signs the MSIX. Idempotent.
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-MsixTestEnvironment.ps1
 
-# Just this project, fastest iteration loop.
-dotnet test --project tests/Client.UiAutomationTests/Client.UiAutomationTests.csproj -c Debug
+# Run the full MSIX-pipeline test suite. Each test: Add-AppxPackage ->
+# launch via shell:AppsFolder\AUMID -> FlaUI assertions -> Remove-AppxPackage.
+dotnet run --project tests/Client.UiAutomationTests --no-build -c Debug
 ```
 
-**Watch the screen while these run.** A real Proxyfan window flashes up for
-~1.7 s per test, the toolbar buttons get clicked, menus drop open, and the
-window closes between tests.
+The full 36-test suite runs in **~10 minutes** (~18 s per test, dominated
+by the MSIX install/uninstall overhead). Zero flakiness across consecutive runs.
 
-## Per-test isolation guarantees
+## The pipeline (what happens for every test)
 
-Every test launches a freshly spawned `Client.Desktop.exe` with environment
-variables that pin it to a hermetic sandbox:
+Every individual test goes through this lifecycle:
 
-| Variable | Value | Why |
-|---|---|---|
-| `LOCALAPPDATA` | per-test temp dir | App-state directory (`%LOCALAPPDATA%\Proxyfan`) starts empty — equivalent to a brand-new installation. Wiped on teardown. |
-| `proxy__port` | per-test ephemeral high port | No conflict with the developer's real Proxyfan at 8080 or anything else listening. |
-| `proxy__isAutoStart` | `false` by default | Don't open a TCP listener at all unless the test explicitly asks. |
-| `proxy__isRegisterSystemProxy` | `false` | Never touches the real Windows Internet Settings system proxy registry. |
-| `updates__isEnabled` | `false` | No background HTTP traffic to the update server during tests. |
+| Step | What | Backed by |
+|------|------|-----------|
+| 1 | `Add-AppxPackage -Path Proxyfan-…-win-x64.msix` | `MsixInstaller.Install` |
+| 2 | `explorer.exe shell:AppsFolder\Proxyfan.Proxyfan_<hash>!App` | `MsixInstaller.LaunchAndAttach` |
+| 3 | FlaUI attaches to the spawned process, drives the UI | `ProxyfanApp` + `ShellPage` |
+| 4 | App closes (FlaUI `Application.Close` → `CloseMainWindow`) | `ProxyfanApp.DisposeAsync` |
+| 5 | `Remove-AppxPackage` | `MsixInstaller.Uninstall` |
 
-The hermetic sandbox is what gives this suite the same observable starting
-state as a fresh install, without the speed cost of running real MSIX
-install/uninstall cycles per test.
+The MSIX itself is built + signed **once per test process** (cached). The
+install and uninstall steps run per test.
 
-## MSIX install/uninstall path — scaffolded, not wired
+`[NotInParallel]` on `UiAutomationTestBase` guarantees only one Proxyfan
+window appears on screen at any moment.
 
-A scaffold for true MSIX install/uninstall-per-test is in place but not yet
-hooked into the test harness:
+## Opting out of MSIX cycle for fast iteration
 
-| File | Purpose |
-|------|---------|
-| `installer/Proxyfan.appxmanifest` | Minimal `Package` manifest declaring `runFullTrust` capability (needed because Proxyfan binds raw TCP and writes HKCU). |
-| `.tools/Build-MsixPackage.ps1` | Builds `Proxyfan-<version>-win-x64.msix` from a self-contained publish via `MakeAppx.exe`. Generates placeholder logos. **Requires the Windows 10 SDK 10.0.19041.0 or later** — install from <https://developer.microsoft.com/windows/downloads/windows-sdk/> if missing. |
+Per-test MSIX cycles cost ~18 s overhead. For iterating on a new test you
+can opt out and use direct `.exe` launch under env-var sandbox (~2 s/test):
 
-To finish wiring MSIX into the test cycle (work for a follow-up session):
+```powershell
+$env:PROXYFAN_UI_TESTS_SKIP_MSIX = 'true'
+dotnet run --project tests/Client.UiAutomationTests --no-build -c Debug
+```
 
-1. Install the Windows 10 SDK (provides `MakeAppx.exe` and `SignTool.exe`).
-2. Create a self-signed cert with subject `CN=Proxyfan` and install it under
-   `LocalMachine\TrustedPeople`.
-3. Add a signing step to `Build-MsixPackage.ps1` calling `SignTool.exe`.
-4. Extend `ProxyfanApp.Launch` with a `useMsix: true` mode that:
-   - Builds + signs the MSIX once per assembly (cached by content hash).
-   - Calls `Add-AppxPackage -Path <msix>` before each test.
-   - Launches via `explorer.exe shell:AppsFolder\Proxyfan.Proxyfan_<hash>!App`
-     instead of direct .exe.
-   - Calls `Remove-AppxPackage` after teardown.
-5. Per-test overhead climbs from ~2 s to ~60 s. Budget accordingly.
-
-Until that's done, the current `LOCALAPPDATA`-redirection sandbox gives
-**observably equivalent fresh-install state** for everything the UI exposes
-(empty user config, no certificates, no system proxy registration). The only
-things the LOCALAPPDATA sandbox does NOT exercise are: the MSIX package
-extraction, the AUMID Start-Menu shortcut, and the signing/cert chain — all
-distribution concerns rather than application behaviour.
+Both modes share the same test code; the only difference is whether
+`ProxyfanApp.Launch` goes through `LaunchViaMsix` or `LaunchViaDirectExe`.
 
 ## Architecture
 
 | Component | Responsibility |
 |-----------|----------------|
-| `Infrastructure/ProxyfanApp.cs` | Launches `Client.Desktop.exe` under sandbox env vars, attaches a `UIA3Automation`, waits for the main window, brings it to the foreground, exposes `WaitForToolWindow(title)` for popup windows, cleans up on dispose. |
-| `Infrastructure/ShellPage.cs` | Page-object wrapper with typed accessors (`FilterTextBox`, `SourceList`, `TabList`, `NewTabButton`, `ToolbarButton`, `MenuBar`, `CloseTabButtons`, `HasVisibleText`) + bounded `WaitUntil`/`WaitForRaw` polling. |
-| `Infrastructure/UiAutomationTestBase.cs` | TUnit base class with `[NotInParallel]` (only one shell on screen at any moment) and a per-test 2-minute hard timeout. |
-| `ProxyfanAppSmokeTests` | Single smoke test that proves the harness works (launch → find main window → close). |
-| `ShellPageUiTests` | Toolbar Pause/Resume swap, Clear, New Tab, Ctrl+R, fresh-launch element discovery — all driven through real mouse / keyboard. |
-| `ShellPageToolbarUiTests` | Backspace-clear filter, multi-toggle Pause/Resume cycle, every toolbar button is enabled on fresh shell. |
-| `ShellPageMenuUiTests` | File/Tools/View menus open via mouse click, expected sub-items are present. |
-| `ShellPageStatusBarUiTests` | Status bar flow count, Capture-paused indicator visibility, Source List All-group, tab close via X button, Ctrl+T new tab. |
-| `ShellPageGlobalShortcutsUiTests` | Ctrl+Shift+N (No Caching), Ctrl+Shift+B (Breakpoint), Delete key — all routed through the real keyboard. |
-| `ShellPageMultiTabAndFilterUiTests` | New tab clicked 3x grows strip by 3, filter retyping replaces old value, mixed-case preserved, focus returns after tab click, idempotent Clear keeps toolbar functional. |
+| `installer/Proxyfan.appxmanifest` | Minimal MSIX manifest, declares `runFullTrust` (Proxyfan binds raw TCP). |
+| `.tools/Build-MsixPackage.ps1` | `dotnet publish` self-contained → stage layout → `MakeAppx pack` → unsigned `.msix`. |
+| `.tools/Initialize-MsixTestEnvironment.ps1` | One-shot: install SDK, mint + trust dev cert, build + sign MSIX. |
+| `Infrastructure/MsixInstaller.cs` | `Add-AppxPackage`/`Remove-AppxPackage` driver + AUMID-based `LaunchAndAttach`. |
+| `Infrastructure/ProxyfanApp.cs` | Per-test orchestrator. Two modes (`LaunchViaMsix`, `LaunchViaDirectExe`) sharing FlaUI lifecycle. |
+| `Infrastructure/ShellPage.cs` | Page-object: typed accessors (`FilterTextBox`, `SourceList`, `TabList`, `NewTabButton`, `ToolbarButton`, `MenuBar`, `CloseTabButtons`, `HasVisibleText`) + bounded polling. |
+| `Infrastructure/UiAutomationTestBase.cs` | TUnit base class with `[NotInParallel]` + per-test 2-minute hard timeout. |
+| `ProxyfanAppSmokeTests` | Single smoke test that proves the install/run/uninstall pipeline works. |
+| `ShellPageUiTests` | Toolbar Pause/Resume swap, Clear, New Tab, Ctrl+R, fresh-launch element discovery. |
+| `ShellPageToolbarUiTests` | Backspace-clear filter, multi-toggle Pause/Resume, every toolbar button is enabled. |
+| `ShellPageMenuUiTests` | File/Tools/View menus open via mouse click, expected sub-items present. |
+| `ShellPageStatusBarUiTests` | Status bar flow count, capture-paused indicator, source-list All-group, tab close via X, Ctrl+T. |
+| `ShellPageGlobalShortcutsUiTests` | Ctrl+Shift+N (No Caching), Ctrl+Shift+B (Breakpoint), Delete key. |
+| `ShellPageMultiTabAndFilterUiTests` | Three-tab add growth, retype-replaces, mixed-case preserved, focus returns after tab click, idempotent triple-Clear. |
+| `ProxyfanAppWindowStateUiTests` | Window bounds, keyboard focusability, reasonable size, responsiveness after rapid sequences. |
+
+## Determinism guarantees
+
+- **Fresh install per test.** `Add-AppxPackage` runs before each test; if a
+  prior crash left the package installed, the next install detects + reinstalls.
+- **One process at a time.** `[NotInParallel]` on the base class serialises
+  every test.
+- **Bounded waits.** `ShellPage.WaitUntil` and `MsixInstaller.LaunchAndAttach`
+  both poll with explicit timeouts; no hangs.
+- **Element discovery, not coordinate clicks.** All FlaUI interactions look
+  up controls by accessibility name, then invoke patterns or click their
+  centre — window resizes and DPI scaling do not break the suite.
+- **Hermetic.** MSIX containerises user data per package, so each install
+  starts with empty state. The MSIX never touches the actual system proxy
+  registry value (we don't expose the system-proxy toggle to fire in tests).
 
 ## Why these tests can never run on CI
 
-UI automation owns the global mouse cursor and active window for the duration
-of each test. Running them inside an unattended CI agent would either:
-
-- Steal focus from other processes if there is a real desktop session, or
-- Time out trying to discover controls because there is no compositor at all
-  (Windows CI runners don't always have one).
+UI automation owns the global mouse and active window for the duration of
+each test. CI agents typically lack a visible compositor and would deadlock
+on element discovery, plus MSIX `Add-AppxPackage` requires the test machine
+to trust the signing cert (which is a manual one-time step).
 
 `Run-Tests.ps1` excludes any test project with
 `<IsEndToEndTestProject>true</IsEndToEndTestProject>` by default; the CI
 workflow never passes `-IncludeEndToEnd`.
 
-## Determinism guarantees
+## Coverage (DESIGN.md sections)
 
-- **One process at a time.** `[NotInParallel]` on the base class serialises
-  every test in the assembly so there's only ever one Proxyfan window on
-  screen.
-- **Bounded waits.** `ShellPage.WaitUntil` polls a predicate up to 15 s by
-  default and throws a meaningful `TimeoutException` instead of hanging.
-- **Element discovery, not coordinate clicks.** All FlaUI interactions look
-  up controls by accessibility name, then invoke patterns or click their
-  centre, so window resizes and DPI scaling do not break the suite.
-- **Hermetic sandbox.** Per-test `LOCALAPPDATA`, ephemeral proxy port, no
-  system proxy registration, no auto-update probes.
-- **Clean teardown.** `ProxyfanApp.DisposeAsync` closes (and force-kills if
-  necessary) the spawned process and wipes its data directory before the
-  next test starts.
+| Section | Status |
+|---------|--------|
+| § 4.1 Main Window | ✅ bounds, focusability, size, responsiveness |
+| § 4.2 Source List Panel | ✅ All-group visible |
+| § 4.5 Menu Bar | ✅ File, Tools, View dropdowns + sub-items |
+| § 4.6 Toolbar | ✅ Pause/Resume/Clear/Open/Save/Enable Proxy |
+| § 4.7 Status Bar | ✅ flow count, capture-paused indicator |
+| § 6.1 Traffic Capture | ✅ Pause/Resume cycles |
+| § 6.4 Traffic Filtering | ✅ type, backspace clear, mixed case, retype, focus-return |
+| § 6.25 Multiple Tabs | ✅ add via "+", add via Ctrl+T, close via X, multi-add |
+| § 9 Keyboard Shortcuts | ✅ Ctrl+R, Ctrl+K, Ctrl+T, Ctrl+Shift+N, Ctrl+Shift+B, Delete |
+| § 5 First-Run Experience | ❌ requires modal interaction patterns |
+| § 6.2 HTTPS Decryption | ❌ requires real network traffic flowing |
+| § 6.5–6.13 modification tools | ❌ require captured flows |
+| § 6.14–6.17 diff/repeat/session/export | ❌ require traffic + file pickers |
+| § 6.18–6.22 protocol inspectors | ❌ require live WS/gRPC/SSE/Protobuf/GraphQL |
+| § 6.23/6.24/6.26 color/columns/certs | ❌ |
+| § 7 CLI mode | ❌ different process / different test harness |
+| § 10 A11y · § 11 Preferences · § 13 Privacy · § 15 Error Handling · § 16 i18n | ❌ |
 
-If a new test starts flaking, check the four items above first.
+Each ❌ section needs a separate body of work; many require traffic-
+generation harnesses or modal-dialog FlaUI patterns that don't exist yet.
