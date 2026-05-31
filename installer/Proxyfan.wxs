@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Proxyfan MSI installer source.
+
+    Build via .tools/Build-Installer.ps1 -BuildMsi (uses the dotnet `wix` global tool).
+    The MSI installs Proxyfan into ProgramFiles\Proxyfan, creates a Start menu
+    shortcut, and registers an uninstall entry. The Windows system proxy
+    registration is NOT touched by the installer — Proxyfan handles that itself
+    at runtime via the Tools menu.
+
+    The UpgradeCode is a stable GUID per product. Never change it across releases.
+    Patch/Minor/Major versions are sequenced via the `Version` attribute below.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package Name="Proxyfan"
+             Manufacturer="Proxyfan"
+             Version="$(var.ProductVersion)"
+             UpgradeCode="6D2B7D5E-3B11-4C8E-A8D2-7E3F2D3D2C5A"
+             Compressed="yes"
+             InstallerVersion="500"
+             Scope="perMachine">
+
+        <SummaryInformation Description="Proxyfan HTTP debugging proxy" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+        <Property Id="ARPCONTACT" Value="https://github.com/Proxyfan/Proxyfan" />
+        <Property Id="ARPURLINFOABOUT" Value="https://github.com/Proxyfan/Proxyfan" />
+        <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Proxyfan/Proxyfan/releases" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/Proxyfan/Proxyfan/issues" />
+        <Property Id="ARPNOMODIFY" Value="1" />
+
+        <Feature Id="Main" Title="Proxyfan" Level="1">
+            <Files Include="$(var.PublishSourceDirectory)\**" />
+            <ComponentRef Id="StartMenuShortcut" />
+        </Feature>
+
+        <StandardDirectory Id="ProgramFiles64Folder">
+            <Directory Id="INSTALLFOLDER" Name="Proxyfan" />
+        </StandardDirectory>
+
+        <StandardDirectory Id="ProgramMenuFolder">
+            <Directory Id="ApplicationProgramsFolder" Name="Proxyfan">
+                <Component Id="StartMenuShortcut" Guid="2E4A5B6C-1D8F-4A2B-9C3E-8F1D6C5B4A3F">
+                    <Shortcut Id="ProxyfanShortcut"
+                              Name="Proxyfan"
+                              Description="HTTP debugging proxy"
+                              Target="[INSTALLFOLDER]Client.Desktop.exe"
+                              WorkingDirectory="INSTALLFOLDER" />
+                    <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+                    <RegistryValue Root="HKCU"
+                                   Key="Software\Proxyfan"
+                                   Name="installed"
+                                   Type="integer"
+                                   Value="1"
+                                   KeyPath="yes" />
+                </Component>
+            </Directory>
+        </StandardDirectory>
+    </Package>
+</Wix>

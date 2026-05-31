@@ -118,7 +118,16 @@ network conditions, replay requests, and capture everything to disk.
 
 The portable build is fully self-contained — no .NET runtime install required.
 
-> Installer (MSI / MSIX) flows are tracked as follow-up work in [docs/BACKLOG.md](docs/BACKLOG.md).
+### MSI installer (enterprise / Group Policy)
+
+1. Download `Proxyfan-<version>-win-x64.msi` from
+   [Releases](https://github.com/Proxyfan/Proxyfan/releases).
+2. Run the installer (admin elevation required for per-machine install).
+3. Launch Proxyfan from the Start menu.
+
+The MSI is built with WiX 5 from [`installer/Proxyfan.wxs`](installer/Proxyfan.wxs).
+Pass `-BuildMsi` to `.tools/Build-Installer.ps1` to produce one locally
+(requires `dotnet tool install --global wix`).
 
 ### Build from source
 
@@ -134,6 +143,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -RunTests
 
 # Portable ZIP build
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Build-Installer.ps1 -Version 1.0.0
+
+# Portable ZIP + MSI installer (requires `dotnet tool install --global wix`)
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Build-Installer.ps1 -Version 1.0.0 -BuildMsi
 
 # Run
 dotnet run --project src/Clients/Client.Desktop
@@ -170,7 +182,9 @@ Detailed design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](
 
 ## Roadmap
 
-- **MSIX / MSI installers** — currently only the portable ZIP is built; tracked in [E12-F01](docs/BACKLOG.md).
+- **MSIX installer for Microsoft Store distribution** — the MSI installer covers
+  enterprise / Group Policy deployment; an MSIX package for Microsoft Store
+  submission is on the v2.x roadmap and requires Windows SDK tooling.
 
 ## Roslyn analyzer rules
 
