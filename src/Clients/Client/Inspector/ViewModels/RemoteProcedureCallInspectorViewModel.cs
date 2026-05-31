@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,9 @@ namespace Proxyfan.Client.Inspector.ViewModels;
 ///     list selection and, when the selected flow has a corresponding
 ///     <see cref="RemoteProcedureCallFlow" /> in the store, surfaces its message stream for
 ///     display in a Charles/Fiddler-style message list with detail panel and direction filter.
+///     When an <see cref="IRemoteProcedureCallDescriptorLibrary" /> is supplied with a
+///     descriptor matching the flow's gRPC method path, payloads are rendered with named
+///     fields via <see cref="ProtobufSchemaAwarePrettyPrinter" />.
 /// </summary>
 public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableObject, IDisposable
 {
@@ -21,6 +25,7 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
     private const string DirectionFilterInbound = "Inbound";
     private const string DirectionFilterOutbound = "Outbound";
     private readonly List<RemoteProcedureCallMessageViewModel> _allMessages;
+    private readonly IRemoteProcedureCallDescriptorLibrary? _descriptorLibrary;
     private readonly ObservableCollection<RemoteProcedureCallMessageViewModel> _messages;
     private readonly IUserInterfaceScheduler _scheduler;
     private readonly IRemoteProcedureCallStore _store;
@@ -45,7 +50,8 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
 
     /// <summary>
     ///     Initializes a new <see cref="RemoteProcedureCallInspectorViewModel" /> and subscribes
-    ///     to traffic-list selection changes.
+    ///     to traffic-list selection changes. Uses no descriptor library — payloads are decoded
+    ///     schema-less.
     /// </summary>
     /// <param name="trafficListViewModel">The traffic list view model.</param>
     /// <param name="store">The gRPC flow store.</param>
@@ -54,10 +60,30 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
         TrafficListViewModel trafficListViewModel,
         IRemoteProcedureCallStore store,
         IUserInterfaceScheduler userInterfaceScheduler)
+        : this(trafficListViewModel, store, userInterfaceScheduler, descriptorLibrary: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="RemoteProcedureCallInspectorViewModel" /> with an
+    ///     optional descriptor library for schema-aware decoding.
+    /// </summary>
+    /// <param name="trafficListViewModel">The traffic list view model.</param>
+    /// <param name="store">The gRPC flow store.</param>
+    /// <param name="userInterfaceScheduler">The UI scheduler.</param>
+    /// <param name="descriptorLibrary">Optional descriptor library; when supplied and the
+    ///     selected gRPC flow's method path resolves to a method descriptor, payloads are
+    ///     rendered with named fields.</param>
+    public RemoteProcedureCallInspectorViewModel(
+        TrafficListViewModel trafficListViewModel,
+        IRemoteProcedureCallStore store,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        IRemoteProcedureCallDescriptorLibrary? descriptorLibrary)
     {
         _trafficListViewModel = trafficListViewModel;
         _store = store;
         _scheduler = userInterfaceScheduler;
+        _descriptorLibrary = descriptorLibrary;
         var allMessagesList = new List<RemoteProcedureCallMessageViewModel>();
         _allMessages = allMessagesList;
         var messageCollection = new ObservableCollection<RemoteProcedureCallMessageViewModel>();
@@ -170,7 +196,8 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
             return;
         }
 
-        SelectedMessageDetailText = RemoteProcedureCallPayloadFormatter.FormatFull(value.CapturedMessage);
+        var resolution = ResolveSchema(value.CapturedMessage);
+        SelectedMessageDetailText = RemoteProcedureCallPayloadFormatter.FormatFull(value.CapturedMessage, resolution.Schema, resolution.Index);
     }
 
     private void OnTrafficListPropertyChanged(object? sender, PropertyChangedEventArgs propertyChangedEventArgs)
@@ -196,6 +223,38 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
         {
             SelectedMessage = null;
         }
+    }
+
+    private RemoteProcedureCallSchemaResolution ResolveSchema(RemoteProcedureCallCapturedMessage capturedMessage)
+    {
+        if (_descriptorLibrary is null)
+        {
+            return new RemoteProcedureCallSchemaResolution();
+        }
+
+        var methodPath = _attachedFlow?.MethodPath;
+        if (methodPath is null)
+        {
+            return new RemoteProcedureCallSchemaResolution();
+        }
+
+        var index = _descriptorLibrary.Index;
+        var method = index.TryResolveMethod(methodPath);
+        if (method is null)
+        {
+            return new RemoteProcedureCallSchemaResolution();
+        }
+
+        var typeName = capturedMessage.Direction == RemoteProcedureCallDirection.Outbound
+            ? method.InputType
+            : method.OutputType;
+        var schema = index.TryResolveMessage(typeName);
+        var resolution = new RemoteProcedureCallSchemaResolution
+        {
+            Index = index,
+            Schema = schema,
+        };
+        return resolution;
     }
 
     private void UpdateForSelectedFlow()

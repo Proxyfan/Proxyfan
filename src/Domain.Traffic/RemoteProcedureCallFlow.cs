@@ -71,6 +71,31 @@ public sealed class RemoteProcedureCallFlow
     public IReadOnlyList<RemoteProcedureCallCapturedMessage> Messages { get; }
 
     /// <summary>
+    ///     Gets the gRPC method path (<c>/package.Service/Method</c>) derived from the
+    ///     underlying flow's request URI absolute path. Returns <see langword="null" /> when
+    ///     the request has not yet been captured or the path cannot be derived.
+    /// </summary>
+    public string? MethodPath
+    {
+        get
+        {
+            var request = Flow.Request;
+            if (request is null)
+            {
+                return null;
+            }
+
+            var uri = request.RequestUri;
+            if (uri is null)
+            {
+                return null;
+            }
+
+            return uri.AbsolutePath;
+        }
+    }
+
+    /// <summary>
     ///     Initializes a new <see cref="RemoteProcedureCallFlow" />.
     /// </summary>
     /// <param name="flow">The HTTP/2 traffic flow underlying this gRPC call.</param>

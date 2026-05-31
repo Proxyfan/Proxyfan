@@ -4,7 +4,9 @@ using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Framework.Serialization;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -273,6 +275,129 @@ public sealed class RemoteProcedureCallInspectorViewModelTests
         await Assert.That(inspector.Messages.Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     When the inspector is wired with a descriptor library that knows the gRPC method
+    ///     of the active flow, the SelectedMessageDetailText includes a "Schema    :" line.
+    /// </summary>
+    [Test]
+    public async Task SelectedMessage_WithMatchingDescriptor_RendersSchemaLine()
+    {
+        var library = BuildLibraryWithSayHelloMethod();
+        using var harness = CreateHarnessWithLibrary(library);
+        var flowId = Guid.NewGuid();
+        var underlying = new TrafficFlow(flowId, "127.0.0.1:9000", DateTimeOffset.UtcNow);
+        underlying.SetRequest(BuildRequest("https://example.com/demo.Greeter/SayHello"));
+        var grpcFlow = new RemoteProcedureCallFlow(underlying);
+        harness.Store.Add(grpcFlow);
+        grpcFlow.RecordMessage(CreateMessage(RemoteProcedureCallDirection.Outbound, new byte[] { 0x08, 0x05 }));
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(flowId);
+
+        harness.Inspector.SelectedMessage = harness.Inspector.Messages[0];
+
+        await Assert.That(harness.Inspector.SelectedMessageDetailText).Contains("Schema    : .demo.HelloRequest");
+        await Assert.That(harness.Inspector.SelectedMessageDetailText).Contains("Decoded protobuf (schema):");
+    }
+
+    /// <summary>
+    ///     When the descriptor library has no entry for the flow's method path, the inspector
+    ///     falls back to the schema-less decoder (no "Schema    :" line).
+    /// </summary>
+    [Test]
+    public async Task SelectedMessage_LibraryWithoutMatchingMethod_FallsBackToSchemaless()
+    {
+        var library = new RemoteProcedureCallDescriptorLibrary();
+        using var harness = CreateHarnessWithLibrary(library);
+        var flowId = Guid.NewGuid();
+        var underlying = new TrafficFlow(flowId, "127.0.0.1:9000", DateTimeOffset.UtcNow);
+        underlying.SetRequest(BuildRequest("https://example.com/unknown.Service/Method"));
+        var grpcFlow = new RemoteProcedureCallFlow(underlying);
+        harness.Store.Add(grpcFlow);
+        grpcFlow.RecordMessage(CreateMessage(RemoteProcedureCallDirection.Outbound, new byte[] { 0x08, 0x05 }));
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(flowId);
+
+        harness.Inspector.SelectedMessage = harness.Inspector.Messages[0];
+
+        await Assert.That(harness.Inspector.SelectedMessageDetailText.Contains("Schema    :")).IsFalse();
+    }
+
+    private static InMemoryDescriptorLibrary BuildLibraryWithSayHelloMethod()
+    {
+        var fieldDescriptor = new ProtobufFieldDescriptor
+        {
+            Kind = ProtobufFieldKind.TypeInt32,
+            Label = ProtobufFieldLabel.Optional,
+            Name = "id",
+            Number = 1,
+        };
+        var helloRequest = new ProtobufMessageDescriptor
+        {
+            Fields = new List<ProtobufFieldDescriptor> { fieldDescriptor },
+            FullName = ".demo.HelloRequest",
+            Name = "HelloRequest",
+            NestedEnums = Array.Empty<ProtobufEnumDescriptor>(),
+            NestedMessages = Array.Empty<ProtobufMessageDescriptor>(),
+        };
+        var helloReply = new ProtobufMessageDescriptor
+        {
+            Fields = Array.Empty<ProtobufFieldDescriptor>(),
+            FullName = ".demo.HelloReply",
+            Name = "HelloReply",
+            NestedEnums = Array.Empty<ProtobufEnumDescriptor>(),
+            NestedMessages = Array.Empty<ProtobufMessageDescriptor>(),
+        };
+        var method = new ProtobufMethodDescriptor
+        {
+            FullPath = "/demo.Greeter/SayHello",
+            InputType = ".demo.HelloRequest",
+            IsClientStreaming = false,
+            IsServerStreaming = false,
+            Name = "SayHello",
+            OutputType = ".demo.HelloReply",
+        };
+        var service = new ProtobufServiceDescriptor
+        {
+            FullName = ".demo.Greeter",
+            Methods = new List<ProtobufMethodDescriptor> { method },
+            Name = "Greeter",
+        };
+        var file = new ProtobufFileDescriptor
+        {
+            Enums = Array.Empty<ProtobufEnumDescriptor>(),
+            Messages = new List<ProtobufMessageDescriptor> { helloRequest, helloReply },
+            Name = "greeter.proto",
+            Package = "demo",
+            Services = new List<ProtobufServiceDescriptor> { service },
+        };
+        return new InMemoryDescriptorLibrary(new List<ProtobufFileDescriptor> { file });
+    }
+
+    private static HypertextTransferProtocolRequestData BuildRequest(string uri)
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("content-type", "application/grpc"),
+            Method = "POST",
+            RequestUri = new Uri(uri),
+            Version = "HTTP/2",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+        return request;
+    }
+
+    private static Harness CreateHarnessWithLibrary(IRemoteProcedureCallDescriptorLibrary library)
+    {
+        var bus = new StubDomainEventBus();
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var store = new RemoteProcedureCallStore();
+        var inspector = new RemoteProcedureCallInspectorViewModel(
+            trafficListViewModel,
+            store,
+            InlineUserInterfaceScheduler.Instance,
+            library);
+        return new Harness(trafficListViewModel, store, inspector);
+    }
+
     private static RemoteProcedureCallCapturedMessage CreateMessage(RemoteProcedureCallDirection direction, byte[] payload)
     {
         var message = new RemoteProcedureCallCapturedMessage(direction, false, payload, DateTimeOffset.UtcNow);
@@ -359,6 +484,34 @@ public sealed class RemoteProcedureCallInspectorViewModelTests
             public void Dispose()
             {
             }
+        }
+    }
+
+    private sealed class InMemoryDescriptorLibrary : IRemoteProcedureCallDescriptorLibrary
+    {
+        public InMemoryDescriptorLibrary(IReadOnlyList<ProtobufFileDescriptor> files)
+        {
+            Index = new ProtobufDescriptorIndex(files);
+            LoadedFilePaths = Array.Empty<string>();
+        }
+
+        public ProtobufDescriptorIndex Index { get; }
+
+        public IReadOnlyList<string> LoadedFilePaths { get; }
+
+        public void Clear()
+        {
+        }
+
+        public void Load(string sourcePath, byte[] payload)
+        {
+            _ = sourcePath;
+            _ = payload;
+        }
+
+        public void Unload(string sourcePath)
+        {
+            _ = sourcePath;
         }
     }
 }

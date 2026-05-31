@@ -75,7 +75,7 @@ network conditions, replay requests, and capture everything to disk.
 - **WebSocket inspector** — direction-tagged message timeline, opcode + size, JSON / hex preview, direction + content-type filters
 - **HTTP/2 native orchestration** — when both ends negotiate `h2` via ALPN the proxy runs a frame-relay orchestrator that preserves HPACK end-to-end while parsing HEADERS, CONTINUATION, DATA, and RST_STREAM into the same inspector view as HTTP/1.1 flows. HTTP/1.1 fallback remains automatic for clients/servers that don't negotiate `h2`.
 - **Server-Sent Events inspector** — chronological event list per SSE flow with event-type filter, live updates as new events arrive, full event detail (type, id, retry hint, data) in the side panel
-- **gRPC inspector** — chronological message timeline per gRPC stream with direction filter (Outbound / Inbound / All), per-message compression flag, hex-dump payload viewer, and live status text ("streaming" / "closed"). Auto-detects `application/grpc` (and `application/grpc+proto` / `+json` / `-web`) on HTTP/2 responses; extracts length-prefixed messages in both directions.
+- **gRPC inspector** — chronological message timeline per gRPC stream with direction filter (Outbound / Inbound / All), per-message compression flag, hex-dump payload viewer, and live status text ("streaming" / "closed"). Auto-detects `application/grpc` (and `application/grpc+proto` / `+json` / `-web`) on HTTP/2 responses; extracts length-prefixed messages in both directions. Decodes uncompressed payloads as a structured protobuf field tree (schema-less by default; field names + enum value labels when a matching `FileDescriptorSet` is loaded via the descriptor library).
 - **Reverse proxy** — define routes (listen port → backend host:port + TLS mode) with periodic health probing
 
 ### Productivity
@@ -170,7 +170,6 @@ Detailed design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](
 
 ## Roadmap
 
-- **Protobuf descriptor import for gRPC** — the gRPC inspector currently renders payloads as length-prefixed hex; loading `.proto` files (or descriptor sets) to decode message fields by name is on the v2.x roadmap.
 - **MSIX / MSI installers** — currently only the portable ZIP is built; tracked in [E12-F01](docs/BACKLOG.md).
 
 ## Roslyn analyzer rules

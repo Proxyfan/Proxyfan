@@ -19,14 +19,35 @@ public static class RemoteProcedureCallPayloadFormatter
     private const int PreviewByteLimit = 24;
 
     /// <summary>
-    ///     Returns a verbose multi-line rendering of <paramref name="capturedMessage" /> showing
-    ///     direction, compression flag, capture timestamp, payload byte count, a decoded
-    ///     protobuf field tree (when the payload is uncompressed and parses cleanly), and a
-    ///     hex+ASCII dump of the raw payload.
+    ///     Returns a verbose multi-line rendering of <paramref name="capturedMessage" /> using
+    ///     the schema-less decoder (no field names). Equivalent to calling the schema-aware
+    ///     overload with both <paramref name="capturedMessage" /> arguments set to
+    ///     <see langword="null" />.
     /// </summary>
     /// <param name="capturedMessage">The captured gRPC message to render.</param>
     /// <returns>A multi-line human-readable rendering.</returns>
     public static string FormatFull(RemoteProcedureCallCapturedMessage capturedMessage)
+    {
+        return FormatFull(capturedMessage, schema: null, index: null);
+    }
+
+    /// <summary>
+    ///     Returns a verbose multi-line rendering of <paramref name="capturedMessage" /> showing
+    ///     direction, compression flag, capture timestamp, payload byte count, a decoded
+    ///     protobuf field tree (when the payload is uncompressed and parses cleanly), and a
+    ///     hex+ASCII dump of the raw payload. When <paramref name="schema" /> and
+    ///     <paramref name="index" /> are both supplied, the decoded tree uses the schema-aware
+    ///     printer (named fields, enum value names, recursive nested messages); otherwise it
+    ///     falls back to the schema-less printer.
+    /// </summary>
+    /// <param name="capturedMessage">The captured gRPC message to render.</param>
+    /// <param name="schema">Optional message descriptor for schema-aware decoding.</param>
+    /// <param name="index">Optional descriptor index for resolving nested types.</param>
+    /// <returns>A multi-line human-readable rendering.</returns>
+    public static string FormatFull(
+        RemoteProcedureCallCapturedMessage capturedMessage,
+        ProtobufMessageDescriptor? schema,
+        ProtobufDescriptorIndex? index)
     {
         var builder = new StringBuilder();
         builder.Append("Captured  : ");
@@ -35,11 +56,17 @@ public static class RemoteProcedureCallPayloadFormatter
         builder.AppendLine(DirectionLabel(capturedMessage.Direction));
         builder.Append("Compressed: ");
         builder.AppendLine(capturedMessage.IsCompressed ? "yes" : "no");
+        if (schema is not null)
+        {
+            builder.Append("Schema    : ");
+            builder.AppendLine(schema.FullName);
+        }
+
         builder.Append("Length    : ");
         builder.Append(capturedMessage.Payload.Length.ToString(CultureInfo.InvariantCulture));
         builder.AppendLine(" bytes");
         builder.AppendLine();
-        AppendDecodedPayload(builder, capturedMessage);
+        AppendDecodedPayload(builder, capturedMessage, schema, index);
         AppendHexDump(builder, capturedMessage.Payload.Span);
         var result = builder.ToString();
         return result;
@@ -81,7 +108,7 @@ public static class RemoteProcedureCallPayloadFormatter
         return result;
     }
 
-    private static void AppendDecodedPayload(StringBuilder builder, RemoteProcedureCallCapturedMessage capturedMessage)
+    private static void AppendDecodedPayload(StringBuilder builder, RemoteProcedureCallCapturedMessage capturedMessage, ProtobufMessageDescriptor? schema, ProtobufDescriptorIndex? index)
     {
         if (capturedMessage.IsCompressed)
         {
@@ -93,13 +120,25 @@ public static class RemoteProcedureCallPayloadFormatter
             return;
         }
 
-        var prettyPrinted = ProtobufPrettyPrinter.PrettyPrint(capturedMessage.Payload);
+        string prettyPrinted;
+        string heading;
+        if (schema is not null && index is not null)
+        {
+            prettyPrinted = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(capturedMessage.Payload, schema, index);
+            heading = "Decoded protobuf (schema):";
+        }
+        else
+        {
+            prettyPrinted = ProtobufPrettyPrinter.PrettyPrint(capturedMessage.Payload);
+            heading = "Decoded protobuf:";
+        }
+
         if (string.IsNullOrEmpty(prettyPrinted))
         {
             return;
         }
 
-        builder.AppendLine("Decoded protobuf:");
+        builder.AppendLine(heading);
         builder.AppendLine(prettyPrinted);
         builder.AppendLine();
         builder.AppendLine("Raw bytes:");
