@@ -49,20 +49,22 @@ public sealed class CliRunnerTests
     }
 
     /// <summary>
-    ///     Verifies that the Start command writes the port and returns zero.
+    ///     Verifies that the Start command boots a real proxy listener and exits cleanly when
+    ///     the cancellation token fires before startup completes.
     /// </summary>
     [Test]
-    public async Task RunAsync_StartCommand_WritesPort()
+    public async Task RunAsync_StartCommand_CancelledImmediately_ReturnsZero()
     {
         var runner = new CliRunner();
         using var output = new StringWriter();
         using var error = new StringWriter();
         var command = new CliCommand(CliCommandKind.Start, 9999, null);
+        using var cancellationSource = new CancellationTokenSource();
+        await cancellationSource.CancelAsync();
 
-        var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+        var exitCode = await runner.RunAsync(command, output, error, cancellationSource.Token);
 
         await Assert.That(exitCode).IsEqualTo(0);
-        await Assert.That(output.ToString()).Contains("9999");
     }
 
     /// <summary>

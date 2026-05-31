@@ -40,6 +40,20 @@ public static class ParserTestArguments
     }
 
     /// <summary>
+    ///     Builds a five-element string array.
+    /// </summary>
+    /// <param name="first">The first element.</param>
+    /// <param name="second">The second element.</param>
+    /// <param name="third">The third element.</param>
+    /// <param name="fourth">The fourth element.</param>
+    /// <param name="fifth">The fifth element.</param>
+    /// <returns>The constructed array.</returns>
+    public static string[] Five(string first, string second, string third, string fourth, string fifth)
+    {
+        return new[] { first, second, third, fourth, fifth };
+    }
+
+    /// <summary>
     ///     Builds a four-element string array.
     /// </summary>
     /// <param name="first">The first element.</param>

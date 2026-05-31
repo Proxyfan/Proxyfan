@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,8 +38,13 @@ public sealed class CliRunner
                 return 0;
 
             case CliCommandKind.Start:
-                await standardOut.WriteAsync(("Proxy server would start on port " + command.Port.ToString(CultureInfo.InvariantCulture)).AsMemory(), cancellationToken).ConfigureAwait(false);
-                return 0;
+                if (OperatingSystem.IsWindows())
+                {
+                    return await CliStartHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
+                }
+
+                await standardError.WriteAsync("The 'start' command requires Windows.".AsMemory(), cancellationToken).ConfigureAwait(false);
+                return 5;
 
             case CliCommandKind.HarSummary:
                 return await CliHarSummaryHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);

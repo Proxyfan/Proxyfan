@@ -60,6 +60,14 @@ public sealed class HypertextTransferProtocolProxyHandlerDependencies
     public PacketLossSampler? PacketLossSampler { get; init; }
 
     /// <summary>
+    ///     Gets the optional Remote Procedure Call (gRPC) store used to capture
+    ///     <c>application/grpc</c> responses on HTTP/2 connections handled by the orchestrator.
+    ///     When <see langword="null" />, gRPC traffic still tunnels correctly but captured
+    ///     messages are not retained for inspection.
+    /// </summary>
+    public IRemoteProcedureCallStore? RemoteProcedureCallStore { get; init; }
+
+    /// <summary>
     ///     Gets the rule engine used to evaluate request- and response-phase rules.
     /// </summary>
     public required IRuleEngine RuleEngine { get; init; }

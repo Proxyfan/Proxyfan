@@ -154,6 +154,131 @@ public sealed class HypertextTransferProtocolVersion2OrchestratorTests
     }
 
     /// <summary>
+    ///     Drives a single gRPC stream (POST with <c>content-type: application/grpc</c>) and
+    ///     verifies the orchestrator captures length-prefixed request and response messages
+    ///     into the gRPC store. Each side sends one 5-byte payload prefixed with the gRPC
+    ///     length-prefix header.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_GrpcContentTypeOnResponse_CapturesMessagesIntoRemoteProcedureCallStore()
+    {
+        var (orchestrator, _, _, remoteProcedureCallStore) = BuildOrchestratorWithRemoteProcedureCallStore();
+        var clientToProxyPipe = new System.IO.Pipelines.Pipe();
+        var proxyToUpstreamPipe = new System.IO.Pipelines.Pipe();
+        var upstreamToProxyPipe = new System.IO.Pipelines.Pipe();
+        var proxyToClientPipe = new System.IO.Pipelines.Pipe();
+        using var clientSide = new PairedStream(clientToProxyPipe.Writer.AsStream(leaveOpen: true), proxyToClientPipe.Reader.AsStream(leaveOpen: true));
+        using var upstreamSide = new PairedStream(upstreamToProxyPipe.Writer.AsStream(leaveOpen: true), proxyToUpstreamPipe.Reader.AsStream(leaveOpen: true));
+        using var clientFacingStream = new PairedStream(proxyToClientPipe.Writer.AsStream(leaveOpen: true), clientToProxyPipe.Reader.AsStream(leaveOpen: true));
+        using var upstreamFacingStream = new PairedStream(proxyToUpstreamPipe.Writer.AsStream(leaveOpen: true), upstreamToProxyPipe.Reader.AsStream(leaveOpen: true));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var clientEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var upstreamEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var requestHeaders = new List<HypertextTransferProtocolVersion2HpackHeaderField>
+        {
+            new(":method", "POST"),
+            new(":scheme", "https"),
+            new(":authority", "rpc.example.com"),
+            new(":path", "/Greeter/SayHello"),
+            new("content-type", "application/grpc"),
+        };
+        var responseHeaders = new List<HypertextTransferProtocolVersion2HpackHeaderField>
+        {
+            new(":status", "200"),
+            new("content-type", "application/grpc"),
+        };
+        var requestPayload = BuildRemoteProcedureCallFrame(new byte[] { 0x10, 0x20, 0x30 });
+        var responsePayload = BuildRemoteProcedureCallFrame(new byte[] { 0x40, 0x50 });
+
+        var runTask = orchestrator.RunAsync(clientFacingStream, upstreamFacingStream, "127.0.0.1:50100", cancellation.Token);
+
+        WriteFrame(clientSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Headers, HypertextTransferProtocolVersion2FrameFlag.EndHeaders, 1, clientEncoder.Encode(requestHeaders));
+        WriteFrame(clientSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Data, HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge, 1, requestPayload);
+        await ReadOneFrameFromAsync(upstreamSide.InputFromOrchestrator(), cancellation.Token);
+        await ReadOneFrameFromAsync(upstreamSide.InputFromOrchestrator(), cancellation.Token);
+
+        WriteFrame(upstreamSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Headers, HypertextTransferProtocolVersion2FrameFlag.EndHeaders, 1, upstreamEncoder.Encode(responseHeaders));
+        WriteFrame(upstreamSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Data, HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge, 1, responsePayload);
+        await ReadOneFrameFromAsync(clientSide.InputFromOrchestrator(), cancellation.Token);
+        await ReadOneFrameFromAsync(clientSide.InputFromOrchestrator(), cancellation.Token);
+
+        await clientSide.OutputForOrchestrator().CompleteAsync();
+        await upstreamSide.OutputForOrchestrator().CompleteAsync();
+        await runTask;
+
+        var stored = remoteProcedureCallStore.GetAll();
+        await Assert.That(stored.Count).IsEqualTo(1);
+        var capturedRemoteProcedureCallFlow = stored[0];
+        await Assert.That(capturedRemoteProcedureCallFlow.IsClosed).IsTrue();
+        await Assert.That(capturedRemoteProcedureCallFlow.Messages.Count).IsEqualTo(2);
+        await Assert.That(capturedRemoteProcedureCallFlow.Messages[0].Direction).IsEqualTo(RemoteProcedureCallDirection.Outbound);
+        await Assert.That(capturedRemoteProcedureCallFlow.Messages[0].Payload.Length).IsEqualTo(3);
+        await Assert.That(capturedRemoteProcedureCallFlow.Messages[1].Direction).IsEqualTo(RemoteProcedureCallDirection.Inbound);
+        await Assert.That(capturedRemoteProcedureCallFlow.Messages[1].Payload.Length).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     A non-gRPC response (e.g. plain JSON) does not create a flow in the gRPC store.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_NonGrpcContentTypeOnResponse_DoesNotCreateRemoteProcedureCallFlow()
+    {
+        var (orchestrator, _, _, remoteProcedureCallStore) = BuildOrchestratorWithRemoteProcedureCallStore();
+        var clientToProxyPipe = new System.IO.Pipelines.Pipe();
+        var proxyToUpstreamPipe = new System.IO.Pipelines.Pipe();
+        var upstreamToProxyPipe = new System.IO.Pipelines.Pipe();
+        var proxyToClientPipe = new System.IO.Pipelines.Pipe();
+        using var clientSide = new PairedStream(clientToProxyPipe.Writer.AsStream(leaveOpen: true), proxyToClientPipe.Reader.AsStream(leaveOpen: true));
+        using var upstreamSide = new PairedStream(upstreamToProxyPipe.Writer.AsStream(leaveOpen: true), proxyToUpstreamPipe.Reader.AsStream(leaveOpen: true));
+        using var clientFacingStream = new PairedStream(proxyToClientPipe.Writer.AsStream(leaveOpen: true), clientToProxyPipe.Reader.AsStream(leaveOpen: true));
+        using var upstreamFacingStream = new PairedStream(proxyToUpstreamPipe.Writer.AsStream(leaveOpen: true), upstreamToProxyPipe.Reader.AsStream(leaveOpen: true));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var clientEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var upstreamEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var requestHeaders = new List<HypertextTransferProtocolVersion2HpackHeaderField>
+        {
+            new(":method", "GET"),
+            new(":scheme", "https"),
+            new(":authority", "example.com"),
+            new(":path", "/api"),
+        };
+        var responseHeaders = new List<HypertextTransferProtocolVersion2HpackHeaderField>
+        {
+            new(":status", "200"),
+            new("content-type", "application/json"),
+        };
+
+        var runTask = orchestrator.RunAsync(clientFacingStream, upstreamFacingStream, "127.0.0.1:50101", cancellation.Token);
+
+        WriteFrame(clientSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Headers, HypertextTransferProtocolVersion2FrameFlag.EndHeaders | HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge, 1, clientEncoder.Encode(requestHeaders));
+        await ReadOneFrameFromAsync(upstreamSide.InputFromOrchestrator(), cancellation.Token);
+
+        WriteFrame(upstreamSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Headers, HypertextTransferProtocolVersion2FrameFlag.EndHeaders | HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge, 1, upstreamEncoder.Encode(responseHeaders));
+        await ReadOneFrameFromAsync(clientSide.InputFromOrchestrator(), cancellation.Token);
+
+        await clientSide.OutputForOrchestrator().CompleteAsync();
+        await upstreamSide.OutputForOrchestrator().CompleteAsync();
+        await runTask;
+
+        await Assert.That(remoteProcedureCallStore.GetAll().Count).IsEqualTo(0);
+    }
+
+    private static byte[] BuildRemoteProcedureCallFrame(byte[] payload)
+    {
+        var frame = new byte[5 + payload.Length];
+        frame[0] = 0;
+        var length = (uint)payload.Length;
+        frame[1] = (byte)((length >> 24) & 0xFF);
+        frame[2] = (byte)((length >> 16) & 0xFF);
+        frame[3] = (byte)((length >> 8) & 0xFF);
+        frame[4] = (byte)(length & 0xFF);
+        Buffer.BlockCopy(payload, 0, frame, 5, payload.Length);
+        return frame;
+    }
+
+    /// <summary>
     ///     Drives a request whose stream is reset by the client mid-flight (RST_STREAM after
     ///     HEADERS) and verifies the orchestrator marks the flow failed instead of completed.
     /// </summary>
@@ -379,16 +504,24 @@ public sealed class HypertextTransferProtocolVersion2OrchestratorTests
 
     private static (HypertextTransferProtocolVersion2Orchestrator orchestrator, StubDomainEventBus bus, StubTrafficStore store) BuildOrchestrator()
     {
+        var (orchestrator, bus, store, _) = BuildOrchestratorWithRemoteProcedureCallStore();
+        return (orchestrator, bus, store);
+    }
+
+    private static (HypertextTransferProtocolVersion2Orchestrator orchestrator, StubDomainEventBus bus, StubTrafficStore store, IRemoteProcedureCallStore remoteProcedureCallStore) BuildOrchestratorWithRemoteProcedureCallStore()
+    {
         var bus = new StubDomainEventBus();
         var store = new StubTrafficStore();
+        var remoteProcedureCallStore = new RemoteProcedureCallStore();
         var publisher = new HypertextTransferProtocolFlowEventPublisher(bus);
         var dependencies = new HypertextTransferProtocolVersion2OrchestratorDependencies
         {
             FlowEventPublisher = publisher,
+            RemoteProcedureCallStore = remoteProcedureCallStore,
             TrafficStore = store,
         };
         var orchestrator = new HypertextTransferProtocolVersion2Orchestrator(dependencies);
-        return (orchestrator, bus, store);
+        return (orchestrator, bus, store, remoteProcedureCallStore);
     }
 
     private static void WriteFrame(

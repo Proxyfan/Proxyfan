@@ -50,6 +50,11 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private string _totalDurationText;
 
     /// <summary>
+    ///     Gets the child view model that surfaces Remote Procedure Call (gRPC) inspection.
+    /// </summary>
+    public RemoteProcedureCallInspectorViewModel RemoteProcedureCall { get; }
+
+    /// <summary>
     ///     Gets the child view model that surfaces Server-Sent Events (SSE) inspection.
     /// </summary>
     public ServerSentEventsInspectorViewModel ServerSentEvents { get; }
@@ -78,10 +83,15 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     ///     The child SSE inspector view model surfaced through the
     ///     <see cref="ServerSentEvents" /> property.
     /// </param>
+    /// <param name="remoteProcedureCallInspectorViewModel">
+    ///     The child gRPC inspector view model surfaced through the
+    ///     <see cref="RemoteProcedureCall" /> property.
+    /// </param>
     public InspectorViewModel(
         TrafficListViewModel trafficListViewModel,
         WebSocketInspectorViewModel webSocketInspectorViewModel,
-        ServerSentEventsInspectorViewModel serverSentEventsInspectorViewModel)
+        ServerSentEventsInspectorViewModel serverSentEventsInspectorViewModel,
+        RemoteProcedureCallInspectorViewModel remoteProcedureCallInspectorViewModel)
     {
         _trafficListViewModel = trafficListViewModel;
         _authorizationText = string.Empty;
@@ -106,6 +116,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         TimingPhases = readOnlyPhases;
         WebSocket = webSocketInspectorViewModel;
         ServerSentEvents = serverSentEventsInspectorViewModel;
+        RemoteProcedureCall = remoteProcedureCallInspectorViewModel;
         trafficListViewModel.PropertyChanged += OnTrafficListPropertyChanged;
     }
 
@@ -115,6 +126,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _trafficListViewModel.PropertyChanged -= OnTrafficListPropertyChanged;
         WebSocket.Dispose();
         ServerSentEvents.Dispose();
+        RemoteProcedureCall.Dispose();
     }
 
     private void ApplyRequest(HypertextTransferProtocolRequestData request)

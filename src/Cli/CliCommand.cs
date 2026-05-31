@@ -33,6 +33,12 @@ public sealed class CliCommand
     public CliSendRequest? SendRequest { get; }
 
     /// <summary>
+    ///     Gets the optional <see cref="CliCommandKind.Start" /> options when this is a
+    ///     Start command, otherwise <see langword="null" />.
+    /// </summary>
+    public CliStartOptions? StartOptions { get; init; }
+
+    /// <summary>
     ///     Initializes a new <see cref="CliCommand" />.
     /// </summary>
     /// <param name="kind">The command kind.</param>

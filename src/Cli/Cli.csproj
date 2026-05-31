@@ -8,9 +8,19 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\DependencyInjection\DependencyInjection.csproj" />
+        <ProjectReference Include="..\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\Domain.Session\Domain.Session.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
+        <ProjectReference Include="..\Framework.Networking\Framework.Networking.csproj" />
+        <ProjectReference Include="..\Framework.Platform\Framework.Platform.csproj" />
+        <ProjectReference Include="..\Framework.Serialization\Framework.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Configuration" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
     </ItemGroup>
 
 </Project>

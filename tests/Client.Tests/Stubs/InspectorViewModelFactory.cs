@@ -30,7 +30,12 @@ internal static class InspectorViewModelFactory
             trafficListViewModel,
             serverSentEventsStore,
             InlineUserInterfaceScheduler.Instance);
-        return new InspectorViewModel(trafficListViewModel, webSocketInspector, serverSentEventsInspector);
+        var remoteProcedureCallStore = new RemoteProcedureCallStore();
+        var remoteProcedureCallInspector = new RemoteProcedureCallInspectorViewModel(
+            trafficListViewModel,
+            remoteProcedureCallStore,
+            InlineUserInterfaceScheduler.Instance);
+        return new InspectorViewModel(trafficListViewModel, webSocketInspector, serverSentEventsInspector, remoteProcedureCallInspector);
     }
 
     /// <summary>
@@ -54,6 +59,11 @@ internal static class InspectorViewModelFactory
             trafficListViewModel,
             serverSentEventsStore,
             InlineUserInterfaceScheduler.Instance);
-        return new InspectorViewModel(trafficListViewModel, webSocketInspector, serverSentEventsInspector);
+        var remoteProcedureCallStore = new RemoteProcedureCallStore();
+        var remoteProcedureCallInspector = new RemoteProcedureCallInspectorViewModel(
+            trafficListViewModel,
+            remoteProcedureCallStore,
+            InlineUserInterfaceScheduler.Instance);
+        return new InspectorViewModel(trafficListViewModel, webSocketInspector, serverSentEventsInspector, remoteProcedureCallInspector);
     }
 }

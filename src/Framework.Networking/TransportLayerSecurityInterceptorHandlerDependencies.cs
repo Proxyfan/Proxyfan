@@ -52,6 +52,14 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     public PacketLossSampler? PacketLossSampler { get; init; }
 
     /// <summary>
+    ///     Gets the optional Remote Procedure Call (gRPC) store used to capture
+    ///     <c>application/grpc</c> responses observed over intercepted HTTP/2 streams. When
+    ///     <see langword="null" />, gRPC traffic is still relayed correctly but captured
+    ///     messages are not retained for inspection.
+    /// </summary>
+    public IRemoteProcedureCallStore? RemoteProcedureCallStore { get; init; }
+
+    /// <summary>
     ///     Gets the optional rule engine used to evaluate request- and response-phase rules
     ///     for intercepted (decrypted) traffic.
     /// </summary>

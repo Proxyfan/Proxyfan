@@ -26,6 +26,7 @@ network conditions, replay requests, and capture everything to disk.
 | Native Windows UI | ✅ | ✅ (Java) | ✅ | ❌ (CLI/web) |
 | HTTPS interception (per-host opt-in) | ✅ | ✅ | ✅ | ✅ |
 | WebSocket inspector | ✅ | ✅ | ❌ | ✅ |
+| gRPC inspector | ✅ | ✅ | ❌ | ❌ |
 | C# scripting (Roslyn) | ✅ | ❌ | ✅ (FiddlerScript) | Python |
 | Request composer + history | ✅ | ✅ | ✅ | ❌ |
 | Map Local / Map Remote | ✅ | ✅ | ✅ | ❌ |
@@ -74,7 +75,7 @@ network conditions, replay requests, and capture everything to disk.
 - **WebSocket inspector** — direction-tagged message timeline, opcode + size, JSON / hex preview, direction + content-type filters
 - **HTTP/2 native orchestration** — when both ends negotiate `h2` via ALPN the proxy runs a frame-relay orchestrator that preserves HPACK end-to-end while parsing HEADERS, CONTINUATION, DATA, and RST_STREAM into the same inspector view as HTTP/1.1 flows. HTTP/1.1 fallback remains automatic for clients/servers that don't negotiate `h2`.
 - **Server-Sent Events inspector** — chronological event list per SSE flow with event-type filter, live updates as new events arrive, full event detail (type, id, retry hint, data) in the side panel
-- **gRPC, Server-Sent Events** — parsed and displayed alongside HTTP traffic
+- **gRPC inspector** — chronological message timeline per gRPC stream with direction filter (Outbound / Inbound / All), per-message compression flag, hex-dump payload viewer, and live status text ("streaming" / "closed"). Auto-detects `application/grpc` (and `application/grpc+proto` / `+json` / `-web`) on HTTP/2 responses; extracts length-prefixed messages in both directions.
 - **Reverse proxy** — define routes (listen port → backend host:port + TLS mode) with periodic health probing
 
 ### Productivity
@@ -99,6 +100,7 @@ network conditions, replay requests, and capture everything to disk.
 
 ### Headless / CLI mode
 
+- `proxyfan-cli start --port N [--duration N] [--output capture.har]` — start the proxy server headlessly, optionally auto-stop after N seconds, and export captured flows to HAR on shutdown
 - `proxyfan-cli har-summary <file>` — human-readable summary of a HAR capture
 - `proxyfan-cli har-to-curl <file>` — emit a cURL command per captured request
 - `proxyfan-cli har-filter --input <in> --output <out> --pattern <glob>` — CI/CD slicing
@@ -168,7 +170,7 @@ Detailed design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](
 
 ## Roadmap
 
-- **gRPC over HTTP/2** — gRPC messages encoded in DATA frames are already inspected via the HTTP/2 orchestrator's body capture; first-class gRPC inspector tab + proto file import is on the v2.x roadmap.
+- **Protobuf descriptor import for gRPC** — the gRPC inspector currently renders payloads as length-prefixed hex; loading `.proto` files (or descriptor sets) to decode message fields by name is on the v2.x roadmap.
 - **MSIX / MSI installers** — currently only the portable ZIP is built; tracked in [E12-F01](docs/BACKLOG.md).
 
 ## Roslyn analyzer rules

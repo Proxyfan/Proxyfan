@@ -13,6 +13,16 @@ namespace Proxyfan.Domain.Traffic;
 /// </summary>
 public sealed class RemoteProcedureCallFlow
 {
+    /// <summary>
+    ///     Raised when <see cref="MarkClosed" /> records the first close observation.
+    /// </summary>
+    public event RemoteProcedureCallFlowClosedHandler? Closed;
+
+    /// <summary>
+    ///     Raised whenever <see cref="RecordMessage" /> appends a new captured message.
+    /// </summary>
+    public event RemoteProcedureCallFlowMessageRecordedHandler? MessageRecorded;
+
     private readonly Lock _gate;
     private readonly List<RemoteProcedureCallCapturedMessage> _messages;
     private DateTimeOffset? _closedAt;
@@ -82,14 +92,23 @@ public sealed class RemoteProcedureCallFlow
     /// <param name="closedAt">The wall-clock instant the close was observed.</param>
     public void MarkClosed(DateTimeOffset closedAt)
     {
+        bool isFirstClose;
         lock (_gate)
         {
             if (_closedAt.HasValue)
             {
-                return;
+                isFirstClose = false;
             }
+            else
+            {
+                _closedAt = closedAt;
+                isFirstClose = true;
+            }
+        }
 
-            _closedAt = closedAt;
+        if (isFirstClose)
+        {
+            Closed?.Invoke();
         }
     }
 
@@ -103,5 +122,7 @@ public sealed class RemoteProcedureCallFlow
         {
             _messages.Add(message);
         }
+
+        MessageRecorded?.Invoke(message);
     }
 }

@@ -36,43 +36,10 @@ public static class CliArgumentParser
             return new CliCommand(CliCommandKind.Version, DefaultPort, null);
         }
 
-        if (string.Equals(command, "start", StringComparison.OrdinalIgnoreCase))
+        var typedCommand = TryParseTypedCommand(command, args);
+        if (typedCommand is not null)
         {
-            var port = ExtractPort(args);
-            return new CliCommand(CliCommandKind.Start, port, null);
-        }
-
-        if (string.Equals(command, "har-summary", StringComparison.OrdinalIgnoreCase))
-        {
-            var path = ExtractPath(args);
-            return new CliCommand(CliCommandKind.HarSummary, DefaultPort, path);
-        }
-
-        if (string.Equals(command, "har-to-curl", StringComparison.OrdinalIgnoreCase))
-        {
-            var path = ExtractPath(args);
-            return new CliCommand(CliCommandKind.HarToCurl, DefaultPort, path);
-        }
-
-        if (string.Equals(command, "har-filter", StringComparison.OrdinalIgnoreCase))
-        {
-            var options = CliHarFilterArgumentParser.Parse(args);
-            return new CliCommand(CliCommandKind.HarFilter, DefaultPort, options?.InputPath)
-            {
-                HarFilterOptions = options,
-            };
-        }
-
-        if (string.Equals(command, "har-stats", StringComparison.OrdinalIgnoreCase))
-        {
-            var path = ExtractPath(args);
-            return new CliCommand(CliCommandKind.HarStats, DefaultPort, path);
-        }
-
-        if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
-        {
-            var sendRequest = CliSendArgumentParser.Parse(args);
-            return new CliCommand(CliCommandKind.Send, DefaultPort, null, sendRequest);
+            return typedCommand;
         }
 
         return new CliCommand(CliCommandKind.Unknown, DefaultPort, null);
@@ -111,6 +78,34 @@ public static class CliArgumentParser
         return DefaultPort;
     }
 
+    private static int? ExtractPositiveInt(string[] args, string optionName)
+    {
+        for (var index = 1; index < args.Length - 1; index++)
+        {
+            if (string.Equals(args[index], optionName, StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(args[index + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                && parsed > 0)
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractStringOption(string[] args, string optionName)
+    {
+        for (var index = 1; index < args.Length - 1; index++)
+        {
+            if (string.Equals(args[index], optionName, StringComparison.OrdinalIgnoreCase))
+            {
+                return args[index + 1];
+            }
+        }
+
+        return null;
+    }
+
     private static bool HasHelpToken(string token)
     {
         return string.Equals(token, "--help", StringComparison.OrdinalIgnoreCase)
@@ -123,5 +118,57 @@ public static class CliArgumentParser
         return string.Equals(token, "--version", StringComparison.OrdinalIgnoreCase)
             || string.Equals(token, "-v", StringComparison.OrdinalIgnoreCase)
             || string.Equals(token, "version", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static CliCommand? TryParseTypedCommand(string command, string[] args)
+    {
+        if (string.Equals(command, "start", StringComparison.OrdinalIgnoreCase))
+        {
+            var port = ExtractPort(args);
+            var startOptions = new CliStartOptions
+            {
+                OutputPath = ExtractStringOption(args, "--output"),
+                DurationSeconds = ExtractPositiveInt(args, "--duration"),
+            };
+            return new CliCommand(CliCommandKind.Start, port, null)
+            {
+                StartOptions = startOptions,
+            };
+        }
+
+        if (string.Equals(command, "har-summary", StringComparison.OrdinalIgnoreCase))
+        {
+            var path = ExtractPath(args);
+            return new CliCommand(CliCommandKind.HarSummary, DefaultPort, path);
+        }
+
+        if (string.Equals(command, "har-to-curl", StringComparison.OrdinalIgnoreCase))
+        {
+            var path = ExtractPath(args);
+            return new CliCommand(CliCommandKind.HarToCurl, DefaultPort, path);
+        }
+
+        if (string.Equals(command, "har-filter", StringComparison.OrdinalIgnoreCase))
+        {
+            var options = CliHarFilterArgumentParser.Parse(args);
+            return new CliCommand(CliCommandKind.HarFilter, DefaultPort, options?.InputPath)
+            {
+                HarFilterOptions = options,
+            };
+        }
+
+        if (string.Equals(command, "har-stats", StringComparison.OrdinalIgnoreCase))
+        {
+            var path = ExtractPath(args);
+            return new CliCommand(CliCommandKind.HarStats, DefaultPort, path);
+        }
+
+        if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
+        {
+            var sendRequest = CliSendArgumentParser.Parse(args);
+            return new CliCommand(CliCommandKind.Send, DefaultPort, null, sendRequest);
+        }
+
+        return null;
     }
 }

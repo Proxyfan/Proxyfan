@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<ITrafficStore, TrafficStore>();
         serviceCollection.AddSingleton<IWebSocketStore, WebSocketStore>();
         serviceCollection.AddSingleton<IServerSentEventsStore, ServerSentEventsStore>();
+        serviceCollection.AddSingleton<IRemoteProcedureCallStore, RemoteProcedureCallStore>();
         serviceCollection.AddSingleton<TrafficFlowDiffPool>();
         serviceCollection.AddSingleton<ICertificateGenerator, RsaCertificateGenerator>();
         serviceCollection.AddSingleton<ICertificateStore, WindowsCertificateStore>();
@@ -301,6 +302,7 @@ public static class ServiceCollectionExtensions
             CertificateAuthorityProvider = provider.GetService<MutableCertificateAuthorityProvider>(),
             WebSocketStore = provider.GetService<IWebSocketStore>(),
             ServerSentEventsStore = provider.GetService<IServerSentEventsStore>(),
+            RemoteProcedureCallStore = provider.GetService<IRemoteProcedureCallStore>(),
             TimeProvider = provider.GetService<TimeProvider>(),
         };
         return dependencies;
@@ -339,6 +341,7 @@ public static class ServiceCollectionExtensions
             TimeProvider = provider.GetService<TimeProvider>(),
             WebSocketStore = provider.GetService<IWebSocketStore>(),
             ServerSentEventsStore = provider.GetService<IServerSentEventsStore>(),
+            RemoteProcedureCallStore = provider.GetService<IRemoteProcedureCallStore>(),
         };
         return dependencies;
     }

@@ -48,6 +48,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
     private readonly PacketLossSampler _packetLossSampler;
+    private readonly IRemoteProcedureCallStore? _remoteProcedureCallStore;
     private readonly IRuleEngine? _ruleEngine;
     private readonly IScriptingHandler? _scriptingHandler;
     private readonly IServerSentEventsStore? _serverSentEventsStore;
@@ -83,6 +84,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
         _webSocketStore = dependencies.WebSocketStore;
         _serverSentEventsStore = dependencies.ServerSentEventsStore;
+        _remoteProcedureCallStore = dependencies.RemoteProcedureCallStore;
         _throttleProfile = dependencies.ThrottleProfile;
         _packetLossSampler = dependencies.PacketLossSampler ?? DefaultPacketLossSamplers.Shared;
     }
@@ -258,7 +260,9 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             ClientSecureStream = clientSecureStream,
             Connection = connection,
             EventBus = _eventBus,
+            RemoteProcedureCallStore = _remoteProcedureCallStore,
             ServerSecureStream = serverSecureStream,
+            TimeProvider = _timeProvider,
             TrafficStore = _trafficStore,
         };
         await TransportLayerSecurityInterceptedVersion2Dispatch.RunAsync(request, cancellationToken).ConfigureAwait(false);

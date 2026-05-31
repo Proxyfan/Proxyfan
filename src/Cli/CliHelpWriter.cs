@@ -20,6 +20,8 @@ public static class CliHelpWriter
           help                  Show this help text
           version               Show version information
           start [--port N]      Start the proxy server on the given port (default: 8080)
+            [--output <path>]     and optionally export captured flows to a HAR file when
+            [--duration N]        the proxy stops, or auto-stop after N seconds
           har-summary <path>    Print a human-readable summary of a HAR file
           har-to-curl <path>    Print a curl command for every request in a HAR file
           har-filter            Filter a HAR file by URL pattern, writing matching entries
@@ -36,7 +38,8 @@ public static class CliHelpWriter
         Options:
           --port N              TCP port for the start command (1-65535)
           --input <path>        Alternative way to specify the HAR file path
-          --output <path>       Output HAR file path (har-filter)
+          --output <path>       Output HAR file path (har-filter, start)
+          --duration N          Auto-stop the proxy after N seconds (start)
           --pattern <glob>      Wildcard URL pattern (har-filter, e.g. "*.example.com/api/*")
           --method M            HTTP method (default: GET)
           --url URL             Target URL (required for send)
@@ -45,6 +48,7 @@ public static class CliHelpWriter
 
         Examples:
           proxyfan-cli start --port 8888
+          proxyfan-cli start --port 8888 --output capture.har --duration 60
           proxyfan-cli har-summary capture.har
           proxyfan-cli har-filter --input capture.har --output api.har --pattern "*.example.com/api/*"
           proxyfan-cli send --method POST --url https://api.example.com --header "Accept: application/json" --body "hello"

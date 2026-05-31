@@ -27,6 +27,8 @@ public static class TransportLayerSecurityInterceptedVersion2Dispatch
         var dependencies = new HypertextTransferProtocolVersion2OrchestratorDependencies
         {
             FlowEventPublisher = flowPublisher,
+            RemoteProcedureCallStore = request.RemoteProcedureCallStore,
+            TimeProvider = request.TimeProvider,
             TrafficStore = request.TrafficStore,
         };
         var orchestrator = new HypertextTransferProtocolVersion2Orchestrator(dependencies);

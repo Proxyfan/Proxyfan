@@ -86,6 +86,54 @@ public sealed class RemoteProcedureCallFlowTests
         await Assert.That(rpcFlow.Messages[1].IsCompressed).IsTrue();
     }
 
+    /// <summary>
+    ///     <see cref="RemoteProcedureCallFlow.Closed" /> fires exactly once on the first close
+    ///     observation and never again.
+    /// </summary>
+    [Test]
+    public async Task Closed_RaisedOnce_WhenMarkClosedCalledMultipleTimes()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var rpcFlow = new RemoteProcedureCallFlow(flow);
+        var closeCount = 0;
+        rpcFlow.Closed += () => closeCount++;
+
+        rpcFlow.MarkClosed(DateTimeOffset.UtcNow);
+        rpcFlow.MarkClosed(DateTimeOffset.UtcNow);
+        rpcFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        await Assert.That(closeCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     <see cref="RemoteProcedureCallFlow.MessageRecorded" /> fires for every recorded message.
+    /// </summary>
+    [Test]
+    public async Task MessageRecorded_RaisedForEveryRecordedMessage_ReceivesAll()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var rpcFlow = new RemoteProcedureCallFlow(flow);
+        var observed = new System.Collections.Generic.List<RemoteProcedureCallCapturedMessage>();
+        rpcFlow.MessageRecorded += observed.Add;
+        var first = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Outbound,
+            false,
+            new byte[] { 0x01 },
+            DateTimeOffset.UtcNow);
+        var second = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Inbound,
+            false,
+            new byte[] { 0x02 },
+            DateTimeOffset.UtcNow);
+
+        rpcFlow.RecordMessage(first);
+        rpcFlow.RecordMessage(second);
+
+        await Assert.That(observed.Count).IsEqualTo(2);
+        await Assert.That(observed[0]).IsSameReferenceAs(first);
+        await Assert.That(observed[1]).IsSameReferenceAs(second);
+    }
+
     private static TrafficFlow CreateUnderlyingFlow(out Guid id)
     {
         id = Guid.NewGuid();

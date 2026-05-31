@@ -9,6 +9,63 @@ namespace Proxyfan.Cli.Tests;
 public sealed class CliArgumentParserTests
 {
     /// <summary>
+    ///     Verifies that "start --output capture.har" sets the start options' output path.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithOutputPath_SetsStartOptionsOutputPath()
+    {
+        var args = ParserTestArguments.Three("start", "--output", "capture.har");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Start);
+        await Assert.That(command.StartOptions).IsNotNull();
+        await Assert.That(command.StartOptions!.OutputPath).IsEqualTo("capture.har");
+    }
+
+    /// <summary>
+    ///     Verifies that "start --duration 30" sets the duration seconds.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithDuration_SetsStartOptionsDurationSeconds()
+    {
+        var args = ParserTestArguments.Three("start", "--duration", "30");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.StartOptions).IsNotNull();
+        await Assert.That(command.StartOptions!.DurationSeconds).IsEqualTo(30);
+    }
+
+    /// <summary>
+    ///     Verifies that "start --duration -1" rejects the invalid value (kept null).
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithNegativeDuration_LeavesDurationNull()
+    {
+        var args = ParserTestArguments.Three("start", "--duration", "-1");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.StartOptions!.DurationSeconds).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that "start" with no extra options leaves both StartOptions fields null.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithoutOptions_LeavesStartOptionsFieldsNull()
+    {
+        var args = ParserTestArguments.One("start");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.StartOptions).IsNotNull();
+        await Assert.That(command.StartOptions!.OutputPath).IsNull();
+        await Assert.That(command.StartOptions.DurationSeconds).IsNull();
+    }
+
+    /// <summary>
     ///     Verifies that no arguments returns the Help command.
     /// </summary>
     [Test]

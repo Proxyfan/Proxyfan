@@ -271,6 +271,15 @@
   <data name="Inspector_ServerSentEvents_EventList_Automation" xml:space="preserve">
     <value>Captured Server-Sent Events</value>
   </data>
+  <data name="Inspector_Tab_RemoteProcedureCall" xml:space="preserve">
+    <value>gRPC</value>
+  </data>
+  <data name="Inspector_RemoteProcedureCall_FilterDirection" xml:space="preserve">
+    <value>Direction:</value>
+  </data>
+  <data name="Inspector_RemoteProcedureCall_MessageList_Automation" xml:space="preserve">
+    <value>Captured gRPC messages</value>
+  </data>
   <data name="Inspector_Section_Request" xml:space="preserve">
     <value>Request</value>
   </data>

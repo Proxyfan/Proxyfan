@@ -162,10 +162,12 @@ coverage*.json
 coverage*.xml
 coverage*.info
 coverage-report/
+coverage-report-html/
 coverage-html/
 coverage-json/
 coverage-no-tls/
 coverage-report-full/
+capture-coverage/
 
 # Visual Studio code coverage results
 *.coverage

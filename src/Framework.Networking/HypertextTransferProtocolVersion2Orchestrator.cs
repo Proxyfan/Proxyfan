@@ -40,6 +40,8 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
     private readonly ConcurrentDictionary<uint, bool> _clientPendingEndStream;
     private readonly HypertextTransferProtocolVersion2OrchestratorDependencies _dependencies;
     private readonly ConcurrentDictionary<uint, TrafficFlow> _flows;
+    private readonly ConcurrentDictionary<uint, HypertextTransferProtocolVersion2RemoteProcedureCallCapture> _remoteProcedureCalls;
+    private readonly TimeProvider _timeProvider;
     private readonly HypertextTransferProtocolVersion2HeaderBlockAssembler _upstreamHeaderAssembler;
     private readonly HypertextTransferProtocolVersion2HpackDecoder _upstreamHeaderDecoder;
     private readonly ConcurrentDictionary<uint, bool> _upstreamPendingEndStream;
@@ -51,6 +53,7 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
     public HypertextTransferProtocolVersion2Orchestrator(HypertextTransferProtocolVersion2OrchestratorDependencies dependencies)
     {
         _dependencies = dependencies;
+        _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
         var captures = new ConcurrentDictionary<uint, HypertextTransferProtocolVersion2CaptureState>();
         _captures = captures;
         var flows = new ConcurrentDictionary<uint, TrafficFlow>();
@@ -67,6 +70,8 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
         _clientPendingEndStream = clientPending;
         var upstreamPending = new ConcurrentDictionary<uint, bool>();
         _upstreamPendingEndStream = upstreamPending;
+        var remoteProcedureCalls = new ConcurrentDictionary<uint, HypertextTransferProtocolVersion2RemoteProcedureCallCapture>();
+        _remoteProcedureCalls = remoteProcedureCalls;
     }
 
     /// <summary>
@@ -156,16 +161,56 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
             _dependencies.FlowEventPublisher.PublishFlowCompleted(flow);
         }
 
+        var remoteProcedureCallCloseTimestamp = _timeProvider.GetUtcNow();
+        foreach (var pair in _remoteProcedureCalls)
+        {
+            pair.Value.Flow.MarkClosed(remoteProcedureCallCloseTimestamp);
+        }
+
         _flows.Clear();
         _captures.Clear();
         _clientPendingEndStream.Clear();
         _upstreamPendingEndStream.Clear();
+        _remoteProcedureCalls.Clear();
     }
 
     private HypertextTransferProtocolVersion2CaptureState GetOrCreateCaptureState(uint streamIdentifier)
     {
         var capture = _captures.GetOrAdd(streamIdentifier, HypertextTransferProtocolVersion2OrchestratorHelpers.CreateCaptureState);
         return capture;
+    }
+
+    private void MaybeAttachRemoteProcedureCallCapture(
+        uint streamIdentifier,
+        HypertextTransferProtocolVersion2CaptureState capture,
+        TrafficFlow flow,
+        HypertextTransferProtocolResponseData response)
+    {
+        var store = _dependencies.RemoteProcedureCallStore;
+        if (store is null)
+        {
+            return;
+        }
+
+        if (!RemoteProcedureCallResponseDetector.HasRemoteProcedureCallResponse(response.Headers))
+        {
+            return;
+        }
+
+        if (_remoteProcedureCalls.ContainsKey(streamIdentifier))
+        {
+            return;
+        }
+
+        var remoteProcedureCallFlow = new RemoteProcedureCallFlow(flow);
+        store.Add(remoteProcedureCallFlow);
+        var remoteProcedureCallCapture = new HypertextTransferProtocolVersion2RemoteProcedureCallCapture(remoteProcedureCallFlow, _timeProvider);
+        _remoteProcedureCalls[streamIdentifier] = remoteProcedureCallCapture;
+
+        if (capture.RequestBody.Length > 0)
+        {
+            remoteProcedureCallCapture.AppendClientBytes(capture.RequestBody.Span);
+        }
     }
 
     private void MaybeCompleteFlow(uint streamIdentifier, HypertextTransferProtocolVersion2CaptureState capture)
@@ -208,6 +253,10 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
         _dependencies.TrafficStore.Add(flow);
         _dependencies.FlowEventPublisher.PublishFlowCompleted(flow);
         _captures.TryRemove(streamIdentifier, out _);
+        if (_remoteProcedureCalls.TryRemove(streamIdentifier, out var completedRemoteProcedureCallCapture))
+        {
+            completedRemoteProcedureCallCapture.Flow.MarkClosed(_timeProvider.GetUtcNow());
+        }
     }
 
     private void MaybePublishRequest(
@@ -278,6 +327,7 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
 
         flow.SetResponse(response);
         _dependencies.FlowEventPublisher.PublishResponseReceived(flow, response);
+        MaybeAttachRemoteProcedureCallCapture(streamIdentifier, capture, flow, response);
     }
 
     private void ProcessContinuationFrame(
@@ -318,11 +368,21 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
         if (context.Direction == HypertextTransferProtocolVersion2RelayDirection.ClientToUpstream)
         {
             capture.AppendRequestData(data.Value.Span, isEndStream);
+            if (_remoteProcedureCalls.TryGetValue(frame.Header.StreamIdentifier, out var clientRemoteProcedureCallCapture))
+            {
+                clientRemoteProcedureCallCapture.AppendClientBytes(data.Value.Span);
+            }
+
             MaybePublishRequest(frame.Header.StreamIdentifier, capture, context.ClientEndPointDescription);
         }
         else
         {
             capture.AppendResponseData(data.Value.Span, isEndStream);
+            if (_remoteProcedureCalls.TryGetValue(frame.Header.StreamIdentifier, out var upstreamRemoteProcedureCallCapture))
+            {
+                upstreamRemoteProcedureCallCapture.AppendUpstreamBytes(data.Value.Span);
+            }
+
             MaybePublishResponse(frame.Header.StreamIdentifier, capture);
         }
 
@@ -400,6 +460,10 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
         _captures.TryRemove(frame.Header.StreamIdentifier, out _);
         _clientPendingEndStream.TryRemove(frame.Header.StreamIdentifier, out _);
         _upstreamPendingEndStream.TryRemove(frame.Header.StreamIdentifier, out _);
+        if (_remoteProcedureCalls.TryRemove(frame.Header.StreamIdentifier, out var resetRemoteProcedureCallCapture))
+        {
+            resetRemoteProcedureCallCapture.Flow.MarkClosed(_timeProvider.GetUtcNow());
+        }
     }
 
     private async Task PumpAsync(
