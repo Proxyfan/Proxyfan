@@ -4,7 +4,6 @@ This file provides guidance to coding agents working with this repository. For f
 
 ## Rules for Agents
 
-- **CRITICAL: Never run `git commit` or `git push`.** Prepare changes and stop.
 - **CRITICAL: Never use `#pragma warning disable`**in `src/` or `tests/`. Fix root causes instead.
 
 ## Development Environment
