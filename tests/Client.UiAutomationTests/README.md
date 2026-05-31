@@ -21,7 +21,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-MsixTestEnvironm
 dotnet run --project tests/Client.UiAutomationTests --no-build -c Debug
 ```
 
-The full 36-test suite runs in **~10 minutes** (~18 s per test, dominated
+The full **40-test** suite runs in **~13 minutes** (~19 s per test, dominated
 by the MSIX install/uninstall overhead). Zero flakiness across consecutive runs.
 
 ## The pipeline (what happens for every test)
@@ -74,6 +74,7 @@ Both modes share the same test code; the only difference is whether
 | `ShellPageGlobalShortcutsUiTests` | Ctrl+Shift+N (No Caching), Ctrl+Shift+B (Breakpoint), Delete key. |
 | `ShellPageMultiTabAndFilterUiTests` | Three-tab add growth, retype-replaces, mixed-case preserved, focus returns after tab click, idempotent triple-Clear. |
 | `ProxyfanAppWindowStateUiTests` | Window bounds, keyboard focusability, reasonable size, responsiveness after rapid sequences. |
+| `ShellPageExtendedUiTests` | "Sources" header label, "Proxyfan" app-name text, URL-syntax filter text preservation, regex-like filter text preserved verbatim. |
 
 ## Determinism guarantees
 
