@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -301,17 +302,25 @@ public sealed class ProxyfanApp : IAsyncDisposable
         var processId = GetMainWindow().Properties.ProcessId.Value;
 
         Window? result = null;
+        var lastSeenNames = new List<string>();
         while (DateTime.UtcNow < deadline)
         {
             try
             {
                 var desktop = _automation.GetDesktop();
-                var windows = desktop.FindAllChildren(cf =>
+                // Avalonia tool windows opened via Window.Show(owner) may
+                // appear as descendants (owned popup) rather than direct
+                // children of the desktop, so traverse the full descendant
+                // tree scoped by process id.
+                var windows = desktop.FindAllDescendants(cf =>
                     cf.ByControlType(FlaUI.Core.Definitions.ControlType.Window)
                       .And(cf.ByProcessId(processId)));
+                lastSeenNames.Clear();
                 foreach (var raw in windows)
                 {
-                    if (string.Equals(raw.Name, title, StringComparison.Ordinal))
+                    var rawName = raw.Name ?? string.Empty;
+                    lastSeenNames.Add(rawName);
+                    if (string.Equals(rawName, title, StringComparison.Ordinal))
                     {
                         result = raw.AsWindow();
                         break;
@@ -331,8 +340,11 @@ public sealed class ProxyfanApp : IAsyncDisposable
             Thread.Sleep(150);
         }
 
+        var seenList = lastSeenNames.Count == 0
+            ? "(no child windows visible)"
+            : string.Join(", ", lastSeenNames.Select(n => $"'{n}'"));
         throw new TimeoutException(
-            $"Timed out after {effective.TotalSeconds:F1}s waiting for tool window titled '{title}'.");
+            $"Timed out after {effective.TotalSeconds:F1}s waiting for tool window titled '{title}'. Last seen child windows: {seenList}.");
     }
 
     /// <inheritdoc />

@@ -157,6 +157,21 @@ public sealed class ShellPage
     }
 
     /// <summary>
+    ///     Returns <see langword="true" /> if any element on the window has
+    ///     an accessible name matching <paramref name="text" /> exactly. Unlike
+    ///     <see cref="HasVisibleText" /> this does not restrict to Text control
+    ///     type, so it also matches headered-content-control headers,
+    ///     tab-item labels, column-header text, and other non-Text nameables.
+    /// </summary>
+    /// <param name="text">The accessible name to look for.</param>
+    /// <returns>Whether an element with that name exists.</returns>
+    public bool HasVisibleElement(string text)
+    {
+        var match = Window.FindFirstDescendant(cf => cf.ByName(text));
+        return match is not null;
+    }
+
+    /// <summary>
     ///     Returns the first <see cref="TextBlock" />-like control whose accessible
     ///     name matches <paramref name="text" />. Used to assert status bar /
     ///     toolbar labels.
@@ -257,5 +272,104 @@ public sealed class ShellPage
         return Window.FindAllChildren(cf => cf.ByControlType(ControlType.MenuBar))
                      .OfType<Menu>()
                      .ToArray();
+    }
+
+    /// <summary>
+    ///     Opens a top-level menu by header text and clicks a sub-item by header
+    ///     text, then waits for a top-level window owned by the shell process
+    ///     whose title matches <paramref name="expectedWindowTitle" /> to
+    ///     appear. The matched window is returned wrapped in a
+    ///     <see cref="ToolWindowPage" /> for typed control discovery.
+    /// </summary>
+    /// <param name="menuHeader">The top-level menu header (e.g. "Tools").</param>
+    /// <param name="itemHeader">The sub-item header (e.g. "Block List...").</param>
+    /// <param name="expectedWindowTitle">The expected title of the opened tool window.</param>
+    /// <param name="timeout">Optional upper bound; defaults to <see cref="DefaultElementTimeout" />.</param>
+    /// <returns>The page object for the opened tool window.</returns>
+    public ToolWindowPage OpenToolWindow(
+        string menuHeader,
+        string itemHeader,
+        string expectedWindowTitle,
+        TimeSpan? timeout = null)
+    {
+        var effectiveTimeout = timeout ?? DefaultElementTimeout;
+
+        var topLevelRaw = Window.FindFirstDescendant(cf =>
+            cf.ByName(menuHeader).And(cf.ByControlType(ControlType.MenuItem)))
+            ?? throw new InvalidOperationException(
+                $"Top-level menu '{menuHeader}' not found on shell.");
+        var topLevel = topLevelRaw.AsMenuItem();
+
+        var expandCollapse = topLevel.Patterns.ExpandCollapse.PatternOrDefault;
+        if (expandCollapse is not null)
+        {
+            expandCollapse.Expand();
+        }
+        else
+        {
+            topLevel.Click();
+        }
+
+        // Give Avalonia time to materialise the popup + its UIA peers.
+        System.Threading.Thread.Sleep(400);
+
+        // Wait for the sub-item to appear in any popup attached to the same
+        // process. Use FindAllDescendants + name filter (mirrors the working
+        // pattern in ShellPageMenuUiTests) because FindFirstDescendant with a
+        // ByName condition does not traverse Avalonia menu popups reliably.
+        var processId = Window.Properties.ProcessId.Value;
+        var desktop = _app.Automation.GetDesktop();
+        AutomationElement? subItem = null;
+        var deadline = DateTime.UtcNow + effectiveTimeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var allItems = desktop.FindAllDescendants(cf =>
+                    cf.ByControlType(ControlType.MenuItem).And(cf.ByProcessId(processId)));
+                subItem = allItems.FirstOrDefault(item =>
+                    string.Equals(item.Name, itemHeader, StringComparison.Ordinal));
+            }
+            catch
+            {
+                // Best-effort while popup attaches.
+            }
+
+            if (subItem is not null)
+            {
+                break;
+            }
+
+            System.Threading.Thread.Sleep(100);
+        }
+
+        if (subItem is null)
+        {
+            throw new TimeoutException(
+                $"Sub-menu item '{itemHeader}' under '{menuHeader}' did not materialise in {effectiveTimeout.TotalSeconds:F1}s.");
+        }
+
+        // Avalonia menu items expose the Invoke pattern via their UIA peer
+        // which fires the bound Command directly without depending on cursor
+        // position. A plain mouse Click on the popup item sometimes dismisses
+        // the popup without invoking the command — Invoke is the reliable
+        // path. We fall back to Click if for some reason Invoke is missing.
+        var menuItem = subItem.AsMenuItem();
+        var invokePattern = menuItem.Patterns.Invoke.PatternOrDefault;
+        if (invokePattern is not null)
+        {
+            invokePattern.Invoke();
+        }
+        else
+        {
+            menuItem.Click();
+        }
+
+        // Give Avalonia time to dispatch the Command and show the tool window
+        // on the UI thread before we start polling for it.
+        System.Threading.Thread.Sleep(500);
+
+        var toolWindow = _app.WaitForToolWindow(expectedWindowTitle, effectiveTimeout);
+        return new ToolWindowPage(toolWindow);
     }
 }
