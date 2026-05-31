@@ -21,6 +21,13 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
     /// <inheritdoc />
     public async Task<Stream?> OpenForReadAsync(FilePickerOpenRequest request, CancellationToken cancellationToken)
     {
+        var result = await OpenForReadWithMetadataAsync(request, cancellationToken).ConfigureAwait(false);
+        return result?.Stream;
+    }
+
+    /// <inheritdoc />
+    public async Task<FilePickerOpenResult?> OpenForReadWithMetadataAsync(FilePickerOpenRequest request, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var topLevel = _topLevel;
         if (topLevel is null)
@@ -47,7 +54,14 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
             return null;
         }
 
-        return await results[0].OpenReadAsync().ConfigureAwait(false);
+        var stream = await results[0].OpenReadAsync().ConfigureAwait(false);
+        var name = results[0].Name ?? string.Empty;
+        var picked = new FilePickerOpenResult
+        {
+            DisplayName = name,
+            Stream = stream,
+        };
+        return picked;
     }
 
     /// <inheritdoc />

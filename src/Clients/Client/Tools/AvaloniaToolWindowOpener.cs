@@ -28,6 +28,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
     private PluginManagerWindow? _pluginManagerWindow;
     private PreferencesWindow? _preferencesWindow;
     private RemoteDevicesWindow? _remoteDevicesWindow;
+    private RemoteProcedureCallDescriptorsWindow? _remoteProcedureCallDescriptorsWindow;
     private ReverseProxyWindow? _reverseProxyWindow;
     private ScriptingWindow? _scriptingWindow;
     private SecureSocketsLayerProxyingWindow? _secureSocketsLayerProxyingWindow;
@@ -357,6 +358,28 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             _remoteDevicesWindow = null;
         };
         _remoteDevicesWindow = window;
+        ToolWindowDisplay.Show(window);
+    }
+
+    /// <inheritdoc />
+    public void OpenRemoteProcedureCallDescriptors()
+    {
+        if (_remoteProcedureCallDescriptorsWindow is not null)
+        {
+            _remoteProcedureCallDescriptorsWindow.Activate();
+            return;
+        }
+
+        var viewModel = _serviceProvider.GetRequiredService<RemoteProcedureCallDescriptorsViewModel>();
+        var window = new RemoteProcedureCallDescriptorsWindow
+        {
+            DataContext = viewModel,
+        };
+        window.Closed += (_, _) =>
+        {
+            _remoteProcedureCallDescriptorsWindow = null;
+        };
+        _remoteProcedureCallDescriptorsWindow = window;
         ToolWindowDisplay.Show(window);
     }
 

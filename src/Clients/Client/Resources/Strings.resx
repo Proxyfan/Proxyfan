@@ -1009,6 +1009,27 @@
   <data name="Tools_RemoteDevices_LastSeen" xml:space="preserve">
     <value>Last Seen</value>
   </data>
+  <data name="Shell_Menu_RemoteProcedureCallDescriptors" xml:space="preserve">
+    <value>gRPC Descriptors...</value>
+  </data>
+  <data name="Tools_RemoteProcedureCallDescriptors_Title" xml:space="preserve">
+    <value>gRPC Descriptors</value>
+  </data>
+  <data name="Tools_RemoteProcedureCallDescriptors_Description" xml:space="preserve">
+    <value>Load binary protobuf FileDescriptorSet files (.pb produced by protoc --descriptor_set_out=...) so the gRPC inspector can render captured payloads with named fields and enum values.</value>
+  </data>
+  <data name="Tools_RemoteProcedureCallDescriptors_LoadFile" xml:space="preserve">
+    <value>Load .pb File...</value>
+  </data>
+  <data name="Tools_RemoteProcedureCallDescriptors_Unload" xml:space="preserve">
+    <value>Unload Selected</value>
+  </data>
+  <data name="Tools_RemoteProcedureCallDescriptors_Clear" xml:space="preserve">
+    <value>Clear All</value>
+  </data>
+  <data name="Tools_RemoteProcedureCallDescriptors_FileList_Automation" xml:space="preserve">
+    <value>Loaded descriptor files</value>
+  </data>
   <data name="Tools_RemoteDevices_Rename" xml:space="preserve">
     <value>Rename</value>
   </data>

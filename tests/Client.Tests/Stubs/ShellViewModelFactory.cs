@@ -166,6 +166,7 @@ public static class ShellViewModelFactory
     internal sealed class StubFilePickerService : IFilePickerService
     {
         public Stream? ReadStream { get; set; }
+        public string ReadDisplayName { get; set; } = string.Empty;
         public Stream? WriteStream { get; set; }
         public int OpenForReadCallCount { get; private set; }
         public int OpenForWriteCallCount { get; private set; }
@@ -174,6 +175,22 @@ public static class ShellViewModelFactory
         {
             OpenForReadCallCount++;
             return Task.FromResult(ReadStream);
+        }
+
+        public Task<FilePickerOpenResult?> OpenForReadWithMetadataAsync(FilePickerOpenRequest request, CancellationToken cancellationToken)
+        {
+            OpenForReadCallCount++;
+            if (ReadStream is null)
+            {
+                return Task.FromResult<FilePickerOpenResult?>(null);
+            }
+
+            var result = new FilePickerOpenResult
+            {
+                DisplayName = ReadDisplayName,
+                Stream = ReadStream,
+            };
+            return Task.FromResult<FilePickerOpenResult?>(result);
         }
 
         public Task<Stream?> OpenForWriteAsync(FilePickerSaveRequest request, CancellationToken cancellationToken)

@@ -101,6 +101,7 @@ public partial class App : Application
             services.AddTransient<PluginManagerViewModel>();
             services.AddTransient<PreferencesViewModel>();
             services.AddTransient<RemoteDevicesViewModel>();
+            services.AddTransient<RemoteProcedureCallDescriptorsViewModel>();
             services.AddTransient<ReverseProxySettingsViewModel>();
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ScriptingViewModel>();

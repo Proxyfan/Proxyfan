@@ -126,6 +126,7 @@ public sealed class ShellViewModelTests
         viewModel.OpenPluginManagerCommand.Execute(null);
         viewModel.OpenPreferencesCommand.Execute(null);
         viewModel.OpenRemoteDevicesCommand.Execute(null);
+        viewModel.OpenRemoteProcedureCallDescriptorsCommand.Execute(null);
         viewModel.OpenReverseProxyCommand.Execute(null);
         viewModel.OpenScriptingCommand.Execute(null);
         viewModel.OpenSecureSocketsLayerProxyingCommand.Execute(null);
@@ -145,6 +146,7 @@ public sealed class ShellViewModelTests
         await Assert.That(opener.OpenPluginManagerCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenPreferencesCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenRemoteDevicesCallCount).IsEqualTo(1);
+        await Assert.That(opener.OpenRemoteProcedureCallDescriptorsCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenReverseProxyCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenScriptingCallCount).IsEqualTo(1);
         await Assert.That(opener.OpenSecureSocketsLayerProxyingCallCount).IsEqualTo(1);

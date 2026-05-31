@@ -261,6 +261,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void OpenRemoteProcedureCallDescriptors()
+    {
+        _toolWindowOpener.OpenRemoteProcedureCallDescriptors();
+    }
+
+    [RelayCommand]
     private void OpenReverseProxy()
     {
         _toolWindowOpener.OpenReverseProxy();

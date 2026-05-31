@@ -71,6 +71,8 @@
                           Header="{localization:Localize Key=Shell_Menu_ReverseProxy}" />
                 <MenuItem Command="{Binding OpenRemoteDevicesCommand}"
                           Header="{localization:Localize Key=Shell_Menu_RemoteDevices}" />
+                <MenuItem Command="{Binding OpenRemoteProcedureCallDescriptorsCommand}"
+                          Header="{localization:Localize Key=Shell_Menu_RemoteProcedureCallDescriptors}" />
                 <MenuItem Command="{Binding OpenThrottleCommand}"
                           Header="{localization:Localize Key=Shell_Menu_Throttle}" />
             </MenuItem>

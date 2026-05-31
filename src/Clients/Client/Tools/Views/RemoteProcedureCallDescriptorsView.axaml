@@ -1,0 +1,45 @@
+﻿<UserControl x:Class="Proxyfan.Client.Tools.Views.RemoteProcedureCallDescriptorsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localization="clr-namespace:Proxyfan.Presentation.Localization;assembly=Presentation"
+             xmlns:presentation="clr-namespace:Proxyfan.Presentation;assembly=Presentation"
+             xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewModels:RemoteProcedureCallDescriptorsViewModel}"
+             presentation:ViewModelLocator.DataContext="{x:Type viewModels:RemoteProcedureCallDescriptorsViewModel}"
+             x:DataType="viewModels:RemoteProcedureCallDescriptorsViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,8"
+                   Text="{localization:Localize Key=Tools_RemoteProcedureCallDescriptors_Description}"
+                   TextWrapping="Wrap" />
+        <StackPanel Grid.Row="1"
+                    Margin="0,0,0,8"
+                    Orientation="Horizontal"
+                    Spacing="6">
+            <Button Command="{Binding LoadFromFileCommand}"
+                    Content="{localization:Localize Key=Tools_RemoteProcedureCallDescriptors_LoadFile}"
+                    Padding="12,4" />
+            <Button Command="{Binding UnloadSelectedCommand}"
+                    Content="{localization:Localize Key=Tools_RemoteProcedureCallDescriptors_Unload}"
+                    Padding="12,4" />
+            <Button Command="{Binding ClearCommand}"
+                    Content="{localization:Localize Key=Tools_RemoteProcedureCallDescriptors_Clear}"
+                    Padding="12,4" />
+        </StackPanel>
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ListBox AutomationProperties.Name="{localization:Localize Key=Tools_RemoteProcedureCallDescriptors_FileList_Automation}"
+                     ItemsSource="{Binding LoadedFilePaths}"
+                     SelectedItem="{Binding SelectedFilePath, Mode=TwoWay}" />
+        </Border>
+        <TextBlock Grid.Row="3"
+                   Margin="0,8,0,0"
+                   FontStyle="Italic"
+                   Text="{Binding StatusText}"
+                   TextWrapping="Wrap" />
+    </Grid>
+</UserControl>
