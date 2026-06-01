@@ -85,4 +85,40 @@ public sealed class ShellPageMapLocalUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task TypeIntoStatusAndReason_FreshWindow_PreservesTypedValues()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var mapLocal = shell.OpenToolWindow("Tools", "Map Local...", "Map Local");
+        try
+        {
+            var status = mapLocal.TextBoxByName("Local response status code");
+            status.Focus();
+            // Clear any default, then type a status.
+            for (var i = 0; i < 10; i++)
+            {
+                Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.BACK);
+            }
+            Keyboard.Type("418");
+            mapLocal.WaitUntil(
+                () => status.Text.Contains("418", StringComparison.Ordinal),
+                description: "status box contains 418");
+
+            var reason = mapLocal.TextBoxByName("Local response reason phrase");
+            reason.Focus();
+            Keyboard.Type("I'm a teapot");
+            mapLocal.WaitUntil(
+                () => reason.Text.Contains("I'm a teapot", StringComparison.Ordinal),
+                description: "reason box contains typed reason");
+        }
+        finally
+        {
+            mapLocal.Close();
+        }
+
+        await Task.CompletedTask;
+    }
 }

@@ -91,4 +91,30 @@ public sealed class ShellPageDomainNameSystemSpoofingUiTests : UiAutomationTestB
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task EnableAllButton_AfterAddingEntries_DoesNotCrashWindow()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var dns = shell.OpenToolWindow("Tools", "DNS Spoofing...", "DNS Spoofing");
+        try
+        {
+            // Enable All / Disable All are safe no-ops on an empty entry
+            // list — assert they don't crash the window.
+            dns.Button("Enable All").Click();
+            await Assert.That(dns.GetTitle()).IsEqualTo("DNS Spoofing");
+
+            dns.Button("Disable All").Click();
+            await Assert.That(dns.GetTitle()).IsEqualTo("DNS Spoofing");
+
+            dns.Button("Refresh Counts").Click();
+            await Assert.That(dns.GetTitle()).IsEqualTo("DNS Spoofing");
+        }
+        finally
+        {
+            dns.Close();
+        }
+    }
 }

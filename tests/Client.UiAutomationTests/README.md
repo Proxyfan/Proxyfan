@@ -21,10 +21,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-MsixTestEnvironm
 dotnet run --project tests/Client.UiAutomationTests --no-build -c Debug
 ```
 
-The full **101-test** suite runs in **~24 minutes** (~14 s per test on
+The full **132-test** suite runs in **~36 minutes** (~16 s per test on
 average — install/uninstall dominate fast tests, the longer interactions
 amortise the overhead). Zero flakiness across the most recent full run
-(101/101 passed, 23m 57s).
+(132/132 passed, 35m 41s).
 
 ## The pipeline (what happens for every test)
 
@@ -85,36 +85,39 @@ Both modes share the same test code; the only difference is whether
 | `ShellPageSessionShortcutsUiTests`             | 1  | Ctrl+E (Save Session) on empty traffic — graceful no-op. |
 | `ShellPageMultiTabAndFilterUiTests`            | 5  | Three-tab add growth, retype-replaces, mixed-case preserved, focus returns after tab click, idempotent triple-Clear. |
 | `ShellPageExtendedUiTests`                     | 4  | "Sources" header label, "Proxyfan" app-name text, URL-syntax filter text preservation, regex-like filter text preserved verbatim. |
+| `ShellPageFilterEdgeCasesUiTests`              | 3  | Filter preserves quotes/parens/slashes, full URLs with port + query string, 200-char long input. |
 | `ShellPageTrafficListUiTests`                  | 2  | Flow grid is discoverable by automation name, has non-zero bounds. |
-| `ShellPageInspectorUiTests`                    | 3  | Request/Response tab controls present, Headers/Body/Raw/Summary tabs discoverable, Query/Cookies/Auth/Timing tabs discoverable. |
+| `ShellPageInspectorUiTests`                    | 7  | Two tab controls present; Headers/Body/Raw/Summary/Query/Cookies/Auth/Timing tabs discoverable; click Headers/Body/Raw/Summary marks tab as selected. |
+| `ShellPageTabActivationUiTests`                | 3  | Click first/second tab to activate it; Ctrl+T four times grows strip by 4. |
 | `ShellPageToolWindowReopenUiTests`             | 2  | Re-opening a tool window from the menu activates the existing single instance (Preferences, Block List). |
+| `ShellPageHostStateUiTests`                    | 3  | Update banner not visible by default; exactly one child window on fresh launch; menu bar has exactly 3 top-level menus (File, Tools, View). |
 
 ### Tool-window test files (one per top-level tool window)
 
 | File | Tests | Tool window | Menu path |
 |---|---|---|---|
 | `ShellPagePreferencesUiTests`                  | 3  | Preferences            | File → Preferences... |
-| `ShellPageBlockListUiTests`                    | 3  | Block List             | Tools → Block List... |
-| `ShellPageAllowListUiTests`                    | 3  | Allow List             | Tools → Allow List... |
-| `ShellPageBreakpointUiTests`                   | 3  | Breakpoint             | Tools → Breakpoint... |
-| `ShellPageComposerUiTests`                     | 3  | Request Composer       | Tools → Compose Request... |
-| `ShellPageScriptingUiTests`                    | 3  | Scripting              | Tools → Scripting... |
+| `ShellPageBlockListUiTests`                    | 6  | Block List             | Tools → Block List... |
+| `ShellPageAllowListUiTests`                    | 4  | Allow List             | Tools → Allow List... |
+| `ShellPageBreakpointUiTests`                   | 5  | Breakpoint             | Tools → Breakpoint... |
+| `ShellPageComposerUiTests`                     | 5  | Request Composer       | Tools → Compose Request... |
+| `ShellPageScriptingUiTests`                    | 5  | Scripting              | Tools → Scripting... |
 | `ShellPageDiffToolUiTests`                     | 2  | Diff Tool              | Tools → Diff Tool... |
 | `ShellPageCustomColumnsUiTests`                | 2  | Custom Header Columns  | Tools → Custom Header Column... |
-| `ShellPageMapLocalUiTests`                     | 3  | Map Local              | Tools → Map Local... |
-| `ShellPageMapRemoteUiTests`                    | 3  | Map Remote             | Tools → Map Remote... |
-| `ShellPageSecureSocketsLayerProxyingUiTests`   | 3  | SSL Proxying           | Tools → SSL Proxying... |
+| `ShellPageMapLocalUiTests`                     | 4  | Map Local              | Tools → Map Local... |
+| `ShellPageMapRemoteUiTests`                    | 4  | Map Remote             | Tools → Map Remote... |
+| `ShellPageSecureSocketsLayerProxyingUiTests`   | 4  | SSL Proxying           | Tools → SSL Proxying... |
 | `ShellPageCertificateManagerUiTests`           | 2  | Certificate Manager    | Tools → Certificate Manager... |
-| `ShellPageDomainNameSystemSpoofingUiTests`     | 3  | DNS Spoofing           | Tools → DNS Spoofing... |
-| `ShellPageReverseProxyUiTests`                 | 3  | Reverse Proxy          | Tools → Reverse Proxy... |
+| `ShellPageDomainNameSystemSpoofingUiTests`     | 4  | DNS Spoofing           | Tools → DNS Spoofing... |
+| `ShellPageReverseProxyUiTests`                 | 4  | Reverse Proxy          | Tools → Reverse Proxy... |
 | `ShellPageRemoteDevicesUiTests`                | 2  | Remote Devices         | Tools → Remote Devices... |
 | `ShellPageRemoteProcedureCallDescriptorsUiTests` | 2 | gRPC Descriptors       | Tools → gRPC Descriptors... |
-| `ShellPageThrottleUiTests`                     | 3  | Network Throttle       | Tools → Throttle... |
-| `ShellPageThemeUiTests`                        | 3  | Theme                  | View → Theme... |
+| `ShellPageThrottleUiTests`                     | 4  | Network Throttle       | Tools → Throttle... |
+| `ShellPageThemeUiTests`                        | 4  | Theme                  | View → Theme... |
 | `ShellPageKeyboardShortcutsUiTests`            | 3  | Keyboard Shortcuts     | View → Keyboard Shortcuts... |
 | `ShellPagePluginManagerUiTests`                | 2  | Plugin Manager         | View → Plugin Manager... |
 
-**Total: 101 tests across 33 files.**
+**Total: 132 tests across 36 files.**
 
 ## Determinism guarantees
 
@@ -160,35 +163,37 @@ workflow never passes `-IncludeEndToEnd`.
 | § 4.1 Main Window | ✅ bounds, focusability, size, responsiveness |
 | § 4.2 Source List Panel | ✅ Sources header, All-group visible |
 | § 4.3 Traffic Flow List | ✅ DataGrid discoverable, non-zero bounds |
-| § 4.4 Inspector Panel | ✅ Two tab controls (Request, Response); Headers/Body/Raw/Summary/Query/Cookies/Auth/Timing tabs |
+| § 4.4 Inspector Panel | ✅ Two tab controls (Request, Response); Headers/Body/Raw/Summary/Query/Cookies/Auth/Timing tabs; click-to-select round-trip on Headers/Body/Raw/Summary |
 | § 4.5 Menu Bar | ✅ File, Tools, View dropdowns + sub-items |
 | § 4.6 Toolbar | ✅ Pause/Resume/Clear/Open/Save/Enable Proxy + filter text box |
 | § 4.7 Status Bar | ✅ flow count, capture-paused indicator |
 | § 6.1 Traffic Capture | ✅ Pause/Resume cycles |
-| § 6.4 Traffic Filtering | ✅ type, backspace clear, mixed case, retype, focus-return, regex syntax preservation |
-| § 6.5 Map Local | ✅ open from menu, all response fields, add rule |
-| § 6.6 Map Remote | ✅ open from menu, destination fields, add rule |
-| § 6.7 Breakpoints | ✅ open from menu, phases combo, add pattern, Resume/Abort buttons |
-| § 6.8 Scripting (C#) | ✅ open from menu, OnRequest/OnResponse boxes, Compile/Clear buttons, type into script |
-| § 6.9 Allow List | ✅ open from menu, add pattern, list grows |
-| § 6.10 Block List | ✅ open from menu, add pattern, list grows |
-| § 6.12 Network Throttling | ✅ open from menu, preset list, select preset |
+| § 6.4 Traffic Filtering | ✅ type, backspace clear, mixed case, retype, focus-return, regex syntax preservation, quotes/parens/slashes, full URL with port+query, 200-char long input |
+| § 6.5 Map Local | ✅ open from menu, all response fields, add rule, status+reason values persist |
+| § 6.6 Map Remote | ✅ open from menu, destination fields, add rule, PreserveHost checkbox toggle |
+| § 6.7 Breakpoints | ✅ open from menu, phases combo, add pattern, Resume/Abort buttons, Enabled toggle, empty pause list |
+| § 6.8 Scripting (C#) | ✅ open from menu, OnRequest/OnResponse boxes, Compile/Clear buttons, type into script, Enabled toggle, Clear active script no-op |
+| § 6.9 Allow List | ✅ open from menu, add pattern, add+remove round-trip leaves list empty |
+| § 6.10 Block List | ✅ open from menu, add pattern, Enabled checkbox toggle round-trip, add+remove round-trip, empty pattern guard |
+| § 6.12 Network Throttling | ✅ open from menu, preset list, select preset, Apply leaves window responsive |
 | § 6.14 Diff Tool | ✅ open from menu, Left/Right lists, Clear Pool |
-| § 6.15 Repeat Request (Composer) | ✅ open from menu, method/URL/headers/body, Send/cURL buttons |
+| § 6.15 Repeat Request (Composer) | ✅ open from menu, method/URL/headers/body, type body+headers+URL preserved, Send/cURL buttons |
 | § 6.19 gRPC Inspection (Descriptors) | ✅ open from menu, Load/Unload/Clear buttons |
 | § 6.24 Custom Columns | ✅ open from menu, add column with display name + header key |
-| § 6.25 Multiple Tabs | ✅ add via "+", add via Ctrl+T, close via X, multi-add |
+| § 6.25 Multiple Tabs | ✅ add via "+", add via Ctrl+T (×4), close via X, click-to-activate first/second tab, multi-add |
 | § 6.26 Certificate Management | ✅ open from menu, Install/Uninstall/Export/Regenerate buttons, metadata labels |
-| § 8 Theming and Appearance | ✅ open from menu, picker list, select theme, IsSelected round-trip |
+| § 8 Theming and Appearance | ✅ open from menu, picker list, select theme, IsSelected round-trip, Apply leaves window responsive |
 | § 9 Keyboard Shortcuts | ✅ Ctrl+R, Ctrl+K, Ctrl+T, Ctrl+E, Ctrl+Shift+N, Ctrl+Shift+B, Delete |
 | § 11 Configuration and Preferences | ✅ open from menu, locale/theme/log-level, type into locale |
-| § 6.2 HTTPS Decryption (SSL Proxying tool window) | ✅ open from menu, enable checkbox, add pattern |
-| DNS Spoofing tool window | ✅ open from menu, hostname/address, add entry |
-| Reverse Proxy tool window | ✅ open from menu, route fields, TLS mode combo |
+| § 12 Auto-Update | ✅ update banner NOT visible on fresh launch (negative test) |
+| § 6.2 HTTPS Decryption (SSL Proxying tool window) | ✅ open from menu, enable checkbox + toggle, add pattern |
+| DNS Spoofing tool window | ✅ open from menu, hostname/address, add entry, Enable All/Disable All/Refresh Counts buttons |
+| Reverse Proxy tool window | ✅ open from menu, route fields, TLS mode combo, full add-route round-trip |
 | Remote Devices tool window | ✅ open from menu, Rename/Disconnect/Forget buttons |
 | Plugin Manager tool window | ✅ open from menu, Refresh/Reload/CheckForUpdates buttons |
-| Keyboard Shortcuts tool window | ✅ open from menu, bindings list, Save/Reset buttons |
+| Keyboard Shortcuts tool window | ✅ open from menu, bindings list, Save/Reset buttons, Reset doesn't crash |
 | Tool window single-instance behaviour | ✅ re-opening Preferences and Block List activates existing window |
+| Shell host invariants | ✅ exactly 3 top-level menus (File/Tools/View); fresh launch shows exactly 1 child window |
 | § 5 First-Run Experience | ⚠️ feature not yet implemented in app |
 | § 6.2 HTTPS Decryption (real traffic) | ⚠️ requires live network traffic |
 | § 6.16/6.17 Save/Load Session via file picker | ⚠️ OS file picker, not driveable from FlaUI without elevated privileges |

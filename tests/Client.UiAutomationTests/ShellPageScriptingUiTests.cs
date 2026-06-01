@@ -75,4 +75,55 @@ public sealed class ShellPageScriptingUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task EnabledCheckBox_ClickedTwice_TogglesAndRestores()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var scripting = shell.OpenToolWindow("Tools", "Scripting...", "Scripting");
+        try
+        {
+            var enabled = scripting.CheckBox("Enabled");
+            var initialState = enabled.IsChecked == true;
+
+            enabled.Click();
+            scripting.WaitUntil(
+                () => (enabled.IsChecked == true) != initialState,
+                description: "Scripting Enabled toggled to opposite state");
+
+            enabled.Click();
+            scripting.WaitUntil(
+                () => (enabled.IsChecked == true) == initialState,
+                description: "Scripting Enabled toggled back to original state");
+        }
+        finally
+        {
+            scripting.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ClickClearActiveScript_EmptyScripting_DoesNotCrashWindow()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var scripting = shell.OpenToolWindow("Tools", "Scripting...", "Scripting");
+        try
+        {
+            scripting.Button("Clear active script").Click();
+
+            // The button is enabled at all times; with no script loaded the
+            // click must be a safe no-op.
+            await Assert.That(scripting.GetTitle()).IsEqualTo("Scripting");
+        }
+        finally
+        {
+            scripting.Close();
+        }
+    }
 }

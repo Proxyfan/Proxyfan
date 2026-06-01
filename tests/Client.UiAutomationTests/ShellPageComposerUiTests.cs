@@ -77,4 +77,52 @@ public sealed class ShellPageComposerUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task TypeIntoBody_FreshComposer_PreservesTypedJson()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var composer = shell.OpenToolWindow("Tools", "Compose Request...", "Request Composer");
+        try
+        {
+            var body = composer.TextBoxByName("Request body");
+            body.Focus();
+            Keyboard.Type("{\"hello\":\"world\"}");
+            composer.WaitUntil(
+                () => body.Text.Contains("{\"hello\":\"world\"}", StringComparison.Ordinal),
+                description: "body textbox contains typed JSON");
+        }
+        finally
+        {
+            composer.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task TypeIntoHeaders_FreshComposer_PreservesTypedHeader()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var composer = shell.OpenToolWindow("Tools", "Compose Request...", "Request Composer");
+        try
+        {
+            var headers = composer.TextBoxByName("Request headers");
+            headers.Focus();
+            Keyboard.Type("X-Test-Header: value");
+            composer.WaitUntil(
+                () => headers.Text.Contains("X-Test-Header: value", StringComparison.Ordinal),
+                description: "headers textbox contains typed header");
+        }
+        finally
+        {
+            composer.Close();
+        }
+
+        await Task.CompletedTask;
+    }
 }

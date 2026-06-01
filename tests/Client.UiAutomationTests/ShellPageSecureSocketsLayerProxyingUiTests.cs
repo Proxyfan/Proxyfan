@@ -76,4 +76,34 @@ public sealed class ShellPageSecureSocketsLayerProxyingUiTests : UiAutomationTes
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task EnableSslProxyingCheckBox_ClickedTwice_TogglesAndRestores()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var ssl = shell.OpenToolWindow("Tools", "SSL Proxying...", "SSL Proxying");
+        try
+        {
+            var enable = ssl.CheckBox("Enable SSL proxying");
+            var initialState = enable.IsChecked == true;
+
+            enable.Click();
+            ssl.WaitUntil(
+                () => (enable.IsChecked == true) != initialState,
+                description: "SSL proxying toggled to opposite state");
+
+            enable.Click();
+            ssl.WaitUntil(
+                () => (enable.IsChecked == true) == initialState,
+                description: "SSL proxying toggled back to original state");
+        }
+        finally
+        {
+            ssl.Close();
+        }
+
+        await Task.CompletedTask;
+    }
 }

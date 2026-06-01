@@ -54,4 +54,24 @@ public sealed class ShellPageKeyboardShortcutsUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task ClickResetToDefaults_FreshShortcuts_LeavesWindowResponsive()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var shortcuts = shell.OpenToolWindow("View", "Keyboard Shortcuts...", "Keyboard Shortcuts");
+        try
+        {
+            shortcuts.Button("Reset to defaults").Click();
+
+            await Assert.That(shortcuts.GetTitle()).IsEqualTo("Keyboard Shortcuts");
+            await Assert.That(shortcuts.HasButton("Save")).IsTrue();
+        }
+        finally
+        {
+            shortcuts.Close();
+        }
+    }
 }

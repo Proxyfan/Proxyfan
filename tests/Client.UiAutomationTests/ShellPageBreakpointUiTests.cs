@@ -83,4 +83,50 @@ public sealed class ShellPageBreakpointUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task EnabledCheckBox_ClickedTwice_TogglesOffThenBackOn()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var breakpoint = shell.OpenToolWindow("Tools", "Breakpoint...", "Breakpoint");
+        try
+        {
+            var enabled = breakpoint.CheckBox("Enabled");
+            var initialState = enabled.IsChecked == true;
+            enabled.Click();
+            breakpoint.WaitUntil(
+                () => (enabled.IsChecked == true) != initialState,
+                description: "Enabled checkbox toggled to opposite state");
+            enabled.Click();
+            breakpoint.WaitUntil(
+                () => (enabled.IsChecked == true) == initialState,
+                description: "Enabled checkbox toggled back to original state");
+        }
+        finally
+        {
+            breakpoint.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task PendingPausesList_FreshBreakpoint_IsEmpty()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var breakpoint = shell.OpenToolWindow("Tools", "Breakpoint...", "Breakpoint");
+        try
+        {
+            var pauses = breakpoint.ListBoxByName("Pending breakpoint pauses");
+            await Assert.That(pauses.Items.Length).IsEqualTo(0);
+        }
+        finally
+        {
+            breakpoint.Close();
+        }
+    }
 }

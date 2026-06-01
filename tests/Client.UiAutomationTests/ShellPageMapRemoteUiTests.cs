@@ -85,4 +85,34 @@ public sealed class ShellPageMapRemoteUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task PreserveHostCheckBox_ClickedTwice_TogglesAndRestores()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var mapRemote = shell.OpenToolWindow("Tools", "Map Remote...", "Map Remote");
+        try
+        {
+            var preserve = mapRemote.CheckBox("Preserve original Host header");
+            var initialState = preserve.IsChecked == true;
+
+            preserve.Click();
+            mapRemote.WaitUntil(
+                () => (preserve.IsChecked == true) != initialState,
+                description: "PreserveHost toggled to opposite state");
+
+            preserve.Click();
+            mapRemote.WaitUntil(
+                () => (preserve.IsChecked == true) == initialState,
+                description: "PreserveHost toggled back to original state");
+        }
+        finally
+        {
+            mapRemote.Close();
+        }
+
+        await Task.CompletedTask;
+    }
 }

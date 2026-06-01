@@ -72,4 +72,75 @@ public sealed class ShellPageInspectorUiTests : UiAutomationTestBase
         await Assert.That(tabNames).Contains("Auth");
         await Assert.That(tabNames).Contains("Timing");
     }
+
+    [Test]
+    public async Task ClickHeadersTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var headersTab = shell.Window.FindFirstDescendant(cf =>
+            cf.ByName("Headers").And(cf.ByControlType(ControlType.TabItem)))
+            ?? throw new System.InvalidOperationException("Headers tab not found.");
+        headersTab.AsTabItem().Select();
+
+        shell.WaitUntil(
+            () => headersTab.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Headers tab reports IsSelected = true");
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ClickBodyTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        // There are two "Body" tabs (one each for Request and Response). Use
+        // FindAllDescendants and pick the first one, then activate it.
+        var bodyTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Body").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(bodyTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstBody = bodyTabs[0].AsTabItem();
+        firstBody.Select();
+        shell.WaitUntil(
+            () => firstBody.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Body tab reports IsSelected = true");
+    }
+
+    [Test]
+    public async Task ClickRawTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var rawTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Raw").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(rawTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstRaw = rawTabs[0].AsTabItem();
+        firstRaw.Select();
+        shell.WaitUntil(
+            () => firstRaw.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Raw tab reports IsSelected = true");
+    }
+
+    [Test]
+    public async Task ClickSummaryTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var summaryTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Summary").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(summaryTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstSummary = summaryTabs[0].AsTabItem();
+        firstSummary.Select();
+        shell.WaitUntil(
+            () => firstSummary.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Summary tab reports IsSelected = true");
+    }
 }

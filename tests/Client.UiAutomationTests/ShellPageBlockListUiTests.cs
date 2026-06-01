@@ -1,3 +1,4 @@
+using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Input;
 using Proxyfan.Client.UiAutomationTests.Infrastructure;
 using System;
@@ -81,5 +82,97 @@ public sealed class ShellPageBlockListUiTests : UiAutomationTestBase
         }
 
         await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task EnabledCheckBox_ClickedTwice_TogglesOffThenBackOn()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var blockList = shell.OpenToolWindow("Tools", "Block List...", "Block List");
+        try
+        {
+            var enabled = blockList.CheckBox("Enabled");
+            // The Block List defaults to enabled; toggle off, then back on.
+            var initialState = enabled.IsChecked == true;
+            enabled.Click();
+            blockList.WaitUntil(
+                () => (enabled.IsChecked == true) != initialState,
+                description: "Enabled checkbox toggled to opposite state");
+
+            enabled.Click();
+            blockList.WaitUntil(
+                () => (enabled.IsChecked == true) == initialState,
+                description: "Enabled checkbox toggled back to original state");
+        }
+        finally
+        {
+            blockList.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task AddThenRemovePattern_FreshBlockList_LeavesListEmpty()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var blockList = shell.OpenToolWindow("Tools", "Block List...", "Block List");
+        try
+        {
+            var patternBox = blockList.TextBoxByName("New pattern");
+            patternBox.Focus();
+            Keyboard.Type("tracker.example.com");
+            blockList.WaitUntil(
+                () => string.Equals(patternBox.Text, "tracker.example.com", StringComparison.Ordinal),
+                description: "pattern textbox populated");
+            blockList.Button("Add").Click();
+
+            var list = blockList.ListBoxByName("Configured patterns");
+            blockList.WaitUntil(() => list.Items.Length == 1, "list has 1 entry");
+
+            // Each row renders a "Remove" button next to the pattern. Click
+            // the first one to remove the entry we just added.
+            var removeButton = blockList.Window.FindFirstDescendant(cf =>
+                cf.ByName("Remove").And(cf.ByControlType(FlaUI.Core.Definitions.ControlType.Button)))
+                ?? throw new InvalidOperationException("Remove button not found on added row.");
+            removeButton.AsButton().Click();
+
+            blockList.WaitUntil(
+                () => list.Items.Length == 0,
+                description: "pattern list returns to empty after removal");
+        }
+        finally
+        {
+            blockList.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task AddPatternButton_EmptyPatternText_LeavesListEmpty()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var blockList = shell.OpenToolWindow("Tools", "Block List...", "Block List");
+        try
+        {
+            // Clicking Add with no pattern text must be a safe no-op — the
+            // command's CanExecute should block the add. The list stays empty.
+            blockList.Button("Add").Click();
+            System.Threading.Thread.Sleep(200);
+
+            var list = blockList.ListBoxByName("Configured patterns");
+            await Assert.That(list.Items.Length).IsEqualTo(0);
+        }
+        finally
+        {
+            blockList.Close();
+        }
     }
 }

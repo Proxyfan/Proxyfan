@@ -86,4 +86,31 @@ public sealed class ShellPageThrottleUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task SelectPresetAndApply_FreshWindow_LeavesWindowResponsive()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var throttle = shell.OpenToolWindow("Tools", "Throttle...", "Network Throttle");
+        try
+        {
+            var presets = throttle.ListBoxByName("Throttle presets");
+            throttle.WaitUntil(
+                () => presets.Items.Length >= 1,
+                description: "presets populated");
+
+            presets.Items[0].Select();
+            throttle.Button("Apply").Click();
+
+            // The window must remain responsive after Apply.
+            await Assert.That(throttle.GetTitle()).IsEqualTo("Network Throttle");
+            await Assert.That(throttle.HasButton("Apply")).IsTrue();
+        }
+        finally
+        {
+            throttle.Close();
+        }
+    }
 }

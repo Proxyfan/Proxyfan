@@ -83,4 +83,30 @@ public sealed class ShellPageThemeUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task ClickApply_AfterSelectingTheme_LeavesWindowResponsive()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var theme = shell.OpenToolWindow("View", "Theme...", "Theme");
+        try
+        {
+            var options = theme.ListBoxByName("Theme list");
+            theme.WaitUntil(
+                () => options.Items.Length >= 1,
+                description: "theme options populated");
+
+            options.Items[0].Select();
+            theme.Button("Apply").Click();
+
+            await Assert.That(theme.GetTitle()).IsEqualTo("Theme");
+            await Assert.That(theme.HasButton("Apply")).IsTrue();
+        }
+        finally
+        {
+            theme.Close();
+        }
+    }
 }

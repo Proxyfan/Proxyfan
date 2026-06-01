@@ -77,4 +77,45 @@ public sealed class ShellPageReverseProxyUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task AddRoute_AfterTypingAllFields_AppendsRowToRouteList()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var reverse = shell.OpenToolWindow("Tools", "Reverse Proxy...", "Reverse Proxy");
+        try
+        {
+            FillTextBox(reverse, "Route name", "dev-api");
+            FillTextBox(reverse, "Listen port", "18080");
+            FillTextBox(reverse, "Backend host", "backend.local");
+            FillTextBox(reverse, "Backend port", "9000");
+
+            reverse.Button("Add").Click();
+
+            var routes = reverse.ListBoxByName("Reverse proxy routes");
+            reverse.WaitUntil(
+                () => routes.Items.Length >= 1,
+                description: "route list grew to at least 1 entry");
+        }
+        finally
+        {
+            reverse.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private static void FillTextBox(ToolWindowPage page, string accessibilityName, string text)
+    {
+        var box = page.TextBoxByName(accessibilityName);
+        // Set via the UIA value pattern (TextBox.Text = ...) so we replace
+        // the entire contents in one shot — no Backspace race, no
+        // append-vs-overwrite ambiguity with default values like "9000".
+        box.Text = text;
+        page.WaitUntil(
+            () => string.Equals(box.Text, text, StringComparison.Ordinal),
+            description: $"'{accessibilityName}' textbox populated with '{text}'");
+    }
 }

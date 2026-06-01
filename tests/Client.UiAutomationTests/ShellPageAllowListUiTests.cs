@@ -1,3 +1,4 @@
+using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Input;
 using Proxyfan.Client.UiAutomationTests.Infrastructure;
 using System;
@@ -74,6 +75,43 @@ public sealed class ShellPageAllowListUiTests : UiAutomationTestBase
             allowList.WaitUntil(
                 () => patternList.Items.Length >= 1,
                 description: "pattern list grew to at least 1 entry");
+        }
+        finally
+        {
+            allowList.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task AddThenRemovePattern_FreshAllowList_LeavesListEmpty()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var allowList = shell.OpenToolWindow("Tools", "Allow List...", "Allow List");
+        try
+        {
+            var patternBox = allowList.TextBoxByName("New pattern");
+            patternBox.Focus();
+            Keyboard.Type("api.allowed.com");
+            allowList.WaitUntil(
+                () => string.Equals(patternBox.Text, "api.allowed.com", StringComparison.Ordinal),
+                description: "pattern textbox populated");
+            allowList.Button("Add").Click();
+
+            var list = allowList.ListBoxByName("Configured patterns");
+            allowList.WaitUntil(() => list.Items.Length == 1, "list has 1 entry");
+
+            var removeButton = allowList.Window.FindFirstDescendant(cf =>
+                cf.ByName("Remove").And(cf.ByControlType(FlaUI.Core.Definitions.ControlType.Button)))
+                ?? throw new InvalidOperationException("Remove button not found on added row.");
+            removeButton.AsButton().Click();
+
+            allowList.WaitUntil(
+                () => list.Items.Length == 0,
+                description: "pattern list returns to empty after removal");
         }
         finally
         {
