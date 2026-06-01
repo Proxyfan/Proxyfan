@@ -33,6 +33,8 @@ diff (review mode) and is instructed via its skill name.
 | `/triage` | Issue triage — reproduction, severity, ownership, attaching to a backlog item, deciding whether the matter is a bug, a feature, or a documentation gap. |
 | `/devil-advocate` | Adversarial review — finds reversibility cliffs, load-bearing assumptions, leaked boundary types, premature abstractions. Read-only; no patches. |
 | `/doctor` | Drives the repo from red to green when `Invoke-Build.ps1` (or `-RunTests`) is failing; triages, proposes a fix plan, branches, implements, re-verifies. |
+| `/feedback-handler` | Walks the persistent PR comment queue (`.tools/Get-PrCommentQueue.ps1`) and resolves comments one at a time, surfacing disagreements before silently skipping. |
+| `/work-item` | Loads exactly the requested block from `docs/BACKLOG.md` via `.tools/Get-WorkItem.ps1` and produces a review-gates-compliant plan with the right specialist sweep before implementation. |
 
 ## Sub-task template
 

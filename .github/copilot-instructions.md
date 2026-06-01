@@ -57,6 +57,12 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1
 # Build + run full test suite (excludes end-to-end UI tests by default)
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -RunTests
 
+# Cold recompile (forces --no-incremental; does NOT clean bin/obj or restore)
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -NoIncremental -RunTests
+
+# Build + markdown size / freshness gate (opt-in; CI does not run it)
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -CheckMarkdown
+
 # Release build mirroring CI
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -Configuration Release -RunTests
 
@@ -75,16 +81,22 @@ analyzer diagnostic surfaces as a build error. A clean build is the gate for eve
 commit. `.tools/Invoke-Build.ps1` also runs `Test-ResourceKeys.ps1` to validate the
 translation tables — failures here block the build.
 
-## Code cleanup
+## Workflow tools
 
-Run only when explicitly requested by the user:
+Additional `.tools/` scripts for everyday coding-agent work:
 
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Cleanup.ps1
-```
+| Script | What it does |
+|---|---|
+| `Get-RepoStatus.ps1` | Branch + base ref + categorised file diff + suggested validation commands. `-Json` for piping. |
+| `Get-PrCommentQueue.ps1` | Persistent per-PR review-comment queue under `~/.copilot/pr-queues/`. Actions: `Status`, `Next`, `Pop`, `Done`, `Refresh`. Filter by severity. Used by the `feedback-handler` skill. |
+| `Get-WorkItem.ps1` | Extracts one backlog block (`E{NN}-F{NN}-UC{NN}-T{NN}`) from `docs/BACKLOG.md` without loading the whole file. Used by the `work-item` skill. |
+| `Format-Csproj.ps1` | Normalises `.csproj` XML formatting. `-CheckOnly` for lint. |
+| `Invoke-MarkdownGate.ps1` | Per-category size limits + freshness window for agent-loaded docs. Opt-in via `Invoke-Build.ps1 -CheckMarkdown` or run directly. |
+| `Invoke-Cleanup.ps1` | JetBrains code cleanup. `-Path`, `-ChangedSince <ref>`, `-CheckOnly`. Run only when the user asks. |
 
-This delegates to JetBrains cleanup over the changed `.cs` files. Never invoke
-unprompted during a normal task.
+Shared output helpers live in `.tools/PowerShell/Modules/Output.psm1` — every
+new script in `.tools/` should import that module rather than redefining
+`Write-Step` / `Write-Success` / `Write-Failure` locally.
 
 ## Git commits and PR merges
 
@@ -98,13 +110,13 @@ unprompted during a normal task.
 - Squash-merge PRs (`gh pr merge <N> --squash --delete-branch`) unless the user
   asks otherwise.
 
-## API documentation
+## Project journal
 
-After any change to a `public` or `protected` member, run
-`pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1` to
-regenerate `docs/api/` (when present). Prefer reading `docs/api/` over scanning
-source files when answering questions about the public surface — it is the
-authoritative projection.
+`JOURNAL.md` (at the repo root) is the append-only epistemic memory shared
+across agent sessions. It is governed by `.github/journal-protocol.md` — read
+that protocol once at session start and append a single area-tagged entry
+before ending any session that did real work. Filter reads by tag; never load
+the journal end-to-end.
 
 ## Project context
 
@@ -151,6 +163,7 @@ when the changed file matches the file's `applyTo:` frontmatter:
 | `scripting-sandbox.instructions.md` | `src/Domain.Scripting/**/*.cs` |
 | `localization.instructions.md` | `**/*.resx`, `**/Resources/**/*.cs` |
 | `review-gates.instructions.md` | `src/**`, `tests/**`, `.tools/**` |
+| `journal-protocol.md` | `JOURNAL.md` (auto-loaded when editing the journal) |
 
 ## Skills (`.github/skills/`)
 
@@ -168,7 +181,8 @@ Proxyfan-domain specialists: `proxy-pipeline`, `transport-security`, `rule-engin
 `protocol-parsers`, `cli-automation`.
 
 Workflow / meta: `devil-advocate`, `doctor`, `product-manager`, `user-experience`,
-`triage`.
+`triage`, `feedback-handler` (PR review-comment loop), `work-item` (backlog-item
+planner).
 
 ## When in doubt
 
