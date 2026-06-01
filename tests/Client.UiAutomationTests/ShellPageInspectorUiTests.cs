@@ -143,4 +143,72 @@ public sealed class ShellPageInspectorUiTests : UiAutomationTestBase
             () => firstSummary.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
             description: "Summary tab reports IsSelected = true");
     }
+
+    [Test]
+    public async Task ClickQueryTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var queryTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Query").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(queryTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstQuery = queryTabs[0].AsTabItem();
+        firstQuery.Select();
+        shell.WaitUntil(
+            () => firstQuery.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Query tab reports IsSelected = true");
+    }
+
+    [Test]
+    public async Task ClickCookiesTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var cookiesTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Cookies").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(cookiesTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstCookies = cookiesTabs[0].AsTabItem();
+        firstCookies.Select();
+        shell.WaitUntil(
+            () => firstCookies.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Cookies tab reports IsSelected = true");
+    }
+
+    [Test]
+    public async Task ClickAuthTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var authTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Auth").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(authTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstAuth = authTabs[0].AsTabItem();
+        firstAuth.Select();
+        shell.WaitUntil(
+            () => firstAuth.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Auth tab reports IsSelected = true");
+    }
+
+    [Test]
+    public async Task ClickTimingTab_FreshShell_MarksTheTabAsSelected()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        var timingTabs = shell.Window.FindAllDescendants(cf =>
+            cf.ByName("Timing").And(cf.ByControlType(ControlType.TabItem)));
+        await Assert.That(timingTabs.Length).IsGreaterThanOrEqualTo(1);
+
+        var firstTiming = timingTabs[0].AsTabItem();
+        firstTiming.Select();
+        shell.WaitUntil(
+            () => firstTiming.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true,
+            description: "Timing tab reports IsSelected = true");
+    }
 }

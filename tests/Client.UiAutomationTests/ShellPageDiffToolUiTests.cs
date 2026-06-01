@@ -52,4 +52,43 @@ public sealed class ShellPageDiffToolUiTests : UiAutomationTestBase
             diff.Close();
         }
     }
+
+    [Test]
+    public async Task RemoveSelectedButton_EmptyDiffTool_LeavesWindowResponsive()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var diff = shell.OpenToolWindow("Tools", "Diff Tool...", "Diff Tool");
+        try
+        {
+            // With no selection the Remove Selected button is a safe no-op.
+            diff.Button("Remove Selected").Click();
+
+            await Assert.That(diff.GetTitle()).IsEqualTo("Diff Tool");
+            await Assert.That(diff.HasButton("Clear Pool")).IsTrue();
+        }
+        finally
+        {
+            diff.Close();
+        }
+    }
+
+    [Test]
+    public async Task DiffBox_FreshDiffTool_IsDiscoverable()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var diff = shell.OpenToolWindow("Tools", "Diff Tool...", "Diff Tool");
+        try
+        {
+            // The computed-diff textbox is always present, even when empty.
+            await Assert.That(diff.TextBoxByName("Computed diff")).IsNotNull();
+        }
+        finally
+        {
+            diff.Close();
+        }
+    }
 }

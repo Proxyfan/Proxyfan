@@ -117,4 +117,30 @@ public sealed class ShellPageDomainNameSystemSpoofingUiTests : UiAutomationTestB
             dns.Close();
         }
     }
+
+    [Test]
+    public async Task TypeInvalidIpAddress_AndClickAdd_LeavesListEmpty()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var dns = shell.OpenToolWindow("Tools", "DNS Spoofing...", "DNS Spoofing");
+        try
+        {
+            dns.TextBoxByName("Hostname to spoof").Text = "example.com";
+            dns.TextBoxByName("Override IP address").Text = "not-an-ip-address";
+            dns.Button("Add").Click();
+
+            // Invalid IP address must reject the add and leave the list empty.
+            // The ValidationMessage TextBlock becomes visible — we don't pin
+            // its specific text, only assert the list stays at 0.
+            System.Threading.Thread.Sleep(300);
+            var list = dns.ListBoxByName("DNS spoofing entries");
+            await Assert.That(list.Items.Length).IsEqualTo(0);
+        }
+        finally
+        {
+            dns.Close();
+        }
+    }
 }

@@ -21,10 +21,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-MsixTestEnvironm
 dotnet run --project tests/Client.UiAutomationTests --no-build -c Debug
 ```
 
-The full **132-test** suite runs in **~36 minutes** (~16 s per test on
-average — install/uninstall dominate fast tests, the longer interactions
-amortise the overhead). Zero flakiness across the most recent full run
-(132/132 passed, 35m 41s).
+The full **154-test** suite runs in **~37 minutes** under the MSIX
+install-per-test pipeline (~14–18 s per test on average — install /
+uninstall dominate fast tests; longer interactions amortise the overhead).
+Zero flakiness across the most recent full validation pass.
 
 ## The pipeline (what happens for every test)
 
@@ -83,41 +83,44 @@ Both modes share the same test code; the only difference is whether
 | `ShellPageStatusBarUiTests`                    | 7  | Status bar flow count, capture-paused indicator, source-list All-group, tab close via X, Ctrl+T. |
 | `ShellPageGlobalShortcutsUiTests`              | 4  | Ctrl+Shift+N (No Caching), Ctrl+Shift+B (Breakpoint), Delete key. |
 | `ShellPageSessionShortcutsUiTests`             | 1  | Ctrl+E (Save Session) on empty traffic — graceful no-op. |
+| `ShellPageCloseTabShortcutUiTests`             | 2  | Ctrl+W (Close Active Tab) safe no-op on sticky default tab, repeated presses don't crash. |
 | `ShellPageMultiTabAndFilterUiTests`            | 5  | Three-tab add growth, retype-replaces, mixed-case preserved, focus returns after tab click, idempotent triple-Clear. |
 | `ShellPageExtendedUiTests`                     | 4  | "Sources" header label, "Proxyfan" app-name text, URL-syntax filter text preservation, regex-like filter text preserved verbatim. |
 | `ShellPageFilterEdgeCasesUiTests`              | 3  | Filter preserves quotes/parens/slashes, full URLs with port + query string, 200-char long input. |
 | `ShellPageTrafficListUiTests`                  | 2  | Flow grid is discoverable by automation name, has non-zero bounds. |
-| `ShellPageInspectorUiTests`                    | 7  | Two tab controls present; Headers/Body/Raw/Summary/Query/Cookies/Auth/Timing tabs discoverable; click Headers/Body/Raw/Summary marks tab as selected. |
-| `ShellPageTabActivationUiTests`                | 3  | Click first/second tab to activate it; Ctrl+T four times grows strip by 4. |
+| `ShellPageInspectorUiTests`                    | 11 | Two tab controls present; Headers/Body/Raw/Summary/Query/Cookies/Auth/Timing tabs discoverable; click-to-select round-trip on all 8 tab labels. |
+| `ShellPageSourceListUiTests`                   | 3  | Source list All-group label visible; count starts at 0; list box discoverable by automation name. |
+| `ShellPageTabActivationUiTests`                | 3  | Click first/second tab to activate; Ctrl+T four times grows strip by 4. |
 | `ShellPageToolWindowReopenUiTests`             | 2  | Re-opening a tool window from the menu activates the existing single instance (Preferences, Block List). |
+| `ShellPageMultipleToolWindowsUiTests`          | 3  | Open two tool windows simultaneously (Preferences + Block List; Theme + Keyboard Shortcuts); open three tool windows (Block List + Allow List + Map Local). |
 | `ShellPageHostStateUiTests`                    | 3  | Update banner not visible by default; exactly one child window on fresh launch; menu bar has exactly 3 top-level menus (File, Tools, View). |
 
 ### Tool-window test files (one per top-level tool window)
 
 | File | Tests | Tool window | Menu path |
 |---|---|---|---|
-| `ShellPagePreferencesUiTests`                  | 3  | Preferences            | File → Preferences... |
+| `ShellPagePreferencesUiTests`                  | 6  | Preferences            | File → Preferences... |
 | `ShellPageBlockListUiTests`                    | 6  | Block List             | Tools → Block List... |
 | `ShellPageAllowListUiTests`                    | 4  | Allow List             | Tools → Allow List... |
 | `ShellPageBreakpointUiTests`                   | 5  | Breakpoint             | Tools → Breakpoint... |
-| `ShellPageComposerUiTests`                     | 5  | Request Composer       | Tools → Compose Request... |
+| `ShellPageComposerUiTests`                     | 7  | Request Composer       | Tools → Compose Request... |
 | `ShellPageScriptingUiTests`                    | 5  | Scripting              | Tools → Scripting... |
-| `ShellPageDiffToolUiTests`                     | 2  | Diff Tool              | Tools → Diff Tool... |
-| `ShellPageCustomColumnsUiTests`                | 2  | Custom Header Columns  | Tools → Custom Header Column... |
+| `ShellPageDiffToolUiTests`                     | 4  | Diff Tool              | Tools → Diff Tool... |
+| `ShellPageCustomColumnsUiTests`                | 3  | Custom Header Columns  | Tools → Custom Header Column... |
 | `ShellPageMapLocalUiTests`                     | 4  | Map Local              | Tools → Map Local... |
 | `ShellPageMapRemoteUiTests`                    | 4  | Map Remote             | Tools → Map Remote... |
 | `ShellPageSecureSocketsLayerProxyingUiTests`   | 4  | SSL Proxying           | Tools → SSL Proxying... |
 | `ShellPageCertificateManagerUiTests`           | 2  | Certificate Manager    | Tools → Certificate Manager... |
-| `ShellPageDomainNameSystemSpoofingUiTests`     | 4  | DNS Spoofing           | Tools → DNS Spoofing... |
+| `ShellPageDomainNameSystemSpoofingUiTests`     | 5  | DNS Spoofing           | Tools → DNS Spoofing... |
 | `ShellPageReverseProxyUiTests`                 | 4  | Reverse Proxy          | Tools → Reverse Proxy... |
 | `ShellPageRemoteDevicesUiTests`                | 2  | Remote Devices         | Tools → Remote Devices... |
 | `ShellPageRemoteProcedureCallDescriptorsUiTests` | 2 | gRPC Descriptors       | Tools → gRPC Descriptors... |
 | `ShellPageThrottleUiTests`                     | 4  | Network Throttle       | Tools → Throttle... |
 | `ShellPageThemeUiTests`                        | 4  | Theme                  | View → Theme... |
 | `ShellPageKeyboardShortcutsUiTests`            | 3  | Keyboard Shortcuts     | View → Keyboard Shortcuts... |
-| `ShellPagePluginManagerUiTests`                | 2  | Plugin Manager         | View → Plugin Manager... |
+| `ShellPagePluginManagerUiTests`                | 3  | Plugin Manager         | View → Plugin Manager... |
 
-**Total: 132 tests across 36 files.**
+**Total: 154 tests across 39 files.**
 
 ## Determinism guarantees
 

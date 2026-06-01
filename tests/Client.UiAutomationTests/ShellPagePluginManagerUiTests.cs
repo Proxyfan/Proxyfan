@@ -51,4 +51,24 @@ public sealed class ShellPagePluginManagerUiTests : UiAutomationTestBase
             plugins.Close();
         }
     }
+
+    [Test]
+    public async Task ReloadButton_EmptyPluginManager_LeavesWindowResponsive()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var plugins = shell.OpenToolWindow("View", "Plugin Manager...", "Plugin Manager");
+        try
+        {
+            plugins.Button("Reload").Click();
+
+            await Assert.That(plugins.GetTitle()).IsEqualTo("Plugin Manager");
+            await Assert.That(plugins.HasButton("Refresh")).IsTrue();
+        }
+        finally
+        {
+            plugins.Close();
+        }
+    }
 }

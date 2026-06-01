@@ -74,4 +74,25 @@ public sealed class ShellPageCustomColumnsUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task AddColumnButton_EmptyNameAndHeader_LeavesListEmpty()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var columns = shell.OpenToolWindow("Tools", "Custom Header Column...", "Custom Header Columns");
+        try
+        {
+            columns.Button("Add Column").Click();
+            System.Threading.Thread.Sleep(200);
+
+            var list = columns.ListBoxByName("Configured columns");
+            await Assert.That(list.Items.Length).IsEqualTo(0);
+        }
+        finally
+        {
+            columns.Close();
+        }
+    }
 }

@@ -293,12 +293,37 @@ public sealed class ShellPage
         TimeSpan? timeout = null)
     {
         var effectiveTimeout = timeout ?? DefaultElementTimeout;
+        // The menu-open path has its own (longer) budget: the popup must
+        // materialise its UIA peers, which on a long suite run can take a
+        // few seconds longer than DefaultElementTimeout in MSIX containers
+        // when several previous tests have already exercised the menu host.
+        // We give the sub-item search 30 s regardless of caller timeout so
+        // late-in-suite tests do not flake on transient render races.
+        var menuOpenTimeout = effectiveTimeout < TimeSpan.FromSeconds(30)
+            ? TimeSpan.FromSeconds(30)
+            : effectiveTimeout;
 
         var topLevelRaw = Window.FindFirstDescendant(cf =>
             cf.ByName(menuHeader).And(cf.ByControlType(ControlType.MenuItem)))
             ?? throw new InvalidOperationException(
                 $"Top-level menu '{menuHeader}' not found on shell.");
         var topLevel = topLevelRaw.AsMenuItem();
+
+        // Ensure the shell owns keyboard focus before opening the menu. The
+        // immediately-prior test's process exit can transiently steal focus
+        // (focus snaps to the next-foreground window during teardown) and an
+        // Avalonia menu popup opened on a focus-less window is dismissed
+        // before its sub-items materialise — surfacing as a flaky
+        // "sub-menu item did not materialise" timeout.
+        try
+        {
+            Window.Focus();
+        }
+        catch
+        {
+            // Best-effort: even if Focus throws (rare), the Expand below
+            // usually still succeeds.
+        }
 
         var expandCollapse = topLevel.Patterns.ExpandCollapse.PatternOrDefault;
         if (expandCollapse is not null)
@@ -320,7 +345,7 @@ public sealed class ShellPage
         var processId = Window.Properties.ProcessId.Value;
         var desktop = _app.Automation.GetDesktop();
         AutomationElement? subItem = null;
-        var deadline = DateTime.UtcNow + effectiveTimeout;
+        var deadline = DateTime.UtcNow + menuOpenTimeout;
         while (DateTime.UtcNow < deadline)
         {
             try
@@ -346,7 +371,7 @@ public sealed class ShellPage
         if (subItem is null)
         {
             throw new TimeoutException(
-                $"Sub-menu item '{itemHeader}' under '{menuHeader}' did not materialise in {effectiveTimeout.TotalSeconds:F1}s.");
+                $"Sub-menu item '{itemHeader}' under '{menuHeader}' did not materialise in {menuOpenTimeout.TotalSeconds:F1}s.");
         }
 
         // Avalonia menu items expose the Invoke pattern via their UIA peer

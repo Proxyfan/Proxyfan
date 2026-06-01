@@ -125,4 +125,49 @@ public sealed class ShellPageComposerUiTests : UiAutomationTestBase
 
         await Task.CompletedTask;
     }
+
+    [Test]
+    public async Task TypeIntoSearch_FreshComposer_PreservesTypedSearchText()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var composer = shell.OpenToolWindow("Tools", "Compose Request...", "Request Composer");
+        try
+        {
+            var search = composer.TextBoxByName("Search history");
+            search.Focus();
+            Keyboard.Type("orders");
+            composer.WaitUntil(
+                () => string.Equals(search.Text, "orders", StringComparison.Ordinal),
+                description: "search box contains typed text");
+        }
+        finally
+        {
+            composer.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ResponseBox_FreshComposer_IsDiscoverable()
+    {
+        await using var app = ProxyfanApp.Launch();
+        var shell = new ShellPage(app);
+
+        using var composer = shell.OpenToolWindow("Tools", "Compose Request...", "Request Composer");
+        try
+        {
+            // The response body box (read-only) is always present even before
+            // sending — its bound text is empty initially but the control
+            // surfaces with its accessibility name.
+            await Assert.That(composer.TextBoxByName("Response body")).IsNotNull();
+            await Assert.That(composer.TextBoxByName("cURL command")).IsNotNull();
+        }
+        finally
+        {
+            composer.Close();
+        }
+    }
 }
