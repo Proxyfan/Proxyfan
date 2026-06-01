@@ -21,7 +21,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-MsixTestEnvironm
 dotnet run --project tests/Client.UiAutomationTests --no-build -c Debug
 ```
 
-The full **154-test** suite runs in **~37 minutes** under the MSIX
+The full **162-test** suite runs in **~37 minutes** under the MSIX
 install-per-test pipeline (~14–18 s per test on average — install /
 uninstall dominate fast tests; longer interactions amortise the overhead).
 Zero flakiness across the most recent full validation pass.
@@ -84,14 +84,17 @@ Both modes share the same test code; the only difference is whether
 | `ShellPageGlobalShortcutsUiTests`              | 4  | Ctrl+Shift+N (No Caching), Ctrl+Shift+B (Breakpoint), Delete key. |
 | `ShellPageSessionShortcutsUiTests`             | 1  | Ctrl+E (Save Session) on empty traffic — graceful no-op. |
 | `ShellPageCloseTabShortcutUiTests`             | 2  | Ctrl+W (Close Active Tab) safe no-op on sticky default tab, repeated presses don't crash. |
+| `ShellPageMenuKeyboardUiTests`                 | 3  | Escape on fresh shell is safe; F10 on fresh shell is safe; Escape dismisses an open File menu. |
 | `ShellPageMultiTabAndFilterUiTests`            | 5  | Three-tab add growth, retype-replaces, mixed-case preserved, focus returns after tab click, idempotent triple-Clear. |
 | `ShellPageExtendedUiTests`                     | 4  | "Sources" header label, "Proxyfan" app-name text, URL-syntax filter text preservation, regex-like filter text preserved verbatim. |
 | `ShellPageFilterEdgeCasesUiTests`              | 3  | Filter preserves quotes/parens/slashes, full URLs with port + query string, 200-char long input. |
+| `ShellPageFilterPersistenceUiTests`            | 2  | Filter textbox reflects active-tab state after adding a tab; filter text survives a Clear button click. |
 | `ShellPageTrafficListUiTests`                  | 2  | Flow grid is discoverable by automation name, has non-zero bounds. |
 | `ShellPageInspectorUiTests`                    | 11 | Two tab controls present; Headers/Body/Raw/Summary/Query/Cookies/Auth/Timing tabs discoverable; click-to-select round-trip on all 8 tab labels. |
 | `ShellPageSourceListUiTests`                   | 3  | Source list All-group label visible; count starts at 0; list box discoverable by automation name. |
 | `ShellPageTabActivationUiTests`                | 3  | Click first/second tab to activate; Ctrl+T four times grows strip by 4. |
 | `ShellPageToolWindowReopenUiTests`             | 2  | Re-opening a tool window from the menu activates the existing single instance (Preferences, Block List). |
+| `ShellPageToolWindowCloseUiTests`              | 3  | Opening and closing each of Preferences / Block List / Theme leaves no lingering child window on the desktop. |
 | `ShellPageMultipleToolWindowsUiTests`          | 3  | Open two tool windows simultaneously (Preferences + Block List; Theme + Keyboard Shortcuts); open three tool windows (Block List + Allow List + Map Local). |
 | `ShellPageHostStateUiTests`                    | 3  | Update banner not visible by default; exactly one child window on fresh launch; menu bar has exactly 3 top-level menus (File, Tools, View). |
 
@@ -120,7 +123,7 @@ Both modes share the same test code; the only difference is whether
 | `ShellPageKeyboardShortcutsUiTests`            | 3  | Keyboard Shortcuts     | View → Keyboard Shortcuts... |
 | `ShellPagePluginManagerUiTests`                | 3  | Plugin Manager         | View → Plugin Manager... |
 
-**Total: 154 tests across 39 files.**
+**Total: 162 tests across 42 files.**
 
 ## Determinism guarantees
 
