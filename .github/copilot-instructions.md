@@ -1,105 +1,183 @@
 # Copilot Instructions — Proxyfan
 
-Proxyfan is an HTTP debugging proxy for inspecting, capturing, and modifying network traffic in real time on Windows, built with .NET.
+Proxyfan is a Windows HTTP debugging proxy that captures, inspects, and rewrites
+network traffic in real time. The codebase is .NET 10, Avalonia, CommunityToolkit.Mvvm,
+TUnit, and Roslyn scripting, organised as a modular monolith with strict
+domain / framework / presentation layering.
 
-## Development Environment
+## Quality bar
 
-All scripts must be written in **PowerShell 7 (`pwsh`)** — never bash, batch files (`.cmd`/`.bat`), or legacy `powershell.exe`.
+These standards apply to every plan, refactor, and PR — including autopilot runs.
 
-## Build, Test, and Lint
+**Rewarded:** simplicity, reusing existing abstractions, scalable + allocation-aware
+design, ≥ 80 % line + branch coverage on changed modules, explicit privacy posture.
 
-> All `.tools/` scripts are the canonical entry points. Only invoke `dotnet build`, `dotnet test`, or `dotnet restore` for very targeted operations.
+**Penalised:** speculative abstractions, parallel implementations beside an existing
+helper, unguarded LINQ in hot paths, suppressing analyzers instead of fixing the
+root cause, anything that captures request or response bodies into logs.
 
-| Script | Purpose |
-|---|---|
-| `.tools/Invoke-Build.ps1` | Canonical build — restores, builds, regenerates `docs/api/`. Accepts `-RunTests`, `-SkipRestore`, `-Configuration`. |
-| `.tools/Run-Tests.ps1` | Canonical test runner. Accepts `-NoBuild`, `-Configuration`. |
-| `.tools/Invoke-Cleanup.ps1` | JetBrains code cleanup on changed `.cs` files. **Run only when explicitly asked.** |
-| `.tools/Initialize-Repository.ps1` | First-time dev machine setup (workloads, packages, tools, build). Accepts `-SkipWorkloads`, `-SkipTools`, `-RunTests`. |
+**Prerequisites — confirm before proposing or implementing:** the change's
+*scope* (which module owns it), *blast radius* (which downstream contexts react via
+`IDomainEventBus`), and *reversibility* (whether the change touches a `Result<T>`
+public contract, a `HypertextTransferProtocolForwarder`-style pipeline seam, the
+HAR-on-disk shape, the YAML config schema, or any extensibility interface in
+`Framework.Extensibility` / `Plugin.Abstractions`).
+
+**CRITICAL — ADR-or-revise:** any change that adds a new module/project, a new
+extensibility interface (`IContentDecoder`, `ITrafficInspector`, `IExportFormatter`,
+`IConnectionHandler`, …), a new package in `Directory.Packages.props`, or a new
+public contract on a domain service must include a one-paragraph ADR in the plan
+covering **Context → Decision → Alternatives rejected → Reversal path in six months**.
+If you cannot describe the reversal path, the commitment is premature and the plan
+must be revised before implementation begins.
+
+## Development environment
+
+Windows-only lifecycle. **PowerShell 7 (`pwsh`) is the only approved scripting
+language.** Do not use bash, batch (`.bat` / `.cmd`), Python, Node, or legacy
+`powershell.exe`. When a shell tool is needed from automation, invoke a script in
+`.tools/` directly:
 
 ```powershell
-# First-time setup
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Initialize-Repository.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/<Script>.ps1
+```
 
-# Standard Debug build (+ regenerates docs/api/)
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1
+## Build & test
 
-# Build + tests
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -RunTests
+`.tools/` holds the canonical entry points. Prefer them over `dotnet build` /
+`dotnet test` except for narrowly targeted runs.
 
-# Incremental build (packages unchanged)
+```powershell
+# Standard incremental build (skip restore — packages unchanged)
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -SkipRestore
 
-# Full test suite
-pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Run-Tests.ps1
+# Full Debug build with restore
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1
 
-# Tests only (code already built)
+# Build + run full test suite (excludes end-to-end UI tests by default)
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -RunTests
+
+# Release build mirroring CI
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 -Configuration Release -RunTests
+
+# Tests only against an existing build
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Run-Tests.ps1 -NoBuild
 
-# Code cleanup (on-demand only)
+# Include end-to-end UI tests (slow; off by default and intentionally not in CI)
+pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Run-Tests.ps1 -IncludeEndToEnd
+
+# Single test
+dotnet run --project tests/<Project> -- --treenode-filter "/*/*/<Class>/<Method>"
+```
+
+`TreatWarningsAsErrors=true` is set repo-wide via `Directory.Build.props`. Every
+analyzer diagnostic surfaces as a build error. A clean build is the gate for every
+commit. `.tools/Invoke-Build.ps1` also runs `Test-ResourceKeys.ps1` to validate the
+translation tables — failures here block the build.
+
+## Code cleanup
+
+Run only when explicitly requested by the user:
+
+```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Cleanup.ps1
 ```
 
-To run a **single test**, use `dotnet run --project tests/<Project> -- --filter "ClassName.MethodName"` directly (bypassing the test script is acceptable for targeted runs).
+This delegates to JetBrains cleanup over the changed `.cs` files. Never invoke
+unprompted during a normal task.
 
-## Architecture
+## Git commits and PR merges
 
-Package versions are managed centrally in `Directory.Packages.props` — never specify versions in individual `.csproj` files.
+- **The human handles staging and commits by default.** Do not `git add`,
+  `git commit`, or `git push` unless the user explicitly delegates the action.
+- When committing on the user's behalf, use a conventional-commit subject
+  (`feat(traffic): …`, `fix(rules): …`, `chore(framework): …`, `docs(architecture): …`)
+  and keep the subject ≤ 72 characters.
+- Include the `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
+  trailer unless the user explicitly opts out.
+- Squash-merge PRs (`gh pr merge <N> --squash --delete-branch`) unless the user
+  asks otherwise.
 
-The `Environment` MSBuild property (default: `Development`) defines a compile-time constant `ENVIRONMENT_<VALUE>` available across all projects.
+## API documentation
 
-All public and protected members **must** have XML documentation comments — `CS1591` is treated as an error.
+After any change to a `public` or `protected` member, run
+`pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1` to
+regenerate `docs/api/` (when present). Prefer reading `docs/api/` over scanning
+source files when answering questions about the public surface — it is the
+authoritative projection.
 
-## Key Conventions
+## Project context
 
-### Analyzers and Code Style
+Proxyfan is built as a **modular monolith** with a strict three-layer dependency
+direction:
 
-- **`TreatWarningsAsErrors = true`** — all analyzer diagnostics are errors; fix root causes rather than suppressing them.
-- **Never use `#pragma warning disable`** in files under `src/` or `tests/`.
-- **SonarAnalyzer.CSharp** runs on every build as a first-class linting pass (error severity).
-- Enforced style rules (will fail the build):
-  - `IDE0022`: Block body required for methods — no `=>` arrow methods with parameters (properties are fine)
-  - `IDE0045` / `IDE0046`: Use `if/else` instead of ternary for assignments and returns
-  - `S121`: All `if`/`else` branches must use curly braces
-
-### Testing
-
-All test projects use **TUnit** with the **Microsoft.Testing.Platform** runner (configured in `global.json`). **xUnit and NUnit are not used.**
-
-| Convention | Rule |
-|---|---|
-| File | `{ClassUnderTest}Tests.cs` |
-| Class | `{ClassUnderTest}Tests` — named after the type under test, never a feature or topic |
-| Method | `{Method}_{Scenario}_{ExpectedResult}` |
-| Stubs | Hand-written stubs in `Stubs/` subdirectories — mocking frameworks (`Moq`, `NSubstitute`, etc.) are forbidden |
-| Parallelism | `[NotInParallel]` on classes that mutate shared state |
-
-```csharp
-[Test]
-public async Task Parse_ValidInput_ReturnsExpected()
-{
-    var result = MyParser.Parse("input");
-    await Assert.That(result).IsEqualTo(expected);
-}
-
-// Parameterized:
-[Test]
-[Arguments("a", 1)]
-public async Task Parse_Variant_ReturnsExpected(string input, int expected)
-{
-    await Assert.That(MyParser.Parse(input)).IsEqualTo(expected);
-}
+```
+Clients (Client, Client.Desktop, Cli)
+   │
+   └─► Presentation (Shell, Traffic, Tools, …)
+          │
+          └─► Domain.* kernel + bounded contexts
+                 ▲
+                 │
+                 └─── Framework.* (Networking, Serialization, Platform, …)
 ```
 
-Architecture conformance tests use **ArchUnitNET** (`TngTech.ArchUnitNET.TUnit`).
+- **Domain.\*** modules contain business logic and depend only on `Domain` (the
+  kernel) and — where stated in the module description — on a sibling domain
+  module (e.g. `Domain.Session` → `Domain.Traffic`).
+- **Framework.\*** modules implement adapters for the domain abstractions and may
+  depend on the matching `Domain.*` module plus `Framework` and `Domain` (kernel).
+- **Presentation\*** modules consume `Domain.*` abstractions only. They never
+  reference `Framework.*` implementations.
+- **Domain → Framework** and **Domain → Presentation** are forbidden.
+- **Presentation → Framework** (concrete) is forbidden; presentation goes through
+  the DI container.
 
-### File Formatting
+Architectural tests in `tests/*.Tests` enforce the rules via `ArchUnitNET`.
 
-- **Charset**: UTF-8 BOM (`charset = utf-8-bom`)
-- **Line endings**: CRLF
-- **Indentation**: 4 spaces (2 spaces for JSON files)
-- Max one blank line between code blocks in C# files
+## Path-scoped instructions
 
-### API Reference
+Detailed rules live in `.github/instructions/*.instructions.md`. They auto-load
+when the changed file matches the file's `applyTo:` frontmatter:
 
-After any public API change (addition, removal, or modification of a `public`/`protected` member), run `.tools/Invoke-Build.ps1` to regenerate `docs/api/`. Prefer reading `docs/api/` over scanning source files when exploring public interfaces.
+| File | Scope |
+|---|---|
+| `architecture.instructions.md` | `src/**/*.cs`, `tests/**/*.cs` |
+| `csharp-rules.instructions.md` | `**/*.cs` |
+| `testing.instructions.md` | `tests/**/*.cs` |
+| `mvvm.instructions.md` | Presentation + Client `*.cs` |
+| `avalonia.instructions.md` | `**/*.axaml`, `**/*.axaml.cs` |
+| `networking.instructions.md` | `src/Framework.Networking/**/*.cs`, `src/Domain.Proxy/**/*.cs` |
+| `scripting-sandbox.instructions.md` | `src/Domain.Scripting/**/*.cs` |
+| `localization.instructions.md` | `**/*.resx`, `**/Resources/**/*.cs` |
+| `review-gates.instructions.md` | `src/**`, `tests/**`, `.tools/**` |
+
+## Skills (`.github/skills/`)
+
+Each skill is invoked by name (e.g. `/architect`, `/proxy-pipeline`). The
+`agentic-workflow` orchestrator fans out to every specialist in parallel and
+produces a single prioritised plan; see `.github/skills/agentic-workflow/SKILL.md`
+for the catalogue.
+
+Engineering-quality specialists: `architect`, `domain-driven-design`, `backend-swe`,
+`code-health`, `code-duplication`, `performance`, `asynchrony`, `quality-assurance`,
+`regression`, `bug-bounty`, `security-hardening`, `serialization`.
+
+Proxyfan-domain specialists: `proxy-pipeline`, `transport-security`, `rule-engine`,
+`traffic-store`, `scripting-sandbox`, `session-format`, `configuration`, `avalonia`,
+`protocol-parsers`, `cli-automation`.
+
+Workflow / meta: `devil-advocate`, `doctor`, `product-manager`, `user-experience`,
+`triage`.
+
+## When in doubt
+
+1. `docs/ARCHITECTURE.md` defines the layer and module map.
+2. `docs/DESIGN.md` defines the behavioural contract for every feature.
+3. `docs/BACKLOG.md` enumerates planned work items (referenced as
+   `E<epic>-F<feature>-T<task>` in commit messages).
+4. The path-scoped instructions and skill files are the authoritative source for
+   coding conventions and review process.
+
+If a request appears to conflict with these instructions, surface the conflict and
+ask for clarification before proceeding — never silently override.
