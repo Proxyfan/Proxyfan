@@ -56,6 +56,12 @@ public sealed class TrafficStore : ITrafficStore
     {
         lock (_syncRoot)
         {
+            if (_flows.ContainsKey(flow.Id))
+            {
+                _flows[flow.Id] = flow;
+                return;
+            }
+
             RemoveOldestFlowWhenFull();
             _flows[flow.Id] = flow;
             _order[_nextIndex] = flow.Id;
