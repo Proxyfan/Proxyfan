@@ -13,20 +13,6 @@ namespace Proxyfan.Framework.Serialization;
 /// </summary>
 public static class GraphQueryLanguageOperationNameExtractor
 {
-    private const string FragmentKeyword = "fragment";
-    private static readonly string[] OperationKeywords;
-
-    static GraphQueryLanguageOperationNameExtractor()
-    {
-        var keywords = new[]
-        {
-            "query",
-            "mutation",
-            "subscription",
-        };
-        OperationKeywords = keywords;
-    }
-
     /// <summary>
     ///     Extracts the first named operation from the supplied query source text.
     /// </summary>
@@ -41,47 +27,37 @@ public static class GraphQueryLanguageOperationNameExtractor
 
         var span = query.AsSpan();
         var offset = 0;
-        while (true)
+        while (offset < span.Length)
         {
             offset = SkipWhitespaceAndComments(span, offset);
-            if (offset >= span.Length)
+            if (offset >= span.Length || span[offset] == '{')
             {
                 return null;
             }
 
-            if (span[offset] == '{')
+            var wordLength = MeasureIdentifier(span, offset);
+            if (wordLength == 0)
             {
                 return null;
             }
 
-            var word = TryReadIdentifier(span, offset);
-            if (word is null)
+            var word = span.Slice(offset, wordLength);
+            offset += wordLength;
+
+            if (HasOperationKeywordMatch(word))
+            {
+                return ReadOperationName(span, offset);
+            }
+
+            if (!HasFragmentKeywordMatch(word))
             {
                 return null;
             }
 
-            offset += word.Length;
-
-            if (Array.IndexOf(OperationKeywords, word) >= 0)
-            {
-                offset = SkipWhitespaceAndComments(span, offset);
-                if (offset >= span.Length)
-                {
-                    return null;
-                }
-
-                var name = TryReadIdentifier(span, offset);
-                return name;
-            }
-
-            if (word == FragmentKeyword)
-            {
-                offset = SkipFragmentDefinition(span, offset);
-                continue;
-            }
-
-            return null;
+            offset = SkipFragmentDefinition(span, offset);
         }
+
+        return null;
     }
 
     private static bool HasBlockStringStart(ReadOnlySpan<char> span, int offset)
@@ -94,6 +70,11 @@ public static class GraphQueryLanguageOperationNameExtractor
         return matches;
     }
 
+    private static bool HasFragmentKeywordMatch(ReadOnlySpan<char> word)
+    {
+        return word.SequenceEqual("fragment".AsSpan());
+    }
+
     private static bool HasIdentifierPartChar(char value)
     {
         var allowed = HasIdentifierStartChar(value) || value is >= '0' and <= '9';
@@ -104,6 +85,46 @@ public static class GraphQueryLanguageOperationNameExtractor
     {
         var allowed = value is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or '_';
         return allowed;
+    }
+
+    private static bool HasOperationKeywordMatch(ReadOnlySpan<char> word)
+    {
+        return word.SequenceEqual("query".AsSpan())
+            || word.SequenceEqual("mutation".AsSpan())
+            || word.SequenceEqual("subscription".AsSpan());
+    }
+
+    private static int MeasureIdentifier(ReadOnlySpan<char> span, int offset)
+    {
+        if (offset >= span.Length || !HasIdentifierStartChar(span[offset]))
+        {
+            return 0;
+        }
+
+        var index = offset + 1;
+        while (index < span.Length && HasIdentifierPartChar(span[index]))
+        {
+            index++;
+        }
+
+        return index - offset;
+    }
+
+    private static string? ReadOperationName(ReadOnlySpan<char> span, int offset)
+    {
+        offset = SkipWhitespaceAndComments(span, offset);
+        if (offset >= span.Length)
+        {
+            return null;
+        }
+
+        var nameLength = MeasureIdentifier(span, offset);
+        if (nameLength == 0)
+        {
+            return null;
+        }
+
+        return new string(span.Slice(offset, nameLength));
     }
 
     private static int SkipBalancedBraces(ReadOnlySpan<char> span, int offset)
@@ -267,36 +288,5 @@ public static class GraphQueryLanguageOperationNameExtractor
         }
 
         return index;
-    }
-
-    private static string? TryReadIdentifier(ReadOnlySpan<char> span, int offset)
-    {
-        var start = offset;
-        var index = offset;
-        if (index >= span.Length)
-        {
-            return null;
-        }
-
-        var first = span[index];
-        if (!HasIdentifierStartChar(first))
-        {
-            return null;
-        }
-
-        index++;
-        while (index < span.Length && HasIdentifierPartChar(span[index]))
-        {
-            index++;
-        }
-
-        var length = index - start;
-        if (length == 0)
-        {
-            return null;
-        }
-
-        var identifier = new string(span.Slice(start, length));
-        return identifier;
     }
 }

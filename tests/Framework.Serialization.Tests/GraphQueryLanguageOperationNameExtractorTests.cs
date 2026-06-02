@@ -262,4 +262,17 @@ public sealed class GraphQueryLanguageOperationNameExtractorTests
 
         await Assert.That(name).IsNull();
     }
+
+    /// <summary>
+    ///     Braces appearing inside a GraphQL block string within a fragment do not unbalance the scanner.
+    /// </summary>
+    [Test]
+    public async Task Extract_FragmentWithBlockStringContainingBrace_ReturnsOperationName()
+    {
+        var source = "fragment F on T { field(arg: \"\"\"value with } brace\"\"\") } query AfterFragment { x }";
+
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(source);
+
+        await Assert.That(name).IsEqualTo("AfterFragment");
+    }
 }
