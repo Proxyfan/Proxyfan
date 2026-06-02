@@ -6,7 +6,11 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Encodes and decodes HPACK string literals per RFC 7541 § 5.2. Strings are prefixed by a
-///     7-bit length whose high bit flags whether the payload is Huffman-encoded.
+///     7-bit length whose high bit flags whether the payload is Huffman-encoded. HTTP header
+///     field octets are an opaque byte sequence (RFC 9110 § 5.5 field-vchar + obs-text), not
+///     UTF-8, so Latin-1 (ISO-8859-1) is used as a one-to-one byte ⇔ char mapping that lets
+///     non-UTF-8 octets round-trip losslessly through the decoder and any downstream capture
+///     or export path.
 /// </summary>
 public static class HypertextTransferProtocolVersion2HpackStringDecoder
 {
@@ -37,10 +41,10 @@ public static class HypertextTransferProtocolVersion2HpackStringDecoder
         {
             var decoded = HypertextTransferProtocolVersion2HpackHuffman.Decode(payload)
                 ?? throw new FormatException("Malformed HPACK Huffman string.");
-            var value = Encoding.UTF8.GetString(decoded);
+            var value = Encoding.Latin1.GetString(decoded);
             return new HypertextTransferProtocolVersion2HpackStringDecodeResult(value, offset);
         }
-        var raw = Encoding.UTF8.GetString(payload);
+        var raw = Encoding.Latin1.GetString(payload);
         return new HypertextTransferProtocolVersion2HpackStringDecodeResult(raw, offset);
     }
 
@@ -52,7 +56,7 @@ public static class HypertextTransferProtocolVersion2HpackStringDecoder
     /// <param name="value">The string to emit.</param>
     public static void Encode(MemoryStream output, string value)
     {
-        var rawBytes = Encoding.UTF8.GetBytes(value);
+        var rawBytes = Encoding.Latin1.GetBytes(value);
         var huffmanBytes = HypertextTransferProtocolVersion2HpackHuffman.Encode(rawBytes);
         Span<byte> lengthBuffer = stackalloc byte[6];
         if (huffmanBytes.Length < rawBytes.Length)
