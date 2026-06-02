@@ -12,7 +12,7 @@ namespace Proxyfan.Framework.Networking;
 ///     <see cref="AdvanceConsumed" />. The underlying array is compacted in-place when the
 ///     tail no longer has room, and grown only when even compaction is insufficient.
 /// </summary>
-public sealed class WebSocketRelayAccumulator : IDisposable
+internal sealed class WebSocketRelayAccumulator : IDisposable
 {
     private readonly ArrayPool<byte> _pool;
     private byte[] _buffer;
@@ -57,6 +57,11 @@ public sealed class WebSocketRelayAccumulator : IDisposable
     public void AdvanceConsumed(int count)
     {
         _consumedOffset += count;
+        if (_consumedOffset == _writtenOffset)
+        {
+            _consumedOffset = 0;
+            _writtenOffset = 0;
+        }
     }
 
     /// <summary>
