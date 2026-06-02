@@ -8,8 +8,10 @@ namespace Proxyfan.Framework.Networking;
 ///     Response-side rewriter for HTTP/1.1 <c>Upgrade</c> responses (typically <c>101 Switching
 ///     Protocols</c>). Preserves the <c>Connection</c> and <c>Upgrade</c> headers so the client
 ///     sees the upgrade acknowledgment intact, while still stripping <c>Proxy-Authenticate</c>,
-///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, and <c>Keep-Alive</c> and appending
-///     the <c>Via: 1.1 proxyfan</c> token (RFC 7230 § 5.7.1).
+///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, and <c>Keep-Alive</c>, dropping any
+///     additional headers listed in the response's <c>Connection</c> header (RFC 7230 § 6.1
+///     hop-by-hop) other than <c>Upgrade</c> itself, and appending the <c>Via: 1.1 proxyfan</c>
+///     token (RFC 7230 § 5.7.1).
 /// </summary>
 public static class UpgradeResponseRewriter
 {
@@ -37,6 +39,7 @@ public static class UpgradeResponseRewriter
     /// <returns>The rewritten response suitable for forwarding to the client.</returns>
     public static HypertextTransferProtocolResponseData Rewrite(HypertextTransferProtocolResponseData response)
     {
+        var connectionListedHeaders = ExtractConnectionListedHeaderNames(response.Headers);
         var sanitized = HeaderCollection.Empty;
         var hasExistingVia = false;
         var existingViaChain = string.Empty;
@@ -44,6 +47,11 @@ public static class UpgradeResponseRewriter
         foreach (var header in response.Headers)
         {
             if (AlwaysStrippedHeaders.Contains(header.Key))
+            {
+                continue;
+            }
+
+            if (connectionListedHeaders.Contains(header.Key))
             {
                 continue;
             }
@@ -73,5 +81,35 @@ public static class UpgradeResponseRewriter
             Version = response.Version,
         };
         return new HypertextTransferProtocolResponseData(parameters);
+    }
+
+    private static HashSet<string> ExtractConnectionListedHeaderNames(HeaderCollection headers)
+    {
+        var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var connection = headers.Get("Connection");
+
+        if (string.IsNullOrEmpty(connection))
+        {
+            return listed;
+        }
+
+        var tokens = connection.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var token in tokens)
+        {
+            if (string.Equals(token, "Connection", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.Equals(token, "Upgrade", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            listed.Add(token);
+        }
+
+        return listed;
     }
 }
