@@ -30,7 +30,7 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
 
     private HeaderCollection(Dictionary<string, string[]> headers)
     {
-        _headers = CloneHeaders(headers);
+        _headers = headers;
     }
 
     /// <summary>
@@ -54,8 +54,7 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
     {
         foreach (KeyValuePair<string, string[]> header in _headers)
         {
-            string[] values = CopyValues(header.Value);
-            yield return new KeyValuePair<string, string[]>(header.Key, values);
+            yield return header;
         }
     }
 
@@ -171,5 +170,69 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         var copiedValues = new string[values.Length];
         Array.Copy(values, copiedValues, values.Length);
         return copiedValues;
+    }
+
+    /// <summary>
+    ///     Mutable builder used to assemble a <see cref="HeaderCollection" /> from many header
+    ///     lines in O(n) total time. Use <see cref="Build" /> once to obtain the immutable
+    ///     collection; the builder should not be reused after that call.
+    /// </summary>
+    public sealed class Builder
+    {
+        private readonly Dictionary<string, List<string>> _headers;
+
+        /// <summary>
+        ///     Initializes a new empty <see cref="Builder" /> instance.
+        /// </summary>
+        public Builder()
+        {
+            var headers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            _headers = headers;
+        }
+
+        /// <summary>
+        ///     Appends a header value, creating the header entry if it does not yet exist.
+        /// </summary>
+        /// <param name="name">
+        ///     The header name.
+        /// </param>
+        /// <param name="value">
+        ///     The header value.
+        /// </param>
+        /// <returns>
+        ///     The same builder instance, to allow chaining.
+        /// </returns>
+        public Builder Add(string name, string value)
+        {
+            if (!_headers.TryGetValue(name, out List<string>? values))
+            {
+                var newValues = new List<string>(1);
+                _headers.Add(name, newValues);
+                values = newValues;
+            }
+
+            values.Add(value);
+            return this;
+        }
+
+        /// <summary>
+        ///     Freezes the accumulated headers into a new immutable <see cref="HeaderCollection" />.
+        /// </summary>
+        /// <returns>
+        ///     A new <see cref="HeaderCollection" /> snapshot of the accumulated headers.
+        /// </returns>
+        public HeaderCollection Build()
+        {
+            var headers = new Dictionary<string, string[]>(_headers.Count, StringComparer.OrdinalIgnoreCase);
+
+            foreach (KeyValuePair<string, List<string>> entry in _headers)
+            {
+                string[] values = [.. entry.Value];
+                headers.Add(entry.Key, values);
+            }
+
+            var collection = new HeaderCollection(headers);
+            return collection;
+        }
     }
 }

@@ -92,4 +92,37 @@ public sealed class HeaderCollectionTests
 
         await Assert.That(headers.HasHeader("content-type")).IsTrue();
     }
+
+    /// <summary>
+    ///     Verifies that <see cref="HeaderCollection.Builder" /> assembles multiple values for the same name.
+    /// </summary>
+    [Test]
+    public async Task Builder_WhenSameNameAddedTwice_PreservesBothValues()
+    {
+        var builder = new HeaderCollection.Builder();
+        builder.Add("Accept", "application/json").Add("accept", "text/plain");
+
+        var headers = builder.Build();
+
+        await Assert.That(headers.Count).IsEqualTo(1);
+        await Assert.That(headers.GetAll("Accept").Length).IsEqualTo(2);
+        await Assert.That(headers.GetAll("Accept")[0]).IsEqualTo("application/json");
+        await Assert.That(headers.GetAll("Accept")[1]).IsEqualTo("text/plain");
+    }
+
+    /// <summary>
+    ///     Verifies that the built <see cref="HeaderCollection" /> is independent of further builder mutations.
+    /// </summary>
+    [Test]
+    public async Task Builder_WhenMutatedAfterBuild_DoesNotAffectSnapshot()
+    {
+        var builder = new HeaderCollection.Builder();
+        builder.Add("Host", "example.com");
+        var headers = builder.Build();
+
+        builder.Add("Host", "other.com");
+
+        await Assert.That(headers.GetAll("Host").Length).IsEqualTo(1);
+        await Assert.That(headers.Get("Host")).IsEqualTo("example.com");
+    }
 }
