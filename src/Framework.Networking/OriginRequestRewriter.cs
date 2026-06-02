@@ -289,7 +289,7 @@ public static class OriginRequestRewriter
         var result = new List<HeaderLineRange>();
         var cursor = 0;
 
-        while (cursor <= headerSectionSpan.Length)
+        while (cursor < headerSectionSpan.Length)
         {
             var next = FindLineTerminatorIndex(headerSectionSpan, cursor);
 
