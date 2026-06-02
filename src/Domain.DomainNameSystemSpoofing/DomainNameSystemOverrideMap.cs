@@ -169,7 +169,12 @@ public sealed class DomainNameSystemOverrideMap
     /// <summary>
     ///     Resets the <see cref="DomainNameSystemOverrideEntry.MatchCount" /> of every
     ///     entry currently in the map to zero. Provides the single mutation path used
-    ///     by the UI's reset action.
+    ///     by the UI's reset action. The writer lock is intentionally not acquired:
+    ///     <see cref="DomainNameSystemOverrideEntry.ResetMatchCount" /> uses
+    ///     <see cref="System.Threading.Volatile" /> writes that are atomic with respect
+    ///     to the <see cref="System.Threading.Interlocked" /> increments performed by
+    ///     <see cref="Resolve" />, and the snapshot reference is itself published
+    ///     atomically by writers that mutate the array (Add/HasRemoved).
     /// </summary>
     public void ResetAllMatchCounts()
     {

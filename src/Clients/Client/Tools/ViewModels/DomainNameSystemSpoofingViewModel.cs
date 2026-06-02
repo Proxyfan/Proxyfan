@@ -160,17 +160,19 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
     private void RefreshMatchCounts()
     {
         var snapshot = _map.GetSnapshot();
+        var byPattern = new System.Collections.Generic.Dictionary<string, int>(snapshot.Count, System.StringComparer.Ordinal);
+        for (var index = 0; index < snapshot.Count; index += 1)
+        {
+            var entry = snapshot[index];
+            byPattern[entry.CanonicalPattern] = entry.MatchCount;
+        }
+
         for (var index = 0; index < Entries.Count; index += 1)
         {
             var row = Entries[index];
-            for (var snapshotIndex = 0; snapshotIndex < snapshot.Count; snapshotIndex += 1)
+            if (byPattern.TryGetValue(row.CanonicalPattern, out var matchCount))
             {
-                var entry = snapshot[snapshotIndex];
-                if (string.Equals(entry.CanonicalPattern, row.CanonicalPattern, System.StringComparison.Ordinal))
-                {
-                    row.SyncMatchCount(entry.MatchCount);
-                    break;
-                }
+                row.SyncMatchCount(matchCount);
             }
         }
     }
