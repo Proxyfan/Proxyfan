@@ -103,7 +103,7 @@ public sealed class WebSocketMessageAssemblerTests
     }
 
     /// <summary>
-    ///     Verifies that a fragmented (FIN=0) Close control frame is rejected per RFC 6455 Â§ 5.4.
+    ///     Verifies that a fragmented (FIN=0) Close control frame is rejected per RFC 6455 § 5.4.
     /// </summary>
     [Test]
     public async Task Accept_FragmentedCloseFrame_Throws()
@@ -116,7 +116,7 @@ public sealed class WebSocketMessageAssemblerTests
     }
 
     /// <summary>
-    ///     Verifies that a fragmented (FIN=0) Ping control frame is rejected per RFC 6455 Â§ 5.4.
+    ///     Verifies that a fragmented (FIN=0) Ping control frame is rejected per RFC 6455 § 5.4.
     /// </summary>
     [Test]
     public async Task Accept_FragmentedPingFrame_Throws()
@@ -129,7 +129,7 @@ public sealed class WebSocketMessageAssemblerTests
     }
 
     /// <summary>
-    ///     Verifies that a fragmented (FIN=0) Pong control frame is rejected per RFC 6455 Â§ 5.4.
+    ///     Verifies that a fragmented (FIN=0) Pong control frame is rejected per RFC 6455 § 5.4.
     /// </summary>
     [Test]
     public async Task Accept_FragmentedPongFrame_Throws()
