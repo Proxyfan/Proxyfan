@@ -10,28 +10,125 @@ namespace Proxyfan.Client.Traffic.Converters;
 /// <summary>
 ///     Avalonia value converter that maps a <see cref="TrafficFlowColorTag" /> to
 ///     an <see cref="IBrush" /> suitable for rendering a small color dot in the
-///     traffic list. Brushes are resolved from the current
-///     <see cref="Application" />'s theme resources so they automatically adapt
-///     to light, dark, and high-contrast palettes.
-///     <see cref="TrafficFlowColorTag.None" /> yields a transparent brush so
-///     unmarked rows remain visually quiet.
+///     traffic list. Brushes are supplied via styled properties bound from XAML
+///     (typically with <c>{DynamicResource …}</c> against
+///     <c>App.axaml</c> theme dictionaries) so theming stays purely declarative
+///     and the converter never touches global application state from C#.
+///     <see cref="TrafficFlowColorTag.None" /> and unknown inputs yield a
+///     transparent brush so unmarked rows remain visually quiet.
 /// </summary>
-public sealed class TrafficFlowColorTagToBrushConverter : IValueConverter
+public sealed class TrafficFlowColorTagToBrushConverter : AvaloniaObject, IValueConverter
 {
     /// <summary>
-    ///     Gets the shared singleton instance for XAML usage.
+    ///     Styled property backing <see cref="BlueBrush" />.
     /// </summary>
-    public static TrafficFlowColorTagToBrushConverter Instance { get; }
+    public static readonly StyledProperty<IBrush?> BlueBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(BlueBrush));
 
-    static TrafficFlowColorTagToBrushConverter()
+    /// <summary>
+    ///     Styled property backing <see cref="GrayBrush" />.
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> GrayBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(GrayBrush));
+
+    /// <summary>
+    ///     Styled property backing <see cref="GreenBrush" />.
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> GreenBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(GreenBrush));
+
+    /// <summary>
+    ///     Styled property backing <see cref="OrangeBrush" />.
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> OrangeBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(OrangeBrush));
+
+    /// <summary>
+    ///     Styled property backing <see cref="PurpleBrush" />.
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> PurpleBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(PurpleBrush));
+
+    /// <summary>
+    ///     Styled property backing <see cref="RedBrush" />.
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> RedBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(RedBrush));
+
+    /// <summary>
+    ///     Styled property backing <see cref="YellowBrush" />.
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> YellowBrushProperty =
+        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(YellowBrush));
+
+    /// <summary>
+    ///     Brush used for <see cref="TrafficFlowColorTag.Blue" />.
+    /// </summary>
+    public IBrush? BlueBrush
     {
-        var instance = new TrafficFlowColorTagToBrushConverter();
-        Instance = instance;
+        get => GetValue(BlueBrushProperty);
+        set => SetValue(BlueBrushProperty, value);
     }
 
     /// <summary>
-    ///     Converts a <see cref="TrafficFlowColorTag" /> into the
-    ///     theme-resolved brush registered in <see cref="Application.Resources" />.
+    ///     Brush used for <see cref="TrafficFlowColorTag.Gray" />.
+    /// </summary>
+    public IBrush? GrayBrush
+    {
+        get => GetValue(GrayBrushProperty);
+        set => SetValue(GrayBrushProperty, value);
+    }
+
+    /// <summary>
+    ///     Brush used for <see cref="TrafficFlowColorTag.Green" />.
+    /// </summary>
+    public IBrush? GreenBrush
+    {
+        get => GetValue(GreenBrushProperty);
+        set => SetValue(GreenBrushProperty, value);
+    }
+
+    /// <summary>
+    ///     Brush used for <see cref="TrafficFlowColorTag.Orange" />.
+    /// </summary>
+    public IBrush? OrangeBrush
+    {
+        get => GetValue(OrangeBrushProperty);
+        set => SetValue(OrangeBrushProperty, value);
+    }
+
+    /// <summary>
+    ///     Brush used for <see cref="TrafficFlowColorTag.Purple" />.
+    /// </summary>
+    public IBrush? PurpleBrush
+    {
+        get => GetValue(PurpleBrushProperty);
+        set => SetValue(PurpleBrushProperty, value);
+    }
+
+    /// <summary>
+    ///     Brush used for <see cref="TrafficFlowColorTag.Red" />.
+    /// </summary>
+    public IBrush? RedBrush
+    {
+        get => GetValue(RedBrushProperty);
+        set => SetValue(RedBrushProperty, value);
+    }
+
+    /// <summary>
+    ///     Brush used for <see cref="TrafficFlowColorTag.Yellow" />.
+    /// </summary>
+    public IBrush? YellowBrush
+    {
+        get => GetValue(YellowBrushProperty);
+        set => SetValue(YellowBrushProperty, value);
+    }
+
+    /// <summary>
+    ///     Converts a <see cref="TrafficFlowColorTag" /> into the brush bound to
+    ///     the corresponding styled property, falling back to
+    ///     <see cref="Brushes.Transparent" /> when the tag is
+    ///     <see cref="TrafficFlowColorTag.None" />, unrecognised, or unbound.
     /// </summary>
     /// <param name="value">The bound value, expected to be a <see cref="TrafficFlowColorTag" />.</param>
     /// <param name="targetType">Ignored.</param>
@@ -40,21 +137,24 @@ public sealed class TrafficFlowColorTagToBrushConverter : IValueConverter
     /// <returns>A brush representing the color, or transparent when not applicable.</returns>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not TrafficFlowColorTag colorTag || colorTag == TrafficFlowColorTag.None)
+        if (value is not TrafficFlowColorTag colorTag)
         {
             return Brushes.Transparent;
         }
 
-        var key = TrafficFlowColorTagBrushResources.BuildResourceKey(colorTag);
-        var application = Application.Current;
-        if (application is not null
-            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var resource)
-            && resource is IBrush brush)
+        var brush = colorTag switch
         {
-            return brush;
-        }
+            TrafficFlowColorTag.Red => RedBrush,
+            TrafficFlowColorTag.Orange => OrangeBrush,
+            TrafficFlowColorTag.Yellow => YellowBrush,
+            TrafficFlowColorTag.Green => GreenBrush,
+            TrafficFlowColorTag.Blue => BlueBrush,
+            TrafficFlowColorTag.Purple => PurpleBrush,
+            TrafficFlowColorTag.Gray => GrayBrush,
+            _ => null,
+        };
 
-        return Brushes.Transparent;
+        return brush ?? Brushes.Transparent;
     }
 
     /// <summary>
