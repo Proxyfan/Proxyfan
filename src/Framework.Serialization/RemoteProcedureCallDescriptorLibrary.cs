@@ -15,6 +15,7 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
 {
     private readonly Dictionary<string, IReadOnlyList<ProtobufFileDescriptor>> _filesBySource;
     private readonly Lock _gate;
+    private ProtobufDescriptorIndex _index;
 
     /// <summary>
     ///     Initializes a new empty library.
@@ -26,7 +27,7 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
         var filesBySource = new Dictionary<string, IReadOnlyList<ProtobufFileDescriptor>>(StringComparer.Ordinal);
         _filesBySource = filesBySource;
         var emptyIndex = new ProtobufDescriptorIndex([]);
-        Index = emptyIndex;
+        _index = emptyIndex;
     }
 
     /// <inheritdoc />
@@ -40,7 +41,7 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
     }
 
     /// <inheritdoc />
-    public ProtobufDescriptorIndex Index { get; private set; }
+    public ProtobufDescriptorIndex Index => Volatile.Read(ref _index);
 
     /// <inheritdoc />
     public void Load(string sourcePath, byte[] payload)
@@ -92,6 +93,6 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
         }
 
         var fresh = new ProtobufDescriptorIndex(combined);
-        Index = fresh;
+        Volatile.Write(ref _index, fresh);
     }
 }
