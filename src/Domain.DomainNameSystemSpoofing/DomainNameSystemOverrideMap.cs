@@ -135,6 +135,52 @@ public sealed class DomainNameSystemOverrideMap
     }
 
     /// <summary>
+    ///     Sets the <see cref="DomainNameSystemOverrideEntry.IsEnabled" /> state of the
+    ///     entry whose canonical pattern matches the supplied hostname. Provides the
+    ///     single mutation path used by UI surfaces so that future eventing, validation,
+    ///     and persistence hooks can be added centrally instead of bypassing the map.
+    /// </summary>
+    /// <param name="canonicalPattern">The canonical pattern of the entry to update.</param>
+    /// <param name="isEnabled">The new enabled state.</param>
+    /// <returns><see langword="true" /> when an entry was found and its state changed.</returns>
+    public bool HasSetEnabled(string canonicalPattern, bool isEnabled)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(canonicalPattern);
+        lock (_writerSync)
+        {
+            var snapshot = _snapshot;
+            var matchIndex = DomainNameSystemOverrideEntryArrays.IndexOf(snapshot, canonicalPattern);
+            if (matchIndex < 0)
+            {
+                return false;
+            }
+
+            var entry = snapshot[matchIndex];
+            if (entry.IsEnabled == isEnabled)
+            {
+                return false;
+            }
+
+            entry.IsEnabled = isEnabled;
+            return true;
+        }
+    }
+
+    /// <summary>
+    ///     Resets the <see cref="DomainNameSystemOverrideEntry.MatchCount" /> of every
+    ///     entry currently in the map to zero. Provides the single mutation path used
+    ///     by the UI's reset action.
+    /// </summary>
+    public void ResetAllMatchCounts()
+    {
+        var snapshot = _snapshot;
+        for (var index = 0; index < snapshot.Length; index += 1)
+        {
+            snapshot[index].ResetMatchCount();
+        }
+    }
+
+    /// <summary>
     ///     Resolves the supplied hostname against the map. Returns the configured
     ///     override IP when an enabled entry matches (incrementing that entry's
     ///     <see cref="DomainNameSystemOverrideEntry.MatchCount" />) and the map is

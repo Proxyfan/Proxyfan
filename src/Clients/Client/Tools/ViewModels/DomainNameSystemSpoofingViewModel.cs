@@ -75,7 +75,7 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
         Entries = [];
         foreach (var entry in map.GetSnapshot())
         {
-            var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+            var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, OnEntryIsEnabledChanged);
             viewModel.PropertyChanged += OnEntryPropertyChanged;
             Entries.Add(viewModel);
         }
@@ -106,7 +106,7 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
 
         var entry = new DomainNameSystemOverrideEntry(rawHostname, address);
         _map.Add(entry);
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, OnEntryIsEnabledChanged);
         viewModel.PropertyChanged += OnEntryPropertyChanged;
         Entries.Add(viewModel);
         NewHostname = string.Empty;
@@ -133,6 +133,11 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
         }
     }
 
+    private void OnEntryIsEnabledChanged(DomainNameSystemSpoofingEntryViewModel row, bool value)
+    {
+        _map.HasSetEnabled(row.CanonicalPattern, value);
+    }
+
     private void OnEntryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
         if (args.PropertyName == nameof(DomainNameSystemSpoofingEntryViewModel.IsEnabled))
@@ -154,9 +159,19 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
     [RelayCommand]
     private void RefreshMatchCounts()
     {
+        var snapshot = _map.GetSnapshot();
         for (var index = 0; index < Entries.Count; index += 1)
         {
-            Entries[index].RefreshMatchCount();
+            var row = Entries[index];
+            for (var snapshotIndex = 0; snapshotIndex < snapshot.Count; snapshotIndex += 1)
+            {
+                var entry = snapshot[snapshotIndex];
+                if (string.Equals(entry.CanonicalPattern, row.CanonicalPattern, System.StringComparison.Ordinal))
+                {
+                    row.SyncMatchCount(entry.MatchCount);
+                    break;
+                }
+            }
         }
     }
 
@@ -169,7 +184,7 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
         }
 
         viewModel.PropertyChanged -= OnEntryPropertyChanged;
-        _map.HasRemoved(viewModel.Entry.CanonicalPattern);
+        _map.HasRemoved(viewModel.CanonicalPattern);
         Entries.Remove(viewModel);
         ValidationMessage = null;
         OnPropertyChanged(nameof(StatusDisplay));
@@ -178,10 +193,10 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
     [RelayCommand]
     private void ResetMatchCounts()
     {
+        _map.ResetAllMatchCounts();
         for (var index = 0; index < Entries.Count; index += 1)
         {
-            Entries[index].Entry.ResetMatchCount();
-            Entries[index].RefreshMatchCount();
+            Entries[index].SyncMatchCount(0);
         }
     }
 }
