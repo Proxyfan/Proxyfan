@@ -20,11 +20,21 @@ public sealed class StubBackendHealthProbe : IBackendHealthProbe
     /// </summary>
     public int ProbeCount { get; private set; }
 
+    /// <summary>
+    ///     Gets or sets an optional gate. When set, ProbeAsync awaits the task before returning.
+    /// </summary>
+    public Task? ProbeGate { get; set; }
+
     /// <inheritdoc />
-    public Task<bool> ProbeAsync(string host, int port, CancellationToken cancellationToken)
+    public async Task<bool> ProbeAsync(string host, int port, CancellationToken cancellationToken)
     {
         _ = (host, port, cancellationToken);
         ProbeCount++;
-        return Task.FromResult(ResponseHealthy);
+        if (ProbeGate is not null)
+        {
+            await ProbeGate.ConfigureAwait(false);
+        }
+
+        return ResponseHealthy;
     }
 }

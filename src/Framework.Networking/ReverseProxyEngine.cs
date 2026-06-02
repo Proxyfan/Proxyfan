@@ -136,6 +136,11 @@ public sealed partial class ReverseProxyEngine : IAsyncDisposable, IReverseProxy
         var fireEvent = false;
         lock (_gate)
         {
+            if (!_listeners.TryGetValue(identifier, out var current) || !ReferenceEquals(current, listener))
+            {
+                return _statuses.GetValueOrDefault(identifier, ReverseProxyRouteStatus.Stopped);
+            }
+
             if (!_statuses.TryGetValue(identifier, out var previous) || previous != status)
             {
                 fireEvent = true;
