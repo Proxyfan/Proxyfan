@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
 using System.Net;
@@ -140,6 +141,43 @@ public sealed class SocksTunnelHandlerTests
 
         await Assert.That(output[2]).IsEqualTo((byte)0x05);
         await Assert.That(output[3]).IsEqualTo((byte)0x05);
+    }
+
+    /// <summary>
+    ///     Verifies SOCKS5 CONNECT to an IPv4 literal bypasses the DNS override resolver:
+    ///     an override keyed on the literal must not redirect the connect to a different
+    ///     address. Per the handler's documented raw-IP semantics, overrides apply only to
+    ///     SOCKS5 domain-name destinations.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks5IpLiteralWithDnsOverride_BypassesResolver()
+    {
+        using var listener = StartTcpListener();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        var acceptTask = AcceptAndCloseAsync(listener);
+
+        var overrideMap = new DomainNameSystemOverrideMap();
+        var entry = new DomainNameSystemOverrideEntry("127.0.0.1", IPAddress.Parse("203.0.113.1")) { IsEnabled = true };
+        overrideMap.Add(entry);
+        var resolver = new UpstreamHostResolver(overrideMap);
+        var handler = new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance, resolver);
+        var connection = new StubFullDuplexProxyConnection();
+        var greetingBytes = new byte[] { 0x05, 0x01, 0x00 };
+        var connectBytes = BuildSocks5ConnectIpv4(IPAddress.Loopback, endpoint.Port);
+        await connection.InputWriter.WriteAsync(greetingBytes);
+        await connection.InputWriter.WriteAsync(connectBytes);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await acceptTask;
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsGreaterThanOrEqualTo(12);
+        await Assert.That(output[2]).IsEqualTo((byte)0x05);
+        await Assert.That(output[3]).IsEqualTo((byte)0x00);
+        await Assert.That(entry.MatchCount).IsEqualTo(0);
     }
 
     /// <summary>
