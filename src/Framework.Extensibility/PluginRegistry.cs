@@ -1,6 +1,7 @@
 using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Proxyfan.Framework.Extensibility;
 
@@ -10,12 +11,25 @@ namespace Proxyfan.Framework.Extensibility;
 /// </summary>
 public sealed class PluginRegistry
 {
+    private readonly Lock _gate;
     private readonly List<LoadedPlugin> _plugins;
 
     /// <summary>
-    ///     Gets the snapshot of currently-registered plugins.
+    ///     Gets an immutable snapshot of currently-registered plugins. The returned list is a
+    ///     defensive copy that is decoupled from the backing store, so callers can enumerate
+    ///     it safely even while concurrent reloads mutate the registry, and cannot mutate the
+    ///     registry by casting the result back to a mutable list.
     /// </summary>
-    public IReadOnlyList<LoadedPlugin> Plugins => _plugins;
+    public IReadOnlyList<LoadedPlugin> Plugins
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _plugins];
+            }
+        }
+    }
 
     /// <summary>
     ///     Initializes a new empty <see cref="PluginRegistry" />.
@@ -23,7 +37,9 @@ public sealed class PluginRegistry
     public PluginRegistry()
     {
         var plugins = new List<LoadedPlugin>();
+        var gate = new Lock();
         _plugins = plugins;
+        _gate = gate;
     }
 
     /// <summary>
@@ -34,7 +50,10 @@ public sealed class PluginRegistry
     /// <param name="failed">The failed entry to record.</param>
     public void AddFailed(LoadedPlugin failed)
     {
-        _plugins.Add(failed);
+        lock (_gate)
+        {
+            _plugins.Add(failed);
+        }
     }
 
     /// <summary>
@@ -43,7 +62,10 @@ public sealed class PluginRegistry
     /// </summary>
     public void Reset()
     {
-        _plugins.Clear();
+        lock (_gate)
+        {
+            _plugins.Clear();
+        }
     }
 
     /// <summary>
@@ -59,7 +81,10 @@ public sealed class PluginRegistry
         if (!PluginApiVersionChecker.HasCompatibility(host.ApiVersion, plugin.Metadata.ApiVersion))
         {
             var incompatible = new LoadedPlugin(plugin.Metadata, null, false, $"Required API {plugin.Metadata.ApiVersion} is incompatible with host API {host.ApiVersion}.", sourceDirectory);
-            _plugins.Add(incompatible);
+            lock (_gate)
+            {
+                _plugins.Add(incompatible);
+            }
             return incompatible;
         }
 
@@ -67,13 +92,19 @@ public sealed class PluginRegistry
         {
             plugin.Initialize(host);
             var loaded = new LoadedPlugin(plugin.Metadata, plugin, true, null, sourceDirectory);
-            _plugins.Add(loaded);
+            lock (_gate)
+            {
+                _plugins.Add(loaded);
+            }
             return loaded;
         }
         catch (Exception ex)
         {
             var failed = new LoadedPlugin(plugin.Metadata, null, false, ex.Message, sourceDirectory);
-            _plugins.Add(failed);
+            lock (_gate)
+            {
+                _plugins.Add(failed);
+            }
             return failed;
         }
     }
