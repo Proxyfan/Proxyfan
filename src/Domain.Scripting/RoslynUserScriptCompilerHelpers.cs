@@ -34,7 +34,6 @@ public static class RoslynUserScriptCompilerHelpers
             phaseLabel = "response";
         }
 
-
         foreach (var diagnostic in source)
         {
             if (diagnostic.Severity == DiagnosticSeverity.Hidden)
