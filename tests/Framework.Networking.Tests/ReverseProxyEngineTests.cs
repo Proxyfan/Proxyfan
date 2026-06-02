@@ -1,5 +1,6 @@
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Framework.Networking.Tests.Stubs;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -178,12 +179,12 @@ public sealed class ReverseProxyEngineTests
     [Test]
     public async Task ProbeAsync_RouteStoppedBeforeCompletion_DoesNotOverwriteStatus()
     {
-        var gate = new System.Threading.Tasks.TaskCompletionSource();
+        var gate = new TaskCompletionSource();
         var probe = new StubBackendHealthProbe { ResponseHealthy = true, ProbeGate = gate.Task };
         await using var engine = CreateEngine(probe);
         var route = CreateRoute("api", listenPort: 0);
         await engine.StartRouteAsync(route, CancellationToken.None);
-        var statusChanges = new System.Collections.Generic.List<ReverseProxyRouteStatus>();
+        var statusChanges = new List<ReverseProxyRouteStatus>();
         engine.StatusChanged += (_, status) => statusChanges.Add(status);
 
         var probeTask = engine.ProbeAsync("api", CancellationToken.None);
@@ -203,7 +204,7 @@ public sealed class ReverseProxyEngineTests
     [Test]
     public async Task ProbeAsync_RouteRestartedBeforeCompletion_DoesNotOverwriteNewStatus()
     {
-        var gate = new System.Threading.Tasks.TaskCompletionSource();
+        var gate = new TaskCompletionSource();
         var probe = new StubBackendHealthProbe { ResponseHealthy = false, ProbeGate = gate.Task };
         await using var engine = CreateEngine(probe);
         var route = CreateRoute("api", listenPort: 0);
