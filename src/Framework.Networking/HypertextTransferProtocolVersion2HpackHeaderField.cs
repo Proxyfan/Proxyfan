@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace Proxyfan.Framework.Networking;
 
@@ -10,10 +11,12 @@ namespace Proxyfan.Framework.Networking;
 public sealed class HypertextTransferProtocolVersion2HpackHeaderField
 {
     /// <summary>
-    ///     RFC 7541 § 4.1 — the entry size is the sum of the name length, value length, and a
-    ///     32-byte overhead representing the entry's bookkeeping.
+    ///     RFC 7541 § 4.1 — the entry size is the sum of the name length in octets, value length
+    ///     in octets, and a 32-byte overhead representing the entry's bookkeeping. Lengths are
+    ///     counted as UTF-8 octets (not UTF-16 characters) so that non-ASCII values are not
+    ///     undercounted against the dynamic-table budget.
     /// </summary>
-    public int EntrySize => Name.Length + Value.Length + 32;
+    public int EntrySize => Encoding.UTF8.GetByteCount(Name) + Encoding.UTF8.GetByteCount(Value) + 32;
 
     /// <summary>
     ///     Gets a value indicating whether this header is sensitive and must be encoded as
