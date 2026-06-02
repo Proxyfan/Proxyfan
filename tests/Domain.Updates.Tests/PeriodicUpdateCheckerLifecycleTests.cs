@@ -191,6 +191,9 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
             await _gate.Task.ConfigureAwait(false);
             try
             {
+                // Touching WaitHandle on a CancellationToken whose source has been disposed
+                // raises ObjectDisposedException, so this records whether StopAsync raced ahead
+                // and disposed the source while this poll was still in flight.
                 var handle = cancellationToken.WaitHandle;
                 _ = handle.WaitOne(0);
             }
