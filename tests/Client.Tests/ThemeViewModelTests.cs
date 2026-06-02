@@ -1,6 +1,7 @@
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Theming;
+using System;
 using System.Globalization;
 using System.Linq;
 using System.Resources;
@@ -182,7 +183,7 @@ internal sealed class MultiCultureResourceManager : ResourceManager
 {
     public override string? GetString(string name, CultureInfo? culture)
     {
-        var isFrench = culture is not null && culture.Name.StartsWith("fr", System.StringComparison.OrdinalIgnoreCase);
+        var isFrench = culture is not null && culture.Name.StartsWith("fr", StringComparison.OrdinalIgnoreCase);
         return name switch
         {
             "Tools_Theme_Option_System" => isFrench ? "Système" : "System",

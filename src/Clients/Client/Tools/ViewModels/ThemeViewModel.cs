@@ -82,6 +82,11 @@ public sealed partial class ThemeViewModel : ObservableObject, IDisposable
 
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs args)
     {
+        if (args.PropertyName is not (nameof(LocalizationService.CurrentCulture) or null))
+        {
+            return;
+        }
+
         foreach (var option in Options)
         {
             option.DisplayName = _localizationService[option.ResourceKey];
