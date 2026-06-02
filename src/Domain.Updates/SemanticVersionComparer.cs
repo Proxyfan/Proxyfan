@@ -43,9 +43,9 @@ public static class SemanticVersionComparer
         var trimmed = TrimMetadata(version);
         var rawParts = trimmed.Split('.');
 
-        if (rawParts.Length < 3)
+        if (rawParts.Length != 3)
         {
-            throw new System.ArgumentException($"Version '{version}' must have at least three dot-separated components.", nameof(version));
+            throw new System.ArgumentException($"Version '{version}' must have exactly three dot-separated components.", nameof(version));
         }
 
         var parts = new int[3];
@@ -65,18 +65,11 @@ public static class SemanticVersionComparer
 
     private static string TrimMetadata(string version)
     {
-        var preReleaseIndex = version.IndexOf('-', System.StringComparison.Ordinal);
+        var metadataIndex = version.IndexOfAny(['-', '+']);
 
-        if (preReleaseIndex >= 0)
+        if (metadataIndex >= 0)
         {
-            return version[..preReleaseIndex];
-        }
-
-        var buildIndex = version.IndexOf('+', System.StringComparison.Ordinal);
-
-        if (buildIndex >= 0)
-        {
-            return version[..buildIndex];
+            return version[..metadataIndex];
         }
 
         return version;

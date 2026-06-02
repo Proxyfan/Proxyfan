@@ -13,8 +13,9 @@ namespace Proxyfan.Framework.Extensibility;
 ///       ]
 ///     }
 ///     </code>
-///     Malformed input (invalid JSON, missing properties, wrong shape) returns
-///     <see langword="null" />.
+///     Malformed input (invalid JSON, wrong shape, or entries missing any of
+///     <c>id</c>, <c>latestVersion</c>, <c>downloadUrl</c>, or <c>minApiVersion</c>)
+///     returns <see langword="null" /> or, for individual entries, skips the entry.
 /// </summary>
 public static class PluginUpdateManifestParser
 {
@@ -52,7 +53,10 @@ public static class PluginUpdateManifestParser
         var latestVersion = ReadString(element, "latestVersion");
         var downloadUrl = ReadString(element, "downloadUrl");
         var minimumApiVersion = ReadString(element, "minApiVersion");
-        if (string.IsNullOrWhiteSpace(identifier) || string.IsNullOrWhiteSpace(latestVersion))
+        if (string.IsNullOrWhiteSpace(identifier)
+            || string.IsNullOrWhiteSpace(latestVersion)
+            || string.IsNullOrWhiteSpace(downloadUrl)
+            || string.IsNullOrWhiteSpace(minimumApiVersion))
         {
             return null;
         }
@@ -61,8 +65,8 @@ public static class PluginUpdateManifestParser
         {
             Identifier = identifier,
             LatestVersion = latestVersion,
-            DownloadUrl = downloadUrl ?? string.Empty,
-            MinimumApiVersion = minimumApiVersion ?? "0.0",
+            DownloadUrl = downloadUrl,
+            MinimumApiVersion = minimumApiVersion,
         };
         return entry;
     }
