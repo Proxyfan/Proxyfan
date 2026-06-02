@@ -243,6 +243,82 @@ public sealed class FileSystemPluginDirectoryWatcherTests
         }
     }
 
+    /// <summary>
+    ///     Simulates a folder-copy scenario: a subdirectory is created, then plugin files
+    ///     are written into it in a burst. The trailing-edge debounce must coalesce the
+    ///     burst into a single notification that fires after the burst settles — and never
+    ///     before the inner files exist, which is the regression this test guards against.
+    /// </summary>
+    [Test]
+    public async Task FolderCopy_WithDelayedInnerFiles_FiresAfterBurstSettles()
+    {
+        var rootDirectory = CreateTempDirectory();
+        try
+        {
+            var provider = new PluginRootDirectoryProvider(rootDirectory);
+            using var watcher = new FileSystemPluginDirectoryWatcher(provider);
+            var signal = new TaskCompletionSource<DateTime>();
+            watcher.PluginsDirectoryChanged += () => signal.TrySetResult(DateTime.UtcNow);
+            watcher.Start();
+
+            var pluginDirectory = Path.Combine(rootDirectory, "incoming-plugin");
+            Directory.CreateDirectory(pluginDirectory);
+            // Stagger inner-file writes so the burst extends past the initial directory
+            // creation; without trailing-edge debounce + IncludeSubdirectories the
+            // notification would fire on the bare directory and then never retry.
+            for (var i = 0; i < 5; i++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), TimeProvider.System, CancellationToken.None);
+                await File.WriteAllTextAsync(Path.Combine(pluginDirectory, $"file-{i}.bin"), "payload");
+            }
+
+            var lastWriteUtc = DateTime.UtcNow;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            cancellation.Token.Register(() => signal.TrySetCanceled());
+            var firedAtUtc = await signal.Task;
+
+            await Assert.That(firedAtUtc).IsGreaterThanOrEqualTo(lastWriteUtc);
+            await Assert.That(Directory.Exists(pluginDirectory)).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(pluginDirectory, "file-4.bin"))).IsTrue();
+        }
+        finally
+        {
+            Directory.Delete(rootDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     A burst of directory events must coalesce into a single notification rather than
+    ///     firing once per event.
+    /// </summary>
+    [Test]
+    public async Task RapidBurst_AfterStart_CoalescesIntoSingleNotification()
+    {
+        var rootDirectory = CreateTempDirectory();
+        try
+        {
+            var provider = new PluginRootDirectoryProvider(rootDirectory);
+            using var watcher = new FileSystemPluginDirectoryWatcher(provider);
+            var notificationCount = 0;
+            watcher.PluginsDirectoryChanged += () => Interlocked.Increment(ref notificationCount);
+            watcher.Start();
+
+            for (var i = 0; i < 5; i++)
+            {
+                Directory.CreateDirectory(Path.Combine(rootDirectory, $"plugin-{i}"));
+            }
+
+            // Wait long enough for the trailing-edge debounce (250 ms) to settle plus margin.
+            await Task.Delay(TimeSpan.FromSeconds(2), TimeProvider.System, CancellationToken.None);
+
+            await Assert.That(Volatile.Read(ref notificationCount)).IsEqualTo(1);
+        }
+        finally
+        {
+            Directory.Delete(rootDirectory, recursive: true);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "proxyfan-watcher-" + Path.GetRandomFileName());

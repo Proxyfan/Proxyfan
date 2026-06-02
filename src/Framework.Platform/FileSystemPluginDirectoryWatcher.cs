@@ -7,11 +7,17 @@ namespace Proxyfan.Framework.Platform;
 
 /// <summary>
 ///     <see cref="IPluginDirectoryWatcher" /> implementation that wraps a
-///     <see cref="FileSystemWatcher" /> rooted at the configured plugins directory. Filters
-///     for directory-level events (subdirectory created, deleted, or renamed) so we don't
-///     fire on transient inner-file activity (e.g. plugin writing log files). The first
-///     event in a burst is coalesced into a single notification using a short debounce
-///     window — Windows raises multiple events per logical action.
+///     <see cref="FileSystemWatcher" /> rooted at the configured plugins directory. Watches
+///     directory-level events (subdirectory created, deleted, or renamed) plus file-name
+///     events inside plugin subdirectories so that an in-progress folder copy/extract
+///     eventually triggers a single notification once the burst settles. Steady-state
+///     activity (e.g. a plugin appending to its own log file) is intentionally ignored by
+///     subscribing only to create/delete/rename — not raw <c>Changed</c> events — so that
+///     long-running plugin writes do not keep deferring the notification forever. Events
+///     are coalesced via a trailing-edge debounce timer; the notification fires only after
+///     <see cref="DebounceMilliseconds" /> have elapsed with no further events, which is
+///     what makes the "directory created, then files copied in" sequence observable as one
+///     logical change.
 /// </summary>
 public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
 {
@@ -21,9 +27,9 @@ public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
     private const int DebounceMilliseconds = 250;
     private readonly Lock _lock;
     private readonly PluginRootDirectoryProvider _rootProvider;
+    private Timer? _debounceTimer;
     private bool _isDisposed;
     private bool _isStarted;
-    private long _lastNotificationTicks;
     private FileSystemWatcher? _watcher;
 
     /// <summary>
@@ -57,6 +63,9 @@ public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
                 _watcher.Dispose();
                 _watcher = null;
             }
+
+            _debounceTimer?.Dispose();
+            _debounceTimer = null;
         }
     }
 
@@ -86,16 +95,18 @@ public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
 
             try
             {
+                var debounceTimer = new Timer(OnDebounceElapsed, state: null, Timeout.Infinite, Timeout.Infinite);
                 var watcher = new FileSystemWatcher(rootDirectory)
                 {
-                    NotifyFilter = NotifyFilters.DirectoryName,
-                    IncludeSubdirectories = false,
+                    NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.FileName,
+                    IncludeSubdirectories = true,
                 };
                 watcher.Created += OnDirectoryEvent;
                 watcher.Deleted += OnDirectoryEvent;
                 watcher.Renamed += OnDirectoryRenamed;
                 watcher.EnableRaisingEvents = true;
                 _watcher = watcher;
+                _debounceTimer = debounceTimer;
                 _isStarted = true;
             }
             catch (Exception ex)
@@ -105,27 +116,39 @@ public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
         }
     }
 
+    private void OnDebounceElapsed(object? state)
+    {
+        lock (_lock)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+        }
+
+        PluginsDirectoryChanged?.Invoke();
+    }
+
     private void OnDirectoryEvent(object sender, FileSystemEventArgs eventArgs)
     {
-        RaiseDebounced();
+        ScheduleDebounced();
     }
 
     private void OnDirectoryRenamed(object sender, RenamedEventArgs eventArgs)
     {
-        RaiseDebounced();
+        ScheduleDebounced();
     }
 
-    private void RaiseDebounced()
+    private void ScheduleDebounced()
     {
-        var now = DateTime.UtcNow.Ticks;
-        var previous = Interlocked.Read(ref _lastNotificationTicks);
-        var elapsed = TimeSpan.FromTicks(now - previous);
-        if (elapsed.TotalMilliseconds < DebounceMilliseconds)
+        lock (_lock)
         {
-            return;
-        }
+            if (_isDisposed || _debounceTimer is null)
+            {
+                return;
+            }
 
-        Interlocked.Exchange(ref _lastNotificationTicks, now);
-        PluginsDirectoryChanged?.Invoke();
+            _debounceTimer.Change(DebounceMilliseconds, Timeout.Infinite);
+        }
     }
 }
