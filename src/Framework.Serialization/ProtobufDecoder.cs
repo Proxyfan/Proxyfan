@@ -12,6 +12,11 @@ namespace Proxyfan.Framework.Serialization;
 public static class ProtobufDecoder
 {
     /// <summary>
+    ///     The maximum field number permitted by the protobuf wire format (2^29 - 1).
+    /// </summary>
+    private const ulong MaximumFieldNumber = 536870911UL;
+
+    /// <summary>
     ///     Decodes the supplied protobuf payload into a list of fields.
     /// </summary>
     /// <param name="payload">The encoded protobuf bytes.</param>
@@ -28,7 +33,13 @@ public static class ProtobufDecoder
         while (cursor.Offset < span.Length)
         {
             var tag = ReadVarint(cursor, span);
-            var fieldNumber = (int)(tag >> 3);
+            var fieldNumberRaw = tag >> 3;
+            if (fieldNumberRaw is 0 or > MaximumFieldNumber)
+            {
+                throw new System.IO.InvalidDataException($"Invalid protobuf field number: {fieldNumberRaw}.");
+            }
+
+            var fieldNumber = (int)fieldNumberRaw;
             var wireType = (ProtobufWireType)(int)(tag & 0x7);
             var field = ReadField(cursor, span, fieldNumber, wireType);
             fields.Add(field);

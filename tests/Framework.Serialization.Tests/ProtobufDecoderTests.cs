@@ -201,4 +201,29 @@ public sealed class ProtobufDecoderTests
         await Assert.That(fields[0].FieldNumber).IsEqualTo(101);
         await Assert.That((ulong)fields[0].Value).IsEqualTo(1UL);
     }
+
+    /// <summary>
+    ///     Verifies that field number zero (reserved by the protobuf wire format) is rejected.
+    /// </summary>
+    [Test]
+    public async Task Decode_ZeroFieldNumber_Throws()
+    {
+        var payload = new byte[] { 0x00, 0x01 };
+
+        await Assert.That(() => ProtobufDecoder.Decode(payload)).Throws<InvalidDataException>();
+    }
+
+    /// <summary>
+    ///     Verifies that a field number above the protobuf maximum (2^29 - 1) is rejected,
+    ///     preventing very large tags from wrapping to negative field numbers.
+    /// </summary>
+    [Test]
+    public async Task Decode_FieldNumberAboveMaximum_Throws()
+    {
+        // Tag varint encoding field number 2^29 (one above the protobuf maximum 2^29 - 1)
+        // with wire type 0 (varint): (2^29 << 3) | 0 = 0x100000000.
+        var payload = new byte[] { 0x80, 0x80, 0x80, 0x80, 0x10, 0x01 };
+
+        await Assert.That(() => ProtobufDecoder.Decode(payload)).Throws<InvalidDataException>();
+    }
 }
