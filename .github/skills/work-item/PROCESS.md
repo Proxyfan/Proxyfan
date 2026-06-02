@@ -156,11 +156,12 @@ feature branch — never commit directly to `main`.
    git switch -c fix/<short-slug>   # or feat/, chore/, docs/, …
    ```
 
-3. Stage and commit with a conventional-commit subject (≤ 72 chars) and
-   the `Co-authored-by: Copilot` trailer per `copilot-instructions.md`.
-   The body should describe the change, cite the validation command, and
-   reference the work item (`Fixes #<n>` when a GitHub issue exists, or
-   the backlog id `E04-F02-UC01-T01` otherwise).
+3. Stage and commit with a conventional-commit subject (≤ 72 chars). The
+   `Co-authored-by: Copilot` trailer is mandated at the agent-runtime
+   layer and is appended automatically — you do not need to add it
+   manually. The commit body should describe the change, cite the
+   validation command, and reference the work item (`Fixes #<n>` when a
+   GitHub issue exists, or the backlog id `E04-F02-UC01-T01` otherwise).
 
 4. Push the branch and open the PR:
 

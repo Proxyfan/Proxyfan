@@ -109,8 +109,11 @@ new script in `.tools/` should import that module rather than redefining
 - Open the PR with `gh pr create`, link the issue with a `Fixes #<n>` /
   `Closes #<n>` line in the body when one exists, and summarise the scope,
   validation, and any out-of-scope follow-ups.
-- Squash-merge PRs (`gh pr merge <N> --squash --delete-branch`) unless the
-  user asks otherwise.
+- **Stop after the PR is open.** Merging is the human's call by default —
+  see `.github/skills/work-item/SKILL.md` (`What you do NOT own`). When
+  the human explicitly delegates the merge to you (e.g. *"merge it"*,
+  *"land #N"*), use `gh pr merge <N> --squash` (add `--delete-branch`
+  only when merge queues are not enabled on the repo).
 
 ## Project journal
 
