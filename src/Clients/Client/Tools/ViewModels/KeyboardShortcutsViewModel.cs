@@ -1,9 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Shortcuts;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
@@ -19,6 +21,7 @@ public sealed partial class KeyboardShortcutsViewModel : ObservableObject
 {
     private const string StatusReset = "Reverted to defaults";
     private const string StatusSaved = "Saved";
+    private readonly LocalizationService _localization;
     private readonly ShortcutRegistry _registry;
     private readonly IShortcutBindingsStore _store;
     [ObservableProperty]
@@ -37,13 +40,16 @@ public sealed partial class KeyboardShortcutsViewModel : ObservableObject
     /// </summary>
     /// <param name="registry">The live shortcut registry mutated when the user rebinds.</param>
     /// <param name="store">The store used to persist customizations.</param>
-    public KeyboardShortcutsViewModel(ShortcutRegistry registry, IShortcutBindingsStore store)
+    /// <param name="localization">The localization service used to resolve action labels.</param>
+    public KeyboardShortcutsViewModel(ShortcutRegistry registry, IShortcutBindingsStore store, LocalizationService localization)
     {
         _registry = registry;
         _store = store;
+        _localization = localization;
         Bindings = [];
         _statusMessage = string.Empty;
         Refresh();
+        _localization.PropertyChanged += OnLocalizationChanged;
     }
 
     /// <summary>
@@ -82,6 +88,14 @@ public sealed partial class KeyboardShortcutsViewModel : ObservableObject
         StatusMessage = string.Empty;
     }
 
+    private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        foreach (var entry in Bindings)
+        {
+            entry.ActionLabel = ShortcutActionLabels.GetLabel(entry.Action, _localization);
+        }
+    }
+
     private void Refresh()
     {
         Bindings.Clear();
@@ -90,7 +104,7 @@ public sealed partial class KeyboardShortcutsViewModel : ObservableObject
         {
             var gesture = _registry.GetGesture(action);
             var gestureText = gesture is null ? string.Empty : gesture.ToString();
-            var label = ShortcutActionLabels.GetLabel(action);
+            var label = ShortcutActionLabels.GetLabel(action, _localization);
             var entry = new KeyboardShortcutEntryViewModel(action, label, gestureText);
             Bindings.Add(entry);
         }
