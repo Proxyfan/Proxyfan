@@ -189,6 +189,19 @@ public sealed class ProtobufDecoderTests
     }
 
     /// <summary>
+    ///     Verifies that a ten-byte varint whose terminal byte sets payload bits above the
+    ///     single sign bit (which would otherwise be silently shifted out of the 64-bit
+    ///     accumulator) is rejected rather than decoded to a truncated value.
+    /// </summary>
+    [Test]
+    public async Task Decode_VarintTenByteTerminalOverflow_Throws()
+    {
+        var payload = new byte[] { 0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02 };
+
+        await Assert.That(() => ProtobufDecoder.Decode(payload)).Throws<InvalidDataException>();
+    }
+
+    /// <summary>
     ///     Verifies that a high field number (encoded over multiple varint bytes) is decoded.
     /// </summary>
     [Test]

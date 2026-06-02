@@ -104,6 +104,12 @@ public static class ProtobufDecoder
 
             var current = span[cursor.Offset];
             cursor.Advance(1);
+
+            if (shift == 63 && (current & 0x7E) != 0)
+            {
+                throw new System.IO.InvalidDataException("Varint overflows 64 bits.");
+            }
+
             result |= (ulong)(current & 0x7F) << shift;
 
             if ((current & 0x80) == 0)
