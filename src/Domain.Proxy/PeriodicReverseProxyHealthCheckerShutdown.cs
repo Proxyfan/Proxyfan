@@ -17,16 +17,20 @@ public static class PeriodicReverseProxyHealthCheckerShutdown
     ///     <see cref="IDisposable.Dispose" /> race is tolerated.
     /// </summary>
     /// <param name="source">The cancellation token source to cancel.</param>
-    /// <param name="cancellationToken">Unused; required by analyzer ATXTA008.</param>
+    /// <param name="cancellationToken">
+    ///     Cancels the wait for the cancel operation itself. When this token fires while
+    ///     <see cref="CancellationTokenSource.CancelAsync" /> is draining registered
+    ///     callbacks, the resulting <see cref="OperationCanceledException" /> is propagated
+    ///     so the caller's timeout is honored.
+    /// </param>
     /// <returns><see langword="true" /> when the cancel propagated normally.</returns>
     public static async Task<bool> HasCancelSucceededAsync(
         CancellationTokenSource source,
         CancellationToken cancellationToken)
     {
-        _ = cancellationToken;
         try
         {
-            await source.CancelAsync().ConfigureAwait(false);
+            await source.CancelAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch (ObjectDisposedException ex)
@@ -38,17 +42,25 @@ public static class PeriodicReverseProxyHealthCheckerShutdown
 
     /// <summary>
     ///     Waits for the supplied background <paramref name="loop" /> task to complete,
-    ///     swallowing the <see cref="OperationCanceledException" /> that propagates when
-    ///     <see cref="Task.Delay(TimeSpan, CancellationToken)" /> aborts.
+    ///     swallowing the <see cref="OperationCanceledException" /> that propagates from
+    ///     the loop's own cancellation (for example when
+    ///     <see cref="Task.Delay(TimeSpan, CancellationToken)" /> aborts inside the loop).
+    ///     A cancellation triggered by the caller's <paramref name="cancellationToken" /> is
+    ///     re-thrown so callers can honor their own timeout instead of silently assuming the
+    ///     loop drained.
     /// </summary>
     /// <param name="loop">The background loop task to wait for.</param>
     /// <param name="cancellationToken">Cancels the wait.</param>
-    /// <returns>A task that completes when the loop drains or the wait is cancelled.</returns>
+    /// <returns>A task that completes when the loop drains.</returns>
     public static async Task WaitForLoopAsync(Task loop, CancellationToken cancellationToken)
     {
         try
         {
             await loop.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (OperationCanceledException ex)
         {

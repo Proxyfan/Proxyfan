@@ -58,17 +58,20 @@ public sealed class PeriodicUpdateCheckerShutdownTests
     }
 
     /// <summary>
-    ///     Verifies that <see cref="PeriodicUpdateCheckerShutdown.WaitForLoopAsync" /> swallows
-    ///     a cancellation token that fires while the wait is in flight.
+    ///     Verifies that <see cref="PeriodicUpdateCheckerShutdown.WaitForLoopAsync" />
+    ///     propagates an <see cref="OperationCanceledException" /> when the caller's wait
+    ///     token fires, so callers can honor their own timeout.
     /// </summary>
     [Test]
-    public async Task WaitForLoopAsync_WaitTokenCancelled_Swallows()
+    public async Task WaitForLoopAsync_WaitTokenCancelled_Throws()
     {
         var taskCompletionSource = new TaskCompletionSource();
         using var cts = new CancellationTokenSource();
         var waitTask = PeriodicUpdateCheckerShutdown.WaitForLoopAsync(taskCompletionSource.Task, cts.Token);
         await cts.CancelAsync();
-        await waitTask;
+
+        await Assert.That(async () => await waitTask).Throws<OperationCanceledException>();
+
         taskCompletionSource.SetResult();
     }
 
