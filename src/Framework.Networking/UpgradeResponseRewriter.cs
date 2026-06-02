@@ -6,12 +6,12 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Response-side rewriter for HTTP/1.1 <c>Upgrade</c> responses (typically <c>101 Switching
-///     Protocols</c>). Preserves the <c>Connection</c> and <c>Upgrade</c> headers so the client
-///     sees the upgrade acknowledgment intact, while still stripping <c>Proxy-Authenticate</c>,
-///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, and <c>Keep-Alive</c>, dropping any
-///     additional headers listed in the response's <c>Connection</c> header (RFC 7230 § 6.1
-///     hop-by-hop) other than <c>Upgrade</c> itself, and appending the <c>Via: 1.1 proxyfan</c>
-///     token (RFC 7230 § 5.7.1).
+///     Protocols</c>). Preserves the <c>Upgrade</c> header and emits a sanitized <c>Connection</c>
+///     header that only retains the <c>upgrade</c> control token needed for the handshake, while
+///     stripping <c>Proxy-Authenticate</c>, <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>,
+///     and <c>Keep-Alive</c>, dropping any additional headers listed in the upstream
+///     <c>Connection</c> header (RFC 7230 § 6.1 hop-by-hop) other than <c>Upgrade</c> itself, and
+///     appending the <c>Via: 1.1 proxyfan</c> token (RFC 7230 § 5.7.1).
 /// </summary>
 public static class UpgradeResponseRewriter
 {
@@ -32,45 +32,15 @@ public static class UpgradeResponseRewriter
 
     /// <summary>
     ///     Returns a new <see cref="HypertextTransferProtocolResponseData" /> with hop-by-hop
-    ///     headers (other than <c>Connection</c>/<c>Upgrade</c>) stripped and the <c>Via</c>
-    ///     chain extended with this proxy's identity.
+    ///     headers stripped, the <c>Connection</c> header sanitized to the preserved control
+    ///     tokens, and the <c>Via</c> chain extended with this proxy's identity.
     /// </summary>
     /// <param name="response">The upstream upgrade response.</param>
     /// <returns>The rewritten response suitable for forwarding to the client.</returns>
     public static HypertextTransferProtocolResponseData Rewrite(HypertextTransferProtocolResponseData response)
     {
-        var connectionListedHeaders = ExtractConnectionListedHeaderNames(response.Headers);
-        var sanitized = HeaderCollection.Empty;
-        var hasExistingVia = false;
-        var existingViaChain = string.Empty;
-
-        foreach (var header in response.Headers)
-        {
-            if (AlwaysStrippedHeaders.Contains(header.Key))
-            {
-                continue;
-            }
-
-            if (connectionListedHeaders.Contains(header.Key))
-            {
-                continue;
-            }
-
-            if (string.Equals(header.Key, "Via", StringComparison.OrdinalIgnoreCase))
-            {
-                existingViaChain = string.Join(", ", header.Value);
-                hasExistingVia = existingViaChain.Length > 0;
-                continue;
-            }
-
-            foreach (var value in header.Value)
-            {
-                sanitized = sanitized.Add(header.Key, value);
-            }
-        }
-
-        var viaValue = hasExistingVia ? existingViaChain + ", " + ProxyViaIdentity : ProxyViaIdentity;
-        sanitized = sanitized.Add("Via", viaValue);
+        var classification = ClassifyConnectionTokens(response.Headers);
+        var sanitized = BuildSanitizedHeaders(response.Headers, classification);
 
         var parameters = new HypertextTransferProtocolResponseDataParameters
         {
@@ -83,19 +53,64 @@ public static class UpgradeResponseRewriter
         return new HypertextTransferProtocolResponseData(parameters);
     }
 
-    private static HashSet<string> ExtractConnectionListedHeaderNames(HeaderCollection headers)
+    private static HeaderCollection BuildSanitizedHeaders(
+        HeaderCollection source,
+        ConnectionTokenClassification classification)
     {
-        var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var connection = headers.Get("Connection");
+        var sanitized = HeaderCollection.Empty;
+        var existingViaChain = string.Empty;
 
-        if (string.IsNullOrEmpty(connection))
+        foreach (var header in source)
         {
-            return listed;
+            if (CanDrop(header.Key, classification.ListedHeaderNames))
+            {
+                continue;
+            }
+
+            if (string.Equals(header.Key, "Via", StringComparison.OrdinalIgnoreCase))
+            {
+                existingViaChain = string.Join(", ", header.Value);
+                continue;
+            }
+
+            foreach (var value in header.Value)
+            {
+                sanitized = sanitized.Add(header.Key, value);
+            }
         }
 
-        var tokens = connection.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (classification.PreservedConnectionTokens.Count > 0)
+        {
+            sanitized = sanitized.Add("Connection", string.Join(", ", classification.PreservedConnectionTokens));
+        }
 
-        foreach (var token in tokens)
+        var viaValue = existingViaChain.Length > 0
+            ? existingViaChain + ", " + ProxyViaIdentity
+            : ProxyViaIdentity;
+        return sanitized.Add("Via", viaValue);
+    }
+
+    private static bool CanDrop(string headerName, HashSet<string> listedHeaderNames)
+    {
+        if (AlwaysStrippedHeaders.Contains(headerName))
+        {
+            return true;
+        }
+
+        if (string.Equals(headerName, "Connection", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return listedHeaderNames.Contains(headerName);
+    }
+
+    private static ConnectionTokenClassification ClassifyConnectionTokens(HeaderCollection headers)
+    {
+        var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var preserved = new List<string>();
+
+        foreach (var token in ConnectionHeaderTokenizer.Parse(headers))
         {
             if (string.Equals(token, "Connection", StringComparison.OrdinalIgnoreCase))
             {
@@ -104,12 +119,26 @@ public static class UpgradeResponseRewriter
 
             if (string.Equals(token, "Upgrade", StringComparison.OrdinalIgnoreCase))
             {
+                preserved.Add(token);
                 continue;
             }
 
             listed.Add(token);
         }
 
-        return listed;
+        return new ConnectionTokenClassification(listed, preserved);
+    }
+
+    private sealed class ConnectionTokenClassification
+    {
+        public HashSet<string> ListedHeaderNames { get; }
+
+        public List<string> PreservedConnectionTokens { get; }
+
+        public ConnectionTokenClassification(HashSet<string> listedHeaderNames, List<string> preservedConnectionTokens)
+        {
+            ListedHeaderNames = listedHeaderNames;
+            PreservedConnectionTokens = preservedConnectionTokens;
+        }
     }
 }

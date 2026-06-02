@@ -133,7 +133,7 @@ public sealed class UpgradeResponseRewriterTests
         var rewritten = UpgradeResponseRewriter.Rewrite(response);
 
         await Assert.That(rewritten.Headers.HasHeader("X-Upstream-Hop")).IsFalse();
-        await Assert.That(rewritten.Headers.Get("Connection")).IsEqualTo("upgrade, X-Upstream-Hop");
+        await Assert.That(rewritten.Headers.Get("Connection")).IsEqualTo("upgrade");
         await Assert.That(rewritten.Headers.Get("Upgrade")).IsEqualTo("websocket");
     }
 
