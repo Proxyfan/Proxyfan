@@ -448,6 +448,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         }
         var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(forwardContext.RequestExchange, effectiveRequest);
         await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
+        flow.MarkRequestCompleted();
 
         if (forwardContext.ServeLocal is not null)
         {
@@ -463,6 +464,8 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
             return false;
         }
+
+        flow.MarkResponseStarted();
 
         if (ServerSentEventsResponseDetector.HasServerSentEventsResponse(headerRead.Response))
         {
