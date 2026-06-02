@@ -6,12 +6,14 @@ namespace Proxyfan.Framework.Serialization;
 ///     Extracts the first named operation from a Graph Query Language (GraphQL) query
 ///     source. GraphQL documents may contain anonymous (<c>{ ... }</c>) or named
 ///     (<c>query Foo { ... }</c>, <c>mutation Bar { ... }</c>,
-///     <c>subscription Baz { ... }</c>) operations. When the request payload does not specify
-///     an explicit <c>operationName</c>, this helper recovers it from the source so the
+///     <c>subscription Baz { ... }</c>) operations and may also define fragments
+///     before the first operation. When the request payload does not specify an
+///     explicit <c>operationName</c>, this helper recovers it from the source so the
 ///     traffic list can display something meaningful.
 /// </summary>
 public static class GraphQueryLanguageOperationNameExtractor
 {
+    private const string FragmentKeyword = "fragment";
     private static readonly string[] OperationKeywords;
 
     static GraphQueryLanguageOperationNameExtractor()
@@ -38,27 +40,58 @@ public static class GraphQueryLanguageOperationNameExtractor
         }
 
         var span = query.AsSpan();
-        var offset = SkipWhitespaceAndComments(span, 0);
-        if (offset >= span.Length)
+        var offset = 0;
+        while (true)
         {
+            offset = SkipWhitespaceAndComments(span, offset);
+            if (offset >= span.Length)
+            {
+                return null;
+            }
+
+            if (span[offset] == '{')
+            {
+                return null;
+            }
+
+            var word = TryReadIdentifier(span, offset);
+            if (word is null)
+            {
+                return null;
+            }
+
+            offset += word.Length;
+
+            if (Array.IndexOf(OperationKeywords, word) >= 0)
+            {
+                offset = SkipWhitespaceAndComments(span, offset);
+                if (offset >= span.Length)
+                {
+                    return null;
+                }
+
+                var name = TryReadIdentifier(span, offset);
+                return name;
+            }
+
+            if (word == FragmentKeyword)
+            {
+                offset = SkipFragmentDefinition(span, offset);
+                continue;
+            }
+
             return null;
         }
+    }
 
-        var keyword = TryReadKeyword(span, offset);
-        if (keyword is null)
-        {
-            return null;
-        }
-
-        offset += keyword.Length;
-        offset = SkipWhitespaceAndComments(span, offset);
-        if (offset >= span.Length)
-        {
-            return null;
-        }
-
-        var name = TryReadIdentifier(span, offset);
-        return name;
+    private static bool HasBlockStringStart(ReadOnlySpan<char> span, int offset)
+    {
+        var hasRoom = offset + 2 < span.Length;
+        var matches = hasRoom
+            && span[offset] == '"'
+            && span[offset + 1] == '"'
+            && span[offset + 2] == '"';
+        return matches;
     }
 
     private static bool HasIdentifierPartChar(char value)
@@ -71,6 +104,145 @@ public static class GraphQueryLanguageOperationNameExtractor
     {
         var allowed = value is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or '_';
         return allowed;
+    }
+
+    private static int SkipBalancedBraces(ReadOnlySpan<char> span, int offset)
+    {
+        var index = offset;
+        var depth = 0;
+        while (index < span.Length)
+        {
+            var current = span[index];
+            if (current == '#')
+            {
+                index = SkipLineComment(span, index);
+                continue;
+            }
+
+            if (current == '"')
+            {
+                index = SkipString(span, index);
+                continue;
+            }
+
+            if (current == '{')
+            {
+                depth++;
+                index++;
+                continue;
+            }
+
+            if (current == '}')
+            {
+                depth--;
+                index++;
+                if (depth <= 0)
+                {
+                    return index;
+                }
+
+                continue;
+            }
+
+            index++;
+        }
+
+        return index;
+    }
+
+    private static int SkipBlockString(ReadOnlySpan<char> span, int offset)
+    {
+        var index = offset + 3;
+        while (index < span.Length)
+        {
+            if (span[index] == '\\' && index + 1 < span.Length)
+            {
+                index += 2;
+                continue;
+            }
+
+            if (HasBlockStringStart(span, index))
+            {
+                return index + 3;
+            }
+
+            index++;
+        }
+
+        return span.Length;
+    }
+
+    private static int SkipFragmentDefinition(ReadOnlySpan<char> span, int offset)
+    {
+        var index = offset;
+        while (index < span.Length)
+        {
+            index = SkipWhitespaceAndComments(span, index);
+            if (index >= span.Length)
+            {
+                return index;
+            }
+
+            var current = span[index];
+            if (current == '{')
+            {
+                return SkipBalancedBraces(span, index);
+            }
+
+            if (current == '"')
+            {
+                index = SkipString(span, index);
+                continue;
+            }
+
+            index++;
+        }
+
+        return index;
+    }
+
+    private static int SkipLineComment(ReadOnlySpan<char> span, int offset)
+    {
+        var index = offset;
+        while (index < span.Length && span[index] != '\n')
+        {
+            index++;
+        }
+
+        return index;
+    }
+
+    private static int SkipRegularString(ReadOnlySpan<char> span, int offset)
+    {
+        var index = offset + 1;
+        while (index < span.Length)
+        {
+            var current = span[index];
+            if (current == '\\' && index + 1 < span.Length)
+            {
+                index += 2;
+                continue;
+            }
+
+            if (current is '"' or '\n')
+            {
+                return current == '"' ? index + 1 : index;
+            }
+
+            index++;
+        }
+
+        return span.Length;
+    }
+
+    private static int SkipString(ReadOnlySpan<char> span, int offset)
+    {
+        if (HasBlockStringStart(span, offset))
+        {
+            return SkipBlockString(span, offset);
+        }
+
+        return SkipRegularString(span, offset);
     }
 
     private static int SkipWhitespaceAndComments(ReadOnlySpan<char> span, int offset)
@@ -87,11 +259,7 @@ public static class GraphQueryLanguageOperationNameExtractor
 
             if (current == '#')
             {
-                while (index < span.Length && span[index] != '\n')
-                {
-                    index++;
-                }
-
+                index = SkipLineComment(span, index);
                 continue;
             }
 
@@ -130,33 +298,5 @@ public static class GraphQueryLanguageOperationNameExtractor
 
         var identifier = new string(span.Slice(start, length));
         return identifier;
-    }
-
-    private static string? TryReadKeyword(ReadOnlySpan<char> span, int offset)
-    {
-        foreach (var keyword in OperationKeywords)
-        {
-            var keywordSpan = keyword.AsSpan();
-            if (offset + keywordSpan.Length > span.Length)
-            {
-                continue;
-            }
-
-            var slice = span.Slice(offset, keywordSpan.Length);
-            if (!slice.SequenceEqual(keywordSpan))
-            {
-                continue;
-            }
-
-            var nextIndex = offset + keywordSpan.Length;
-            if (nextIndex < span.Length && HasIdentifierPartChar(span[nextIndex]))
-            {
-                continue;
-            }
-
-            return keyword;
-        }
-
-        return null;
     }
 }

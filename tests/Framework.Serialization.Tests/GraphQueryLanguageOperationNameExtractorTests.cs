@@ -197,4 +197,69 @@ public sealed class GraphQueryLanguageOperationNameExtractorTests
 
         await Assert.That(name).IsNull();
     }
+
+    /// <summary>
+    ///     A fragment definition preceding the named operation is skipped.
+    /// </summary>
+    [Test]
+    public async Task Extract_FragmentBeforeNamedQuery_ReturnsOperationName()
+    {
+        var source = "fragment UserFields on User { id name } query GetUser { user { ...UserFields } }";
+
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(source);
+
+        await Assert.That(name).IsEqualTo("GetUser");
+    }
+
+    /// <summary>
+    ///     Multiple fragment definitions before the operation are all skipped.
+    /// </summary>
+    [Test]
+    public async Task Extract_MultipleFragmentsBeforeMutation_ReturnsOperationName()
+    {
+        var source = "fragment A on T { x } fragment B on T { y } mutation DoIt { doIt { ok } }";
+
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(source);
+
+        await Assert.That(name).IsEqualTo("DoIt");
+    }
+
+    /// <summary>
+    ///     Fragments containing nested braces are skipped without losing the operation name.
+    /// </summary>
+    [Test]
+    public async Task Extract_FragmentWithNestedSelectionSet_ReturnsOperationName()
+    {
+        var source = "fragment Deep on Node { children { children { id } } } query Outer { root { ...Deep } }";
+
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(source);
+
+        await Assert.That(name).IsEqualTo("Outer");
+    }
+
+    /// <summary>
+    ///     Braces appearing inside string arguments within a fragment do not unbalance the scanner.
+    /// </summary>
+    [Test]
+    public async Task Extract_FragmentWithStringContainingBrace_ReturnsOperationName()
+    {
+        var source = "fragment F on T { field(arg: \"value with } brace\") } query AfterFragment { x }";
+
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(source);
+
+        await Assert.That(name).IsEqualTo("AfterFragment");
+    }
+
+    /// <summary>
+    ///     A fragment definition followed by an anonymous operation still has no operation name.
+    /// </summary>
+    [Test]
+    public async Task Extract_FragmentBeforeAnonymousOperation_ReturnsNull()
+    {
+        var source = "fragment F on T { id } { viewer { ...F } }";
+
+        var name = GraphQueryLanguageOperationNameExtractor.Extract(source);
+
+        await Assert.That(name).IsNull();
+    }
 }
