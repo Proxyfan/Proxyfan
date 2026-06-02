@@ -13,6 +13,7 @@ namespace Proxyfan.Client.Tests;
 /// <summary>
 ///     Tests for <see cref="ThrottleViewModel" />.
 /// </summary>
+[NotInParallel]
 public sealed class ThrottleViewModelTests
 {
     private static readonly string[] ExpectedPresetNames = ["Off", "2G", "3G", "4G", "WiFi", "Bad Network", "100% Loss"];
@@ -166,40 +167,48 @@ public sealed class ThrottleViewModelTests
     [Test]
     public async Task Constructor_LocalizationServicePresent_ResolvesLocalizedPresetDisplayNames()
     {
-        var english = CultureInfo.GetCultureInfo("en-US");
-        var french = CultureInfo.GetCultureInfo("fr-FR");
-        var lookup = new Dictionary<string, Dictionary<string, string>>
+        var originalCulture = CultureInfo.CurrentUICulture;
+        try
         {
-            ["en-US"] = new()
+            var english = CultureInfo.GetCultureInfo("en-US");
+            var french = CultureInfo.GetCultureInfo("fr-FR");
+            var lookup = new Dictionary<string, Dictionary<string, string>>
             {
-                ["Tools_Throttle_Preset_Off"] = "Off",
-                ["Tools_Throttle_Preset_BadNetwork"] = "Bad Network",
-            },
-            ["fr-FR"] = new()
-            {
-                ["Tools_Throttle_Preset_Off"] = "Désactivé",
-                ["Tools_Throttle_Preset_BadNetwork"] = "Mauvais réseau",
-            },
-        };
-        var localizationService = new LocalizationService(english);
-        var stub = new StubResourceManager(lookup);
-        localizationService.RegisterManager(stub);
-        var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
-        var offPreset = viewModel.Presets.First(p => p.Identifier == "Off");
-        var badNetworkPreset = viewModel.Presets.First(p => p.Identifier == "Bad Network");
+                ["en-US"] = new()
+                {
+                    ["Tools_Throttle_Preset_Off"] = "Off",
+                    ["Tools_Throttle_Preset_BadNetwork"] = "Bad Network",
+                },
+                ["fr-FR"] = new()
+                {
+                    ["Tools_Throttle_Preset_Off"] = "Désactivé",
+                    ["Tools_Throttle_Preset_BadNetwork"] = "Mauvais réseau",
+                },
+            };
+            var localizationService = new LocalizationService(english);
+            var stub = new StubResourceManager(lookup);
+            localizationService.RegisterManager(stub);
+            var holder = new MutableThrottleProfile();
+            var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
+            var offPreset = viewModel.Presets.First(p => p.Identifier == "Off");
+            var badNetworkPreset = viewModel.Presets.First(p => p.Identifier == "Bad Network");
 
-        await Assert.That(offPreset.DisplayName).IsEqualTo("Off");
-        await Assert.That(badNetworkPreset.DisplayName).IsEqualTo("Bad Network");
-        await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Off");
+            await Assert.That(offPreset.DisplayName).IsEqualTo("Off");
+            await Assert.That(badNetworkPreset.DisplayName).IsEqualTo("Bad Network");
+            await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Off");
 
-        localizationService.CurrentCulture = french;
+            localizationService.CurrentCulture = french;
 
-        await Assert.That(offPreset.DisplayName).IsEqualTo("Désactivé");
-        await Assert.That(badNetworkPreset.DisplayName).IsEqualTo("Mauvais réseau");
-        await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Désactivé");
-        await Assert.That(offPreset.Identifier).IsEqualTo("Off");
-        await Assert.That(badNetworkPreset.Identifier).IsEqualTo("Bad Network");
+            await Assert.That(offPreset.DisplayName).IsEqualTo("Désactivé");
+            await Assert.That(badNetworkPreset.DisplayName).IsEqualTo("Mauvais réseau");
+            await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Désactivé");
+            await Assert.That(offPreset.Identifier).IsEqualTo("Off");
+            await Assert.That(badNetworkPreset.Identifier).IsEqualTo("Bad Network");
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = originalCulture;
+        }
     }
 
     /// <summary>
@@ -209,25 +218,33 @@ public sealed class ThrottleViewModelTests
     [Test]
     public async Task ExternalChange_LocalizedCulture_MatchesPresetByStableIdentifier()
     {
-        var french = CultureInfo.GetCultureInfo("fr-FR");
-        var lookup = new Dictionary<string, Dictionary<string, string>>
+        var originalCulture = CultureInfo.CurrentUICulture;
+        try
         {
-            ["fr-FR"] = new()
+            var french = CultureInfo.GetCultureInfo("fr-FR");
+            var lookup = new Dictionary<string, Dictionary<string, string>>
             {
-                ["Tools_Throttle_Preset_3G"] = "Troisième génération",
-            },
-        };
-        var localizationService = new LocalizationService(french);
-        localizationService.RegisterManager(new StubResourceManager(lookup));
-        var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
+                ["fr-FR"] = new()
+                {
+                    ["Tools_Throttle_Preset_3G"] = "Troisième génération",
+                },
+            };
+            var localizationService = new LocalizationService(french);
+            localizationService.RegisterManager(new StubResourceManager(lookup));
+            var holder = new MutableThrottleProfile();
+            var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
 
-        holder.SetProfile(ThrottleProfilePresets.ThirdGeneration());
+            holder.SetProfile(ThrottleProfilePresets.ThirdGeneration());
 
-        await Assert.That(viewModel.SelectedPreset).IsNotNull();
-        await Assert.That(viewModel.SelectedPreset!.Identifier).IsEqualTo("3G");
-        await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("Troisième génération");
-        await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Troisième génération");
+            await Assert.That(viewModel.SelectedPreset).IsNotNull();
+            await Assert.That(viewModel.SelectedPreset!.Identifier).IsEqualTo("3G");
+            await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("Troisième génération");
+            await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Troisième génération");
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = originalCulture;
+        }
     }
 
     private sealed class StubResourceManager : ResourceManager
