@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace Proxyfan.Framework.Networking;
@@ -14,7 +15,10 @@ namespace Proxyfan.Framework.Networking;
 ///     headers (<c>Keep-Alive</c>, <c>TE</c>, <c>Trailer</c>, <c>Transfer-Encoding</c>) plus
 ///     any header names listed in the client's <c>Connection</c> header value (other than the
 ///     <c>upgrade</c>/<c>close</c>/<c>keep-alive</c> tokens), so connection-scoped controls
-///     never leak to the origin. The <c>Via: 1.1 proxyfan</c> token is appended per RFC 7230.
+///     never leak to the origin. Body framing is normalized: <c>Content-Length</c> is stripped
+///     from the inbound headers and, when the request carries a decoded body, a fresh
+///     <c>Content-Length</c> matching the body length is injected. The <c>Via: 1.1 proxyfan</c>
+///     token is appended per RFC 7230.
 /// </summary>
 public static class UpgradeRequestRewriter
 {
@@ -25,6 +29,7 @@ public static class UpgradeRequestRewriter
     {
         var alwaysStripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "Content-Length",
             "Keep-Alive",
             "Proxy-Authenticate",
             "Proxy-Authorization",
@@ -70,6 +75,13 @@ public static class UpgradeRequestRewriter
         {
             rebuilt.Append("Via: ");
             rebuilt.Append(ViaToken);
+            rebuilt.Append("\r\n");
+        }
+
+        if (request.Body.Length > 0)
+        {
+            rebuilt.Append("Content-Length: ");
+            rebuilt.Append(request.Body.Length.ToString(CultureInfo.InvariantCulture));
             rebuilt.Append("\r\n");
         }
 
