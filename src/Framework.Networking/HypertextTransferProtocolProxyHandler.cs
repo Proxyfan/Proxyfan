@@ -413,25 +413,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return null;
         }
 
-        var separatorIndex = hostValue.LastIndexOf(':');
-
-        if (separatorIndex < 0)
-        {
-            var hostWithoutPort = hostValue.Trim();
-            var defaultTarget = new ConnectTarget(hostWithoutPort, DefaultHypertextTransferProtocolPort);
-            return defaultTarget;
-        }
-
-        var host = hostValue[..separatorIndex].Trim();
-        var portText = hostValue[(separatorIndex + 1)..].Trim();
-
-        if (string.IsNullOrWhiteSpace(host) || !int.TryParse(portText, out var port) || port is < 1 or > 65535)
-        {
-            return null;
-        }
-
-        var target = new ConnectTarget(host, port);
-        return target;
+        return HostHeaderEndpointParser.Parse(hostValue, DefaultHypertextTransferProtocolPort);
     }
 
     private async Task<bool> ProcessResponsePhaseAsync(
