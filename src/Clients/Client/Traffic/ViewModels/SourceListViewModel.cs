@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Presentation.Threading;
@@ -83,7 +83,7 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCleared()
     {
-        RebuildOnUiThread();
+        _userInterfaceScheduler.Post(RebuildOnUiThread);
     }
 
     private void OnRequestReceived(RequestReceived domainEvent)

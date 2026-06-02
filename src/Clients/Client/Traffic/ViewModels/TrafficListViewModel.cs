@@ -391,7 +391,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnCoordinatorHostFilterRequested(string host)
     {
-        HostFilter = host;
+        _userInterfaceScheduler.Post(() => HostFilter = host);
     }
 
     partial void OnFilterTextChanged(string value)
