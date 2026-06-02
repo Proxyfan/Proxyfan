@@ -688,6 +688,30 @@
   <data name="Tools_KeyboardShortcuts_Reset" xml:space="preserve">
     <value>Reset to defaults</value>
   </data>
+  <data name="Tools_KeyboardShortcuts_Action_ToggleCapture" xml:space="preserve">
+    <value>Toggle capture</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_ClearTraffic" xml:space="preserve">
+    <value>Clear traffic</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_Find" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_ToggleNoCaching" xml:space="preserve">
+    <value>Toggle No-Caching</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_ToggleBreakpoint" xml:space="preserve">
+    <value>Toggle breakpoint</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_ExportSession" xml:space="preserve">
+    <value>Export session</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_RemoveSelected" xml:space="preserve">
+    <value>Remove selected</value>
+  </data>
+  <data name="Tools_KeyboardShortcuts_Action_Unknown" xml:space="preserve">
+    <value>Unknown action</value>
+  </data>
   <data name="Tools_SecureSocketsLayerProxying_Title" xml:space="preserve">
     <value>SSL Proxying</value>
   </data>

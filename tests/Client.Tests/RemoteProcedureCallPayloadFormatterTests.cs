@@ -152,6 +152,22 @@ public sealed class RemoteProcedureCallPayloadFormatterTests
         await Assert.That(rendering.Contains("Decoded protobuf:")).IsFalse();
     }
 
+    /// <summary>
+    ///     Payloads larger than the detail preview limit have the hex dump truncated and
+    ///     surface a "more bytes truncated" notice so the inspector stays responsive.
+    /// </summary>
+    [Test]
+    public async Task FormatFull_OversizedPayload_TruncatesHexDumpWithNotice()
+    {
+        var payload = new byte[(64 * 1024) + 100];
+        var message = CreateMessage(payload);
+
+        var rendering = RemoteProcedureCallPayloadFormatter.FormatFull(message);
+
+        await Assert.That(rendering).Contains("100 more bytes truncated");
+        await Assert.That(rendering).Contains("(skipped; payload exceeds preview limit)");
+    }
+
     private static RemoteProcedureCallCapturedMessage CreateMessage(byte[] payload)
     {
         var message = new RemoteProcedureCallCapturedMessage(

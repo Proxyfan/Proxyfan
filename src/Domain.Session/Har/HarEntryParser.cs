@@ -152,7 +152,9 @@ public static class HarEntryParser
         foreach (var headerEntry in headersArray.EnumerateArray())
         {
             if (!headerEntry.TryGetProperty("name", out var nameElement)
-                || !headerEntry.TryGetProperty("value", out var valueElement))
+                || !headerEntry.TryGetProperty("value", out var valueElement)
+                || nameElement.ValueKind != JsonValueKind.String
+                || valueElement.ValueKind != JsonValueKind.String)
             {
                 continue;
             }
@@ -207,9 +209,7 @@ public static class HarEntryParser
             return null;
         }
 
-        var statusCode = statusElement.GetInt32();
-
-        if (statusCode == 0)
+        if (!statusElement.TryGetInt32(out var statusCode) || statusCode < 100 || statusCode > 599)
         {
             return null;
         }
