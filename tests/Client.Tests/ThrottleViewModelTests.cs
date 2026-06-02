@@ -1,7 +1,11 @@
 using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Domain.Throttling;
+using Proxyfan.Presentation.Localization;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Resources;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -20,7 +24,7 @@ public sealed class ThrottleViewModelTests
     public async Task Constructor_DefaultHolder_ExposesSevenPresets()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         var names = viewModel.Presets.Select(p => p.DisplayName).ToArray();
 
@@ -34,7 +38,7 @@ public sealed class ThrottleViewModelTests
     public async Task Constructor_DefaultHolder_SelectsOffPreset()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("Off");
         await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Off");
@@ -47,7 +51,7 @@ public sealed class ThrottleViewModelTests
     public async Task Constructor_SeededHolderWithKnownProfile_SelectsMatchingPreset()
     {
         var holder = new MutableThrottleProfile(ThrottleProfilePresets.ThirdGeneration());
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("3G");
         await Assert.That(viewModel.ActiveProfileName).IsEqualTo("3G");
@@ -60,7 +64,7 @@ public sealed class ThrottleViewModelTests
     public async Task ApplyCommand_OffPreset_DisablesThrottle()
     {
         var holder = new MutableThrottleProfile(ThrottleProfilePresets.Wireless());
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
         viewModel.SelectedPreset = viewModel.Presets[0];
 
         viewModel.ApplyCommand.Execute(null);
@@ -76,7 +80,7 @@ public sealed class ThrottleViewModelTests
     public async Task ApplyCommand_BadNetworkPreset_StoresBadNetworkProfile()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
         var badNetwork = viewModel.Presets.First(p => p.DisplayName == "Bad Network");
         viewModel.SelectedPreset = badNetwork;
 
@@ -94,7 +98,7 @@ public sealed class ThrottleViewModelTests
     public async Task ApplyCommand_NullSelection_DoesNothing()
     {
         var holder = new MutableThrottleProfile(ThrottleProfilePresets.Wireless());
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
         viewModel.SelectedPreset = null;
 
         viewModel.ApplyCommand.Execute(null);
@@ -109,7 +113,7 @@ public sealed class ThrottleViewModelTests
     public async Task ExternalChange_FourthGeneration_UpdatesActiveProfileName()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         holder.SetProfile(ThrottleProfilePresets.FastFourthGeneration());
 
@@ -124,7 +128,7 @@ public sealed class ThrottleViewModelTests
     public async Task Dispose_AfterChange_StopsReceivingUpdates()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
         viewModel.Dispose();
 
         holder.SetProfile(ThrottleProfilePresets.SlowSecondGeneration());
@@ -139,7 +143,7 @@ public sealed class ThrottleViewModelTests
     public async Task ExternalChange_UnknownProfile_LeavesSelectedPresetNull()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
         var parameters = new ThrottleProfileParameters
         {
             UploadBytesPerSecond = 1,
@@ -153,5 +157,97 @@ public sealed class ThrottleViewModelTests
 
         await Assert.That(viewModel.SelectedPreset).IsNull();
         await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Mystery");
+    }
+
+    /// <summary>
+    ///     Verifies that when a localization service is supplied, preset display names
+    ///     are resolved from the registered resource manager rather than the stable identifier.
+    /// </summary>
+    [Test]
+    public async Task Constructor_LocalizationServicePresent_ResolvesLocalizedPresetDisplayNames()
+    {
+        var english = CultureInfo.GetCultureInfo("en-US");
+        var french = CultureInfo.GetCultureInfo("fr-FR");
+        var lookup = new Dictionary<string, Dictionary<string, string>>
+        {
+            ["en-US"] = new()
+            {
+                ["Tools_Throttle_Preset_Off"] = "Off",
+                ["Tools_Throttle_Preset_BadNetwork"] = "Bad Network",
+            },
+            ["fr-FR"] = new()
+            {
+                ["Tools_Throttle_Preset_Off"] = "Désactivé",
+                ["Tools_Throttle_Preset_BadNetwork"] = "Mauvais réseau",
+            },
+        };
+        var localizationService = new LocalizationService(english);
+        var stub = new StubResourceManager(lookup);
+        localizationService.RegisterManager(stub);
+        var holder = new MutableThrottleProfile();
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
+        var offPreset = viewModel.Presets.First(p => p.Identifier == "Off");
+        var badNetworkPreset = viewModel.Presets.First(p => p.Identifier == "Bad Network");
+
+        await Assert.That(offPreset.DisplayName).IsEqualTo("Off");
+        await Assert.That(badNetworkPreset.DisplayName).IsEqualTo("Bad Network");
+        await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Off");
+
+        localizationService.CurrentCulture = french;
+
+        await Assert.That(offPreset.DisplayName).IsEqualTo("Désactivé");
+        await Assert.That(badNetworkPreset.DisplayName).IsEqualTo("Mauvais réseau");
+        await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Désactivé");
+        await Assert.That(offPreset.Identifier).IsEqualTo("Off");
+        await Assert.That(badNetworkPreset.Identifier).IsEqualTo("Bad Network");
+    }
+
+    /// <summary>
+    ///     Verifies that matching the active profile uses the stable identifier, not
+    ///     the (possibly localized) display name.
+    /// </summary>
+    [Test]
+    public async Task ExternalChange_LocalizedCulture_MatchesPresetByStableIdentifier()
+    {
+        var french = CultureInfo.GetCultureInfo("fr-FR");
+        var lookup = new Dictionary<string, Dictionary<string, string>>
+        {
+            ["fr-FR"] = new()
+            {
+                ["Tools_Throttle_Preset_3G"] = "Troisième génération",
+            },
+        };
+        var localizationService = new LocalizationService(french);
+        localizationService.RegisterManager(new StubResourceManager(lookup));
+        var holder = new MutableThrottleProfile();
+        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
+
+        holder.SetProfile(ThrottleProfilePresets.ThirdGeneration());
+
+        await Assert.That(viewModel.SelectedPreset).IsNotNull();
+        await Assert.That(viewModel.SelectedPreset!.Identifier).IsEqualTo("3G");
+        await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("Troisième génération");
+        await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Troisième génération");
+    }
+
+    private sealed class StubResourceManager : ResourceManager
+    {
+        private readonly Dictionary<string, Dictionary<string, string>> _entriesByCulture;
+
+        public StubResourceManager(Dictionary<string, Dictionary<string, string>> entriesByCulture)
+        {
+            _entriesByCulture = entriesByCulture;
+        }
+
+        public override string? GetString(string name, CultureInfo? culture)
+        {
+            var cultureName = culture?.Name ?? string.Empty;
+            if (_entriesByCulture.TryGetValue(cultureName, out var entries) && entries.TryGetValue(name, out var value))
+            {
+                return value;
+            }
+
+            return null;
+        }
     }
 }
