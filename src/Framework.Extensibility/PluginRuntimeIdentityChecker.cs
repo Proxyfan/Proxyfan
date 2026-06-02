@@ -28,12 +28,13 @@ public static class PluginRuntimeIdentityChecker
     /// <returns>A failed <see cref="LoadedPlugin" /> describing the rejection, or null on success.</returns>
     public static LoadedPlugin? Validate(PluginMetadata manifestMetadata, PluginInstantiationResult instantiation, IReadOnlySet<string> disabledIdentifiers, string sourceDirectory)
     {
-        if (instantiation.Plugin is null)
+        var plugin = instantiation.Plugin;
+        if (plugin is null)
         {
             return null;
         }
 
-        var runtimeId = instantiation.Plugin.Metadata.Id;
+        var runtimeId = plugin.Metadata.Id;
         var manifestId = manifestMetadata.Id;
         var idsMatch = string.Equals(runtimeId, manifestId, StringComparison.OrdinalIgnoreCase);
         if (idsMatch && !disabledIdentifiers.Contains(runtimeId))
