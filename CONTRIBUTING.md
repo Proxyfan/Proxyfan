@@ -16,9 +16,6 @@ Proxyfan is **Windows-only**. CI, builds, tests, and tooling all target Windows.
 
 - [.NET 10 SDK](https://dot.net/download) — version pinned in `global.json`
 - [PowerShell 7](https://github.com/PowerShell/PowerShell) (`pwsh`)
-- A GitHub personal access token with `read:packages` for the `Automaticks` organization
-  (the project consumes private analyzer packages from GitHub Packages). Set it as
-  `GITHUB_TOKEN` in your environment before restoring.
 
 ### First-time setup
 

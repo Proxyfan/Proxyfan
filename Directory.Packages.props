@@ -24,14 +24,14 @@
     <PackageVersion Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.19.0.132793" />
-    <PackageVersion Include="Automaticks.CSharp.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.Threading.Tasks.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.Linq.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.Reflection.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.Extensions.Options.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.Diagnostics.CodeAnalysis.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.CommunityToolkit.Mvvm.Analyzers" Version="2026.5.26.521" />
-    <PackageVersion Include="Automaticks.Testing.Analyzers" Version="2026.5.26.521" />
+    <PackageVersion Include="Automaticks.CSharp.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.Threading.Tasks.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.Linq.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.Reflection.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.Extensions.Options.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.Diagnostics.CodeAnalysis.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.CommunityToolkit.Mvvm.Analyzers" Version="2026.5.28.1" />
+    <PackageVersion Include="Automaticks.Testing.Analyzers" Version="2026.5.28.1" />
     <PackageVersion Include="TUnit" Version="1.12.93" />
     <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.3" />
     <PackageVersion Include="TngTech.ArchUnitNET.TUnit" Version="0.13.3" />

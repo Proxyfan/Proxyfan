@@ -100,15 +100,20 @@ new script in `.tools/` should import that module rather than redefining
 
 ## Git commits and PR merges
 
-- **The human handles staging and commits by default.** Do not `git add`,
-  `git commit`, or `git push` unless the user explicitly delegates the action.
-- When committing on the user's behalf, use a conventional-commit subject
-  (`feat(traffic): …`, `fix(rules): …`, `chore(framework): …`, `docs(architecture): …`)
-  and keep the subject ≤ 72 characters.
-- Include the `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
-  trailer unless the user explicitly opts out.
-- Squash-merge PRs (`gh pr merge <N> --squash --delete-branch`) unless the user
-  asks otherwise.
+- **Commit your work and open a pull request once the build and tests are
+  green.** Never commit or push directly to `main` — always work on a
+  feature branch (`git switch -c <topic>` from the current `main`).
+- Use a conventional-commit subject (`feat(traffic): …`, `fix(rules): …`,
+  `chore(framework): …`, `docs(architecture): …`) and keep the subject ≤ 72
+  characters.
+- Open the PR with `gh pr create`, link the issue with a `Fixes #<n>` /
+  `Closes #<n>` line in the body when one exists, and summarise the scope,
+  validation, and any out-of-scope follow-ups.
+- **Stop after the PR is open.** Merging is the human's call by default —
+  see `.github/skills/work-item/SKILL.md` (`What you do NOT own`). When
+  the human explicitly delegates the merge to you (e.g. *"merge it"*,
+  *"land #N"*), use `gh pr merge <N> --squash` (add `--delete-branch`
+  only when merge queues are not enabled on the repo).
 
 ## Project journal
 

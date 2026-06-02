@@ -139,11 +139,13 @@ public sealed class UpstreamProxyRequestRewriterTests
     }
 
     /// <summary>
-    ///     Verifies that when no Proxy-Authorization is supplied, the rewriter leaves any
-    ///     pre-existing Proxy-Authorization header from the client intact.
+    ///     Verifies that any pre-existing Proxy-Authorization header from the client is stripped
+    ///     even when no replacement credentials are supplied. Issue #39 — the header is
+    ///     hop-by-hop and must never leak to the upstream proxy (RFC 9110 §11.7.1). Exercises
+    ///     the two-argument overload.
     /// </summary>
     [Test]
-    public async Task RewriteHeaders_NoProxyAuthorization_PreservesClientHeader()
+    public async Task RewriteHeaders_NoProxyAuthorization_StripsClientHeader()
     {
         var originalBytes = Encoding.ASCII.GetBytes(
             "GET /api HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic clientToken==\r\n\r\n");
@@ -152,7 +154,48 @@ public sealed class UpstreamProxyRequestRewriterTests
         var rewritten = UpstreamProxyRequestRewriter.RewriteHeaders(originalBytes, request);
         var asString = Encoding.ASCII.GetString(rewritten);
 
-        await Assert.That(asString).Contains("Proxy-Authorization: Basic clientToken==");
+        await Assert.That(asString).DoesNotContain("Proxy-Authorization");
+        await Assert.That(asString).DoesNotContain("clientToken==");
+    }
+
+    /// <summary>
+    ///     Verifies that the three-argument overload strips a client Proxy-Authorization header
+    ///     when invoked with an explicit null. This is the exact call shape used by
+    ///     <see cref="HypertextTransferProtocolForwarder" /> when no upstream credentials are
+    ///     configured (issue #39).
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_NullProxyAuthorization_StripsClientHeader()
+    {
+        var originalBytes = Encoding.ASCII.GetBytes(
+            "GET /api HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic clientToken==\r\n\r\n");
+        var request = BuildRelativeRequest();
+
+        var rewritten = UpstreamProxyRequestRewriter.RewriteHeaders(originalBytes, request, proxyAuthorization: null);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("Proxy-Authorization");
+        await Assert.That(asString).DoesNotContain("clientToken==");
+    }
+
+    /// <summary>
+    ///     Verifies that a Proxy-Authorization header with leading whitespace before the colon
+    ///     (lenient parsing) is still stripped. Without trimming the header name before the
+    ///     strip lookup, malformed-but-tolerated headers would bypass the privacy fix from
+    ///     issue #39.
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_HeaderNameHasLeadingTrailingWhitespace_StillStrips()
+    {
+        var originalBytes = Encoding.ASCII.GetBytes(
+            "GET /api HTTP/1.1\r\nHost: example.com\r\n Proxy-Authorization : Basic clientToken==\r\n\r\n");
+        var request = BuildRelativeRequest();
+
+        var rewritten = UpstreamProxyRequestRewriter.RewriteHeaders(originalBytes, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("clientToken==");
+        await Assert.That(asString).DoesNotContain("Proxy-Authorization");
     }
 
     private static HypertextTransferProtocolRequestData BuildRelativeRequest()

@@ -114,12 +114,67 @@ file. Common triggers:
 - New extensibility interface.
 - On-disk shape change (HAR, YAML config, certificate store, log directory).
 
-## Step 6 — Hand off
+## Step 6 — Confirm the plan
 
-Present the plan back to the user. After acceptance:
+Present the plan back to the user and wait for acceptance. After
+acceptance:
 
 1. Write the plan to `~/.copilot/session-state/<session-id>/plan.md`.
-2. Append a journal entry tagged with the scope (e.g. `[proxy,planning]`)
-   and a one-line summary; the detailed plan lives in the session file.
-3. Exit. The implementation phase proceeds under the normal review-gates
-   rhythm — this skill does not write the implementation itself.
+2. Proceed to Step 7. Do not stop at the plan — the skill owns shipping
+   the change end-to-end.
+
+## Step 7 — Implement and validate
+
+1. Implement the change exactly as described in the accepted plan. If a
+   deviation becomes necessary mid-flight, surface it to the user before
+   continuing.
+2. Run the full gate from the repo root:
+
+   ```powershell
+   pwsh -NoProfile -ExecutionPolicy Bypass -File .tools/Invoke-Build.ps1 `
+       -SkipRestore -RunTests
+   ```
+
+   Do not proceed to Step 8 until the gate is clean. A flaky single
+   project may be retried via `.tools/Run-Tests.ps1 -NoBuild` to confirm.
+
+## Step 8 — Commit, push, and open the pull request
+
+The skill is not complete until a pull request exists. Always work on a
+feature branch — never commit directly to `main`.
+
+1. Append the journal entry now (before committing) so it lands in the
+   same diff:
+
+   ```powershell
+   # Append per .github/journal-protocol.md — single area-tagged entry.
+   ```
+
+2. Create a feature branch from the current `main`:
+
+   ```powershell
+   git switch -c fix/<short-slug>   # or feat/, chore/, docs/, …
+   ```
+
+3. Stage and commit with a conventional-commit subject (≤ 72 chars). The
+   `Co-authored-by: Copilot` trailer is mandated at the agent-runtime
+   layer and is appended automatically — you do not need to add it
+   manually. The commit body should describe the change, cite the
+   validation command, and reference the work item (`Fixes #<n>` when a
+   GitHub issue exists, or the backlog id `E04-F02-UC01-T01` otherwise).
+
+4. Push the branch and open the PR:
+
+   ```powershell
+   git push -u origin HEAD
+   gh pr create --fill --base main
+   ```
+
+   When the work item is a GitHub issue, make sure the PR body contains a
+   `Fixes #<n>` line so the issue auto-closes on merge. Summarise scope,
+   validation, and any out-of-scope follow-ups surfaced during planning
+   (these typically become new GitHub issues — file them if the user
+   confirms, otherwise note them in the PR body for triage).
+
+5. Hand the PR URL back to the user and stop. Do **not** merge — that
+   step is owned by the human.

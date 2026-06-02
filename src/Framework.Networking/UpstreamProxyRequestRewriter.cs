@@ -10,8 +10,9 @@ namespace Proxyfan.Framework.Networking;
 ///     Builds the wire bytes for an HTTP request being forwarded through an upstream proxy.
 ///     The request line is rewritten to use the absolute URI form expected by HTTP/1.1 proxies
 ///     (e.g. <c>GET http://example.com/path HTTP/1.1</c> rather than <c>GET /path HTTP/1.1</c>).
-///     When a <c>Proxy-Authorization</c> header value is supplied it is injected (replacing any
-///     existing one). Body framing is normalized: <c>Transfer-Encoding</c> and
+///     Any inbound <c>Proxy-Authorization</c> header is always stripped (RFC 9110 §7.6.1 /
+///     §11.7.1 — hop-by-hop credentials must not be forwarded); when a replacement value is
+///     supplied it is injected. Body framing is normalized: <c>Transfer-Encoding</c> and
 ///     <c>Content-Length</c> are stripped from the inbound headers, and a fresh
 ///     <c>Content-Length</c> matching the decoded body length is injected when a body is
 ///     present (chunked-decoded bodies must not be re-emitted under chunked framing).
@@ -19,21 +20,25 @@ namespace Proxyfan.Framework.Networking;
 public static class UpstreamProxyRequestRewriter
 {
     private const string ProxyAuthorizationHeaderName = "Proxy-Authorization";
-    private static readonly HashSet<string> StrippedFramingHeaders;
+    private static readonly HashSet<string> AlwaysStrippedHeaders;
 
     static UpstreamProxyRequestRewriter()
     {
-        var stripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        var alwaysStripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Content-Length",
+            ProxyAuthorizationHeaderName,
             "Transfer-Encoding",
         };
-        StrippedFramingHeaders = stripped;
+        AlwaysStrippedHeaders = alwaysStripped;
     }
 
     /// <summary>
     ///     Returns the header bytes rewritten with an absolute-URI request line. The body bytes
-    ///     are unchanged and should be written after the returned header bytes.
+    ///     are unchanged and should be written after the returned header bytes. Any inbound
+    ///     <c>Proxy-Authorization</c> header is always stripped — it is a hop-by-hop credential
+    ///     intended for the local Proxyfan hop only and must never leak to the upstream proxy
+    ///     (RFC 9110 §11.7.1).
     /// </summary>
     /// <param name="originalHeaderBytes">The original request header bytes from the client.</param>
     /// <param name="request">The parsed request data (used for method, URI, version, body length).</param>
@@ -44,11 +49,13 @@ public static class UpstreamProxyRequestRewriter
     }
 
     /// <summary>
-    ///     Returns the header bytes rewritten with an absolute-URI request line and, when
-    ///     <paramref name="proxyAuthorization" /> is non-null, an injected
-    ///     <c>Proxy-Authorization</c> header. Any pre-existing <c>Proxy-Authorization</c>
-    ///     header in the original bytes is stripped so the upstream sees exactly the supplied
-    ///     credentials. Inbound <c>Transfer-Encoding</c> and <c>Content-Length</c> are always
+    ///     Returns the header bytes rewritten with an absolute-URI request line. Any
+    ///     pre-existing <c>Proxy-Authorization</c> header in the original bytes is always
+    ///     stripped, regardless of whether <paramref name="proxyAuthorization" /> is supplied —
+    ///     the client's credential is intended for the local Proxyfan hop only and must never
+    ///     leak to the upstream proxy (RFC 9110 §11.7.1). When
+    ///     <paramref name="proxyAuthorization" /> is non-null, the configured value is then
+    ///     injected. Inbound <c>Transfer-Encoding</c> and <c>Content-Length</c> are always
     ///     stripped; when the request carries a decoded body a fresh <c>Content-Length</c>
     ///     matching the body length is injected.
     /// </summary>
@@ -76,13 +83,13 @@ public static class UpstreamProxyRequestRewriter
         var rebuilt = new StringBuilder(headerSection.Length + newRequestLine.Length + 96);
         rebuilt.Append(newRequestLine);
         rebuilt.Append("\r\n");
-        AppendFilteredHeaderLines(rebuilt, headerSection, proxyAuthorization);
+        AppendFilteredHeaderLines(rebuilt, headerSection);
         AppendTrailingHeaders(rebuilt, request, proxyAuthorization);
         rebuilt.Append("\r\n");
         return Encoding.ASCII.GetBytes(rebuilt.ToString());
     }
 
-    private static void AppendFilteredHeaderLines(StringBuilder destination, string headerSection, string? proxyAuthorization)
+    private static void AppendFilteredHeaderLines(StringBuilder destination, string headerSection)
     {
         var lines = headerSection.Split("\r\n");
 
@@ -97,14 +104,9 @@ public static class UpstreamProxyRequestRewriter
 
             if (colonIndex > 0)
             {
-                var name = line[..colonIndex];
+                var name = line[..colonIndex].Trim();
 
-                if (proxyAuthorization is not null && string.Equals(name, ProxyAuthorizationHeaderName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (StrippedFramingHeaders.Contains(name))
+                if (AlwaysStrippedHeaders.Contains(name))
                 {
                     continue;
                 }
