@@ -17,7 +17,7 @@ public sealed class WindowsSystemProxyCancellationTests
     [Test]
     public async Task RegisterAsync_WhenTokenAlreadyCancelled_Throws()
     {
-        var proxy = new WindowsSystemProxy();
+        var proxy = new WindowsSystemProxy(new StubWindowsInternetSettingsRefresher());
         using var cancellationSource = new CancellationTokenSource();
         await cancellationSource.CancelAsync();
 
@@ -32,7 +32,7 @@ public sealed class WindowsSystemProxyCancellationTests
     [Test]
     public async Task UnregisterAsync_WhenTokenAlreadyCancelled_Throws()
     {
-        var proxy = new WindowsSystemProxy();
+        var proxy = new WindowsSystemProxy(new StubWindowsInternetSettingsRefresher());
         using var cancellationSource = new CancellationTokenSource();
         await cancellationSource.CancelAsync();
 
