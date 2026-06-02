@@ -57,7 +57,7 @@ public static class QueryStringParser
     /// <returns>The parsed parameters in the order they appeared.</returns>
     public static IReadOnlyList<QueryParameter> ParseEncodedPairs(string encodedPairs)
     {
-        if (string.IsNullOrEmpty(encodedPairs))
+        if (encodedPairs.Length == 0)
         {
             return [];
         }
