@@ -248,6 +248,20 @@ public static class HarEntryParser
             return [];
         }
 
+        if (content.TryGetProperty("encoding", out var encodingElement)
+            && encodingElement.ValueKind == JsonValueKind.String
+            && string.Equals(encodingElement.GetString(), "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                return Convert.FromBase64String(bodyText);
+            }
+            catch (FormatException)
+            {
+                return [];
+            }
+        }
+
         return Encoding.UTF8.GetBytes(bodyText);
     }
 }
