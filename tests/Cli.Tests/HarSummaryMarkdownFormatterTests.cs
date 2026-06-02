@@ -138,18 +138,11 @@ public sealed class HarSummaryMarkdownFormatterTests
     [Test]
     public async Task Format_UrlWithPipe_EscapesPipe()
     {
-        var flow = BuildFlow("GET", "https://example.com/?a=1%7C2", 200);
-        var url = flow.Request!.RequestUri.ToString();
+        var flow = BuildFlow("GET", "https://example.com/?a=1|2", 200);
         var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
 
-        if (url.Contains('|', StringComparison.Ordinal))
-        {
-            await Assert.That(result.Contains("\\|", StringComparison.Ordinal)).IsTrue();
-        }
-        else
-        {
-            await Assert.That(result.Contains(url, StringComparison.Ordinal)).IsTrue();
-        }
+        await Assert.That(result.Contains("\\|", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Contains("=1|2", StringComparison.Ordinal)).IsFalse();
     }
 
     private static TrafficFlow BuildFlow(string method, string url, int status)
