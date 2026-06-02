@@ -186,11 +186,11 @@ public sealed class UserScriptingHandlerTests
     }
 
     /// <summary>
-    ///     Verifies that when the script sets an invalid request URL the handler falls back to
-    ///     the original request rather than throwing or projecting malformed HTTP.
+    ///     Verifies that when the script sets an invalid request URL the handler throws so the
+    ///     scripting wrappers can log the failure rather than silently producing malformed HTTP.
     /// </summary>
     [Test]
-    public async Task ApplyRequestAsync_InvalidScriptUrl_ReturnsOriginal()
+    public async Task ApplyRequestAsync_InvalidScriptUrl_Throws()
     {
         var configuration = new MutableScriptingConfiguration(isEnabled: true);
         configuration.SetActiveScript(new StubUserScript(
@@ -199,17 +199,17 @@ public sealed class UserScriptingHandlerTests
         var handler = new UserScriptingHandler(configuration);
         var source = BuildRequest("GET");
 
-        var result = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
-
-        await Assert.That(result).IsSameReferenceAs(source);
+        await Assert.That(async () => await handler.ApplyRequestAsync("flow", source, CancellationToken.None))
+            .Throws<InvalidOperationException>();
     }
 
     /// <summary>
-    ///     Verifies that when the script sets an out-of-range status code the handler falls
-    ///     back to the original response rather than throwing or projecting malformed HTTP.
+    ///     Verifies that when the script sets an out-of-range status code the handler throws so
+    ///     the scripting wrappers can log the failure rather than silently producing malformed
+    ///     HTTP.
     /// </summary>
     [Test]
-    public async Task ApplyResponseAsync_InvalidScriptStatusCode_ReturnsOriginal()
+    public async Task ApplyResponseAsync_InvalidScriptStatusCode_Throws()
     {
         var configuration = new MutableScriptingConfiguration(isEnabled: true);
         configuration.SetActiveScript(new StubUserScript(
@@ -219,9 +219,8 @@ public sealed class UserScriptingHandlerTests
         var sourceRequest = BuildRequest("GET");
         var sourceResponse = BuildResponse(200);
 
-        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
-
-        await Assert.That(result).IsSameReferenceAs(sourceResponse);
+        await Assert.That(async () => await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None))
+            .Throws<InvalidOperationException>();
     }
 
     private static HypertextTransferProtocolRequestData BuildRequest(string method)

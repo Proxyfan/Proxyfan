@@ -1,4 +1,5 @@
 ﻿using Proxyfan.Domain.Traffic;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -51,7 +52,8 @@ public sealed class UserScriptingHandler : IScriptingHandler
         var projection = ScriptableProjector.Project(view, request);
         if (!projection.IsSuccess)
         {
-            return request;
+            throw new InvalidOperationException(
+                $"Script request projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
 
         return projection.Value;
@@ -90,7 +92,8 @@ public sealed class UserScriptingHandler : IScriptingHandler
         var projection = ScriptableProjector.Project(responseView, response);
         if (!projection.IsSuccess)
         {
-            return response;
+            throw new InvalidOperationException(
+                $"Script response projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
 
         return projection.Value;
