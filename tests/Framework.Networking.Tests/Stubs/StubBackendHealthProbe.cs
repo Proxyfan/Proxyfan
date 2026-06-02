@@ -32,7 +32,7 @@ public sealed class StubBackendHealthProbe : IBackendHealthProbe
         ProbeCount++;
         if (ProbeGate is not null)
         {
-            await ProbeGate.ConfigureAwait(false);
+            await ProbeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return ResponseHealthy;

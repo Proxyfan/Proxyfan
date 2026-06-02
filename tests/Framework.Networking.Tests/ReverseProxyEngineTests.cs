@@ -1,5 +1,6 @@
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Framework.Networking.Tests.Stubs;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -179,7 +180,7 @@ public sealed class ReverseProxyEngineTests
     [Test]
     public async Task ProbeAsync_RouteStoppedBeforeCompletion_DoesNotOverwriteStatus()
     {
-        var gate = new TaskCompletionSource();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var probe = new StubBackendHealthProbe { ResponseHealthy = true, ProbeGate = gate.Task };
         await using var engine = CreateEngine(probe);
         var route = CreateRoute("api", listenPort: 0);
@@ -188,6 +189,7 @@ public sealed class ReverseProxyEngineTests
         engine.StatusChanged += (_, status) => statusChanges.Add(status);
 
         var probeTask = engine.ProbeAsync("api", CancellationToken.None);
+        await WaitForProbeAsync(probe);
         await engine.StopRouteAsync("api", CancellationToken.None);
         gate.SetResult();
         var result = await probeTask;
@@ -204,13 +206,14 @@ public sealed class ReverseProxyEngineTests
     [Test]
     public async Task ProbeAsync_RouteRestartedBeforeCompletion_DoesNotOverwriteNewStatus()
     {
-        var gate = new TaskCompletionSource();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var probe = new StubBackendHealthProbe { ResponseHealthy = false, ProbeGate = gate.Task };
         await using var engine = CreateEngine(probe);
         var route = CreateRoute("api", listenPort: 0);
         await engine.StartRouteAsync(route, CancellationToken.None);
 
         var probeTask = engine.ProbeAsync("api", CancellationToken.None);
+        await WaitForProbeAsync(probe);
         await engine.StopRouteAsync("api", CancellationToken.None);
         var restarted = CreateRoute("api", listenPort: 0);
         await engine.StartRouteAsync(restarted, CancellationToken.None);
@@ -220,6 +223,20 @@ public sealed class ReverseProxyEngineTests
         var states = engine.GetStates();
         await Assert.That(states.Count).IsEqualTo(1);
         await Assert.That(states[0].Status).IsEqualTo(ReverseProxyRouteStatus.Healthy);
+    }
+
+    private static async Task WaitForProbeAsync(StubBackendHealthProbe probe)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (probe.ProbeCount == 0)
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException("Probe did not start within the expected time.");
+            }
+
+            await Task.Delay(5).ConfigureAwait(false);
+        }
     }
 
     private static ReverseProxyEngine CreateEngine(IBackendHealthProbe probe)
