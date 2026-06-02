@@ -17,14 +17,26 @@ public sealed class ThemeViewModelTests
 {
     private static readonly string[] ExpectedOptionNames = ["System", "Light", "Dark"];
 
+    private CultureInfo _originalUiCulture = CultureInfo.CurrentUICulture;
+
+    [Before(Test)]
+    public void CaptureCurrentUiCulture()
+    {
+        _originalUiCulture = CultureInfo.CurrentUICulture;
+    }
+
+    [After(Test)]
+    public void RestoreCurrentUiCulture()
+    {
+        CultureInfo.CurrentUICulture = _originalUiCulture;
+    }
+
     private static LocalizationService CreateLocalization()
     {
-        var originalCulture = CultureInfo.CurrentUICulture;
         var localization = new LocalizationService(CultureInfo.InvariantCulture);
         localization.RegisterManager(new ResourceManager(
             "Proxyfan.Client.Resources.Strings",
             typeof(Proxyfan.Client.App).Assembly));
-        CultureInfo.CurrentUICulture = originalCulture;
         return localization;
     }
 
