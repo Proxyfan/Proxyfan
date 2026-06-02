@@ -97,7 +97,10 @@ public sealed class PeriodicUpdateChecker : IDisposable
     }
 
     /// <summary>
-    ///     Stops the background polling loop and waits for it to drain.
+    ///     Stops the background polling loop and waits for it to drain. Cancellation is
+    ///     signalled first, then the loop is awaited, and only then is the
+    ///     <see cref="CancellationTokenSource" /> disposed, so an in-flight poll that
+    ///     captured the token never observes <see cref="ObjectDisposedException" />.
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait for the loop to drain.</param>
     /// <returns>A task that completes once the loop has been signalled to stop.</returns>
@@ -113,19 +116,34 @@ public sealed class PeriodicUpdateChecker : IDisposable
             _loop = null;
         }
 
-        if (source is not null)
+        if (source is null)
+        {
+            if (loop is not null)
+            {
+                await PeriodicUpdateCheckerShutdown
+                    .WaitForLoopAsync(loop, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        try
         {
             await PeriodicUpdateCheckerShutdown
                 .HasCancelSucceededAsync(source, cancellationToken)
                 .ConfigureAwait(false);
-            source.Dispose();
-        }
 
-        if (loop is not null)
+            if (loop is not null)
+            {
+                await PeriodicUpdateCheckerShutdown
+                    .WaitForLoopAsync(loop, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        finally
         {
-            await PeriodicUpdateCheckerShutdown
-                .WaitForLoopAsync(loop, cancellationToken)
-                .ConfigureAwait(false);
+            source.Dispose();
         }
     }
 
