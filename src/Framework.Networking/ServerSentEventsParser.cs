@@ -58,6 +58,30 @@ public sealed class ServerSentEventsParser
     }
 
     /// <summary>
+    ///     Signals end-of-stream to the parser. Flushes any buffered partial UTF-8 bytes
+    ///     (surfacing them as U+FFFD if incomplete) and drains any newly-completed lines
+    ///     that the flushed characters terminate. Completed events are available via
+    ///     <see cref="DrainCompletedEvents" />.
+    /// </summary>
+    /// <param name="timestamp">The timestamp to assign to events finalized in this call.</param>
+    public void Complete(DateTimeOffset timestamp)
+    {
+        ReadOnlySpan<byte> empty = [];
+        var charCount = _decoder.GetCharCount(empty, flush: true);
+        if (charCount > 0)
+        {
+            var buffer = new char[charCount];
+            var written = _decoder.GetChars(empty, buffer, flush: true);
+            _carry.Append(buffer, 0, written);
+        }
+
+        while (HasNextLine(out var line))
+        {
+            ProcessLine(line, timestamp);
+        }
+    }
+
+    /// <summary>
     ///     Removes and returns all completed events accumulated so far.
     /// </summary>
     /// <returns>The drained events.</returns>

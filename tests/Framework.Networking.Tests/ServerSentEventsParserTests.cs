@@ -245,8 +245,9 @@ public sealed class ServerSentEventsParserTests
     }
 
     /// <summary>
-    ///     Verifies that a multibyte UTF-8 scalar split across two chunks decodes intact
-    ///     rather than producing replacement characters.
+    ///     Verifies that multibyte UTF-8 scalars split across three chunks (with splits
+    ///     inside both a 2-byte and a 4-byte scalar) decode intact rather than producing
+    ///     replacement characters.
     /// </summary>
     [Test]
     public async Task Append_MultibyteUtf8SplitAcrossChunks_DecodesIntact()
@@ -266,5 +267,26 @@ public sealed class ServerSentEventsParserTests
 
         await Assert.That(events.Count).IsEqualTo(1);
         await Assert.That(events[0].Data).IsEqualTo("héllo🌍");
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ServerSentEventsParser.Complete" /> can be called at
+    ///     end-of-stream when the decoder still has a buffered incomplete multibyte sequence,
+    ///     flushing it without throwing or producing spurious events.
+    /// </summary>
+    [Test]
+    public async Task Complete_IncompleteMultibyteAtEndOfStream_FlushesWithoutThrowing()
+    {
+        var parser = new ServerSentEventsParser();
+        var prefix = Encoding.UTF8.GetBytes("data: hello\n\n");
+        var truncatedLead = new byte[] { 0xC3 }; // lone lead byte of a 2-byte UTF-8 scalar
+
+        parser.Append(prefix, DateTimeOffset.UtcNow);
+        parser.Append(truncatedLead, DateTimeOffset.UtcNow);
+        parser.Complete(DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].Data).IsEqualTo("hello");
     }
 }
