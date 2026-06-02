@@ -401,6 +401,61 @@ public sealed class HarImporterEdgeCaseTests
         await Assert.That(flows[0].Request!.Headers.Count).IsEqualTo(1);
     }
 
+    /// <summary>
+    ///     Verifies that headers with non-string name/value properties are skipped instead of
+    ///     throwing and aborting the import.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_HeaderWithNonStringName_IsSkipped()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[{"name":1,"value":"v"},{"name":"X","value":2},{"name":"Y","value":"z"}]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Request!.Headers.Count).IsEqualTo(1);
+        await Assert.That(flows[0].Request!.Headers.HasHeader("Y")).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that a response with an out-of-range status (e.g. 99999) omits the response
+    ///     instead of throwing.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithOutOfRangeStatus_OmitsResponse()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":99999,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Response).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that a response whose numeric status is not representable as Int32 omits the
+    ///     response instead of throwing.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithNonIntegerStatus_OmitsResponse()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200.5,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Response).IsNull();
+    }
+
     private static async Task<System.Collections.Generic.IReadOnlyList<Proxyfan.Domain.Traffic.TrafficFlow>> ImportAsync(string harJson)
     {
         var importer = new HarImporter();
