@@ -56,18 +56,30 @@ public static class SocksHandshakeReader
 
     /// <summary>
     ///     Reads at least <paramref name="minimumBytes" /> from the reader into a byte array
-    ///     without consuming any data (the data remains available for subsequent reads). The
-    ///     reader's examined pointer is advanced to the end of the buffer so that calling
+    ///     without consuming any data (the data remains available for subsequent reads),
+    ///     copying at most <paramref name="maximumBytes" /> bytes from the front of the
+    ///     buffered sequence. The cap prevents a client that pipelines a large payload
+    ///     immediately after the SOCKS handshake from forcing an avoidable large allocation
+    ///     on the proxy's hot connection path. The reader's examined pointer is advanced to
+    ///     the end of the buffer so that calling
     ///     <see cref="PipeReader.ReadAsync(CancellationToken)" /> after this method is valid.
     /// </summary>
     /// <param name="reader">The reader.</param>
-    /// <param name="minimumBytes">Minimum bytes to buffer.</param>
+    /// <param name="minimumBytes">Minimum bytes to buffer before returning.</param>
+    /// <param name="maximumBytes">
+    ///     Maximum number of bytes to copy into the returned array. Must be greater than or
+    ///     equal to <paramref name="minimumBytes" />.
+    /// </param>
     /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The buffered bytes as an array (may exceed minimumBytes).</returns>
-    public static async Task<byte[]> ReadIntoArrayAsync(PipeReader reader, int minimumBytes, CancellationToken cancellationToken)
+    /// <returns>
+    ///     The leading bytes of the buffered sequence as an array, with length bounded by
+    ///     <paramref name="maximumBytes" />.
+    /// </returns>
+    public static async Task<byte[]> ReadIntoArrayAsync(PipeReader reader, int minimumBytes, int maximumBytes, CancellationToken cancellationToken)
     {
         var result = await PipeReaderHelper.ReadUntilAsync(reader, minimumBytes, cancellationToken).ConfigureAwait(false);
-        var bytes = result.Buffer.ToArray();
+        var sliceLength = (int)System.Math.Min(result.Buffer.Length, maximumBytes);
+        var bytes = result.Buffer.Slice(0, sliceLength).ToArray();
         reader.AdvanceTo(result.Buffer.Start, result.Buffer.End);
         return bytes;
     }

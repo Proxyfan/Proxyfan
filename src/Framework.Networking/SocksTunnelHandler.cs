@@ -20,6 +20,9 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public sealed partial class SocksTunnelHandler : IConnectionHandler
 {
+    private const int Socks4MaxRequestLength = 264;
+    private const int Socks5MaxConnectRequestLength = 262;
+    private const int Socks5MaxGreetingLength = 257;
     private static readonly byte[] Socks5NoAcceptableMethods;
     private static readonly byte[] Socks5NoAuthSelection;
     private readonly UpstreamHostResolver? _hostResolver;
@@ -107,7 +110,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task HandleSocks4Async(IProxyConnection connection, CancellationToken cancellationToken)
     {
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(connection.Transport.Input, 9, cancellationToken).ConfigureAwait(false);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(connection.Transport.Input, 9, Socks4MaxRequestLength, cancellationToken).ConfigureAwait(false);
         var request = Socks4ConnectRequestParser.TryParse(bytes);
 
         if (request is null)
@@ -166,7 +169,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task<Socks5ConnectRequest?> ReadSocks5ConnectRequestAsync(PipeReader reader, CancellationToken cancellationToken)
     {
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 10, cancellationToken).ConfigureAwait(false);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 10, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
 
         if (bytes.Length < 4)
         {
@@ -188,7 +191,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task<Socks5Greeting?> ReadSocks5GreetingAsync(PipeReader reader, CancellationToken cancellationToken)
     {
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 2, cancellationToken).ConfigureAwait(false);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 2, Socks5MaxGreetingLength, cancellationToken).ConfigureAwait(false);
 
         if (bytes.Length < 2)
         {

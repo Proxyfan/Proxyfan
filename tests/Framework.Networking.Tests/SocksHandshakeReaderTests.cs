@@ -80,10 +80,36 @@ public sealed class SocksHandshakeReaderTests
         await pipe.Writer.WriteAsync(new byte[] { 1, 2, 3, 4, 5 });
         await pipe.Writer.CompleteAsync();
 
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 3, default);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 3, 64, default);
 
         await Assert.That(bytes.Length).IsEqualTo(5);
         await Assert.That(bytes[0]).IsEqualTo((byte)1);
+    }
+
+    /// <summary>
+    ///     Verifies the returned array is capped at maximumBytes even when the pipe has
+    ///     buffered much more data (e.g. a pipelined payload following the handshake).
+    /// </summary>
+    [Test]
+    public async Task ReadIntoArrayAsync_PipeWithPipelinedPayload_CapsAtMaximumBytes()
+    {
+        var pipe = new Pipe();
+        var payload = new byte[8192];
+        for (var index = 0; index < payload.Length; index++)
+        {
+            payload[index] = (byte)(index & 0xFF);
+        }
+
+        await pipe.Writer.WriteAsync(payload);
+        await pipe.Writer.CompleteAsync();
+
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 2, 257, default);
+
+        await Assert.That(bytes.Length).IsEqualTo(257);
+        await Assert.That(bytes[0]).IsEqualTo(payload[0]);
+        await Assert.That(bytes[256]).IsEqualTo(payload[256]);
+        var result = await pipe.Reader.ReadAsync();
+        await Assert.That((int)result.Buffer.Length).IsEqualTo(payload.Length);
     }
 
     /// <summary>
