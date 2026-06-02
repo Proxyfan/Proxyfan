@@ -172,7 +172,7 @@ public sealed class SocksTunnelHandlerEdgeCaseTests
         await connection.InputWriter.WriteAsync(new byte[]
         {
             0x05, 0x01, 0xFF, 0x01,
-            192, 168, 1, 1,
+            0xC0, 0xA8, 0x01, 0x01,
             0x01, 0xBB,
         });
         await connection.InputWriter.CompleteAsync();
