@@ -89,19 +89,33 @@ public static class HypertextTransferProtocolResponseParser
 
     private static HypertextTransferProtocolResponseStatusLine? ParseStatusLine(string statusLine)
     {
-        var parts = statusLine.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length != 3 || !int.TryParse(parts[1], out var statusCode) || string.IsNullOrWhiteSpace(parts[2]))
+        var firstSpaceIndex = statusLine.IndexOf(' ');
+        if (firstSpaceIndex <= 0)
         {
             return null;
         }
 
-        if (!parts[0].StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase))
+        var secondSpaceIndex = statusLine.IndexOf(' ', firstSpaceIndex + 1);
+        if (secondSpaceIndex < 0)
         {
             return null;
         }
 
-        var parsedStatusLine = new HypertextTransferProtocolResponseStatusLine(statusCode, parts[2], parts[0]);
+        var version = statusLine[..firstSpaceIndex];
+        var statusCodeText = statusLine.Substring(firstSpaceIndex + 1, secondSpaceIndex - firstSpaceIndex - 1);
+        var reasonPhrase = statusLine[(secondSpaceIndex + 1)..];
+
+        if (!int.TryParse(statusCodeText, out var statusCode))
+        {
+            return null;
+        }
+
+        if (!version.StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var parsedStatusLine = new HypertextTransferProtocolResponseStatusLine(statusCode, reasonPhrase, version);
         return parsedStatusLine;
     }
 }
