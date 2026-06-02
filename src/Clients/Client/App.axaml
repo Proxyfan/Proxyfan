@@ -5,4 +5,28 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Red.Brush" Color="#DC143C" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Orange.Brush" Color="#FF8C00" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Yellow.Brush" Color="#FFD700" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Green.Brush" Color="#228B22" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Blue.Brush" Color="#1E90FF" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Purple.Brush" Color="#9370DB" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Gray.Brush" Color="#808080" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Red.Brush" Color="#FF6B7A" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Orange.Brush" Color="#FFB347" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Yellow.Brush" Color="#FFE066" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Green.Brush" Color="#5CCC5C" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Blue.Brush" Color="#5FAEFF" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Purple.Brush" Color="#B79CEB" />
+                    <SolidColorBrush x:Key="TrafficFlowColorTag.Gray.Brush" Color="#B0B0B0" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

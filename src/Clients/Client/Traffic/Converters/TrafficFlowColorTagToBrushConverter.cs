@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Proxyfan.Domain.Traffic;
@@ -9,8 +10,11 @@ namespace Proxyfan.Client.Traffic.Converters;
 /// <summary>
 ///     Avalonia value converter that maps a <see cref="TrafficFlowColorTag" /> to
 ///     an <see cref="IBrush" /> suitable for rendering a small color dot in the
-///     traffic list. <see cref="TrafficFlowColorTag.None" /> yields a transparent
-///     brush so unmarked rows remain visually quiet.
+///     traffic list. Brushes are resolved from the current
+///     <see cref="Application" />'s theme resources so they automatically adapt
+///     to light, dark, and high-contrast palettes.
+///     <see cref="TrafficFlowColorTag.None" /> yields a transparent brush so
+///     unmarked rows remain visually quiet.
 /// </summary>
 public sealed class TrafficFlowColorTagToBrushConverter : IValueConverter
 {
@@ -26,8 +30,8 @@ public sealed class TrafficFlowColorTagToBrushConverter : IValueConverter
     }
 
     /// <summary>
-    ///     Converts a <see cref="TrafficFlowColorTag" /> into a corresponding
-    ///     <see cref="SolidColorBrush" />.
+    ///     Converts a <see cref="TrafficFlowColorTag" /> into the
+    ///     theme-resolved brush registered in <see cref="Application.Resources" />.
     /// </summary>
     /// <param name="value">The bound value, expected to be a <see cref="TrafficFlowColorTag" />.</param>
     /// <param name="targetType">Ignored.</param>
@@ -36,22 +40,21 @@ public sealed class TrafficFlowColorTagToBrushConverter : IValueConverter
     /// <returns>A brush representing the color, or transparent when not applicable.</returns>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not TrafficFlowColorTag colorTag)
+        if (value is not TrafficFlowColorTag colorTag || colorTag == TrafficFlowColorTag.None)
         {
             return Brushes.Transparent;
         }
 
-        return colorTag switch
+        var key = TrafficFlowColorTagBrushResources.BuildResourceKey(colorTag);
+        var application = Application.Current;
+        if (application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var resource)
+            && resource is IBrush brush)
         {
-            TrafficFlowColorTag.Red => Brushes.Crimson,
-            TrafficFlowColorTag.Orange => Brushes.DarkOrange,
-            TrafficFlowColorTag.Yellow => Brushes.Gold,
-            TrafficFlowColorTag.Green => Brushes.ForestGreen,
-            TrafficFlowColorTag.Blue => Brushes.DodgerBlue,
-            TrafficFlowColorTag.Purple => Brushes.MediumPurple,
-            TrafficFlowColorTag.Gray => Brushes.Gray,
-            _ => Brushes.Transparent,
-        };
+            return brush;
+        }
+
+        return Brushes.Transparent;
     }
 
     /// <summary>
