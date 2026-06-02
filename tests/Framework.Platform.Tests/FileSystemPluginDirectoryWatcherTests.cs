@@ -279,7 +279,10 @@ public sealed class FileSystemPluginDirectoryWatcherTests
 
             await Assert.That(firedAtUtc).IsGreaterThanOrEqualTo(lastWriteUtc);
             await Assert.That(Directory.Exists(pluginDirectory)).IsTrue();
-            await Assert.That(File.Exists(Path.Combine(pluginDirectory, "file-4.bin"))).IsTrue();
+            for (var i = 0; i < 5; i++)
+            {
+                await Assert.That(File.Exists(Path.Combine(pluginDirectory, $"file-{i}.bin"))).IsTrue();
+            }
         }
         finally
         {

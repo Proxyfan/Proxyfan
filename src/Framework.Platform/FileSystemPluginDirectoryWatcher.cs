@@ -96,6 +96,7 @@ public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
             try
             {
                 var debounceTimer = new Timer(OnDebounceElapsed, state: null, Timeout.Infinite, Timeout.Infinite);
+                _debounceTimer = debounceTimer;
                 var watcher = new FileSystemWatcher(rootDirectory)
                 {
                     NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.FileName,
@@ -106,12 +107,13 @@ public sealed class FileSystemPluginDirectoryWatcher : IPluginDirectoryWatcher
                 watcher.Renamed += OnDirectoryRenamed;
                 watcher.EnableRaisingEvents = true;
                 _watcher = watcher;
-                _debounceTimer = debounceTimer;
                 _isStarted = true;
             }
             catch (Exception ex)
             {
                 _ = ex;
+                _debounceTimer?.Dispose();
+                _debounceTimer = null;
             }
         }
     }
