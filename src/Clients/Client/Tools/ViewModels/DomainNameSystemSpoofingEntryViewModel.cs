@@ -21,8 +21,8 @@ public sealed partial class DomainNameSystemSpoofingEntryViewModel : ObservableO
     private int _matchCount;
 
     /// <summary>
-    ///     Gets the canonical (lower-case, trimmed) pattern used by the map to identify
-    ///     this entry.
+    ///     Gets the canonical (lower-case, trimmed, trailing-dot stripped) pattern used
+    ///     by the map to identify this entry.
     /// </summary>
     public string CanonicalPattern { get; }
 
@@ -68,7 +68,8 @@ public sealed partial class DomainNameSystemSpoofingEntryViewModel : ObservableO
 
     /// <summary>
     ///     Pushes a new enabled state into the row without invoking the parent callback.
-    ///     Used by the owning view model after a map-level mutation succeeds.
+    ///     Can be used by the owning view model to mirror map-level mutations back into
+    ///     the row when those mutations did not originate from binding.
     /// </summary>
     /// <param name="value">The new enabled state.</param>
     public void SetIsEnabledFromMap(bool value)

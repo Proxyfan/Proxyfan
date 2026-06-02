@@ -136,20 +136,22 @@ public sealed class DomainNameSystemOverrideMap
 
     /// <summary>
     ///     Sets the <see cref="DomainNameSystemOverrideEntry.IsEnabled" /> state of the
-    ///     entry whose canonical pattern matches the supplied hostname. Provides the
-    ///     single mutation path used by UI surfaces so that future eventing, validation,
-    ///     and persistence hooks can be added centrally instead of bypassing the map.
+    ///     entry identified by the supplied hostname or pattern (canonicalized on entry).
+    ///     Provides the single mutation path used by UI surfaces so that future eventing,
+    ///     validation, and persistence hooks can be added centrally instead of bypassing
+    ///     the map.
     /// </summary>
-    /// <param name="canonicalPattern">The canonical pattern of the entry to update.</param>
+    /// <param name="hostname">The hostname or pattern identifying the entry to update.</param>
     /// <param name="isEnabled">The new enabled state.</param>
     /// <returns><see langword="true" /> when an entry was found and its state changed.</returns>
-    public bool HasSetEnabled(string canonicalPattern, bool isEnabled)
+    public bool HasSetEnabled(string hostname, bool isEnabled)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(canonicalPattern);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        var canonical = DomainPatternNormalization.Normalize(hostname);
         lock (_writerSync)
         {
             var snapshot = _snapshot;
-            var matchIndex = DomainNameSystemOverrideEntryArrays.IndexOf(snapshot, canonicalPattern);
+            var matchIndex = DomainNameSystemOverrideEntryArrays.IndexOf(snapshot, canonical);
             if (matchIndex < 0)
             {
                 return false;
