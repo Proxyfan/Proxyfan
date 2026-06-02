@@ -86,13 +86,14 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistryTests
     ///     by the delta.
     /// </summary>
     [Test]
-    public async Task ApplyPeerInitialSendWindowSize_PositiveDelta_ShiftsExistingStreams()
+    public async Task HasAppliedPeerInitialSendWindowSize_PositiveDelta_ShiftsExistingStreams()
     {
         var registry = new HypertextTransferProtocolVersion2StreamRegistry();
         var stream = registry.GetOrCreate(1);
 
-        registry.ApplyPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize + 1000);
+        var result = registry.HasAppliedPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize + 1000);
 
+        await Assert.That(result).IsTrue();
         await Assert.That(stream.SendWindow.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize + 1000);
     }
 
@@ -100,13 +101,14 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistryTests
     ///     A local SETTINGS_INITIAL_WINDOW_SIZE update shifts every existing stream's receive window.
     /// </summary>
     [Test]
-    public async Task ApplyLocalInitialReceiveWindowSize_NegativeDelta_ShiftsExistingStreams()
+    public async Task HasAppliedLocalInitialReceiveWindowSize_NegativeDelta_ShiftsExistingStreams()
     {
         var registry = new HypertextTransferProtocolVersion2StreamRegistry();
         var stream = registry.GetOrCreate(1);
 
-        registry.ApplyLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize - 5000);
+        var result = registry.HasAppliedLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize - 5000);
 
+        await Assert.That(result).IsTrue();
         await Assert.That(stream.ReceiveWindow.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize - 5000);
     }
 
@@ -144,34 +146,74 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistryTests
     /// <summary>
     ///     Applying the same local initial receive window size is a no-op (delta == 0); existing
     ///     streams are not shifted. Exercises the early-return branch in
-    ///     <see cref="HypertextTransferProtocolVersion2StreamRegistry.ApplyLocalInitialReceiveWindowSize" />.
+    ///     <see cref="HypertextTransferProtocolVersion2StreamRegistry.HasAppliedLocalInitialReceiveWindowSize" />.
     /// </summary>
     [Test]
-    public async Task ApplyLocalInitialReceiveWindowSize_ZeroDelta_DoesNotShiftStreams()
+    public async Task HasAppliedLocalInitialReceiveWindowSize_ZeroDelta_DoesNotShiftStreams()
     {
         var registry = new HypertextTransferProtocolVersion2StreamRegistry();
         var stream = registry.GetOrCreate(1);
         var originalAvailable = stream.ReceiveWindow.Available;
 
-        registry.ApplyLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize);
+        var result = registry.HasAppliedLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize);
 
+        await Assert.That(result).IsTrue();
         await Assert.That(stream.ReceiveWindow.Available).IsEqualTo(originalAvailable);
     }
 
     /// <summary>
     ///     Applying the same peer initial send window size is a no-op (delta == 0); existing
     ///     streams are not shifted. Exercises the early-return branch in
-    ///     <see cref="HypertextTransferProtocolVersion2StreamRegistry.ApplyPeerInitialSendWindowSize" />.
+    ///     <see cref="HypertextTransferProtocolVersion2StreamRegistry.HasAppliedPeerInitialSendWindowSize" />.
     /// </summary>
     [Test]
-    public async Task ApplyPeerInitialSendWindowSize_ZeroDelta_DoesNotShiftStreams()
+    public async Task HasAppliedPeerInitialSendWindowSize_ZeroDelta_DoesNotShiftStreams()
     {
         var registry = new HypertextTransferProtocolVersion2StreamRegistry();
         var stream = registry.GetOrCreate(1);
         var originalAvailable = stream.SendWindow.Available;
 
-        registry.ApplyPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize);
+        var result = registry.HasAppliedPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.DefaultInitialSize);
 
+        await Assert.That(result).IsTrue();
         await Assert.That(stream.SendWindow.Available).IsEqualTo(originalAvailable);
+    }
+
+    /// <summary>
+    ///     A peer SETTINGS_INITIAL_WINDOW_SIZE update that would push an existing stream's send
+    ///     window above the maximum returns false so the caller can raise a FLOW_CONTROL_ERROR
+    ///     connection error per RFC 7540 § 6.9.2.
+    /// </summary>
+    [Test]
+    public async Task HasAppliedPeerInitialSendWindowSize_OverflowsExistingStream_ReturnsFalse()
+    {
+        var registry = new HypertextTransferProtocolVersion2StreamRegistry();
+        _ = registry.HasAppliedPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize - 1);
+        var stream = registry.GetOrCreate(1);
+        stream.SendWindow.HasIncremented(1);
+
+        var result = registry.HasAppliedPeerInitialSendWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize);
+
+        await Assert.That(result).IsFalse();
+        await Assert.That(stream.SendWindow.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize);
+    }
+
+    /// <summary>
+    ///     A local SETTINGS_INITIAL_WINDOW_SIZE update that would push an existing stream's
+    ///     receive window above the maximum returns false so the caller can raise a
+    ///     FLOW_CONTROL_ERROR connection error per RFC 7540 § 6.9.2.
+    /// </summary>
+    [Test]
+    public async Task HasAppliedLocalInitialReceiveWindowSize_OverflowsExistingStream_ReturnsFalse()
+    {
+        var registry = new HypertextTransferProtocolVersion2StreamRegistry();
+        _ = registry.HasAppliedLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize - 1);
+        var stream = registry.GetOrCreate(1);
+        stream.ReceiveWindow.HasIncremented(1);
+
+        var result = registry.HasAppliedLocalInitialReceiveWindowSize(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize);
+
+        await Assert.That(result).IsFalse();
+        await Assert.That(stream.ReceiveWindow.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize);
     }
 }

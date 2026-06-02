@@ -54,46 +54,6 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistry
     }
 
     /// <summary>
-    ///     Updates the local SETTINGS_INITIAL_WINDOW_SIZE value used for new streams' receive
-    ///     windows. Existing streams have their receive window shifted by the delta.
-    /// </summary>
-    /// <param name="newInitialSize">The new local initial receive window size.</param>
-    public void ApplyLocalInitialReceiveWindowSize(int newInitialSize)
-    {
-        var delta = newInitialSize - _initialReceiveWindowSize;
-        _initialReceiveWindowSize = newInitialSize;
-        if (delta == 0)
-        {
-            return;
-        }
-        foreach (var pair in _streams)
-        {
-            pair.Value.ReceiveWindow.ApplyInitialSizeDelta(delta);
-        }
-    }
-
-    /// <summary>
-    ///     Applies a peer SETTINGS_INITIAL_WINDOW_SIZE update. The new value is recorded so
-    ///     future streams use it for their send window; existing streams have their
-    ///     <see cref="HypertextTransferProtocolVersion2Stream.SendWindow" /> shifted by the
-    ///     delta per RFC 7540 § 6.9.2.
-    /// </summary>
-    /// <param name="newInitialSize">The new initial window size from the peer.</param>
-    public void ApplyPeerInitialSendWindowSize(int newInitialSize)
-    {
-        var delta = newInitialSize - _initialSendWindowSize;
-        _initialSendWindowSize = newInitialSize;
-        if (delta == 0)
-        {
-            return;
-        }
-        foreach (var pair in _streams)
-        {
-            pair.Value.SendWindow.ApplyInitialSizeDelta(delta);
-        }
-    }
-
-    /// <summary>
     ///     Tries to look up an existing stream without creating one.
     /// </summary>
     /// <param name="streamIdentifier">The stream identifier.</param>
@@ -126,6 +86,68 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistry
             HighestStreamIdentifier = streamIdentifier;
         }
         return stream;
+    }
+
+    /// <summary>
+    ///     Updates the local SETTINGS_INITIAL_WINDOW_SIZE value used for new streams' receive
+    ///     windows. Existing streams have their receive window shifted by the delta.
+    /// </summary>
+    /// <param name="newInitialSize">The new local initial receive window size.</param>
+    /// <returns>
+    ///     <c>true</c> when every existing stream's receive window could be shifted; <c>false</c>
+    ///     when at least one window would exceed the legal range, which the caller must surface
+    ///     as a FLOW_CONTROL_ERROR connection error per RFC 7540 § 6.9.2. The stored initial
+    ///     size is updated in either case so new streams use the new value.
+    /// </returns>
+    public bool HasAppliedLocalInitialReceiveWindowSize(int newInitialSize)
+    {
+        var delta = newInitialSize - _initialReceiveWindowSize;
+        _initialReceiveWindowSize = newInitialSize;
+        if (delta == 0)
+        {
+            return true;
+        }
+        var success = true;
+        foreach (var pair in _streams)
+        {
+            if (!pair.Value.ReceiveWindow.HasAppliedInitialSizeDelta(delta))
+            {
+                success = false;
+            }
+        }
+        return success;
+    }
+
+    /// <summary>
+    ///     Applies a peer SETTINGS_INITIAL_WINDOW_SIZE update. The new value is recorded so
+    ///     future streams use it for their send window; existing streams have their
+    ///     <see cref="HypertextTransferProtocolVersion2Stream.SendWindow" /> shifted by the
+    ///     delta per RFC 7540 § 6.9.2.
+    /// </summary>
+    /// <param name="newInitialSize">The new initial window size from the peer.</param>
+    /// <returns>
+    ///     <c>true</c> when every existing stream's send window could be shifted; <c>false</c>
+    ///     when at least one window would exceed the legal range, which the caller must surface
+    ///     as a FLOW_CONTROL_ERROR connection error per RFC 7540 § 6.9.2. The stored initial
+    ///     size is updated in either case so new streams use the new value.
+    /// </returns>
+    public bool HasAppliedPeerInitialSendWindowSize(int newInitialSize)
+    {
+        var delta = newInitialSize - _initialSendWindowSize;
+        _initialSendWindowSize = newInitialSize;
+        if (delta == 0)
+        {
+            return true;
+        }
+        var success = true;
+        foreach (var pair in _streams)
+        {
+            if (!pair.Value.SendWindow.HasAppliedInitialSizeDelta(delta))
+            {
+                success = false;
+            }
+        }
+        return success;
     }
 
     /// <summary>
