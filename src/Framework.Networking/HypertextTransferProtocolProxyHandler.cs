@@ -161,9 +161,10 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private async Task<HypertextTransferProtocolRequestData> ApplyScriptingRequestAsync(
         TrafficFlow flow,
         HypertextTransferProtocolRequestData effectiveRequest,
+        RequestPipelineAction? blockingAction,
         CancellationToken cancellationToken)
     {
-        if (_scriptingHandler is null)
+        if (_scriptingHandler is null || blockingAction is RequestPipelineAction.ServeLocalResponse)
         {
             return effectiveRequest;
         }
@@ -484,7 +485,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
         effectiveRequest = requestBreakpoint.ModifiedRequest ?? effectiveRequest;
-        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
+        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, blockingAction, cancellationToken).ConfigureAwait(false);
         if (blockingAction is not RequestPipelineAction.ServeLocalResponse
             && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
         {
