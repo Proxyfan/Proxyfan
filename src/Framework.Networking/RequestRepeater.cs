@@ -92,7 +92,7 @@ public sealed class RequestRepeater : IRequestRepeater
         return completed;
     }
 
-    private async Task<HypertextTransferProtocolResponseData> DispatchUpstreamAsync(
+    private async Task<HypertextTransferProtocolResponseData?> DispatchUpstreamAsync(
         HypertextTransferProtocolRequestData effectiveRequest,
         CancellationToken cancellationToken)
     {
@@ -107,8 +107,7 @@ public sealed class RequestRepeater : IRequestRepeater
         }
         catch (Exception)
         {
-            var failedResponse = HypertextTransferProtocolRuleApplicator.CreateBlockedResponseData();
-            return failedResponse;
+            return null;
         }
     }
 
@@ -157,7 +156,16 @@ public sealed class RequestRepeater : IRequestRepeater
         }
         else
         {
-            responseData = await DispatchUpstreamAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
+            var dispatchResult = await DispatchUpstreamAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
+            if (dispatchResult is null)
+            {
+                flow.Fail();
+                _trafficStore.Add(flow);
+                PublishFlowCompleted(flow);
+                return flow.Id;
+            }
+
+            responseData = dispatchResult;
         }
 
         var responseActions = _ruleEngine.EvaluateResponse(effectiveRequest, responseData);
