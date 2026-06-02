@@ -24,6 +24,12 @@ public static class HypertextTransferProtocolVersion2FrameWriter
         HypertextTransferProtocolVersion2FrameDescriptor descriptor,
         ReadOnlySpan<byte> payload)
     {
+        if (descriptor.PayloadLength != payload.Length)
+        {
+            throw new ArgumentException(
+                $"Descriptor payload length ({descriptor.PayloadLength}) does not match the supplied payload length ({payload.Length}).",
+                nameof(descriptor));
+        }
         var totalLength = HypertextTransferProtocolVersion2FrameParser.HeaderLength + payload.Length;
         if (destination.Length < totalLength)
         {
