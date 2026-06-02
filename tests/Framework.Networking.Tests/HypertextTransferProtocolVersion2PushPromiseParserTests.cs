@@ -107,4 +107,57 @@ public sealed class HypertextTransferProtocolVersion2PushPromiseParserTests
 
         await Assert.That(result).IsNull();
     }
+
+    /// <summary>
+    ///     A promised stream id of zero is invalid per RFC 7540 § 6.6 and is rejected.
+    /// </summary>
+    [Test]
+    public async Task Parse_ZeroPromisedStreamId_ReturnsNull()
+    {
+        byte[] payload =
+        [
+            0x00, 0x00, 0x00, 0x00,
+            0x82,
+        ];
+
+        var result = HypertextTransferProtocolVersion2PushPromiseParser.Parse(payload, hasPaddedFlag: false);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     An odd (client-initiated) promised stream id is invalid for PUSH_PROMISE and is rejected.
+    /// </summary>
+    [Test]
+    public async Task Parse_OddPromisedStreamId_ReturnsNull()
+    {
+        byte[] payload =
+        [
+            0x00, 0x00, 0x00, 0x03,
+            0x82,
+        ];
+
+        var result = HypertextTransferProtocolVersion2PushPromiseParser.Parse(payload, hasPaddedFlag: false);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     The reserved-bit mask is applied before stream-id validation: a payload whose raw value is
+    ///     odd only because of the reserved bit must still pass when the masked id is non-zero and even.
+    /// </summary>
+    [Test]
+    public async Task Parse_ReservedBitSetWithEvenStreamId_IsAccepted()
+    {
+        byte[] payload =
+        [
+            0x80, 0x00, 0x00, 0x02,
+            0x82,
+        ];
+
+        var result = HypertextTransferProtocolVersion2PushPromiseParser.Parse(payload, hasPaddedFlag: false);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.PromisedStreamIdentifier).IsEqualTo((uint)2);
+    }
 }
