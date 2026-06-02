@@ -56,10 +56,11 @@ public sealed class ScriptableProjectorTests
 
         var built = ScriptableProjector.Project(view, source);
 
-        await Assert.That(built.Method).IsEqualTo("PATCH");
-        await Assert.That(built.RequestUri.ToString()).IsEqualTo("https://api.example.com/data");
-        await Assert.That(built.Headers.Get("X-Custom")).IsEqualTo("modified");
-        await Assert.That(built.Body.Length).IsEqualTo(source.Body.Length);
+        await Assert.That(built.IsSuccess).IsTrue();
+        await Assert.That(built.Value.Method).IsEqualTo("PATCH");
+        await Assert.That(built.Value.RequestUri.ToString()).IsEqualTo("https://api.example.com/data");
+        await Assert.That(built.Value.Headers.Get("X-Custom")).IsEqualTo("modified");
+        await Assert.That(built.Value.Body.Length).IsEqualTo(source.Body.Length);
     }
 
     /// <summary>
@@ -76,9 +77,128 @@ public sealed class ScriptableProjectorTests
 
         var built = ScriptableProjector.Project(view, source);
 
-        await Assert.That(built.StatusCode).IsEqualTo(200);
-        await Assert.That(built.ReasonPhrase).IsEqualTo("OK");
-        await Assert.That(built.Body.Length).IsEqualTo(source.Body.Length);
+        await Assert.That(built.IsSuccess).IsTrue();
+        await Assert.That(built.Value.StatusCode).IsEqualTo(200);
+        await Assert.That(built.Value.ReasonPhrase).IsEqualTo("OK");
+        await Assert.That(built.Value.Body.Length).IsEqualTo(source.Body.Length);
+    }
+
+    /// <summary>
+    ///     Verifies that projecting a request with a non-absolute URL returns a typed failure
+    ///     rather than throwing from the <see cref="Uri" /> constructor.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableRequest_RelativeUrl_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Url = "/relative/path";
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_REQUEST_URL");
+    }
+
+    /// <summary>
+    ///     Verifies that projecting a request with a blank method returns a typed failure.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableRequest_EmptyMethod_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Method = string.Empty;
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_REQUEST_METHOD");
+    }
+
+    /// <summary>
+    ///     Verifies that projecting a request with a method containing forbidden characters
+    ///     (e.g. whitespace, which would corrupt the request line) returns a typed failure.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableRequest_MethodWithWhitespace_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Method = "GE T";
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_REQUEST_METHOD");
+    }
+
+    /// <summary>
+    ///     Verifies that header values containing CR/LF (which would enable response-splitting)
+    ///     are rejected as a typed failure rather than being copied into the projected request.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableRequest_HeaderValueWithCarriageReturn_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Headers.Set("X-Injected", "value\r\nX-Smuggled: yes");
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_HEADER_VALUE");
+    }
+
+    /// <summary>
+    ///     Verifies that header names containing characters outside the HTTP token grammar
+    ///     (e.g. spaces) are rejected as a typed failure.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableRequest_HeaderNameWithInvalidCharacter_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Headers.Set("Bad Header", "value");
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_HEADER_NAME");
+    }
+
+    /// <summary>
+    ///     Verifies that projecting a response with a status code outside 100–999 returns a
+    ///     typed failure rather than producing an out-of-range status line.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableResponse_OutOfRangeStatusCode_ReturnsFailure()
+    {
+        var source = BuildSourceResponse();
+        var view = new ScriptableResponse(source);
+        view.StatusCode = 99;
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_RESPONSE_STATUS_CODE");
+    }
+
+    /// <summary>
+    ///     Verifies that a reason phrase containing CR/LF is rejected as a typed failure to
+    ///     prevent corruption of the status line.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableResponse_ReasonPhraseWithNewline_ReturnsFailure()
+    {
+        var source = BuildSourceResponse();
+        var view = new ScriptableResponse(source);
+        view.ReasonPhrase = "OK\r\nX-Smuggled: yes";
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_RESPONSE_REASON_PHRASE");
     }
 
     private static HypertextTransferProtocolRequestData BuildSourceRequest()

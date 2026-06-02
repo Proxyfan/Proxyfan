@@ -185,6 +185,45 @@ public sealed class UserScriptingHandlerTests
         await Assert.That(result.Headers.Get("X-Override")).IsEqualTo("yes");
     }
 
+    /// <summary>
+    ///     Verifies that when the script sets an invalid request URL the handler falls back to
+    ///     the original request rather than throwing or projecting malformed HTTP.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_InvalidScriptUrl_ReturnsOriginal()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "bad-url",
+            onRequest: (request, state) => request.Url = "not a url"));
+        var handler = new UserScriptingHandler(configuration);
+        var source = BuildRequest("GET");
+
+        var result = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
+
+        await Assert.That(result).IsSameReferenceAs(source);
+    }
+
+    /// <summary>
+    ///     Verifies that when the script sets an out-of-range status code the handler falls
+    ///     back to the original response rather than throwing or projecting malformed HTTP.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_InvalidScriptStatusCode_ReturnsOriginal()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "bad-status",
+            onResponse: (req, resp, state) => resp.StatusCode = 99999));
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
+
+        await Assert.That(result).IsSameReferenceAs(sourceResponse);
+    }
+
     private static HypertextTransferProtocolRequestData BuildRequest(string method)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

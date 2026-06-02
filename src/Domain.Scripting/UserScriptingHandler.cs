@@ -48,8 +48,13 @@ public sealed class UserScriptingHandler : IScriptingHandler
         var view = new ScriptableRequest(request);
         var sharedState = GetOrCreateSharedState(flowId);
         await script.OnRequestAsync(view, sharedState, cancellationToken).ConfigureAwait(false);
-        var projected = ScriptableProjector.Project(view, request);
-        return projected;
+        var projection = ScriptableProjector.Project(view, request);
+        if (!projection.IsSuccess)
+        {
+            return request;
+        }
+
+        return projection.Value;
     }
 
     /// <inheritdoc />
@@ -82,8 +87,13 @@ public sealed class UserScriptingHandler : IScriptingHandler
             _sharedStatesByFlow.TryRemove(flowId, out _);
         }
 
-        var projected = ScriptableProjector.Project(responseView, response);
-        return projected;
+        var projection = ScriptableProjector.Project(responseView, response);
+        if (!projection.IsSuccess)
+        {
+            return response;
+        }
+
+        return projection.Value;
     }
 
     private IDictionary<string, object?> GetOrCreateSharedState(string flowId)
