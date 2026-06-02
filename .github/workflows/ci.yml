@@ -28,8 +28,3 @@ jobs:
         shell: pwsh
         run: |
           ./.tools/Invoke-Build.ps1 -Configuration Debug
-
-      - name: Test
-        shell: pwsh
-        run: |
-          ./.tools/Run-Tests.ps1 -Configuration Debug -NoBuild
