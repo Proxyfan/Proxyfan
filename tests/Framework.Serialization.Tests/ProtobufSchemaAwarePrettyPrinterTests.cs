@@ -136,7 +136,40 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
     }
 
     /// <summary>
-    ///     Nested messages render recursively with the inner field expanded.
+    ///     A nested message field whose bytes are malformed renders as a raw hex dump
+    ///     with a malformed-message marker rather than as an empty <c>name { }</c> block.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_MalformedNestedMessage_RendersMalformedMarker()
+    {
+        var innerDescriptor = BuildMessage(".demo.Inner", "Inner", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeString, Label = ProtobufFieldLabel.Optional, Name = "label", Number = 1 },
+        });
+        var outerDescriptor = BuildMessage(".demo.Outer", "Outer", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeMessage, Label = ProtobufFieldLabel.Optional, Name = "inner", Number = 1, TypeName = ".demo.Inner" },
+        });
+        var file = new ProtobufFileDescriptor
+        {
+            Enums = Array.Empty<ProtobufEnumDescriptor>(),
+            Messages = new List<ProtobufMessageDescriptor> { innerDescriptor, outerDescriptor },
+            Name = "nested.proto",
+            Package = "demo",
+            Services = Array.Empty<ProtobufServiceDescriptor>(),
+        };
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { file });
+        var malformedInnerBytes = new byte[] { 0x80 };
+        var outerBytes = new ProtobufWireWriter().WriteBytesField(1, malformedInnerBytes).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(outerBytes, outerDescriptor, index);
+
+        await Assert.That(rendering).Contains("inner (malformed message, 1 bytes): 0x80");
+        await Assert.That(rendering).DoesNotContain("inner {");
+    }
+
+    /// <summary>
+    ///     A nested message field renders recursively with the inner field expanded.
     /// </summary>
     [Test]
     public async Task PrettyPrint_NestedMessageField_RendersRecursively()
