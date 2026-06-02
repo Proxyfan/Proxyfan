@@ -32,7 +32,8 @@ to point at one.
 ## What you OWN
 
 1. Loading only the relevant block from `docs/BACKLOG.md` via
-   `.tools/Get-WorkItem.ps1`.
+   `.tools/Get-WorkItem.ps1` (or fetching the GitHub issue body when the
+   user names an issue instead of a backlog id).
 2. Producing a plan that satisfies the gates in
    `.github/instructions/review-gates.instructions.md`:
    - scope (in / out), effort sketch, design, reversibility, privacy
@@ -42,13 +43,19 @@ to point at one.
 3. Dispatching the right specialist skills against the plan **before**
    coding starts (see `.github/skills/agentic-workflow/CATALOG.md`).
 4. Confirming the plan with the user before any file write.
+5. **Implementing the plan**, running the full build + test gate, and
+   landing the change on a feature branch.
+6. **Opening a pull request** for every accepted plan — the skill is not
+   complete until `gh pr create` has returned a PR URL. The PR body links
+   the work item (`Fixes #<n>` for a GitHub issue, or the backlog id for a
+   backlog-only item) and summarises scope, validation, and any
+   out-of-scope follow-ups surfaced during planning.
 
 ## What you do NOT own
 
-- Implementation. After the user accepts the plan, this skill's job is done
-  — coding proceeds under the normal review-gates rhythm.
 - Editing `docs/BACKLOG.md` to mark the item complete. That is a separate
   bookkeeping step the user owns.
+- Merging the PR. Open it, hand the URL back to the user, and stop.
 
 ## Tooling contract
 
