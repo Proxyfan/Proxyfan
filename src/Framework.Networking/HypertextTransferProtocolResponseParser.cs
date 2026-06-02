@@ -14,6 +14,13 @@ public static class HypertextTransferProtocolResponseParser
 
     /// <summary>
     ///     Returns the numeric response content length when the header is present and valid.
+    ///     A header that is present but malformed, negative, or in conflict with itself across
+    ///     comma-joined tokens or repeated header lines is treated as invalid and returns
+    ///     <c>-1</c>; callers that need to distinguish &quot;absent&quot; from &quot;invalid&quot;
+    ///     must inspect the response headers directly or go through
+    ///     <see cref="HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse" />,
+    ///     which surfaces <see cref="HypertextTransferProtocolBodyFraming.Invalid" /> for
+    ///     malformed framing.
     /// </summary>
     /// <param name="response">
     ///     The parsed response data.
@@ -23,11 +30,16 @@ public static class HypertextTransferProtocolResponseParser
     /// </returns>
     public static long GetContentLength(HypertextTransferProtocolResponseData response)
     {
-        var contentLength = response.Headers.Get("Content-Length");
+        var values = response.Headers.GetAll("Content-Length");
 
-        if (long.TryParse(contentLength, out var parsedContentLength) && parsedContentLength >= 0)
+        if (values.Length == 0)
         {
-            return parsedContentLength;
+            return -1;
+        }
+
+        if (ContentLengthParser.HasValidContentLength(values, out var parsed))
+        {
+            return parsed;
         }
 
         return -1;
