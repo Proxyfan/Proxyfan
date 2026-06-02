@@ -137,6 +137,42 @@ public sealed class UpgradeRequestRewriterTests
         await Assert.That(asString).Contains("MalformedNoColon");
     }
 
+    /// <summary>Verifies that a header named by the client's Connection list is stripped.</summary>
+    [Test]
+    public async Task RewriteHeaders_ConnectionListedHeader_IsStripped()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "GET /chat HTTP/1.1\r\nHost: example.com\r\nConnection: upgrade, X-Hop\r\nUpgrade: websocket\r\nX-Hop: secret\r\n\r\n");
+        var request = BuildRelativeRequest("GET", "/chat");
+
+        var rewritten = UpgradeRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("X-Hop: secret");
+        await Assert.That(asString).DoesNotContain("secret");
+        await Assert.That(asString).Contains("Connection: upgrade, X-Hop");
+        await Assert.That(asString).Contains("Upgrade: websocket");
+    }
+
+    /// <summary>Verifies that standard hop-by-hop headers are stripped from upgrade requests.</summary>
+    [Test]
+    public async Task RewriteHeaders_HopByHopHeaders_AreStripped()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "GET /chat HTTP/1.1\r\nHost: example.com\r\nConnection: upgrade\r\nUpgrade: websocket\r\nKeep-Alive: timeout=5\r\nTE: trailers\r\nTrailer: Expires\r\nTransfer-Encoding: chunked\r\n\r\n");
+        var request = BuildRelativeRequest("GET", "/chat");
+
+        var rewritten = UpgradeRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("Keep-Alive");
+        await Assert.That(asString).DoesNotContain("TE:");
+        await Assert.That(asString).DoesNotContain("Trailer:");
+        await Assert.That(asString).DoesNotContain("Transfer-Encoding");
+        await Assert.That(asString).Contains("Connection: upgrade");
+        await Assert.That(asString).Contains("Upgrade: websocket");
+    }
+
     private static HypertextTransferProtocolRequestData BuildAbsoluteRequest(string method, string absoluteUri)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
