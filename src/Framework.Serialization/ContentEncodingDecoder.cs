@@ -11,15 +11,17 @@ namespace Proxyfan.Framework.Serialization;
 public static class ContentEncodingDecoder
 {
     /// <summary>
-    ///     Decodes the supplied bytes using the algorithm named in the Content-Encoding header
-    ///     value. Returns the input bytes unchanged when the encoding is null, empty, or
-    ///     "identity"/"none".
+    ///     Decodes the supplied bytes using the algorithm(s) named in the Content-Encoding header
+    ///     value. The header may be a single token (for example <c>gzip</c>) or an RFC 7231
+    ///     comma-separated chain (for example <c>gzip, br</c>); chained encodings are unwrapped in
+    ///     reverse order. Returns the input bytes unchanged when the encoding is null, empty, or
+    ///     consists solely of "identity"/"none" tokens.
     /// </summary>
     /// <param name="contentEncoding">The Content-Encoding header value.</param>
     /// <param name="bytes">The compressed (or uncompressed) bytes.</param>
     /// <returns>The decoded bytes.</returns>
     /// <exception cref="NotSupportedException">
-    ///     Thrown when the encoding is recognized as a name but not implemented.
+    ///     Thrown when any token in the chain is recognized as a name but not implemented.
     /// </exception>
     public static byte[] Decode(string? contentEncoding, byte[] bytes)
     {
@@ -28,29 +30,45 @@ public static class ContentEncodingDecoder
             return bytes;
         }
 
-        var normalized = contentEncoding.Trim().ToLowerInvariant();
+        var tokens = contentEncoding.Split(',');
+        var current = bytes;
+        var anyApplied = false;
 
-        if (normalized is "identity" or "none")
+        for (var index = tokens.Length - 1; index >= 0; index--)
+        {
+            var token = tokens[index].Trim().ToLowerInvariant();
+
+            if (token.Length == 0 || token is "identity" or "none")
+            {
+                continue;
+            }
+
+            if (string.Equals(token, "gzip", StringComparison.Ordinal))
+            {
+                current = DecodeWithStream(current, CreateGzipDecompressionStream);
+            }
+            else if (string.Equals(token, "deflate", StringComparison.Ordinal))
+            {
+                current = DecodeWithStream(current, CreateDeflateDecompressionStream);
+            }
+            else if (string.Equals(token, "br", StringComparison.Ordinal))
+            {
+                current = DecodeWithStream(current, CreateBrotliDecompressionStream);
+            }
+            else
+            {
+                throw new NotSupportedException($"Content encoding '{contentEncoding}' is not supported.");
+            }
+
+            anyApplied = true;
+        }
+
+        if (!anyApplied)
         {
             return bytes;
         }
 
-        if (string.Equals(normalized, "gzip", StringComparison.Ordinal))
-        {
-            return DecodeWithStream(bytes, CreateGzipDecompressionStream);
-        }
-
-        if (string.Equals(normalized, "deflate", StringComparison.Ordinal))
-        {
-            return DecodeWithStream(bytes, CreateDeflateDecompressionStream);
-        }
-
-        if (string.Equals(normalized, "br", StringComparison.Ordinal))
-        {
-            return DecodeWithStream(bytes, CreateBrotliDecompressionStream);
-        }
-
-        throw new NotSupportedException($"Content encoding '{contentEncoding}' is not supported.");
+        return current;
     }
 
     private static Stream CreateBrotliDecompressionStream(Stream source)
