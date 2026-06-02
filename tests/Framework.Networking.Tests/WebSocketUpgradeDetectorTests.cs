@@ -15,7 +15,9 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "upgrade"));
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
 
@@ -28,7 +30,9 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "WebSocket")
-            .Add("Connection", "Upgrade"));
+            .Add("Connection", "Upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
 
@@ -41,7 +45,9 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "keep-alive, Upgrade"));
+            .Add("Connection", "keep-alive, Upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
 
@@ -76,7 +82,9 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "h2c")
-            .Add("Connection", "upgrade"));
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
 
@@ -89,7 +97,9 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "keep-alive"));
+            .Add("Connection", "keep-alive")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
 
@@ -109,14 +119,91 @@ public sealed class WebSocketUpgradeDetectorTests
         await Assert.That(result).IsFalse();
     }
 
-    /// <summary>Successful upgrade requires request + 101 + Upgrade response header.</summary>
+    /// <summary>Missing Sec-WebSocket-Key → no upgrade (RFC 6455 §4.1).</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_MissingSecWebSocketKey_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Version", "13"));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Sec-WebSocket-Key not base64 of 16 bytes → no upgrade.</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_WrongLengthSecWebSocketKey_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGVzdA==")
+            .Add("Sec-WebSocket-Version", "13"));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Sec-WebSocket-Key with invalid base64 → no upgrade.</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_NonBase64SecWebSocketKey_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "not!base64@@@")
+            .Add("Sec-WebSocket-Version", "13"));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Missing Sec-WebSocket-Version → no upgrade.</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_MissingSecWebSocketVersion_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Sec-WebSocket-Version other than 13 → no upgrade (RFC 6455 §4.1).</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_UnsupportedSecWebSocketVersion_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "8"));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Successful upgrade requires request + 101 + Upgrade + matching Accept.</summary>
     [Test]
     public async Task HasWebSocketUpgradeSuccess_AllConditionsMet_ReturnsTrue()
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "upgrade"));
-        var response = BuildResponse(101, HeaderCollection.Empty.Add("Upgrade", "websocket"));
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
+        var response = BuildResponse(101, HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Sec-WebSocket-Accept", "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
 
@@ -129,8 +216,12 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "upgrade"));
-        var response = BuildResponse(200, HeaderCollection.Empty.Add("Upgrade", "websocket"));
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
+        var response = BuildResponse(200, HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Sec-WebSocket-Accept", "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
 
@@ -143,7 +234,9 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "upgrade"));
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
         var response = BuildResponse(101, HeaderCollection.Empty);
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
@@ -157,8 +250,46 @@ public sealed class WebSocketUpgradeDetectorTests
     {
         var request = BuildRequest(HeaderCollection.Empty
             .Add("Upgrade", "websocket")
-            .Add("Connection", "upgrade"));
-        var response = BuildResponse(101, HeaderCollection.Empty.Add("Upgrade", "h2c"));
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
+        var response = BuildResponse(101, HeaderCollection.Empty
+            .Add("Upgrade", "h2c")
+            .Add("Sec-WebSocket-Accept", "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Missing Sec-WebSocket-Accept on response → no successful upgrade.</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeSuccess_ResponseMissingAccept_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
+        var response = BuildResponse(101, HeaderCollection.Empty.Add("Upgrade", "websocket"));
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>Sec-WebSocket-Accept that does not match the SHA-1 of key+GUID → no upgrade.</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeSuccess_ResponseMismatchedAccept_ReturnsFalse()
+    {
+        var request = BuildRequest(HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Connection", "upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13"));
+        var response = BuildResponse(101, HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Sec-WebSocket-Accept", "dGVzdA=="));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
 
@@ -170,7 +301,9 @@ public sealed class WebSocketUpgradeDetectorTests
     public async Task HasWebSocketUpgradeSuccess_InvalidRequest_ReturnsFalse()
     {
         var request = BuildRequest(HeaderCollection.Empty);
-        var response = BuildResponse(101, HeaderCollection.Empty.Add("Upgrade", "websocket"));
+        var response = BuildResponse(101, HeaderCollection.Empty
+            .Add("Upgrade", "websocket")
+            .Add("Sec-WebSocket-Accept", "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
 
         var result = WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request, response);
 
