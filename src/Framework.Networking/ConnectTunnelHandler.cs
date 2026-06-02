@@ -186,11 +186,11 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
 
     private async Task TunnelAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
     {
-        TcpClient? tunnelClient;
+        TcpClient? tunnelClient = null;
 
+        var client = new TcpClient();
         try
         {
-            var client = new TcpClient();
             var effectiveHost = _hostResolver is null ? target.Host : _hostResolver.Resolve(target.Host);
             await client.ConnectAsync(effectiveHost, target.Port, cancellationToken).ConfigureAwait(false);
             tunnelClient = client;
@@ -199,6 +199,17 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
         {
             LogConnectFailed(ex, target.Host, target.Port);
             await SendErrorResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (tunnelClient is null)
+            {
+                client.Dispose();
+            }
+        }
+
+        if (tunnelClient is null)
+        {
             return;
         }
 
