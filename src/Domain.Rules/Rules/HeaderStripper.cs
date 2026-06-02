@@ -20,7 +20,7 @@ public static class HeaderStripper
     /// <returns>A new header collection with the specified headers removed.</returns>
     public static HeaderCollection StripHeaders(HeaderCollection headers, IReadOnlyList<string> headersToStrip)
     {
-        var stripped = HeaderCollection.Empty;
+        var builder = new HeaderCollection.Builder();
 
         foreach (var header in headers)
         {
@@ -42,10 +42,10 @@ public static class HeaderStripper
 
             foreach (var value in header.Value)
             {
-                stripped = stripped.Add(header.Key, value);
+                builder.Add(header.Key, value);
             }
         }
 
-        return stripped;
+        return builder.Build();
     }
 }

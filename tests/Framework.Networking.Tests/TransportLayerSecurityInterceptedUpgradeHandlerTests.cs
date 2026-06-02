@@ -1,7 +1,13 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Rules.Matching;
+using Proxyfan.Domain.Rules.Pipeline;
+using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
 using System.Text;
@@ -47,11 +53,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var webSocketStore = new WebSocketStore();
         var eventBus = new StubDomainEventBus();
         var handler = new TransportLayerSecurityInterceptedUpgradeHandler(
-            eventBus,
-            NullLogger.Instance,
-            TimeProvider.System,
-            trafficStore,
-            webSocketStore);
+            BuildDependencies(eventBus, trafficStore, webSocketStore));
 
         var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
 
@@ -86,11 +88,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var webSocketStore = new WebSocketStore();
         var eventBus = new StubDomainEventBus();
         var handler = new TransportLayerSecurityInterceptedUpgradeHandler(
-            eventBus,
-            NullLogger.Instance,
-            TimeProvider.System,
-            trafficStore,
-            webSocketStore);
+            BuildDependencies(eventBus, trafficStore, webSocketStore));
 
         var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
 
@@ -123,11 +121,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var webSocketStore = new WebSocketStore();
         var eventBus = new StubDomainEventBus();
         var handler = new TransportLayerSecurityInterceptedUpgradeHandler(
-            eventBus,
-            NullLogger.Instance,
-            TimeProvider.System,
-            trafficStore,
-            webSocketStore);
+            BuildDependencies(eventBus, trafficStore, webSocketStore));
 
         var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
 
@@ -164,11 +158,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var handler = new TransportLayerSecurityInterceptedUpgradeHandler(
-            eventBus,
-            NullLogger.Instance,
-            TimeProvider.System,
-            trafficStore,
-            null);
+            BuildDependencies(eventBus, trafficStore, webSocketStore: null));
 
         var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
 
@@ -176,6 +166,315 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
 
         await Assert.That(trafficStore.Count).IsEqualTo(1);
         await Assert.That(trafficStore.GetAll()[0].Status).IsEqualTo(TrafficFlowStatus.Complete);
+    }
+
+    /// <summary>
+    ///     A response-phase rule (No Caching) is evaluated against the upstream 101 upgrade
+    ///     response and its strip-headers modification reaches both the wire bytes sent to
+    ///     the client and the stored flow.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_SuccessfulUpgrade_AppliesResponsePhaseRule()
+    {
+        var pipes = BuildPipes(
+            out var clientIngressWriter,
+            out var clientEgressReader,
+            out var serverIngressWriter,
+            out _);
+        var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
+            + "Upgrade: websocket\r\n"
+            + "Connection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "Cache-Control: max-age=600\r\n"
+            + "\r\n";
+        await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
+        await serverIngressWriter.CompleteAsync();
+        await clientIngressWriter.CompleteAsync();
+
+        var clientTunnelStream = new DuplexStream(new MemoryStream(BuildCloseFrame()), new MemoryStream());
+        var serverTunnelStream = new DuplexStream(new MemoryStream(BuildCloseFrame()), new MemoryStream());
+
+        var trafficStore = new StubTrafficStore();
+        var webSocketStore = new WebSocketStore();
+        var eventBus = new StubDomainEventBus();
+        var noCaching = new NoCachingRule(new MatchingRule("*", MatchingRuleKind.Wildcard), isEnabled: true, priority: 0);
+        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), new IResponsePhaseRule[] { noCaching });
+        var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, ruleEngine: ruleEngine);
+        var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
+
+        var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
+
+        await handler.HandleAsync(request, CancellationToken.None);
+
+        var wireBytes = await ReadAvailableAsync(clientEgressReader);
+        var wireText = Encoding.ASCII.GetString(wireBytes);
+
+        await Assert.That(wireText.Contains("Cache-Control: no-cache", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(wireText.Contains("max-age=600", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        await Assert.That(trafficStore.Count).IsEqualTo(1);
+        var storedResponse = trafficStore.GetAll()[0].Response!;
+        await Assert.That(storedResponse.Headers.Get("Cache-Control")).IsEqualTo("no-cache, no-store, must-revalidate");
+    }
+
+    /// <summary>
+    ///     A response-phase rule is evaluated against a non-101 upstream upgrade response
+    ///     too, so policies behave identically for rejected TLS upgrades and normal HTTPS
+    ///     responses.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_UpstreamRejectsUpgrade_AppliesResponsePhaseRule()
+    {
+        var pipes = BuildPipes(
+            out var clientIngressWriter,
+            out var clientEgressReader,
+            out var serverIngressWriter,
+            out _);
+        var upstreamResponse = "HTTP/1.1 426 Upgrade Required\r\n"
+            + "Cache-Control: max-age=600\r\n"
+            + "Content-Length: 0\r\n"
+            + "\r\n";
+        await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
+        await serverIngressWriter.CompleteAsync();
+        await clientIngressWriter.CompleteAsync();
+
+        var clientTunnelStream = new DuplexStream(new MemoryStream(), new MemoryStream());
+        var serverTunnelStream = new DuplexStream(new MemoryStream(), new MemoryStream());
+
+        var trafficStore = new StubTrafficStore();
+        var webSocketStore = new WebSocketStore();
+        var eventBus = new StubDomainEventBus();
+        var noCaching = new NoCachingRule(new MatchingRule("*", MatchingRuleKind.Wildcard), isEnabled: true, priority: 0);
+        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), new IResponsePhaseRule[] { noCaching });
+        var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, ruleEngine: ruleEngine);
+        var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
+
+        var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
+
+        await handler.HandleAsync(request, CancellationToken.None);
+
+        var wireBytes = await ReadAvailableAsync(clientEgressReader);
+        var wireText = Encoding.ASCII.GetString(wireBytes);
+
+        await Assert.That(wireText.Contains("Cache-Control: no-cache", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(wireText.Contains("max-age=600", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        await Assert.That(trafficStore.Count).IsEqualTo(1);
+        var storedResponse = trafficStore.GetAll()[0].Response!;
+        await Assert.That(storedResponse.Headers.Get("Cache-Control")).IsEqualTo("no-cache, no-store, must-revalidate");
+    }
+
+    /// <summary>
+    ///     The scripting hook is invoked on the upstream upgrade response, and its
+    ///     projection reaches the stored flow and the wire bytes.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_SuccessfulUpgrade_InvokesScriptingResponseHook()
+    {
+        var pipes = BuildPipes(
+            out var clientIngressWriter,
+            out var clientEgressReader,
+            out var serverIngressWriter,
+            out _);
+        var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
+            + "Upgrade: websocket\r\n"
+            + "Connection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "\r\n";
+        await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
+        await serverIngressWriter.CompleteAsync();
+        await clientIngressWriter.CompleteAsync();
+
+        var clientTunnelStream = new DuplexStream(new MemoryStream(BuildCloseFrame()), new MemoryStream());
+        var serverTunnelStream = new DuplexStream(new MemoryStream(BuildCloseFrame()), new MemoryStream());
+
+        var trafficStore = new StubTrafficStore();
+        var webSocketStore = new WebSocketStore();
+        var eventBus = new StubDomainEventBus();
+        var scriptingHandler = new StubScriptingHandler
+        {
+            ResponseTransformer = response => AddHeader(response, "X-Script", "applied"),
+        };
+        var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, scriptingHandler: scriptingHandler);
+        var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
+
+        var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
+
+        await handler.HandleAsync(request, CancellationToken.None);
+
+        var wireBytes = await ReadAvailableAsync(clientEgressReader);
+        var wireText = Encoding.ASCII.GetString(wireBytes);
+
+        await Assert.That(scriptingHandler.ResponseInvocationCount).IsEqualTo(1);
+        await Assert.That(wireText.Contains("X-Script: applied", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(trafficStore.GetAll()[0].Response!.Headers.Get("X-Script")).IsEqualTo("applied");
+    }
+
+    /// <summary>
+    ///     An aborting response-phase breakpoint decision short-circuits the upgrade: nothing
+    ///     is written to the client, the flow is marked Failed, and the traffic store is not
+    ///     updated.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_BreakpointAborts_FailsFlowAndSuppressesClientWrite()
+    {
+        var pipes = BuildPipes(
+            out var clientIngressWriter,
+            out var clientEgressReader,
+            out var serverIngressWriter,
+            out _);
+        var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
+            + "Upgrade: websocket\r\n"
+            + "Connection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "\r\n";
+        await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
+        await serverIngressWriter.CompleteAsync();
+        await clientIngressWriter.CompleteAsync();
+
+        var clientTunnelStream = new DuplexStream(new MemoryStream(), new MemoryStream());
+        var serverTunnelStream = new DuplexStream(new MemoryStream(), new MemoryStream());
+
+        var trafficStore = new StubTrafficStore();
+        var webSocketStore = new WebSocketStore();
+        var eventBus = new StubDomainEventBus();
+        var breakpointHandler = new StubBreakpointHandler
+        {
+            ResponseDecision = new BreakpointDecision(isAborting: true, modifiedRequest: null, modifiedResponse: null),
+        };
+        var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, breakpointHandler: breakpointHandler);
+        var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
+
+        var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
+
+        await handler.HandleAsync(request, CancellationToken.None);
+
+        var wireBytes = await ReadAvailableAsync(clientEgressReader);
+
+        await Assert.That(breakpointHandler.ResponseResolveCount).IsEqualTo(1);
+        await Assert.That(wireBytes.Length).IsEqualTo(0);
+        await Assert.That(trafficStore.Count).IsEqualTo(0);
+        await Assert.That(webSocketStore.Count).IsEqualTo(0);
+        await Assert.That(request.Flow.Status).IsEqualTo(TrafficFlowStatus.Failed);
+    }
+
+    /// <summary>
+    ///     A modifying response-phase breakpoint decision replaces the upstream response and
+    ///     the modification reaches the wire bytes and the stored flow.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_BreakpointModifiesResponse_ForwardsModifiedResponse()
+    {
+        var pipes = BuildPipes(
+            out var clientIngressWriter,
+            out var clientEgressReader,
+            out var serverIngressWriter,
+            out _);
+        var upstreamResponse = "HTTP/1.1 426 Upgrade Required\r\nContent-Length: 0\r\n\r\n";
+        await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
+        await serverIngressWriter.CompleteAsync();
+        await clientIngressWriter.CompleteAsync();
+
+        var clientTunnelStream = new DuplexStream(new MemoryStream(), new MemoryStream());
+        var serverTunnelStream = new DuplexStream(new MemoryStream(), new MemoryStream());
+
+        var trafficStore = new StubTrafficStore();
+        var webSocketStore = new WebSocketStore();
+        var eventBus = new StubDomainEventBus();
+        var modifiedResponse = new HypertextTransferProtocolResponseData(new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = ReadOnlyMemory<byte>.Empty,
+            Headers = HeaderCollection.Empty.Add("X-Modified", "true").Add("Content-Length", "0"),
+            ReasonPhrase = "Forbidden",
+            StatusCode = 403,
+            Version = "HTTP/1.1",
+        });
+        var breakpointHandler = new StubBreakpointHandler
+        {
+            ResponseDecision = new BreakpointDecision(isAborting: false, modifiedRequest: null, modifiedResponse: modifiedResponse),
+        };
+        var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, breakpointHandler: breakpointHandler);
+        var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
+
+        var request = BuildUpgradeRequest(pipes, clientTunnelStream, serverTunnelStream);
+
+        await handler.HandleAsync(request, CancellationToken.None);
+
+        var wireBytes = await ReadAvailableAsync(clientEgressReader);
+        var wireText = Encoding.ASCII.GetString(wireBytes);
+
+        await Assert.That(wireText.StartsWith("HTTP/1.1 403", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(wireText.Contains("X-Modified: true", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(trafficStore.Count).IsEqualTo(1);
+        await Assert.That(trafficStore.GetAll()[0].Response!.StatusCode).IsEqualTo(403);
+    }
+
+    private static TransportLayerSecurityInterceptedUpgradeHandlerDependencies BuildDependencies(
+        StubDomainEventBus eventBus,
+        ITrafficStore trafficStore,
+        IWebSocketStore? webSocketStore,
+        IRuleEngine? ruleEngine = null,
+        IScriptingHandler? scriptingHandler = null,
+        IBreakpointHandler? breakpointHandler = null)
+    {
+        return new TransportLayerSecurityInterceptedUpgradeHandlerDependencies
+        {
+            BreakpointHandler = breakpointHandler,
+            EventBus = eventBus,
+            Logger = NullLogger.Instance,
+            RuleEngine = ruleEngine,
+            ScriptingHandler = scriptingHandler,
+            TimeProvider = TimeProvider.System,
+            TrafficStore = trafficStore,
+            WebSocketStore = webSocketStore,
+        };
+    }
+
+    private static HypertextTransferProtocolResponseData AddHeader(
+        HypertextTransferProtocolResponseData response,
+        string name,
+        string value)
+    {
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = response.Body,
+            Headers = response.Headers.Add(name, value),
+            ReasonPhrase = response.ReasonPhrase,
+            StatusCode = response.StatusCode,
+            Version = response.Version,
+        };
+        return new HypertextTransferProtocolResponseData(parameters);
+    }
+
+    private static async Task<byte[]> ReadAvailableAsync(PipeReader reader)
+    {
+        var collected = new List<byte>();
+        while (true)
+        {
+            if (!reader.TryRead(out var result))
+            {
+                using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+                try
+                {
+                    result = await reader.ReadAsync(cancellationSource.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
+            foreach (var segment in result.Buffer)
+            {
+                collected.AddRange(segment.ToArray());
+            }
+
+            reader.AdvanceTo(result.Buffer.End);
+            if (result.IsCompleted)
+            {
+                break;
+            }
+        }
+
+        return collected.ToArray();
     }
 
     private static TransportLayerSecurityInterceptionPipes BuildPipes(
