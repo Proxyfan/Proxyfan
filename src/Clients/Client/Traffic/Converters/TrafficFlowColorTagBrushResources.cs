@@ -1,5 +1,7 @@
 using Avalonia;
 using Proxyfan.Domain.Traffic;
+using System.Collections.Frozen;
+using System.Collections.Generic;
 
 namespace Proxyfan.Client.Traffic.Converters;
 
@@ -22,13 +24,34 @@ public static class TrafficFlowColorTagBrushResources
     /// </summary>
     public const string ResourceKeySuffix = ".Brush";
 
+    private static readonly FrozenDictionary<TrafficFlowColorTag, string> ResourceKeys = BuildResourceKeys();
+
     /// <summary>
-    ///     Builds the application-resource key for the supplied color tag.
+    ///     Returns the application-resource key for the supplied color tag.
+    ///     Keys are precomputed so the converter's hot path avoids per-call
+    ///     string allocations.
     /// </summary>
     /// <param name="colorTag">The color tag to resolve.</param>
     /// <returns>The resource key registered in <c>App.axaml</c>.</returns>
     public static string BuildResourceKey(TrafficFlowColorTag colorTag)
     {
+        if (ResourceKeys.TryGetValue(colorTag, out var cached))
+        {
+            return cached;
+        }
+
         return string.Concat(ResourceKeyPrefix, colorTag.ToString(), ResourceKeySuffix);
     }
+
+    private static FrozenDictionary<TrafficFlowColorTag, string> BuildResourceKeys()
+    {
+        var map = new Dictionary<TrafficFlowColorTag, string>();
+        foreach (var value in System.Enum.GetValues<TrafficFlowColorTag>())
+        {
+            map[value] = string.Concat(ResourceKeyPrefix, value.ToString(), ResourceKeySuffix);
+        }
+
+        return map.ToFrozenDictionary();
+    }
 }
+

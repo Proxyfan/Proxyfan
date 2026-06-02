@@ -124,14 +124,22 @@ public sealed class TrafficFlowColorTagToBrushConverterTests
 
     private static void SeedThemeResources()
     {
+        // Arbitrary distinct placeholder brushes — the converter is being tested,
+        // not the production palette. The real palette lives in App.axaml under
+        // ThemeDictionaries and is what end users see.
         var resources = Application.Current!.Resources;
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Red)] = new SolidColorBrush(Color.FromRgb(0xDC, 0x14, 0x3C));
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Orange)] = new SolidColorBrush(Color.FromRgb(0xFF, 0x8C, 0x00));
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Yellow)] = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Green)] = new SolidColorBrush(Color.FromRgb(0x22, 0x8B, 0x22));
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Blue)] = new SolidColorBrush(Color.FromRgb(0x1E, 0x90, 0xFF));
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Purple)] = new SolidColorBrush(Color.FromRgb(0x93, 0x70, 0xDB));
-        resources[TrafficFlowColorTagBrushResources.BuildResourceKey(TrafficFlowColorTag.Gray)] = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80));
+        byte index = 1;
+        foreach (var tag in System.Enum.GetValues<TrafficFlowColorTag>())
+        {
+            if (tag == TrafficFlowColorTag.None)
+            {
+                continue;
+            }
+
+            resources[TrafficFlowColorTagBrushResources.BuildResourceKey(tag)] =
+                new SolidColorBrush(Color.FromRgb(index, index, index));
+            index++;
+        }
     }
 }
 
