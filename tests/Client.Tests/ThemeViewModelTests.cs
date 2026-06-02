@@ -12,16 +12,19 @@ namespace Proxyfan.Client.Tests;
 /// <summary>
 ///     Tests for <see cref="ThemeViewModel" />.
 /// </summary>
+[NotInParallel]
 public sealed class ThemeViewModelTests
 {
     private static readonly string[] ExpectedOptionNames = ["System", "Light", "Dark"];
 
     private static LocalizationService CreateLocalization()
     {
+        var originalCulture = CultureInfo.CurrentUICulture;
         var localization = new LocalizationService(CultureInfo.InvariantCulture);
         localization.RegisterManager(new ResourceManager(
             "Proxyfan.Client.Resources.Strings",
             typeof(Proxyfan.Client.App).Assembly));
+        CultureInfo.CurrentUICulture = originalCulture;
         return localization;
     }
 
@@ -135,23 +138,31 @@ public sealed class ThemeViewModelTests
     [Test]
     public async Task LocaleChange_AfterConstruction_RaisesDisplayNameUpdateOnOptions()
     {
-        var service = new ThemeService(AppTheme.System);
-        var localization = new LocalizationService(CultureInfo.InvariantCulture);
-        localization.RegisterManager(new MultiCultureResourceManager());
-        var viewModel = new ThemeViewModel(service, localization);
-        var raised = false;
-        viewModel.Options[0].PropertyChanged += (_, args) =>
+        var originalCulture = CultureInfo.CurrentUICulture;
+        try
         {
-            if (args.PropertyName == nameof(ThemeOptionViewModel.DisplayName))
+            var service = new ThemeService(AppTheme.System);
+            var localization = new LocalizationService(CultureInfo.InvariantCulture);
+            localization.RegisterManager(new MultiCultureResourceManager());
+            var viewModel = new ThemeViewModel(service, localization);
+            var raised = false;
+            viewModel.Options[0].PropertyChanged += (_, args) =>
             {
-                raised = true;
-            }
-        };
+                if (args.PropertyName == nameof(ThemeOptionViewModel.DisplayName))
+                {
+                    raised = true;
+                }
+            };
 
-        localization.CurrentCulture = new CultureInfo("fr-FR");
+            localization.CurrentCulture = new CultureInfo("fr-FR");
 
-        await Assert.That(raised).IsTrue();
-        await Assert.That(viewModel.Options[0].DisplayName).IsEqualTo("Système");
+            await Assert.That(raised).IsTrue();
+            await Assert.That(viewModel.Options[0].DisplayName).IsEqualTo("Système");
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = originalCulture;
+        }
     }
 
     /// <summary>
@@ -161,17 +172,25 @@ public sealed class ThemeViewModelTests
     [Test]
     public async Task Dispose_AfterLocaleChange_StopsRefreshingOptionDisplayNames()
     {
-        var service = new ThemeService(AppTheme.System);
-        var localization = new LocalizationService(CultureInfo.InvariantCulture);
-        localization.RegisterManager(new MultiCultureResourceManager());
-        var viewModel = new ThemeViewModel(service, localization);
-        viewModel.Dispose();
-        var raised = false;
-        viewModel.Options[0].PropertyChanged += (_, _) => raised = true;
+        var originalCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            var service = new ThemeService(AppTheme.System);
+            var localization = new LocalizationService(CultureInfo.InvariantCulture);
+            localization.RegisterManager(new MultiCultureResourceManager());
+            var viewModel = new ThemeViewModel(service, localization);
+            viewModel.Dispose();
+            var raised = false;
+            viewModel.Options[0].PropertyChanged += (_, _) => raised = true;
 
-        localization.CurrentCulture = new CultureInfo("fr-FR");
+            localization.CurrentCulture = new CultureInfo("fr-FR");
 
-        await Assert.That(raised).IsFalse();
+            await Assert.That(raised).IsFalse();
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = originalCulture;
+        }
     }
 }
 
