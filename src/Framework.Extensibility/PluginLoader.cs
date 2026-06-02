@@ -92,6 +92,11 @@ public sealed class PluginLoader
             }
 
             var loaded = _registry.TryInitialize(instantiation.Plugin, host, candidate.DirectoryPath);
+            if (!loaded.IsLoaded && instantiation.LoadContext is PluginLoadContext pluginContext)
+            {
+                PluginLoadContextUnloader.Unload(pluginContext);
+            }
+
             results.Add(loaded);
         }
 
