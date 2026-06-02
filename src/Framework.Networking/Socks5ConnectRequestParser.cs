@@ -38,6 +38,11 @@ public static class Socks5ConnectRequestParser
             throw new System.IO.InvalidDataException("Only SOCKS5 CONNECT (0x01) is supported.");
         }
 
+        if (span[2] != 0x00)
+        {
+            throw new System.IO.InvalidDataException($"SOCKS5 reserved byte must be 0x00 (RFC 1928 § 4); got 0x{span[2]:X2}.");
+        }
+
         var addressType = (Socks5AddressType)span[3];
         return addressType switch
         {

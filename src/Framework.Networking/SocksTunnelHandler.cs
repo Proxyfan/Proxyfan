@@ -142,7 +142,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         await connection.Transport.Output.WriteAsync(Socks5NoAuthSelection, cancellationToken).ConfigureAwait(false);
         await connection.Transport.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-        var request = await ReadSocks5ConnectRequestAsync(connection.Transport.Input, cancellationToken).ConfigureAwait(false);
+        var request = await ReadSocks5ConnectRequestAsync(connection.Transport.Input, connection.Transport.Output, cancellationToken).ConfigureAwait(false);
 
         if (request is null)
         {
@@ -164,7 +164,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
     [LoggerMessage(Level = LogLevel.Debug, Message = "SOCKS relay error")]
     private partial void LogRelayError(Exception ex);
 
-    private async Task<Socks5ConnectRequest?> ReadSocks5ConnectRequestAsync(PipeReader reader, CancellationToken cancellationToken)
+    private async Task<Socks5ConnectRequest?> ReadSocks5ConnectRequestAsync(PipeReader reader, PipeWriter writer, CancellationToken cancellationToken)
     {
         var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 10, cancellationToken).ConfigureAwait(false);
 
@@ -173,7 +173,17 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
             return null;
         }
 
-        var request = Socks5ConnectRequestParser.TryParse(bytes);
+        Socks5ConnectRequest? request;
+
+        try
+        {
+            request = Socks5ConnectRequestParser.TryParse(bytes);
+        }
+        catch (System.IO.InvalidDataException)
+        {
+            await SocksReplyWriter.WriteSocks5FailureReplyAsync(writer, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
 
         if (request is null)
         {
