@@ -143,8 +143,8 @@ public sealed class HypertextTransferProtocolVersion2PushPromiseParserTests
     }
 
     /// <summary>
-    ///     The reserved-bit mask is applied before stream-id validation: a payload whose raw value is
-    ///     odd only because of the reserved bit must still pass when the masked id is non-zero and even.
+    ///     The reserved-bit mask is applied before stream-id validation: the reserved high bit must be
+    ///     masked off so that a non-zero even masked id is accepted regardless of the reserved bit.
     /// </summary>
     [Test]
     public async Task Parse_ReservedBitSetWithEvenStreamId_IsAccepted()
