@@ -186,14 +186,12 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
 
     private async Task TunnelAsync(IProxyConnection connection, ConnectTarget target, CancellationToken cancellationToken)
     {
-        TcpClient? tunnelClient;
+        using var client = new TcpClient();
 
         try
         {
-            var client = new TcpClient();
             var effectiveHost = _hostResolver is null ? target.Host : _hostResolver.Resolve(target.Host);
             await client.ConnectAsync(effectiveHost, target.Port, cancellationToken).ConfigureAwait(false);
-            tunnelClient = client;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -202,10 +200,7 @@ public sealed partial class ConnectTunnelHandler : IConnectionHandler
             return;
         }
 
-        using (tunnelClient)
-        {
-            await SendSuccessResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
-            await RelayAsync(connection, tunnelClient.GetStream(), cancellationToken).ConfigureAwait(false);
-        }
+        await SendSuccessResponseAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
+        await RelayAsync(connection, client.GetStream(), cancellationToken).ConfigureAwait(false);
     }
 }
