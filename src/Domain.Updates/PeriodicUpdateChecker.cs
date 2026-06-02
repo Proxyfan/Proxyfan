@@ -32,6 +32,22 @@ public sealed class PeriodicUpdateChecker : IDisposable
         MutableUpdateNotification notification,
         PeriodicUpdateCheckOptions options)
     {
+        if (options.InitialDelay < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.InitialDelay,
+                "InitialDelay must be greater than or equal to TimeSpan.Zero.");
+        }
+
+        if (options.PollInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.PollInterval,
+                "PollInterval must be greater than TimeSpan.Zero.");
+        }
+
         _checker = checker;
         _notification = notification;
         _options = options;
