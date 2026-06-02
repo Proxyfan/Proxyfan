@@ -218,9 +218,8 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
                 acceptedSocket.Dispose();
                 break;
             }
-            catch (ObjectDisposedException ex)
+            catch (ObjectDisposedException)
             {
-                _ = ex;
                 acceptedSocket.Dispose();
                 break;
             }
