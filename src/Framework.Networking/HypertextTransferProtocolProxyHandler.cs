@@ -161,9 +161,10 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private async Task<HypertextTransferProtocolRequestData> ApplyScriptingRequestAsync(
         TrafficFlow flow,
         HypertextTransferProtocolRequestData effectiveRequest,
+        RequestPipelineAction? blockingAction,
         CancellationToken cancellationToken)
     {
-        if (_scriptingHandler is null)
+        if (_scriptingHandler is null || blockingAction is RequestPipelineAction.ServeLocalResponse)
         {
             return effectiveRequest;
         }
@@ -171,8 +172,17 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         try
         {
             var flowId = flow.Id.ToString();
-            var projected = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
-            return projected;
+            var result = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                return result.Value;
+            }
+
+            _logger.LogWarning(
+                "Scripting request-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified request",
+                result.Error!.Code,
+                result.Error.Message);
+            return effectiveRequest;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -195,8 +205,17 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         try
         {
             var flowId = flow.Id.ToString();
-            var projected = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-            return projected;
+            var result = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                return result.Value;
+            }
+
+            _logger.LogWarning(
+                "Scripting response-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified response",
+                result.Error!.Code,
+                result.Error.Message);
+            return finalResponse;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -394,25 +413,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return null;
         }
 
-        var separatorIndex = hostValue.LastIndexOf(':');
-
-        if (separatorIndex < 0)
-        {
-            var hostWithoutPort = hostValue.Trim();
-            var defaultTarget = new ConnectTarget(hostWithoutPort, DefaultHypertextTransferProtocolPort);
-            return defaultTarget;
-        }
-
-        var host = hostValue[..separatorIndex].Trim();
-        var portText = hostValue[(separatorIndex + 1)..].Trim();
-
-        if (string.IsNullOrWhiteSpace(host) || !int.TryParse(portText, out var port) || port is < 1 or > 65535)
-        {
-            return null;
-        }
-
-        var target = new ConnectTarget(host, port);
-        return target;
+        return HostHeaderEndpointParser.Parse(hostValue, DefaultHypertextTransferProtocolPort);
     }
 
     private async Task<bool> ProcessResponsePhaseAsync(
@@ -484,7 +485,7 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             return false;
         }
         effectiveRequest = requestBreakpoint.ModifiedRequest ?? effectiveRequest;
-        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
+        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, blockingAction, cancellationToken).ConfigureAwait(false);
         if (blockingAction is not RequestPipelineAction.ServeLocalResponse
             && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
         {

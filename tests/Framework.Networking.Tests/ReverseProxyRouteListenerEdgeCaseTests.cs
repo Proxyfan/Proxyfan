@@ -109,7 +109,7 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
 
     /// <summary>
     ///     Disposing the listener while it is still bound (without first calling StopAsync) is
-    ///     safe — the listener is torn down and the accept loop exits via ObjectDisposedException.
+    ///     safe ï¿½ the listener is torn down and the accept loop exits via ObjectDisposedException.
     ///     Exercises the disposed-without-stop fault path in
     ///     <see cref="ReverseProxyRouteListener.RunAcceptLoopAsync" />.
     /// </summary>
@@ -126,6 +126,51 @@ public sealed class ReverseProxyRouteListenerEdgeCaseTests
         var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
         await listener.StartAsync(CancellationToken.None);
         listener.Dispose();
+    }
+
+    /// <summary>
+    ///     StopAsync honors the caller's cancellation token while waiting for pending forwards.
+    ///     We pre-cancel the token before stopping and verify the call throws
+    ///     <see cref="OperationCanceledException" /> within a bounded deadline rather than
+    ///     blocking on a stuck connection. Regression for the issue where StopAsync discarded
+    ///     its <c>cancellationToken</c> parameter.
+    /// </summary>
+    [Test]
+    public async Task StopAsync_WithCancelledToken_PropagatesCancellation()
+    {
+        var listenPort = GetFreePort();
+        using var backend = new TcpListener(IPAddress.Loopback, 0);
+        backend.Start();
+        var backendPort = ((IPEndPoint)backend.LocalEndpoint).Port;
+        var route = new ReverseProxyRoute(
+            "stop-cancel",
+            "Stop honors cancel",
+            listenPort,
+            "127.0.0.1",
+            backendPort,
+            ReverseProxyTransportLayerSecurityMode.None);
+        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
+        var backendAccept = backend.AcceptTcpClientAsync();
+        try
+        {
+            await listener.StartAsync(CancellationToken.None);
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, listenPort);
+            using var accepted = await backendAccept;
+
+            using var cts = new CancellationTokenSource();
+            await cts.CancelAsync();
+
+            await Assert.That(async () => await listener.StopAsync(cts.Token))
+                .Throws<OperationCanceledException>();
+        }
+        finally
+        {
+            listener.Dispose();
+            backend.Stop();
+        }
+
+        await Assert.That(listener.IsListening).IsFalse();
     }
 
     private static int GetFreePort()

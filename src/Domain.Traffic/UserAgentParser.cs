@@ -19,7 +19,16 @@ public static class UserAgentParser
 
         var trimmed = rawValue.Trim();
         var firstSpaceIndex = trimmed.IndexOf(' ', StringComparison.Ordinal);
-        var firstToken = firstSpaceIndex < 0 ? trimmed : trimmed[..firstSpaceIndex];
+        string firstToken;
+        if (firstSpaceIndex < 0)
+        {
+            firstToken = trimmed;
+        }
+        else
+        {
+            firstToken = trimmed[..firstSpaceIndex];
+        }
+
         var slashIndex = firstToken.IndexOf('/', StringComparison.Ordinal);
 
         if (slashIndex < 0)

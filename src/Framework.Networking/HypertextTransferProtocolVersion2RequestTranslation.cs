@@ -17,6 +17,7 @@ namespace Proxyfan.Framework.Networking;
 public static class HypertextTransferProtocolVersion2RequestTranslation
 {
     private const string AuthorityPseudoHeader = ":authority";
+    private const string ConnectMethod = "CONNECT";
     private const string DefaultHttpsScheme = "https";
     private const string MethodPseudoHeader = ":method";
     private const string PathPseudoHeader = ":path";
@@ -101,10 +102,9 @@ public static class HypertextTransferProtocolVersion2RequestTranslation
 
     private static Uri BuildRequestUri(PseudoHeaders pseudo)
     {
-        var scheme = string.IsNullOrEmpty(pseudo.Scheme) ? DefaultHttpsScheme : pseudo.Scheme;
-        var authority = pseudo.Authority;
-        var path = string.IsNullOrEmpty(pseudo.Path) ? "/" : pseudo.Path;
-        var formatted = string.Format(CultureInfo.InvariantCulture, "{0}://{1}{2}", scheme, authority, path);
+        var formatted = pseudo.IsConnect
+            ? string.Format(CultureInfo.InvariantCulture, "{0}://{1}", DefaultHttpsScheme, pseudo.Authority)
+            : string.Format(CultureInfo.InvariantCulture, "{0}://{1}{2}", pseudo.Scheme, pseudo.Authority, pseudo.Path);
         if (!Uri.TryCreate(formatted, UriKind.Absolute, out var requestUri))
         {
             throw new FormatException("HTTP/2 pseudo-headers do not form a valid absolute request URI.");
@@ -112,49 +112,102 @@ public static class HypertextTransferProtocolVersion2RequestTranslation
         return requestUri;
     }
 
+    private static void EnsureAbsent(string? value, string pseudoHeaderName)
+    {
+        if (value is not null)
+        {
+            throw new FormatException("HTTP/2 CONNECT request must not include a " + pseudoHeaderName + " pseudo-header.");
+        }
+    }
+
+    private static void EnsurePresent(string? value, string pseudoHeaderName)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            throw new FormatException("HTTP/2 request is missing the required " + pseudoHeaderName + " pseudo-header.");
+        }
+    }
+
     private static PseudoHeaders ExtractPseudoHeaders(
         IReadOnlyList<HypertextTransferProtocolVersion2HpackHeaderField> headers)
     {
-        string? method = null;
-        string? scheme = null;
-        string? authority = null;
-        string? path = null;
+        var map = ParsePseudoHeaderBlock(headers);
+        return ResolvePseudoHeaders(map);
+    }
+
+    private static bool HasKnownPseudoHeaderName(string name)
+    {
+        return string.Equals(name, MethodPseudoHeader, StringComparison.Ordinal)
+            || string.Equals(name, SchemePseudoHeader, StringComparison.Ordinal)
+            || string.Equals(name, AuthorityPseudoHeader, StringComparison.Ordinal)
+            || string.Equals(name, PathPseudoHeader, StringComparison.Ordinal);
+    }
+
+    private static Dictionary<string, string> ParsePseudoHeaderBlock(
+        IReadOnlyList<HypertextTransferProtocolVersion2HpackHeaderField> headers)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        var seenRegularHeader = false;
         for (var index = 0; index < headers.Count; index++)
         {
             var field = headers[index];
             var name = field.Name;
-            if (string.Equals(name, MethodPseudoHeader, StringComparison.Ordinal))
+            if (!name.StartsWith(':'))
             {
-                method = field.Value;
+                seenRegularHeader = true;
+                continue;
             }
-            else if (string.Equals(name, SchemePseudoHeader, StringComparison.Ordinal))
+            if (seenRegularHeader)
             {
-                scheme = field.Value;
+                throw new FormatException("HTTP/2 pseudo-header '" + name + "' appears after a regular header.");
             }
-            else if (string.Equals(name, AuthorityPseudoHeader, StringComparison.Ordinal))
+            if (!map.TryAdd(name, field.Value))
             {
-                authority = field.Value;
-            }
-            else if (string.Equals(name, PathPseudoHeader, StringComparison.Ordinal))
-            {
-                path = field.Value;
+                throw new FormatException("HTTP/2 request contains a duplicate " + name + " pseudo-header.");
             }
         }
-        if (string.IsNullOrEmpty(method))
+        return map;
+    }
+
+    private static PseudoHeaders ResolvePseudoHeaders(Dictionary<string, string> map)
+    {
+        foreach (var key in map.Keys)
         {
-            throw new FormatException("HTTP/2 request is missing the required :method pseudo-header.");
+            if (!HasKnownPseudoHeaderName(key))
+            {
+                throw new FormatException("HTTP/2 request contains an unknown pseudo-header '" + key + "'.");
+            }
         }
-        if (string.IsNullOrEmpty(authority))
+        map.TryGetValue(MethodPseudoHeader, out var method);
+        map.TryGetValue(SchemePseudoHeader, out var scheme);
+        map.TryGetValue(AuthorityPseudoHeader, out var authority);
+        map.TryGetValue(PathPseudoHeader, out var path);
+        EnsurePresent(method, MethodPseudoHeader);
+        EnsurePresent(authority, AuthorityPseudoHeader);
+        var isConnect = string.Equals(method, ConnectMethod, StringComparison.Ordinal);
+        ValidateSchemeAndPath(isConnect, scheme, path);
+        return new PseudoHeaders(method!, scheme ?? string.Empty, authority!, path ?? string.Empty, isConnect);
+    }
+
+    private static void ValidateSchemeAndPath(bool isConnect, string? scheme, string? path)
+    {
+        if (isConnect)
         {
-            throw new FormatException("HTTP/2 request is missing the required :authority pseudo-header.");
+            EnsureAbsent(scheme, SchemePseudoHeader);
+            EnsureAbsent(path, PathPseudoHeader);
         }
-        var pseudo = new PseudoHeaders(method, scheme ?? string.Empty, authority, path ?? string.Empty);
-        return pseudo;
+        else
+        {
+            EnsurePresent(scheme, SchemePseudoHeader);
+            EnsurePresent(path, PathPseudoHeader);
+        }
     }
 
     private readonly struct PseudoHeaders
     {
         public string Authority { get; }
+
+        public bool IsConnect { get; }
 
         public string Method { get; }
 
@@ -162,12 +215,13 @@ public static class HypertextTransferProtocolVersion2RequestTranslation
 
         public string Scheme { get; }
 
-        public PseudoHeaders(string method, string scheme, string authority, string path)
+        public PseudoHeaders(string method, string scheme, string authority, string path, bool isConnect)
         {
             Method = method;
             Scheme = scheme;
             Authority = authority;
             Path = path;
+            IsConnect = isConnect;
         }
     }
 }
