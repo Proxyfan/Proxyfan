@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   build:
@@ -26,8 +25,6 @@ jobs:
           global-json-file: global.json
 
       - name: Build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
           ./.tools/Invoke-Build.ps1 -Configuration Debug

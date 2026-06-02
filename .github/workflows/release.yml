@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: write
-  packages: read
 
 # Queue concurrent main pushes so version probing + tag push run serially.
 concurrency:
@@ -58,8 +57,6 @@ jobs:
 
       - name: Build
         if: steps.gate.outputs.skip == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: ./.tools/Invoke-Build.ps1 -Configuration Release
 
@@ -100,8 +97,6 @@ jobs:
 
       - name: Build installers (portable ZIP + MSI)
         if: steps.gate.outputs.skip == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: ./.tools/Build-Installer.ps1 -Version '${{ steps.version.outputs.version }}' -BuildMsi
 
