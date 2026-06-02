@@ -17,7 +17,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 ///     <see cref="IShortcutBindingsStore" /> and applied to the live
 ///     <see cref="ShortcutRegistry" />.
 /// </summary>
-public sealed partial class KeyboardShortcutsViewModel : ObservableObject
+public sealed partial class KeyboardShortcutsViewModel : ObservableObject, IDisposable
 {
     private const string StatusReset = "Reverted to defaults";
     private const string StatusSaved = "Saved";
@@ -50,6 +50,15 @@ public sealed partial class KeyboardShortcutsViewModel : ObservableObject
         _statusMessage = string.Empty;
         Refresh();
         _localization.PropertyChanged += OnLocalizationChanged;
+    }
+
+    /// <summary>
+    ///     Unsubscribes from the localization service so the singleton service does not
+    ///     retain a reference to this transient view model after the window closes.
+    /// </summary>
+    public void Dispose()
+    {
+        _localization.PropertyChanged -= OnLocalizationChanged;
     }
 
     /// <summary>
@@ -90,6 +99,11 @@ public sealed partial class KeyboardShortcutsViewModel : ObservableObject
 
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs args)
     {
+        if (args.PropertyName != nameof(LocalizationService.CurrentCulture))
+        {
+            return;
+        }
+
         foreach (var entry in Bindings)
         {
             entry.ActionLabel = ShortcutActionLabels.GetLabel(entry.Action, _localization);
