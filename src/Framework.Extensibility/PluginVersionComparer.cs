@@ -213,7 +213,7 @@ public static class PluginVersionComparer
             }
 
             var parts = core.Split('.');
-            if (parts.Length is 0 or > 3)
+            if (parts.Length > 3)
             {
                 return null;
             }
@@ -235,7 +235,7 @@ public static class PluginVersionComparer
 
         private static int? ParseCoreNumber(string part)
         {
-            if (int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0)
+            if (int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
             {
                 return value;
             }
@@ -267,6 +267,7 @@ public static class PluginVersionComparer
             return parts;
         }
     }
+
     private sealed class SemanticVersion
     {
         public int Major { get; }
