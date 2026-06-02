@@ -192,10 +192,6 @@ public sealed class ShortcutRegistryTests
     }
 
     /// <summary>
-    ///     Verifies the seeded-bindings constructor with an empty dictionary yields the full
-    ///     default binding set.
-    /// </summary>
-    /// <summary>
     ///     Verifies that a persisted seed entry whose gesture is still bound to another action
     ///     by default is skipped, falling back to the default for the affected action so the
     ///     registry never holds two actions on the same gesture.
