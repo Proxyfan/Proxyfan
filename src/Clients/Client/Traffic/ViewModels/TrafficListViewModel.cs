@@ -22,6 +22,7 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 {
     private readonly Proxyfan.Presentation.Clipboard.IClipboardService? _clipboardService;
+    private readonly TrafficListCoordinator _coordinator;
     private readonly TrafficFlowDiffPool? _diffPool;
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
@@ -131,11 +132,47 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         IRequestRepeater? requestRepeater,
         TrafficFlowDiffPool? diffPool,
         Proxyfan.Presentation.Clipboard.IClipboardService? clipboardService)
+        : this(eventBus, userInterfaceScheduler, requestRepeater, diffPool, clipboardService, coordinator: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListViewModel" /> with the
+    ///     full set of optional collaborators including the shared
+    ///     <see cref="TrafficListCoordinator" /> through which sibling view
+    ///     models (e.g. the source-list panel) request host-filter changes
+    ///     and observe flows-cleared notifications.
+    /// </summary>
+    /// <param name="eventBus">The domain event bus.</param>
+    /// <param name="userInterfaceScheduler">The UI scheduler.</param>
+    /// <param name="requestRepeater">Optional request repeater.</param>
+    /// <param name="diffPool">Optional shared diff pool.</param>
+    /// <param name="clipboardService">Optional clipboard service used by the copy commands.</param>
+    /// <param name="coordinator">
+    ///     Optional shared coordinator. When <see langword="null" /> the
+    ///     traffic list runs in isolation (used by tests that do not
+    ///     exercise cross-panel coordination).
+    /// </param>
+    public TrafficListViewModel(
+        IDomainEventBus eventBus,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        IRequestRepeater? requestRepeater,
+        TrafficFlowDiffPool? diffPool,
+        Proxyfan.Presentation.Clipboard.IClipboardService? clipboardService,
+        TrafficListCoordinator? coordinator)
     {
         _userInterfaceScheduler = userInterfaceScheduler;
         _requestRepeater = requestRepeater;
         _diffPool = diffPool;
         _clipboardService = clipboardService;
+        var effectiveCoordinator = coordinator;
+        if (effectiveCoordinator is null)
+        {
+            var freshCoordinator = new TrafficListCoordinator();
+            effectiveCoordinator = freshCoordinator;
+        }
+
+        _coordinator = effectiveCoordinator;
 
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
@@ -151,6 +188,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _isCapturing = true;
 
         Flows.CollectionChanged += OnFlowsCollectionChanged;
+        _coordinator.HostFilterRequested += OnCoordinatorHostFilterRequested;
 
         _requestReceivedSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
         _responseReceivedSubscription = eventBus.Subscribe<ResponseReceived>(OnResponseReceived);
@@ -161,6 +199,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         Flows.CollectionChanged -= OnFlowsCollectionChanged;
+        _coordinator.HostFilterRequested -= OnCoordinatorHostFilterRequested;
         _requestReceivedSubscription.Dispose();
         _responseReceivedSubscription.Dispose();
         _flowCompletedSubscription.Dispose();
@@ -283,6 +322,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         Flows.Clear();
         SelectedFlow = null;
         Interlocked.Exchange(ref _nextNumber, 0);
+        _coordinator.NotifyFlowsCleared();
     }
 
     [RelayCommand]
@@ -347,6 +387,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
         }
+    }
+
+    private void OnCoordinatorHostFilterRequested(string host)
+    {
+        HostFilter = host;
     }
 
     partial void OnFilterTextChanged(string value)
