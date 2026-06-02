@@ -14,9 +14,10 @@ public sealed class HypertextTransferProtocolVersion2HpackHeaderField
     ///     RFC 7541 § 4.1 — the entry size is the sum of the name length in octets, value length
     ///     in octets, and a 32-byte overhead representing the entry's bookkeeping. Lengths are
     ///     counted as UTF-8 octets (not UTF-16 characters) so that non-ASCII values are not
-    ///     undercounted against the dynamic-table budget.
+    ///     undercounted against the dynamic-table budget. Cached at construction because both
+    ///     name and value are immutable and the value is read repeatedly during table operations.
     /// </summary>
-    public int EntrySize => Encoding.UTF8.GetByteCount(Name) + Encoding.UTF8.GetByteCount(Value) + 32;
+    public int EntrySize { get; }
 
     /// <summary>
     ///     Gets a value indicating whether this header is sensitive and must be encoded as
@@ -56,5 +57,6 @@ public sealed class HypertextTransferProtocolVersion2HpackHeaderField
         Name = name;
         Value = value;
         IsSensitive = isSensitive;
+        EntrySize = Encoding.UTF8.GetByteCount(name) + Encoding.UTF8.GetByteCount(value) + 32;
     }
 }
