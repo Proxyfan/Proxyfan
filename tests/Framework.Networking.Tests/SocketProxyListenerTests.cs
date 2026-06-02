@@ -217,10 +217,10 @@ public sealed class SocketProxyListenerTests
         var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort(), MaxConnections = 1 });
 
         await listener.StartAsync(
-            async (_, ct) =>
+            async (_, _) =>
             {
                 firstHandlerEntered.TrySetResult();
-                await blockHandler.Task.WaitAsync(ct);
+                await blockHandler.Task;
             },
             CancellationToken.None);
 
@@ -242,8 +242,12 @@ public sealed class SocketProxyListenerTests
         }
         finally
         {
-            blockHandler.TrySetResult();
+            // Stop the listener before releasing the handler so that the saturated-accept
+            // path (semaphore wait observing cancellation) is reliably exercised. Releasing
+            // the handler first could let the semaphore become available before shutdown
+            // cancellation, masking the regression scenario under some schedulers.
             await listener.StopAsync(CancellationToken.None);
+            blockHandler.TrySetResult();
         }
 
         await Assert.That(listener.IsListening).IsFalse();
