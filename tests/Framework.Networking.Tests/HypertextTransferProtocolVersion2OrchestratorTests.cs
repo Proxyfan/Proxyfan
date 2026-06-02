@@ -502,6 +502,63 @@ public sealed class HypertextTransferProtocolVersion2OrchestratorTests
         await Assert.That(completed[0].Status).IsEqualTo(TrafficFlowStatus.Failed);
     }
 
+    /// <summary>
+    ///     Verifies that when a HEADERS frame leaves the assembler awaiting CONTINUATION,
+    ///     an interleaved DATA frame on the same stream is rejected by the shadow parser
+    ///     (RFC 7540 § 6.10 forbids interleaving HEADERS/CONTINUATION fragments with any
+    ///     other frame). The capture must be dropped — no request flow lands in the store —
+    ///     and all bytes must still be forwarded verbatim to the upstream side.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_InterleavedDataFrameDuringHeaderBlock_DropsCaptureAndForwardsFrames()
+    {
+        var (orchestrator, _, store) = BuildOrchestrator();
+        var clientToProxyPipe = new System.IO.Pipelines.Pipe();
+        var proxyToUpstreamPipe = new System.IO.Pipelines.Pipe();
+        var upstreamToProxyPipe = new System.IO.Pipelines.Pipe();
+        var proxyToClientPipe = new System.IO.Pipelines.Pipe();
+        using var clientSide = new PairedStream(clientToProxyPipe.Writer.AsStream(leaveOpen: true), proxyToClientPipe.Reader.AsStream(leaveOpen: true));
+        using var upstreamSide = new PairedStream(upstreamToProxyPipe.Writer.AsStream(leaveOpen: true), proxyToUpstreamPipe.Reader.AsStream(leaveOpen: true));
+        using var clientFacingStream = new PairedStream(proxyToClientPipe.Writer.AsStream(leaveOpen: true), clientToProxyPipe.Reader.AsStream(leaveOpen: true));
+        using var upstreamFacingStream = new PairedStream(proxyToUpstreamPipe.Writer.AsStream(leaveOpen: true), upstreamToProxyPipe.Reader.AsStream(leaveOpen: true));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var clientEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
+        var requestHeaders = new List<HypertextTransferProtocolVersion2HpackHeaderField>
+        {
+            new(":method", "GET"),
+            new(":scheme", "https"),
+            new(":authority", "example.com"),
+            new(":path", "/interleaved"),
+        };
+        var encodedRequest = clientEncoder.Encode(requestHeaders);
+        var firstHalf = encodedRequest.AsSpan(0, encodedRequest.Length / 2).ToArray();
+        var secondHalf = encodedRequest.AsSpan(encodedRequest.Length / 2).ToArray();
+        var interleavedBody = new byte[] { 1, 2, 3, 4 };
+
+        var runTask = orchestrator.RunAsync(clientFacingStream, upstreamFacingStream, "127.0.0.1:50004", cancellation.Token);
+
+        WriteFrame(clientSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Headers, HypertextTransferProtocolVersion2FrameFlag.None, 1, firstHalf);
+        WriteFrame(clientSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Data, HypertextTransferProtocolVersion2FrameFlag.None, 1, interleavedBody);
+        WriteFrame(clientSide.OutputForOrchestrator(), HypertextTransferProtocolVersion2FrameType.Continuation, HypertextTransferProtocolVersion2FrameFlag.EndHeaders, 1, secondHalf);
+
+        var firstForwarded = await ReadOneFrameFromAsync(upstreamSide.InputFromOrchestrator(), cancellation.Token);
+        var secondForwarded = await ReadOneFrameFromAsync(upstreamSide.InputFromOrchestrator(), cancellation.Token);
+        var thirdForwarded = await ReadOneFrameFromAsync(upstreamSide.InputFromOrchestrator(), cancellation.Token);
+
+        await clientSide.OutputForOrchestrator().CompleteAsync();
+        await upstreamSide.OutputForOrchestrator().CompleteAsync();
+        await runTask;
+
+        await Assert.That(firstForwarded).IsNotNull();
+        await Assert.That(firstForwarded!.Header.Type).IsEqualTo(HypertextTransferProtocolVersion2FrameType.Headers);
+        await Assert.That(secondForwarded).IsNotNull();
+        await Assert.That(secondForwarded!.Header.Type).IsEqualTo(HypertextTransferProtocolVersion2FrameType.Data);
+        await Assert.That(thirdForwarded).IsNotNull();
+        await Assert.That(thirdForwarded!.Header.Type).IsEqualTo(HypertextTransferProtocolVersion2FrameType.Continuation);
+        await Assert.That(store.AddedFlows.Count).IsEqualTo(0);
+    }
+
     private static (HypertextTransferProtocolVersion2Orchestrator orchestrator, StubDomainEventBus bus, StubTrafficStore store) BuildOrchestrator()
     {
         var (orchestrator, bus, store, _) = BuildOrchestratorWithRemoteProcedureCallStore();
