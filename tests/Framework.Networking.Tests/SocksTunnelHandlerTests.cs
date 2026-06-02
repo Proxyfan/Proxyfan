@@ -147,7 +147,9 @@ public sealed class SocksTunnelHandlerTests
     ///     Verifies SOCKS5 CONNECT to an IPv4 literal bypasses the DNS override resolver:
     ///     an override keyed on the literal must not redirect the connect to a different
     ///     address. Per the handler's documented raw-IP semantics, overrides apply only to
-    ///     SOCKS5 domain-name destinations.
+    ///     SOCKS5 domain-name destinations. The override key is intentionally an IP literal
+    ///     so that a regression in the resolver path would actively redirect to the
+    ///     unreachable 203.0.113.1 address and fail the test.
     /// </summary>
     [Test]
     public async Task HandleAsync_Socks5IpLiteralWithDnsOverride_BypassesResolver()
