@@ -124,4 +124,69 @@ public sealed class LineDifferTests
         await Assert.That(segments[0].OldLineNumber).IsEqualTo(1);
         await Assert.That(segments[0].NewLineNumber).IsNull();
     }
+
+    /// <summary>
+    ///     Verifies that inputs whose line-count product exceeds
+    ///     <see cref="LineDiffer.MaximumLineCountProduct" /> bypass the quadratic
+    ///     longest-common-subsequence matrix and fall back to a coarse delete-all /
+    ///     insert-all representation, preventing unbounded matrix allocation.
+    /// </summary>
+    [Test]
+    public async Task Diff_OversizedInputs_ReturnsCoarseDeleteAllInsertAllFallback()
+    {
+        var oldLines = BuildLines(prefix: "old", count: 2_001);
+        var newLines = BuildLines(prefix: "new", count: 2_001);
+
+        var segments = LineDiffer.Diff(oldLines, newLines);
+
+        await Assert.That(segments.Count).IsEqualTo(4_002);
+        for (var index = 0; index < 2_001; index++)
+        {
+            await Assert.That(segments[index].Operation).IsEqualTo(LineDiffOperation.Delete);
+            await Assert.That(segments[index].OldLineNumber).IsEqualTo(index + 1);
+            await Assert.That(segments[index].NewLineNumber).IsNull();
+        }
+
+        for (var index = 0; index < 2_001; index++)
+        {
+            var segment = segments[2_001 + index];
+            await Assert.That(segment.Operation).IsEqualTo(LineDiffOperation.Insert);
+            await Assert.That(segment.NewLineNumber).IsEqualTo(index + 1);
+            await Assert.That(segment.OldLineNumber).IsNull();
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that identical inputs at the oversized threshold still produce a
+    ///     coarse fallback rather than an all-equal LCS result, confirming the guard
+    ///     activates strictly on input size rather than on textual similarity.
+    /// </summary>
+    [Test]
+    public async Task Diff_OversizedIdenticalInputs_ReturnsCoarseFallback()
+    {
+        var text = BuildLines(prefix: "line", count: 2_001);
+
+        var segments = LineDiffer.Diff(text, text);
+
+        await Assert.That(segments.Count).IsEqualTo(4_002);
+        await Assert.That(segments[0].Operation).IsEqualTo(LineDiffOperation.Delete);
+        await Assert.That(segments[^1].Operation).IsEqualTo(LineDiffOperation.Insert);
+    }
+
+    private static string BuildLines(string prefix, int count)
+    {
+        var builder = new System.Text.StringBuilder(prefix.Length * count + count);
+        for (var index = 0; index < count; index++)
+        {
+            if (index > 0)
+            {
+                builder.Append('\n');
+            }
+
+            builder.Append(prefix);
+            builder.Append(index);
+        }
+
+        return builder.ToString();
+    }
 }
