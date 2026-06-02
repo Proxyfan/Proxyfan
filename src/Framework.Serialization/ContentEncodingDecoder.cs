@@ -57,7 +57,8 @@ public static class ContentEncodingDecoder
             }
             else
             {
-                throw new NotSupportedException($"Content encoding '{contentEncoding}' is not supported.");
+                throw new NotSupportedException(
+                    $"Content encoding token '{token}' in '{contentEncoding}' is not supported.");
             }
 
             anyApplied = true;
