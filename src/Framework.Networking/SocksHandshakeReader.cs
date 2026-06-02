@@ -1,3 +1,4 @@
+using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading;
@@ -77,8 +78,13 @@ public static class SocksHandshakeReader
     /// </returns>
     public static async Task<byte[]> ReadIntoArrayAsync(PipeReader reader, int minimumBytes, int maximumBytes, CancellationToken cancellationToken)
     {
+        if (maximumBytes < minimumBytes)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumBytes), maximumBytes, "maximumBytes must be greater than or equal to minimumBytes.");
+        }
+
         var result = await PipeReaderHelper.ReadUntilAsync(reader, minimumBytes, cancellationToken).ConfigureAwait(false);
-        var sliceLength = (int)System.Math.Min(result.Buffer.Length, maximumBytes);
+        var sliceLength = (int)Math.Min(result.Buffer.Length, maximumBytes);
         var bytes = result.Buffer.Slice(0, sliceLength).ToArray();
         reader.AdvanceTo(result.Buffer.Start, result.Buffer.End);
         return bytes;
