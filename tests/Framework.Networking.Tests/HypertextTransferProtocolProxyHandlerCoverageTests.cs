@@ -90,6 +90,49 @@ public sealed class HypertextTransferProtocolProxyHandlerCoverageTests
     }
 
     /// <summary>
+    ///     When the scripting request-phase hook returns a <see cref="ScriptError" /> failure
+    ///     result, traffic continues unmodified instead of being aborted.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_ScriptingRequestHookFailureResult_FallsThroughToUnmodifiedRequest()
+    {
+        using var upstream = StartHttpServer("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        var upstreamPort = ((IPEndPoint)upstream.Listener.LocalEndpoint).Port;
+        var scripting = new StubScriptingHandler { RequestError = new ScriptError("SCRIPT_REQUEST_FAILED", "boom") };
+        var handler = CreateHandler(scriptingHandler: scripting);
+        var connection = new StubFullDuplexProxyConnection();
+        await WriteSimpleRequestAsync(connection, upstreamPort);
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        upstream.Stop();
+
+        await Assert.That(scripting.RequestInvocationCount).IsEqualTo(1);
+        await Assert.That(scripting.ResponseInvocationCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     When the scripting response-phase hook returns a <see cref="ScriptError" /> failure
+    ///     result, the original response is forwarded instead of being aborted.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_ScriptingResponseHookFailureResult_FallsThroughToUnmodifiedResponse()
+    {
+        using var upstream = StartHttpServer("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        var upstreamPort = ((IPEndPoint)upstream.Listener.LocalEndpoint).Port;
+        var scripting = new StubScriptingHandler { ResponseError = new ScriptError("SCRIPT_RESPONSE_FAILED", "boom") };
+        var handler = CreateHandler(scriptingHandler: scripting);
+        var connection = new StubFullDuplexProxyConnection();
+        await WriteSimpleRequestAsync(connection, upstreamPort);
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        upstream.Stop();
+
+        await Assert.That(scripting.ResponseInvocationCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     A breakpoint that returns a modified request causes the modified request to be
     ///     forwarded (covers the `??` left-hand branch in ProcessSingleExchangeAsync).
     /// </summary>

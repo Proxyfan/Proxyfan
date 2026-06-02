@@ -172,8 +172,17 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         try
         {
             var flowId = flow.Id.ToString();
-            var projected = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
-            return projected;
+            var result = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                return result.Value;
+            }
+
+            _logger.LogWarning(
+                "Scripting request-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified request",
+                result.Error!.Code,
+                result.Error.Message);
+            return effectiveRequest;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -196,8 +205,17 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         try
         {
             var flowId = flow.Id.ToString();
-            var projected = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-            return projected;
+            var result = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                return result.Value;
+            }
+
+            _logger.LogWarning(
+                "Scripting response-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified response",
+                result.Error!.Code,
+                result.Error.Message);
+            return finalResponse;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
