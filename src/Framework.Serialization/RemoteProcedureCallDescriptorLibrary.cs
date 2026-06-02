@@ -9,7 +9,8 @@ namespace Proxyfan.Framework.Serialization;
 ///     an in-memory <see cref="Dictionary{TKey,TValue}" /> keyed by source path. The
 ///     <see cref="Index" /> property returns a snapshot built from the current set of loaded
 ///     descriptor files; it is rebuilt whenever the library mutates (load/remove/clear).
-///     Thread-safe via a single internal lock.
+///     Mutations are serialized via a single internal lock, while <see cref="Index" /> reads
+///     are lock-free and observe published updates via <see cref="Volatile.Read{T}" />.
 /// </summary>
 public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallDescriptorLibrary
 {
