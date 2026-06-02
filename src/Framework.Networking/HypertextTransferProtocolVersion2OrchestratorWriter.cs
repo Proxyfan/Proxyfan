@@ -41,7 +41,7 @@ public static class HypertextTransferProtocolVersion2OrchestratorWriter
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
         }
     }
 
