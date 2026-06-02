@@ -66,7 +66,7 @@ public static class ProtobufSchemaAwarePrettyPrinter
         builder.Append(fieldName);
         builder.Append(" (malformed message, ");
         builder.Append(bytes.Length.ToString(CultureInfo.InvariantCulture));
-        builder.Append(" bytes): 0x");
+        builder.Append(bytes.Length == 1 ? " byte): 0x" : " bytes): 0x");
         for (var byteIndex = 0; byteIndex < bytes.Length; byteIndex++)
         {
             builder.Append(bytes[byteIndex].ToString("x2", CultureInfo.InvariantCulture));

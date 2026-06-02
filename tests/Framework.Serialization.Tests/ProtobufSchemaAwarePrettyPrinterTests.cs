@@ -159,12 +159,12 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
             Services = Array.Empty<ProtobufServiceDescriptor>(),
         };
         var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { file });
-        var malformedInnerBytes = new byte[] { 0x80 };
+        var malformedInnerBytes = new byte[] { 0x80, 0x80 };
         var outerBytes = new ProtobufWireWriter().WriteBytesField(1, malformedInnerBytes).ToArray();
 
         var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(outerBytes, outerDescriptor, index);
 
-        await Assert.That(rendering).Contains("inner (malformed message, 1 bytes): 0x80");
+        await Assert.That(rendering).Contains("inner (malformed message, 2 bytes): 0x8080");
         await Assert.That(rendering).DoesNotContain("inner {");
     }
 
