@@ -238,7 +238,13 @@ public static class ProtobufSchemaAwarePrettyPrinter
 
     private static List<ProtobufField>? TryDecodePackedElements(byte[] bytes, int fieldNumber, ProtobufWireType elementWireType)
     {
-        var elements = new List<ProtobufField>();
+        var initialCapacity = elementWireType switch
+        {
+            ProtobufWireType.I32 => bytes.Length / 4,
+            ProtobufWireType.I64 => bytes.Length / 8,
+            _ => 0,
+        };
+        var elements = new List<ProtobufField>(initialCapacity);
         var offset = 0;
         while (offset < bytes.Length)
         {

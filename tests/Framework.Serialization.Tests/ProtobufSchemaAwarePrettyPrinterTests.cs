@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -403,8 +404,8 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
         });
         var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
         var packed = new byte[8];
-        BitConverter.GetBytes(1.5f).CopyTo(packed, 0);
-        BitConverter.GetBytes(2.5f).CopyTo(packed, 4);
+        BinaryPrimitives.WriteSingleLittleEndian(packed.AsSpan(0, 4), 1.5f);
+        BinaryPrimitives.WriteSingleLittleEndian(packed.AsSpan(4, 4), 2.5f);
         var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
 
         var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
@@ -424,8 +425,8 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
         });
         var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
         var packed = new byte[16];
-        BitConverter.GetBytes(1.5).CopyTo(packed, 0);
-        BitConverter.GetBytes(2.5).CopyTo(packed, 8);
+        BinaryPrimitives.WriteDoubleLittleEndian(packed.AsSpan(0, 8), 1.5);
+        BinaryPrimitives.WriteDoubleLittleEndian(packed.AsSpan(8, 8), 2.5);
         var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
 
         var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
