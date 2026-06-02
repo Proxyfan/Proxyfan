@@ -172,6 +172,7 @@ public sealed class SocksTunnelHandlerTests
 
         using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await handler.HandleAsync(connection, cancellationSource.Token);
+        listener.Stop();
         await acceptTask;
         await connection.Transport.Output.CompleteAsync();
         var output = await connection.ReadAllOutputAsync();
