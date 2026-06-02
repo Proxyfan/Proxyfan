@@ -3,6 +3,7 @@ using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -351,16 +352,20 @@ public sealed class HarExporterTests
     ///     are not blocked on large documents after requesting cancellation.
     /// </summary>
     [Test]
-    public async Task ExportAsync_CancelledToken_ThrowsBeforeSerializing()
+    public async Task ExportAsync_CancelledToken_AbortsBeforeWritingEntries()
     {
         var exporter = new HarExporter();
-        var flows = new List<TrafficFlow> { CreateCompletedFlow(), CreateCompletedFlow() };
+        var flows = Enumerable.Range(0, 500).Select(_ => CreateCompletedFlow()).ToList();
+        using var baseline = new MemoryStream();
+        await exporter.ExportAsync(flows, baseline, CancellationToken.None);
         using var output = new MemoryStream();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         await Assert.That(async () => await exporter.ExportAsync(flows, output, cts.Token))
             .Throws<OperationCanceledException>();
+        await Assert.That(baseline.Length).IsGreaterThan(10_000);
+        await Assert.That(output.Length).IsLessThan(baseline.Length / 100);
     }
 
     private static TrafficFlow CreateCompletedFlow()
