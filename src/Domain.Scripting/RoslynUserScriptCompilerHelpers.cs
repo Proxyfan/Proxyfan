@@ -24,7 +24,17 @@ public static class RoslynUserScriptCompilerHelpers
         IEnumerable<Diagnostic> source,
         bool isRequestPhase)
     {
-        var phaseLabel = isRequestPhase ? "request" : "response";
+        string phaseLabel;
+        if (isRequestPhase)
+        {
+            phaseLabel = "request";
+        }
+        else
+        {
+            phaseLabel = "response";
+        }
+
+
         foreach (var diagnostic in source)
         {
             if (diagnostic.Severity == DiagnosticSeverity.Hidden)
