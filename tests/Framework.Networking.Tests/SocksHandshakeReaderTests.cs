@@ -126,4 +126,19 @@ public sealed class SocksHandshakeReaderTests
 
         await Assert.That(result).IsEqualTo(expected);
     }
+
+    /// <summary>
+    ///     Verifies that <see cref="SocksHandshakeReader.ReadIntoArrayAsync" /> rejects a
+    ///     <paramref name="maximumBytes" /> below <paramref name="minimumBytes" /> so callers
+    ///     cannot accidentally request an under-sized cap.
+    /// </summary>
+    [Test]
+    public async Task ReadIntoArrayAsync_MaximumLessThanMinimum_ThrowsArgumentOutOfRange()
+    {
+        var pipe = new Pipe();
+        await pipe.Writer.CompleteAsync();
+
+        await Assert.That(async () => await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 10, 5, default))
+            .Throws<System.ArgumentOutOfRangeException>();
+    }
 }

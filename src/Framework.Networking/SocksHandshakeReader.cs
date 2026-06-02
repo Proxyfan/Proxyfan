@@ -56,9 +56,11 @@ public static class SocksHandshakeReader
     }
 
     /// <summary>
-    ///     Reads at least <paramref name="minimumBytes" /> from the reader into a byte array
-    ///     without consuming any data (the data remains available for subsequent reads),
-    ///     copying at most <paramref name="maximumBytes" /> bytes from the front of the
+    ///     Reads from the reader into a byte array without consuming any data (the data
+    ///     remains available for subsequent reads), returning once at least
+    ///     <paramref name="minimumBytes" /> are buffered or the pipe completes/cancels first
+    ///     (in which case the returned array may be shorter than <paramref name="minimumBytes" />).
+    ///     At most <paramref name="maximumBytes" /> bytes are copied from the front of the
     ///     buffered sequence. The cap prevents a client that pipelines a large payload
     ///     immediately after the SOCKS handshake from forcing an avoidable large allocation
     ///     on the proxy's hot connection path. The reader's examined pointer is advanced to
