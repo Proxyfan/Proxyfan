@@ -243,4 +243,28 @@ public sealed class ServerSentEventsParserTests
         await Assert.That(events.Count).IsEqualTo(1);
         await Assert.That(events[0].Data).IsEqualTo("payload");
     }
+
+    /// <summary>
+    ///     Verifies that a multibyte UTF-8 scalar split across two chunks decodes intact
+    ///     rather than producing replacement characters.
+    /// </summary>
+    [Test]
+    public async Task Append_MultibyteUtf8SplitAcrossChunks_DecodesIntact()
+    {
+        var parser = new ServerSentEventsParser();
+        // "data: héllo🌍\n\n" — 'é' is 2 bytes (0xC3 0xA9), '🌍' is 4 bytes (0xF0 0x9F 0x8C 0x8D).
+        var bytes = Encoding.UTF8.GetBytes("data: héllo🌍\n\n");
+
+        // Split inside the 'é' (between 0xC3 and 0xA9) and inside the '🌍' (after 2 of its 4 bytes).
+        var firstSplit = 8; // "data: h" + 0xC3 (first byte of 'é')
+        var secondSplit = 14; // through "data: héllo" + 0xF0 0x9F (first 2 bytes of '🌍')
+
+        parser.Append(bytes.AsMemory(0, firstSplit), DateTimeOffset.UtcNow);
+        parser.Append(bytes.AsMemory(firstSplit, secondSplit - firstSplit), DateTimeOffset.UtcNow);
+        parser.Append(bytes.AsMemory(secondSplit), DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].Data).IsEqualTo("héllo🌍");
+    }
 }
