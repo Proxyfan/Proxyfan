@@ -310,6 +310,52 @@ public sealed class WebSocketUpgradeDetectorTests
         await Assert.That(result).IsFalse();
     }
 
+    /// <summary>Non-GET method → no upgrade (RFC 6455 §4.1 mandates GET).</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_NonGetMethod_ReturnsFalse()
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty
+                .Add("Upgrade", "websocket")
+                .Add("Connection", "upgrade")
+                .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                .Add("Sec-WebSocket-Version", "13"),
+            Method = "POST",
+            RequestUri = new Uri("/chat", UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>HTTP/1.0 request → no upgrade (RFC 6455 §4.1 mandates HTTP/1.1).</summary>
+    [Test]
+    public async Task HasWebSocketUpgradeRequest_NonHttp11Version_ReturnsFalse()
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty
+                .Add("Upgrade", "websocket")
+                .Add("Connection", "upgrade")
+                .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                .Add("Sec-WebSocket-Version", "13"),
+            Method = "GET",
+            RequestUri = new Uri("/chat", UriKind.Relative),
+            Version = "HTTP/1.0",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var result = WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(request);
+
+        await Assert.That(result).IsFalse();
+    }
+
     private static HypertextTransferProtocolRequestData BuildRequest(HeaderCollection headers)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

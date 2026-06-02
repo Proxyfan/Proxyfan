@@ -7,10 +7,10 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Detects whether an HTTP request/response pair represents an RFC 6455 WebSocket upgrade
-///     handshake. A valid handshake requires the request to advertise <c>Upgrade: websocket</c>
-///     plus <c>Connection: upgrade</c> (case-insensitive, multi-token aware), a syntactically
-///     valid <c>Sec-WebSocket-Key</c> (16 random bytes, base64-encoded), and
-///     <c>Sec-WebSocket-Version: 13</c>. The response must be exactly <c>101 Switching Protocols</c>
+///     handshake. A valid handshake requires an HTTP/1.1 <c>GET</c> request that advertises
+///     <c>Upgrade: websocket</c> plus <c>Connection: upgrade</c> (case-insensitive, multi-token
+///     aware), a syntactically valid <c>Sec-WebSocket-Key</c> (16 random bytes, base64-encoded),
+///     and <c>Sec-WebSocket-Version: 13</c>. The response must be exactly <c>101 Switching Protocols</c>
 ///     with matching <c>Upgrade: websocket</c> header and a <c>Sec-WebSocket-Accept</c> value that
 ///     matches the SHA-1+base64 transform of the request key concatenated with the RFC 6455 GUID.
 /// </summary>
@@ -31,6 +31,16 @@ public static class WebSocketUpgradeDetector
     /// <returns><see langword="true" /> when the request is a WebSocket upgrade attempt.</returns>
     public static bool HasWebSocketUpgradeRequest(HypertextTransferProtocolRequestData request)
     {
+        if (!string.Equals(request.Method, "GET", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.Equals(request.Version, "HTTP/1.1", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         var upgradeValue = request.Headers.Get("Upgrade");
 
         if (string.IsNullOrEmpty(upgradeValue) || !HasToken(upgradeValue, "websocket"))
