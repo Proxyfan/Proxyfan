@@ -23,15 +23,23 @@ public static class CacheControlParser
             return new CacheControlDirectives(parameters);
         }
 
-        var parts = headerValue.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var part in parts)
+        foreach (var part in SplitDirectives(headerValue))
         {
             ApplyDirective(parameters, part);
         }
 
         var directives = new CacheControlDirectives(parameters);
         return directives;
+    }
+
+    private static void AddDirectivePart(System.Collections.Generic.List<string> parts, string part)
+    {
+        var trimmed = part.Trim();
+
+        if (trimmed.Length > 0)
+        {
+            parts.Add(trimmed);
+        }
     }
 
     private static void ApplyDirective(CacheControlDirectivesParameters parameters, string directive)
@@ -44,8 +52,20 @@ public static class CacheControlParser
             return;
         }
 
-        var name = directive[..equalsIndex];
-        var value = StripQuotes(directive[(equalsIndex + 1)..]);
+        var name = directive[..equalsIndex].Trim();
+        var value = StripQuotes(directive[(equalsIndex + 1)..].Trim());
+
+        if (string.Equals(name, "no-cache", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters.IsNoCache = true;
+            return;
+        }
+
+        if (string.Equals(name, "private", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters.IsPrivate = true;
+            return;
+        }
 
         if (string.Equals(name, "max-age", StringComparison.OrdinalIgnoreCase)
             && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var maxAge)
@@ -83,6 +103,35 @@ public static class CacheControlParser
         {
             parameters.IsMustRevalidate = true;
         }
+    }
+
+    private static string[] SplitDirectives(string headerValue)
+    {
+        System.Collections.Generic.List<string> parts = [];
+        var startIndex = 0;
+        var inQuotes = false;
+        var escaped = false;
+
+        for (var index = 0; index < headerValue.Length; index++)
+        {
+            var character = headerValue[index];
+
+            if (character == '"' && !escaped)
+            {
+                inQuotes = !inQuotes;
+            }
+
+            if (character == ',' && !inQuotes)
+            {
+                AddDirectivePart(parts, headerValue[startIndex..index]);
+                startIndex = index + 1;
+            }
+
+            escaped = character == '\\' && inQuotes && !escaped;
+        }
+
+        AddDirectivePart(parts, headerValue[startIndex..]);
+        return [.. parts];
     }
 
     private static string StripQuotes(string value)
