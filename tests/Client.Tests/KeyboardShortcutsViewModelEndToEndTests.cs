@@ -1,7 +1,9 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Shortcuts;
 
 namespace Proxyfan.Client.Tests;
@@ -26,7 +28,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests
         {
             var store1 = new FileShortcutBindingsStore(path);
             var registry1 = new ShortcutRegistry(store1.Load());
-            var viewModel1 = new KeyboardShortcutsViewModel(registry1, store1);
+            var viewModel1 = new KeyboardShortcutsViewModel(registry1, store1, new LocalizationService(CultureInfo.InvariantCulture));
             var custom = new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Alt };
 
             viewModel1.Rebind(ShortcutAction.Find, custom);
@@ -59,7 +61,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests
         {
             var store1 = new FileShortcutBindingsStore(path);
             var registry1 = new ShortcutRegistry(store1.Load());
-            var viewModel1 = new KeyboardShortcutsViewModel(registry1, store1);
+            var viewModel1 = new KeyboardShortcutsViewModel(registry1, store1, new LocalizationService(CultureInfo.InvariantCulture));
             viewModel1.Rebind(ShortcutAction.Find, new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Alt });
             viewModel1.SaveCommand.Execute(null);
             viewModel1.ResetCommand.Execute(null);
@@ -91,7 +93,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests
         try
         {
             var seedStore = new FileShortcutBindingsStore(path);
-            var seedViewModel = new KeyboardShortcutsViewModel(new ShortcutRegistry(), seedStore);
+            var seedViewModel = new KeyboardShortcutsViewModel(new ShortcutRegistry(), seedStore, new LocalizationService(CultureInfo.InvariantCulture));
             seedViewModel.Rebind(ShortcutAction.Find, new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Alt });
             seedViewModel.SaveCommand.Execute(null);
 

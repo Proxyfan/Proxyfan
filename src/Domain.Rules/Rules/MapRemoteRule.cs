@@ -1,7 +1,6 @@
 using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Traffic;
-using System;
 
 namespace Proxyfan.Domain.Rules.Rules;
 
@@ -43,7 +42,7 @@ public sealed class MapRemoteRule : IRequestPhaseRule
             return null;
         }
 
-        var rewrittenUri = BuildRewrittenUri(request.RequestUri);
+        var rewrittenUri = MapRemoteUriRewriter.Rewrite(request.RequestUri, _destination);
         var rewrittenHeaders = _destination.IsPreservingHostHeader
             ? request.Headers
             : MapRemoteHeaderRewriter.ReplaceHostHeader(request.Headers, rewrittenUri);
@@ -65,31 +64,4 @@ public sealed class MapRemoteRule : IRequestPhaseRule
 
     /// <inheritdoc />
     public int Priority { get; }
-
-    private Uri BuildRewrittenUri(Uri originalUri)
-    {
-        var builder = new UriBuilder(originalUri);
-
-        if (_destination.Scheme is not null)
-        {
-            builder.Scheme = _destination.Scheme;
-        }
-
-        if (_destination.Host is not null)
-        {
-            builder.Host = _destination.Host;
-        }
-
-        if (_destination.Port is not null)
-        {
-            builder.Port = _destination.Port.Value;
-        }
-
-        if (_destination.Path is not null)
-        {
-            builder.Path = _destination.Path;
-        }
-
-        return builder.Uri;
-    }
 }

@@ -124,17 +124,23 @@ public sealed class RequestRepeaterTests
     }
 
     /// <summary>
-    ///     Verifies that an upstream exception is captured as a synthetic 403 response
-    ///     rather than propagating, so a partial repeat sequence can continue.
+    ///     Verifies that an upstream exception fails the repeated flow (Failed status) instead of
+    ///     synthesising a blocked response, and skips response-phase rule evaluation and the
+    ///     <see cref="ResponseReceived" /> event. The failed flow is still stored and a
+    ///     <see cref="TrafficFlowCompleted" /> event is published so partial repeat sequences
+    ///     can continue.
     /// </summary>
     [Test]
-    public async Task RepeatAsync_SenderThrows_RecordsSyntheticFailure()
+    public async Task RepeatAsync_SenderThrows_RecordsFailedFlowWithoutResponse()
     {
         var sender = new StubComposerRequestSender
         {
             ExceptionToThrow = new InvalidOperationException("upstream down"),
         };
-        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
+        var responseRule = new RecordingResponsePhaseRule();
+        var ruleEngine = new RuleEngine(
+            Array.Empty<IRequestPhaseRule>(),
+            new IResponsePhaseRule[] { responseRule });
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
@@ -143,7 +149,13 @@ public sealed class RequestRepeaterTests
         await repeater.RepeatAsync(request, CancellationToken.None);
 
         await Assert.That(trafficStore.Count).IsEqualTo(1);
-        await Assert.That(trafficStore.AddedFlows[0].Response!.StatusCode).IsEqualTo(403);
+        var storedFlow = trafficStore.AddedFlows[0];
+        await Assert.That(storedFlow.Status).IsEqualTo(TrafficFlowStatus.Failed);
+        await Assert.That(storedFlow.Response).IsNull();
+        await Assert.That(responseRule.EvaluationCount).IsEqualTo(0);
+        await Assert.That(eventBus.PublishedOf<ResponseReceived>().Any()).IsFalse();
+        var completed = eventBus.PublishedOf<TrafficFlowCompleted>().Single();
+        await Assert.That(completed.Status).IsEqualTo(TrafficFlowStatus.Failed);
     }
 
     /// <summary>

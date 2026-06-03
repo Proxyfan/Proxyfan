@@ -28,16 +28,41 @@ public sealed class ShortcutRegistry
     ///     Initializes a new <see cref="ShortcutRegistry" /> seeded with the supplied bindings
     ///     (typically loaded from <see cref="IShortcutBindingsStore" />). Missing entries fall
     ///     back to the default binding for each action so that newly introduced shortcuts get a
-    ///     sensible default even when older persisted files do not contain them.
+    ///     sensible default even when older persisted files do not contain them. Seed entries
+    ///     whose gesture would collide with another binding are skipped and the affected action
+    ///     falls back to its default, mirroring the conflict policy enforced by
+    ///     <see cref="SetBinding" />.
     /// </summary>
     /// <param name="initialBindings">The seed bindings, typically loaded from persistence.</param>
     public ShortcutRegistry(IReadOnlyDictionary<ShortcutAction, KeyboardGesture> initialBindings)
     {
         _bindings = DefaultShortcutBindings.Build();
+        var defaults = DefaultShortcutBindings.Build();
 
+        foreach (var action in initialBindings.Keys)
+        {
+            _bindings.Remove(action);
+        }
+
+        var skipped = new List<ShortcutAction>();
         foreach (var entry in initialBindings)
         {
+            var existingAction = GetAction(entry.Value);
+            if (existingAction is not null && existingAction != entry.Key)
+            {
+                skipped.Add(entry.Key);
+                continue;
+            }
+
             _bindings[entry.Key] = entry.Value;
+        }
+
+        foreach (var action in skipped)
+        {
+            if (defaults.TryGetValue(action, out var fallback) && GetAction(fallback) is null)
+            {
+                _bindings[action] = fallback;
+            }
         }
     }
 
