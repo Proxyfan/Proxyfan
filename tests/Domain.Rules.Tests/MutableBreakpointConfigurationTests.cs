@@ -1,5 +1,6 @@
 ﻿using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
+using System;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -125,6 +126,28 @@ public sealed class MutableBreakpointConfigurationTests
 
         await Assert.That(count).IsEqualTo(0);
         await Assert.That(configuration.GetPatterns().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Adding an invalid pattern throws without changing the configured pattern set or matchers.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_InvalidPattern_ThrowsWithoutPoisoningConfiguration()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.AddPattern(new MatchingRule("https://stable.example/*", MatchingRuleKind.Wildcard));
+        var count = 0;
+        configuration.Changed += () => count++;
+
+        await Assert.That(() => configuration.AddPattern(new MatchingRule("(", MatchingRuleKind.Regex)))
+            .Throws<ArgumentException>();
+
+        configuration.AddPattern(new MatchingRule("https://new.example/*", MatchingRuleKind.Wildcard));
+
+        await Assert.That(count).IsEqualTo(1);
+        await Assert.That(configuration.GetPatterns().Count).IsEqualTo(2);
+        await Assert.That(configuration.HasRequestMatch("https://stable.example/path")).IsTrue();
+        await Assert.That(configuration.HasRequestMatch("https://new.example/path")).IsTrue();
     }
 
     /// <summary>

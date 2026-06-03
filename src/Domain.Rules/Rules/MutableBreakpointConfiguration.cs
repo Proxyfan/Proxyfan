@@ -65,8 +65,13 @@ public sealed class MutableBreakpointConfiguration
                 }
             }
 
+            var candidatePatterns = new List<MatchingRule>(_patterns.Count + 1);
+            candidatePatterns.AddRange(_patterns);
+            candidatePatterns.Add(rule);
+            var rebuilt = BuildMatchers(candidatePatterns);
+
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            _matchers = rebuilt;
         }
 
         RaiseChanged();
@@ -174,6 +179,17 @@ public sealed class MutableBreakpointConfiguration
         RaiseChanged();
     }
 
+    private List<IUrlMatcher> BuildMatchers(List<MatchingRule> patterns)
+    {
+        var rebuilt = new List<IUrlMatcher>(patterns.Count);
+        foreach (var pattern in patterns)
+        {
+            rebuilt.Add(pattern.Compile());
+        }
+
+        return rebuilt;
+    }
+
     private bool HasMatch(string url)
     {
         var snapshot = _matchers;
@@ -200,12 +216,6 @@ public sealed class MutableBreakpointConfiguration
 
     private void RebuildMatchersUnderLock()
     {
-        var rebuilt = new List<IUrlMatcher>(_patterns.Count);
-        foreach (var pattern in _patterns)
-        {
-            rebuilt.Add(pattern.Compile());
-        }
-
-        _matchers = rebuilt;
+        _matchers = BuildMatchers(_patterns);
     }
 }
