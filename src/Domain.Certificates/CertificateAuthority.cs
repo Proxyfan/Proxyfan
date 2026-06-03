@@ -51,12 +51,12 @@ public sealed class CertificateAuthority
         var constraints = new X509BasicConstraintsExtension(false, false, 0, true);
         var keyUsage = new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true);
         var serverAuthenticationUsage = CreateServerAuthenticationUsage();
-        var serverNameIndicationExtension = CreateServerNameIndicationExtension(normalizedHostName);
+        var subjectAlternativeNameExtension = CreateSubjectAlternativeNameExtension(normalizedHostName);
         var subjectKeyIdentifier = new X509SubjectKeyIdentifierExtension(request.PublicKey, false);
         request.CertificateExtensions.Add(constraints);
         request.CertificateExtensions.Add(keyUsage);
         request.CertificateExtensions.Add(serverAuthenticationUsage);
-        request.CertificateExtensions.Add(serverNameIndicationExtension);
+        request.CertificateExtensions.Add(subjectAlternativeNameExtension);
         request.CertificateExtensions.Add(subjectKeyIdentifier);
 
         var notBefore = DateTimeOffset.UtcNow.AddDays(-1);
@@ -81,7 +81,7 @@ public sealed class CertificateAuthority
         return usage;
     }
 
-    private X509Extension CreateServerNameIndicationExtension(string hostname)
+    private X509Extension CreateSubjectAlternativeNameExtension(string hostname)
     {
         var builder = new SubjectAlternativeNameBuilder();
         if (IPAddress.TryParse(hostname, out var ipAddress))
@@ -117,14 +117,14 @@ public sealed class CertificateAuthority
             return ipAddress.ToString();
         }
 
-        var domainNameSystemHostName = trimmedHostName.TrimEnd('.');
+        var domainHostName = trimmedHostName.TrimEnd('.');
         var idnMapping = new IdnMapping();
-        var normalizedDomainNameSystemHostName = idnMapping.GetAscii(domainNameSystemHostName);
-        if (Uri.CheckHostName(normalizedDomainNameSystemHostName) != UriHostNameType.Dns)
+        var normalizedDomainHostName = idnMapping.GetAscii(domainHostName);
+        if (Uri.CheckHostName(normalizedDomainHostName) != UriHostNameType.Dns)
         {
             throw new ArgumentException("Leaf certificate host name must be a valid DNS name or IP address.", nameof(hostname));
         }
 
-        return normalizedDomainNameSystemHostName;
+        return normalizedDomainHostName;
     }
 }
