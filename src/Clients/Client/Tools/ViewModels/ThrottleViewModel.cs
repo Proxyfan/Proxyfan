@@ -11,7 +11,7 @@ using System.ComponentModel;
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
-///     View model for the Throttle tool window. Binds to a <see cref="MutableThrottleProfile" />
+///     View model for the Throttle tool window. Binds to an <see cref="IThrottleProfileCoordinator" />
 ///     and lets the user pick one of the built-in presets (2G, 3G, 4G, WiFi, Bad Network,
 ///     100% Loss) or disable throttling entirely. Preset display names are resolved from
 ///     the <see cref="LocalizationService" /> so they follow the active UI culture, while
@@ -20,8 +20,8 @@ namespace Proxyfan.Client.Tools.ViewModels;
 public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
 {
     private readonly LocalizationService? _localizationService;
-    private readonly MutableThrottleProfile _mutableProfile;
     private readonly Dictionary<ThrottleProfilePresetViewModel, string> _presetResourceKeys;
+    private readonly IThrottleProfileCoordinator _throttleProfileCoordinator;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private string _activeProfileName;
@@ -34,20 +34,20 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
     public ObservableCollection<ThrottleProfilePresetViewModel> Presets { get; }
 
     /// <summary>
-    ///     Initializes a new <see cref="ThrottleViewModel" /> bound to the mutable profile holder.
+    ///     Initializes a new <see cref="ThrottleViewModel" /> bound to the throttle profile coordinator.
     /// </summary>
-    /// <param name="mutableProfile">The mutable runtime holder for the active throttle profile.</param>
+    /// <param name="throttleProfileCoordinator">The throttle coordinator used to read and apply profile state.</param>
     /// <param name="userInterfaceScheduler">Scheduler used to marshal updates onto the UI thread.</param>
     /// <param name="localizationService">
     ///     Localization service used to resolve preset display names; pass
     ///     <see langword="null" /> to show the stable identifier verbatim.
     /// </param>
     public ThrottleViewModel(
-        MutableThrottleProfile mutableProfile,
+        IThrottleProfileCoordinator throttleProfileCoordinator,
         IUserInterfaceScheduler userInterfaceScheduler,
         LocalizationService? localizationService)
     {
-        _mutableProfile = mutableProfile;
+        _throttleProfileCoordinator = throttleProfileCoordinator;
         _userInterfaceScheduler = userInterfaceScheduler;
         _localizationService = localizationService;
         _presetResourceKeys = [];
@@ -62,9 +62,9 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
             Presets.Add(preset);
         }
 
-        _selectedPreset = FindMatchingPreset(mutableProfile.Profile);
-        _activeProfileName = ResolveActiveProfileName(mutableProfile.Profile);
-        _mutableProfile.Changed += OnProfileChanged;
+        _selectedPreset = FindMatchingPreset(throttleProfileCoordinator.Profile);
+        _activeProfileName = ResolveActiveProfileName(throttleProfileCoordinator.Profile);
+        _throttleProfileCoordinator.Changed += OnProfileChanged;
         if (_localizationService is { } subscribeService)
         {
             subscribeService.PropertyChanged += OnLocalizationChanged;
@@ -74,7 +74,7 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        _mutableProfile.Changed -= OnProfileChanged;
+        _throttleProfileCoordinator.Dispose();
         if (_localizationService is { } unsubscribeService)
         {
             unsubscribeService.PropertyChanged -= OnLocalizationChanged;
@@ -90,14 +90,7 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (preset.Profile is null)
-        {
-            _mutableProfile.Disable();
-        }
-        else
-        {
-            _mutableProfile.SetProfile(preset.Profile);
-        }
+        _throttleProfileCoordinator.Apply(preset.Profile);
     }
 
     private ThrottleProfilePresetViewModel? FindMatchingPreset(ThrottleProfile? profile)
@@ -139,11 +132,11 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
                 }
             }
 
-            ActiveProfileName = ResolveActiveProfileName(_mutableProfile.Profile);
+            ActiveProfileName = ResolveActiveProfileName(_throttleProfileCoordinator.Profile);
         });
     }
 
-    private void OnProfileChanged(MutableThrottleProfile sender, ThrottleProfile? profile)
+    private void OnProfileChanged(ThrottleProfile? profile)
     {
         _userInterfaceScheduler.Post(() =>
         {
