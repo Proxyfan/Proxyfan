@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
@@ -42,17 +44,14 @@ public sealed class CertificateAuthority
 
     private X509Certificate2 CreateLeafCertificate(string hostname)
     {
-        if (string.IsNullOrWhiteSpace(hostname))
-        {
-            throw new ArgumentException("Leaf certificate host name must be provided.", nameof(hostname));
-        }
+        var normalizedHostName = NormalizeHostName(hostname);
 
         using var key = RSA.Create(2048);
-        var request = new CertificateRequest($"CN={hostname}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var request = new CertificateRequest($"CN={normalizedHostName}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         var constraints = new X509BasicConstraintsExtension(false, false, 0, true);
         var keyUsage = new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true);
         var serverAuthenticationUsage = CreateServerAuthenticationUsage();
-        var serverNameIndicationExtension = CreateServerNameIndicationExtension(hostname);
+        var serverNameIndicationExtension = CreateServerNameIndicationExtension(normalizedHostName);
         var subjectKeyIdentifier = new X509SubjectKeyIdentifierExtension(request.PublicKey, false);
         request.CertificateExtensions.Add(constraints);
         request.CertificateExtensions.Add(keyUsage);
@@ -85,8 +84,47 @@ public sealed class CertificateAuthority
     private X509Extension CreateServerNameIndicationExtension(string hostname)
     {
         var builder = new SubjectAlternativeNameBuilder();
-        builder.AddDnsName(hostname);
+        if (IPAddress.TryParse(hostname, out var ipAddress))
+        {
+            builder.AddIpAddress(ipAddress);
+        }
+        else
+        {
+            builder.AddDnsName(hostname);
+        }
+
         var extension = builder.Build();
         return extension;
+    }
+
+    private string NormalizeHostName(string hostname)
+    {
+        if (string.IsNullOrWhiteSpace(hostname))
+        {
+            throw new ArgumentException("Leaf certificate host name must be provided.", nameof(hostname));
+        }
+
+        var trimmedHostName = hostname.Trim();
+        if (trimmedHostName.Length > 1 &&
+            trimmedHostName[0] == '[' &&
+            trimmedHostName[^1] == ']')
+        {
+            trimmedHostName = trimmedHostName[1..^1];
+        }
+
+        if (IPAddress.TryParse(trimmedHostName, out var ipAddress))
+        {
+            return ipAddress.ToString();
+        }
+
+        var domainNameSystemHostName = trimmedHostName.TrimEnd('.');
+        var idnMapping = new IdnMapping();
+        var normalizedDomainNameSystemHostName = idnMapping.GetAscii(domainNameSystemHostName);
+        if (Uri.CheckHostName(normalizedDomainNameSystemHostName) != UriHostNameType.Dns)
+        {
+            throw new ArgumentException("Leaf certificate host name must be a valid DNS name or IP address.", nameof(hostname));
+        }
+
+        return normalizedDomainNameSystemHostName;
     }
 }

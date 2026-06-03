@@ -2,6 +2,7 @@
 using Proxyfan.Framework.Platform;
 using System;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -39,6 +40,25 @@ public sealed class CertificateAuthorityTests
 
         await Assert.That(leaf.Issuer).IsEqualTo(authority.Certificate.Subject);
         await Assert.That(leaf.GetNameInfo(X509NameType.DnsName, false)).IsEqualTo("api.example.com");
+        await Assert.That(GetSubjectAlternativeNameExtension(leaf).EnumerateDnsNames().ToArray()).IsEquivalentTo(["api.example.com"]);
+    }
+
+    /// <summary>
+    ///     Verifies that the generated leaf certificate stores IP-literal targets as IP Subject
+    ///     Alternative Names.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIpAddressLiteral_ReturnsLeafCertificateWithIpAddressSubjectAlternativeName()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        var leaf = authority.Sign("127.0.0.1");
+        var subjectAlternativeName = GetSubjectAlternativeNameExtension(leaf);
+        var ipAddresses = subjectAlternativeName.EnumerateIPAddresses().ToArray();
+
+        await Assert.That(ipAddresses.Length).IsEqualTo(1);
+        await Assert.That(ipAddresses[0]).IsEqualTo(IPAddress.Parse("127.0.0.1"));
+        await Assert.That(subjectAlternativeName.EnumerateDnsNames().Any()).IsFalse();
     }
 
     /// <summary>
@@ -103,5 +123,13 @@ public sealed class CertificateAuthorityTests
     {
         var generator = new RsaCertificateGenerator();
         return await generator.GenerateRootCertificateAuthorityAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static X509SubjectAlternativeNameExtension GetSubjectAlternativeNameExtension(X509Certificate2 certificate)
+    {
+        var extension = certificate.Extensions
+            .OfType<X509SubjectAlternativeNameExtension>()
+            .FirstOrDefault();
+        return extension ?? throw new InvalidOperationException("Expected subject alternative name extension.");
     }
 }
