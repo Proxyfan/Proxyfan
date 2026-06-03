@@ -440,7 +440,17 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateResponse(domainEvent));
+        _userInterfaceScheduler.Post(() =>
+        {
+            viewModel.UpdateResponse(domainEvent);
+
+            if (string.IsNullOrWhiteSpace(FilterText) && string.IsNullOrWhiteSpace(HostFilter))
+            {
+                return;
+            }
+
+            RebuildVisibleFlowsOnUiThread();
+        });
     }
 
     private void RebuildVisibleFlowsOnUiThread()
