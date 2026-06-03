@@ -127,7 +127,7 @@ public sealed partial class TabHostViewModel : ObservableObject
             TrafficFlowViewModel? match = null;
             foreach (var flow in TrafficList.Flows)
             {
-                if (flow.Source.Id == selectedId.Value)
+                if (flow.Id == selectedId.Value)
                 {
                     match = flow;
                     break;
@@ -215,7 +215,7 @@ public sealed partial class TabHostViewModel : ObservableObject
         if (args.PropertyName == nameof(TrafficListViewModel.SelectedFlow))
         {
             var selected = TrafficList.SelectedFlow;
-            ActiveTab.Source.SetSelectedFlowId(selected?.Source.Id);
+            ActiveTab.Source.SetSelectedFlowId(selected?.Id);
         }
     }
 
@@ -229,7 +229,7 @@ public sealed partial class TabHostViewModel : ObservableObject
         var current = ActiveTab;
         current.Source.SetFilterQuery(TrafficList.FilterText);
         var selected = TrafficList.SelectedFlow;
-        current.Source.SetSelectedFlowId(selected?.Source.Id);
+        current.Source.SetSelectedFlowId(selected?.Id);
     }
 
     private void UpdateCanCloseFlags()

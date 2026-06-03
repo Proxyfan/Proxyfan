@@ -99,6 +99,42 @@ public sealed class TrafficListViewModelBehaviorTests
         bus.PublishFlowCompleted(new TrafficFlowCompleted(flowId, TrafficFlowStatus.Complete, DateTimeOffset.UtcNow));
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.Flows[0].FlowStatus).IsEqualTo(TrafficFlowStatus.Complete);
+    }
+
+    /// <summary>
+    ///     When a <see cref="TrafficFlowCompleted" /> event is published, the underlying domain
+    ///     flow must be transitioned to the terminal state by the coordinator.
+    /// </summary>
+    [Test]
+    public async Task OnFlowCompleted_KnownFlow_TransitionsDomainFlowStatus()
+    {
+        var bus = new RecordingDomainEventBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId));
+
+        bus.PublishFlowCompleted(new TrafficFlowCompleted(flowId, TrafficFlowStatus.Complete, DateTimeOffset.UtcNow));
+
+        await Assert.That(viewModel.Flows[0].GetDomainFlow().Status).IsEqualTo(TrafficFlowStatus.Complete);
+    }
+
+    /// <summary>
+    ///     When a <see cref="ResponseReceived" /> event is published, the underlying domain
+    ///     flow must be updated with the response by the coordinator.
+    /// </summary>
+    [Test]
+    public async Task OnResponseReceived_KnownFlow_SetsDomainFlowResponse()
+    {
+        var bus = new RecordingDomainEventBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId));
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 200));
+
+        await Assert.That(viewModel.Flows[0].GetDomainFlow().Response).IsNotNull();
+        await Assert.That(viewModel.Flows[0].GetDomainFlow().Response!.StatusCode).IsEqualTo(200);
     }
 
     /// <summary>
