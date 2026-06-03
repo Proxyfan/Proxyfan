@@ -73,7 +73,7 @@ public sealed class CustomColumnGridSynchronizer
                 textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
             }
 
-            void OnFlowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs propertyChangedEventArgs)
+            void OnFlowPropertyChanged(object? _, System.ComponentModel.PropertyChangedEventArgs propertyChangedEventArgs)
             {
                 if (propertyChangedEventArgs.PropertyName == nameof(TrafficFlowViewModel.Response))
                 {
