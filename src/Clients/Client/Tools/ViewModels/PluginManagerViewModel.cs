@@ -126,7 +126,15 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
             AvailableUpdates.Clear();
             foreach (var availability in availabilities)
             {
-                var availabilityViewModel = new PluginUpdateAvailabilityViewModel(availability);
+                var availabilityModel = new PluginUpdateAvailabilityModel(
+                    availability.Identifier,
+                    availability.Name,
+                    availability.Author,
+                    availability.CurrentVersion,
+                    availability.LatestVersion,
+                    availability.DownloadUrl,
+                    availability.IsCompatible);
+                var availabilityViewModel = new PluginUpdateAvailabilityViewModel(availabilityModel);
                 AvailableUpdates.Add(availabilityViewModel);
             }
 
