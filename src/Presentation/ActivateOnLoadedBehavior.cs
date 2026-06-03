@@ -43,12 +43,17 @@ public static class ActivateOnLoadedBehavior
         {
             control.Loaded += OnLoaded;
         }
+        else
+        {
+            control.Loaded -= OnLoaded;
+        }
     }
 
     private static void OnLoaded(object? sender, RoutedEventArgs args)
     {
-        if (sender is Control { DataContext: IActivatable activatable })
+        if (sender is Control { DataContext: IActivatable activatable } control)
         {
+            control.Loaded -= OnLoaded;
             activatable.Activate();
         }
     }
