@@ -87,6 +87,7 @@ public sealed class MapLocalViewModelTests
             ResponseHeaders = "Content-Type: application/json\nX-Trace: abc",
             ResponseBody = "{}",
         };
+        viewModel.ValidationMessage = "Previous error";
 
         viewModel.AddEntryCommand.Execute(null);
 

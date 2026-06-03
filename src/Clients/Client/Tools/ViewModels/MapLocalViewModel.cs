@@ -80,36 +80,15 @@ public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!int.TryParse(ResponseStatusCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var statusCode))
+        var entry = TryCreateEntry(text);
+        if (entry is null)
         {
             return;
         }
 
-        if (statusCode is < 100 or > 599)
-        {
-            return;
-        }
-
-        var headers = MapLocalHeaderParser.Parse(ResponseHeaders);
-        var body = Encoding.UTF8.GetBytes(ResponseBody);
-        var matchingRule = new MatchingRule(text, NewPatternKind);
-        var entry = new MapLocalEntry
-        {
-            Body = body,
-            Headers = headers,
-            IsEnabled = true,
-            MatchingRule = matchingRule,
-            ReasonPhrase = ResponseReasonPhrase,
-            StatusCode = statusCode,
-        };
         try
         {
             _rule.AddEntry(entry);
-        }
-        catch (RegexParseException)
-        {
-            ValidationMessage = InvalidRegexMessage;
-            return;
         }
         catch (ArgumentException exception)
         {
@@ -162,5 +141,58 @@ public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
         }
 
         _rule.RemoveEntry(entry.Entry);
+    }
+
+    private MapLocalEntry? TryCreateEntry(string text)
+    {
+        if (!int.TryParse(ResponseStatusCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var statusCode))
+        {
+            return null;
+        }
+
+        if (statusCode is < 100 or > 599)
+        {
+            return null;
+        }
+
+        var matchingRule = TryCreateMatchingRule(text);
+        if (matchingRule is null)
+        {
+            return null;
+        }
+
+        return new MapLocalEntry
+        {
+            Body = Encoding.UTF8.GetBytes(ResponseBody),
+            Headers = MapLocalHeaderParser.Parse(ResponseHeaders),
+            IsEnabled = true,
+            MatchingRule = matchingRule,
+            ReasonPhrase = ResponseReasonPhrase,
+            StatusCode = statusCode,
+        };
+    }
+
+    private MatchingRule? TryCreateMatchingRule(string text)
+    {
+        try
+        {
+            var matchingRule = new MatchingRule(text, NewPatternKind);
+            if (NewPatternKind == MatchingRuleKind.Regex)
+            {
+                _ = matchingRule.Compile();
+            }
+
+            return matchingRule;
+        }
+        catch (RegexParseException)
+        {
+            ValidationMessage = InvalidRegexMessage;
+            return null;
+        }
+        catch (ArgumentException exception)
+        {
+            ValidationMessage = exception.Message;
+            return null;
+        }
     }
 }
