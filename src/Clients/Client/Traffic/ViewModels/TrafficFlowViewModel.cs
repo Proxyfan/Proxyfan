@@ -169,14 +169,14 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     /// </param>
     public void UpdateResponse(ResponseReceived responseEvent)
     {
-        BodySize = responseEvent.Response.Body.Length;
-        Response = responseEvent.Response;
-        StatusCode = responseEvent.Response.StatusCode;
-
         if (Source.Status == TrafficFlowStatus.Active)
         {
             Source.SetResponse(responseEvent.Response);
         }
+
+        BodySize = responseEvent.Response.Body.Length;
+        Response = responseEvent.Response;
+        StatusCode = responseEvent.Response.StatusCode;
     }
 
     /// <summary>

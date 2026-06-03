@@ -1,9 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Traffic.Columns;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace Proxyfan.Client.Traffic.Views;
 
@@ -53,24 +55,50 @@ public sealed class CustomColumnGridSynchronizer
         ClearAdded();
     }
 
+    private void AttachRefreshHandler(
+        TextBlock textBlock,
+        CustomColumnDefinition definition,
+        TrafficFlowViewModel flow)
+    {
+        void HandleDetachedFromVisualTree(object? sender, Avalonia.VisualTreeAttachmentEventArgs eventArgs)
+        {
+            flow.PropertyChanged -= HandlePropertyChanged;
+            textBlock.DetachedFromVisualTree -= HandleDetachedFromVisualTree;
+        }
+
+        void HandlePropertyChanged(object? sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(TrafficFlowViewModel.Response))
+            {
+                Dispatcher.UIThread.Post(() => SetCellValue(textBlock, definition, flow));
+            }
+        }
+
+        flow.PropertyChanged += HandlePropertyChanged;
+        textBlock.DetachedFromVisualTree += HandleDetachedFromVisualTree;
+    }
+
+    private TextBlock BuildCell(CustomColumnDefinition definition, TrafficFlowViewModel? flow)
+    {
+        var margin = new Avalonia.Thickness(4, 0, 4, 0);
+        var textBlock = new TextBlock
+        {
+            Margin = margin,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        if (flow is null)
+        {
+            return textBlock;
+        }
+
+        SetCellValue(textBlock, definition, flow);
+        AttachRefreshHandler(textBlock, definition, flow);
+        return textBlock;
+    }
+
     private DataGridTemplateColumn BuildColumn(CustomColumnDefinition definition)
     {
-        var template = new FuncDataTemplate<TrafficFlowViewModel>((flow, _) =>
-        {
-            var margin = new Avalonia.Thickness(4, 0, 4, 0);
-            var textBlock = new TextBlock
-            {
-                Margin = margin,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            if (flow is null)
-            {
-                return textBlock;
-            }
-
-            textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
-            return textBlock;
-        });
+        var template = new FuncDataTemplate<TrafficFlowViewModel>((flow, _) => BuildCell(definition, flow));
         var width = new DataGridLength(120);
         var column = new DataGridTemplateColumn
         {
@@ -105,5 +133,10 @@ public sealed class CustomColumnGridSynchronizer
             _dataGrid.Columns.Add(column);
             _addedColumns.Add(column);
         }
+    }
+
+    private void SetCellValue(TextBlock textBlock, CustomColumnDefinition definition, TrafficFlowViewModel flow)
+    {
+        textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
     }
 }

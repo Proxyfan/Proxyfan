@@ -1,4 +1,5 @@
 ﻿using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain.Traffic.Columns;
 using Proxyfan.Domain.Traffic.Events;
 using System;
 using System.Threading.Tasks;
@@ -75,6 +76,33 @@ public sealed class TrafficFlowViewModelTests
         await Assert.That(viewModel.StatusCode).IsEqualTo(200);
         await Assert.That(viewModel.Response).IsNotNull();
         await Assert.That(viewModel.BodySize).IsGreaterThan(0L);
+    }
+
+    [Test]
+    public async Task UpdateResponse_ResponsePropertyChanged_ExposesResponseHeadersThroughSource()
+    {
+        var requestEvent = CreateRequestEvent();
+        var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
+        var definition = new CustomColumnDefinition
+        {
+            DisplayName = "Server",
+            HeaderKey = "Server",
+            Id = Guid.NewGuid(),
+            Source = CustomColumnSource.Response,
+        };
+        var observedValue = string.Empty;
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(Client.Traffic.ViewModels.TrafficFlowViewModel.Response))
+            {
+                observedValue = CustomColumnValueExtractor.Extract(definition, viewModel.Source);
+            }
+        };
+        var responseEvent = CreateResponseEventWithServerHeader(requestEvent.TrafficFlowId, "proxyfan");
+
+        viewModel.UpdateResponse(responseEvent);
+
+        await Assert.That(observedValue).IsEqualTo("proxyfan");
     }
 
     /// <summary>
@@ -165,6 +193,23 @@ public sealed class TrafficFlowViewModelTests
     {
         byte[] body = [1, 2, 3];
         var headers = HeaderCollection.Empty.Add("Content-Length", "3");
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = body,
+            Headers = headers,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        };
+        var response = new HypertextTransferProtocolResponseData(parameters);
+        var responseEvent = new ResponseReceived(flowId, response, DateTimeOffset.UtcNow);
+        return responseEvent;
+    }
+
+    private ResponseReceived CreateResponseEventWithServerHeader(Guid flowId, string server)
+    {
+        byte[] body = [1];
+        var headers = HeaderCollection.Empty.Add("Server", server);
         var parameters = new HypertextTransferProtocolResponseDataParameters
         {
             Body = body,
