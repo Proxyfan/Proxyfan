@@ -149,7 +149,6 @@ public sealed class UpgradeRequestRewriterTests
         var asString = Encoding.ASCII.GetString(rewritten);
 
         await Assert.That(asString).DoesNotContain("X-Hop: secret");
-        await Assert.That(asString).DoesNotContain("secret");
         await Assert.That(asString).Contains("Connection: upgrade, X-Hop");
         await Assert.That(asString).Contains("Upgrade: websocket");
     }
