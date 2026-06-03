@@ -48,7 +48,7 @@ public sealed class WebSocketRelay
     public async Task<int> RelayAsync(Stream source, Stream destination, CancellationToken cancellationToken)
     {
         var buffer = new byte[8192];
-        var accumulator = new MemoryStream();
+        var accumulator = new FrameAccumulator(8192);
         var capturedMessages = 0;
         var observedCloseFrame = false;
 
@@ -65,7 +65,8 @@ public sealed class WebSocketRelay
             await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
             await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            await accumulator.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+            accumulator.Append(buffer, 0, bytesRead);
+
             var drain = DrainCompletedFrames(accumulator);
             capturedMessages += drain.MessagesCaptured;
             if (drain.IsObservedCloseFrame)
@@ -77,16 +78,15 @@ public sealed class WebSocketRelay
         return capturedMessages;
     }
 
-    private DrainResult DrainCompletedFrames(MemoryStream accumulator)
+    private DrainResult DrainCompletedFrames(FrameAccumulator accumulator)
     {
         var captured = 0;
         var sawClose = false;
-        var buffer = accumulator.ToArray();
         var offset = 0;
 
-        while (offset < buffer.Length)
+        while (offset < accumulator.Length)
         {
-            var slice = new ReadOnlyMemory<byte>(buffer, offset, buffer.Length - offset);
+            var slice = new ReadOnlyMemory<byte>(accumulator.Buffer, offset, accumulator.Length - offset);
             var frame = WebSocketFrameParser.TryParse(slice);
             if (frame is null)
             {
@@ -116,12 +116,7 @@ public sealed class WebSocketRelay
             return noopResult;
         }
 
-        var remaining = buffer.Length - offset;
-        accumulator.SetLength(0);
-        if (remaining > 0)
-        {
-            accumulator.Write(buffer, offset, remaining);
-        }
+        accumulator.Consume(offset);
 
         var result = new DrainResult(captured, sawClose);
         return result;
@@ -137,6 +132,62 @@ public sealed class WebSocketRelay
         {
             MessagesCaptured = messagesCaptured;
             IsObservedCloseFrame = observedCloseFrame;
+        }
+    }
+
+    /// <summary>
+    ///     Mutable byte accumulator that grows on demand and compacts only the unconsumed
+    ///     tail when frames are drained. Keeps the parser working on a stable
+    ///     <see cref="ReadOnlyMemory{Byte}" /> slice without copying already-buffered bytes
+    ///     on every read.
+    /// </summary>
+    private sealed class FrameAccumulator
+    {
+        public byte[] Buffer { get; private set; }
+
+        public int Length { get; private set; }
+
+        public FrameAccumulator(int initialCapacity)
+        {
+            var initial = new byte[initialCapacity];
+            Buffer = initial;
+            Length = 0;
+        }
+
+        public void Append(byte[] source, int offset, int count)
+        {
+            EnsureCapacity(Length + count);
+            System.Buffer.BlockCopy(source, offset, Buffer, Length, count);
+            Length += count;
+        }
+
+        public void Consume(int consumed)
+        {
+            var remaining = Length - consumed;
+            if (remaining > 0)
+            {
+                System.Buffer.BlockCopy(Buffer, consumed, Buffer, 0, remaining);
+            }
+
+            Length = remaining;
+        }
+
+        private void EnsureCapacity(int requiredLength)
+        {
+            if (requiredLength <= Buffer.Length)
+            {
+                return;
+            }
+
+            var newSize = Buffer.Length;
+            while (newSize < requiredLength)
+            {
+                newSize *= 2;
+            }
+
+            var resized = new byte[newSize];
+            System.Buffer.BlockCopy(Buffer, 0, resized, 0, Length);
+            Buffer = resized;
         }
     }
 }
