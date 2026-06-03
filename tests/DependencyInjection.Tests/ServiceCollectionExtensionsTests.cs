@@ -74,6 +74,32 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="ServiceCollectionExtensions.AddSingletonAsImplementedInterfaces{TImplementation}" />
+    ///     reuses one singleton implementation instance across all registered interfaces.
+    /// </summary>
+    [Test]
+    public async Task AddSingletonAsImplementedInterfaces_WhenResolvedAcrossInterfaces_UsesOneSharedSingletonInstance()
+    {
+        var services = new ServiceCollection();
+        var creationCount = 0;
+        services.AddSingletonAsImplementedInterfaces<SampleImplementation>(() =>
+        {
+            creationCount++;
+            var implementation = new SampleImplementation();
+            return implementation;
+        });
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        var first = provider.GetRequiredService<IFirstContract>();
+        var second = provider.GetRequiredService<ISecondContract>();
+        var implementation = provider.GetRequiredService<SampleImplementation>();
+
+        await Assert.That(creationCount).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(first, second)).IsTrue();
+        await Assert.That(ReferenceEquals(first, implementation)).IsTrue();
+    }
+
+    /// <summary>
     ///     Resolving the singletons that are wired in by AddProxyListener forces the
     ///     DI factory lambdas to execute, covering the body of those registrations
     ///     (HttpClient, IComposerHistoryStore, IUserPreferencesStore, RemoteDeviceTracker,
