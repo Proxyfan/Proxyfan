@@ -164,36 +164,45 @@ public sealed class LeafCertificateCache : ICertificateCache
 
     private X509Certificate2 ResolvePendingEntry(string hostname, Lazy<X509Certificate2> pendingEntry)
     {
-        try
+        while (true)
         {
-            var certificate = pendingEntry.Value;
-
-            lock (_syncRoot)
+            try
             {
-                if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? existingEntry))
-                {
-                    _pendingEntries.Remove(hostname);
-                    MoveToFront(existingEntry);
-                    return existingEntry.Value.Value;
-                }
+                var certificate = pendingEntry.Value;
 
-                if (_pendingEntries.TryGetValue(hostname, out Lazy<X509Certificate2>? registeredPendingEntry)
-                    && ReferenceEquals(registeredPendingEntry, pendingEntry))
+                lock (_syncRoot)
                 {
-                    var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, certificate);
-                    var node = _usageOrder.AddFirst(cacheEntry);
-                    _entries[hostname] = node;
-                    _pendingEntries.Remove(hostname);
-                    RemoveLeastRecentlyUsedWhenRequired();
-                }
+                    if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? existingEntry))
+                    {
+                        _pendingEntries.Remove(hostname);
+                        MoveToFront(existingEntry);
+                        return existingEntry.Value.Value;
+                    }
 
-                return certificate;
+                    if (_pendingEntries.TryGetValue(hostname, out Lazy<X509Certificate2>? registeredPendingEntry))
+                    {
+                        if (ReferenceEquals(registeredPendingEntry, pendingEntry))
+                        {
+                            var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, certificate);
+                            var node = _usageOrder.AddFirst(cacheEntry);
+                            _entries[hostname] = node;
+                            _pendingEntries.Remove(hostname);
+                            RemoveLeastRecentlyUsedWhenRequired();
+                            return certificate;
+                        }
+
+                        pendingEntry = registeredPendingEntry;
+                        continue;
+                    }
+
+                    return certificate;
+                }
             }
-        }
-        catch
-        {
-            RemovePendingEntry(hostname, pendingEntry);
-            throw;
+            catch
+            {
+                RemovePendingEntry(hostname, pendingEntry);
+                throw;
+            }
         }
     }
 

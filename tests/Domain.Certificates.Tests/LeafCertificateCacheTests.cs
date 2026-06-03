@@ -84,12 +84,14 @@ public sealed class LeafCertificateCacheTests
     {
         var cache = new LeafCertificateCache(8);
         var cachedCertificate = CreateCertificate("cached.example");
+        var factoryCallCount = 0;
         using var factoryEntered = new ManualResetEventSlim();
         using var allowFactoryToContinue = new ManualResetEventSlim();
         cache.GetOrAdd("cached.example", _ => cachedCertificate);
 
         var generatingTask = Task.Run(() => cache.GetOrAdd("blocked.example", _ =>
         {
+            Interlocked.Increment(ref factoryCallCount);
             factoryEntered.Set();
             allowFactoryToContinue.Wait(TimeSpan.FromSeconds(5));
             return CreateCertificate("blocked.example");
@@ -108,6 +110,7 @@ public sealed class LeafCertificateCacheTests
 
         await Assert.That(cachedHitCompleted).IsTrue();
         await Assert.That(stopwatch.Elapsed).IsLessThan(TimeSpan.FromSeconds(1));
+        await Assert.That(factoryCallCount).IsEqualTo(1);
         await Assert.That(cachedHitTask.Result).IsSameReferenceAs(cachedCertificate);
         await Assert.That(await generatingTask).IsNotNull();
     }
