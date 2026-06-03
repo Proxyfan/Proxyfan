@@ -23,6 +23,7 @@ using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Session.Har;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic.Columns;
 using Proxyfan.Domain.Updates;
 using Proxyfan.Framework.Serialization;
@@ -111,6 +112,12 @@ public partial class App : Application
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
+            services.AddSingleton<IThrottleProfileCoordinator>(static serviceProvider =>
+            {
+                var mutableProfile = serviceProvider.GetRequiredService<MutableThrottleProfile>();
+                var scheduler = serviceProvider.GetRequiredService<IUserInterfaceScheduler>();
+                return new ThrottleProfileCoordinator(mutableProfile, scheduler);
+            });
             services.AddSingleton<AvaloniaFilePickerService>();
             services.AddSingleton<IFilePickerService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaFilePickerService>());
             services.AddSingleton<Proxyfan.Client.Clipboard.AvaloniaClipboardService>();
