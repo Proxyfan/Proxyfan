@@ -50,12 +50,16 @@ public sealed class MapRemoteDestination
 
         if (normalizedScheme is not null && !Uri.CheckSchemeName(normalizedScheme))
         {
-            throw new ArgumentException($"Scheme '{scheme}' is not a valid URI scheme.", nameof(scheme));
+            throw new ArgumentException(
+                $"Scheme '{scheme}' is not a valid URI scheme.",
+                nameof(scheme));
         }
 
         if (normalizedHost is not null && Uri.CheckHostName(normalizedHost) == UriHostNameType.Unknown)
         {
-            throw new ArgumentException($"Host '{host}' is not a valid URI host.", nameof(host));
+            throw new ArgumentException(
+                $"Host '{host}' is not a valid URI host.",
+                nameof(host));
         }
 
         if (port is < 1 or > 65535)
