@@ -9,7 +9,7 @@ public sealed class UserPreferences
 {
     /// <summary>
     ///     Gets the maximum number of captured traffic flows the in-memory store retains before
-    ///     LRU eviction. Default: 10,000.
+    ///     LRU eviction. Valid range: 100-1,000,000. Default: 10,000.
     /// </summary>
     public required int CaptureMaximumFlows { get; init; }
 
