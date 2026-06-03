@@ -1,7 +1,7 @@
 using System;
 using System.Text.Json;
 
-namespace Proxyfan.Framework.Serialization;
+namespace Proxyfan.Domain.Traffic;
 
 /// <summary>
 ///     Parses Graph Query Language (GraphQL) HTTP requests per the GraphQL-over-HTTP

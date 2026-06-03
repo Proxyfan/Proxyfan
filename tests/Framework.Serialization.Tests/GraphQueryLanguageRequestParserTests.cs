@@ -1,3 +1,4 @@
+using Proxyfan.Domain.Traffic;
 using System.IO;
 using System.Threading.Tasks;
 

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Proxyfan.Framework.Serialization;
+namespace Proxyfan.Domain.Traffic;
 
 /// <summary>
 ///     Heuristically detects whether an HTTP request is a Graph Query Language (GraphQL)

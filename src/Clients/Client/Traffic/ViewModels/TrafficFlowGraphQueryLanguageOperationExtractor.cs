@@ -1,5 +1,4 @@
 using Proxyfan.Domain.Traffic;
-using Proxyfan.Framework.Serialization;
 using System;
 using System.IO;
 using System.Text;

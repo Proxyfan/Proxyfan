@@ -1,6 +1,6 @@
 using System;
 
-namespace Proxyfan.Framework.Serialization;
+namespace Proxyfan.Domain.Traffic;
 
 /// <summary>
 ///     Extracts the first named operation from a Graph Query Language (GraphQL) query

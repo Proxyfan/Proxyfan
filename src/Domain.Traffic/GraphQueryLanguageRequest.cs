@@ -1,4 +1,4 @@
-namespace Proxyfan.Framework.Serialization;
+namespace Proxyfan.Domain.Traffic;
 
 /// <summary>
 ///     A parsed Graph Query Language (GraphQL) request as transmitted over HTTP

@@ -1,3 +1,4 @@
+using Proxyfan.Domain.Traffic;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Framework.Serialization.Tests;
