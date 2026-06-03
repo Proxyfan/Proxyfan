@@ -44,4 +44,34 @@ public static class ConfigurationMigrationPipelineHelpers
 
         return ConfigurationVersion.Parse(text);
     }
+
+    /// <summary>
+    ///     Validates that <paramref name="migrator" /> makes strict forward progress and does
+    ///     not overshoot <paramref name="targetVersion" />.
+    /// </summary>
+    /// <param name="migrator">The migrator about to be applied.</param>
+    /// <param name="currentVersion">The version the pipeline is currently at.</param>
+    /// <param name="targetVersion">The version the pipeline must reach.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     The migrator's <see cref="IConfigurationMigrator.To" /> version does not strictly
+    ///     exceed <paramref name="currentVersion" /> (no forward progress), or it exceeds
+    ///     <paramref name="targetVersion" /> (overshoot).
+    /// </exception>
+    public static void ValidateMigratorTransition(
+        IConfigurationMigrator migrator,
+        ConfigurationVersion currentVersion,
+        ConfigurationVersion targetVersion)
+    {
+        if (!currentVersion.HasLowerOrderThan(migrator.To))
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator from {migrator.From} to {migrator.To} does not advance the version beyond {currentVersion}.");
+        }
+
+        if (migrator.To > targetVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator from {migrator.From} to {migrator.To} overshoots the target version {targetVersion}.");
+        }
+    }
 }

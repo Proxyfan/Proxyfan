@@ -42,10 +42,13 @@ public sealed class ProxyAuthorizationHeaderTests
     }
 
     /// <summary>
-    ///     Verifies the helper accepts an empty password (RFC 7617 allows empty passwords).
+    ///     Verifies that empty passwords no longer pass through as a header — per PR #425
+    ///     the credential gate now rejects them, so <see cref="ProxyAuthorizationHeader.Build" />
+    ///     yields <see langword="null" /> rather than emitting a header whose decoded form
+    ///     would carry an empty secret on the wire.
     /// </summary>
     [Test]
-    public async Task Build_EmptyPassword_ReturnsHeaderWithTrailingColon()
+    public async Task Build_EmptyPassword_ReturnsNull()
     {
         var options = new UpstreamProxyOptions
         {
@@ -58,7 +61,7 @@ public sealed class ProxyAuthorizationHeaderTests
 
         var header = ProxyAuthorizationHeader.Build(options);
 
-        await Assert.That(header).IsEqualTo("Basic YWxpY2U6");
+        await Assert.That(header).IsNull();
     }
 
     /// <summary>
