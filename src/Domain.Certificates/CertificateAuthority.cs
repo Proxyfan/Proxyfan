@@ -105,14 +105,6 @@ public sealed class CertificateAuthority
         }
 
         var trimmedHostname = hostname.Trim();
-        if (trimmedHostname.Length > 1
-            && trimmedHostname[0] == '['
-            && trimmedHostname[^1] == ']'
-            && IPAddress.TryParse(trimmedHostname[1..^1], out var bracketedAddress))
-        {
-            return bracketedAddress.ToString();
-        }
-
         if (IPAddress.TryParse(trimmedHostname, out var address))
         {
             return address.ToString();

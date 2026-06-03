@@ -39,7 +39,7 @@ public sealed class CertificateAuthorityTests
         var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
 
         var leaf = authority.Sign("api.example.com");
-        var subjectAlternativeNames = ReadSubjectAlternativeNames(leaf);
+        var subjectAlternativeNames = ExtractSubjectAlternativeNames(leaf);
 
         await Assert.That(leaf.Issuer).IsEqualTo(authority.Certificate.Subject);
         await Assert.That(leaf.GetNameInfo(X509NameType.DnsName, false)).IsEqualTo("api.example.com");
@@ -117,7 +117,7 @@ public sealed class CertificateAuthorityTests
         var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
 
         var leaf = authority.Sign(hostname);
-        var subjectAlternativeNames = ReadSubjectAlternativeNames(leaf);
+        var subjectAlternativeNames = ExtractSubjectAlternativeNames(leaf);
 
         await Assert.That(subjectAlternativeNames.DnsNames.Count).IsEqualTo(0);
         await Assert.That(subjectAlternativeNames.IpAddresses.Count).IsEqualTo(1);
@@ -145,7 +145,7 @@ public sealed class CertificateAuthorityTests
         return await generator.GenerateRootCertificateAuthorityAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static (List<string> DnsNames, List<IPAddress> IpAddresses) ReadSubjectAlternativeNames(X509Certificate2 certificate)
+    private static (List<string> DnsNames, List<IPAddress> IpAddresses) ExtractSubjectAlternativeNames(X509Certificate2 certificate)
     {
         var extension = certificate.Extensions["2.5.29.17"];
         if (extension is null)
@@ -176,7 +176,7 @@ public sealed class CertificateAuthorityTests
                 continue;
             }
 
-            sequence.ReadEncodedValue();
+            throw new InvalidOperationException($"Unsupported Subject Alternative Name tag '{tag.TagValue}'.");
         }
 
         reader.ThrowIfNotEmpty();
