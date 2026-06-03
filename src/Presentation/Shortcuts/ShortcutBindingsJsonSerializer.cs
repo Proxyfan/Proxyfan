@@ -168,7 +168,8 @@ public static class ShortcutBindingsJsonSerializer
                 return;
             }
 
-            if (!Enum.TryParse<ShortcutAction>(entry.Action, ignoreCase: false, out var action))
+            if (!Enum.TryParse<ShortcutAction>(entry.Action, ignoreCase: false, out var action)
+                || !Enum.IsDefined(action))
             {
                 return;
             }

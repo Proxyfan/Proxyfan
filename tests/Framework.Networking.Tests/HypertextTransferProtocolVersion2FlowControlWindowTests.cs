@@ -90,44 +90,49 @@ public sealed class HypertextTransferProtocolVersion2FlowControlWindowTests
     }
 
     /// <summary>
-    ///     <see cref="HypertextTransferProtocolVersion2FlowControlWindow.ApplyInitialSizeDelta" />
+    ///     <see cref="HypertextTransferProtocolVersion2FlowControlWindow.HasAppliedInitialSizeDelta" />
     ///     shifts the window by the SETTINGS-derived delta and may temporarily go negative.
     /// </summary>
     [Test]
-    public async Task ApplyInitialSizeDelta_NegativeDelta_AllowsNegativeAvailable()
+    public async Task HasAppliedInitialSizeDelta_NegativeDelta_AllowsNegativeAvailable()
     {
         var window = new HypertextTransferProtocolVersion2FlowControlWindow(100);
 
-        window.ApplyInitialSizeDelta(-200);
+        var result = window.HasAppliedInitialSizeDelta(-200);
 
+        await Assert.That(result).IsTrue();
         await Assert.That(window.Available).IsEqualTo(-100);
     }
 
     /// <summary>
-    ///     A delta that pushes the window above the maximum is clamped to the maximum.
+    ///     A delta that pushes the window above the maximum returns false (FLOW_CONTROL_ERROR per
+    ///     RFC 7540 § 6.9.2) and leaves the window unchanged.
     /// </summary>
     [Test]
-    public async Task ApplyInitialSizeDelta_DeltaExceedsMaximum_ClampsToMaximum()
+    public async Task HasAppliedInitialSizeDelta_DeltaExceedsMaximum_ReturnsFalseAndLeavesWindowUnchanged()
     {
         var window = new HypertextTransferProtocolVersion2FlowControlWindow(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize - 10);
 
-        window.ApplyInitialSizeDelta(int.MaxValue);
+        var result = window.HasAppliedInitialSizeDelta(int.MaxValue);
 
-        await Assert.That(window.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize);
+        await Assert.That(result).IsFalse();
+        await Assert.That(window.Available).IsEqualTo(HypertextTransferProtocolVersion2FlowControlWindow.MaximumSize - 10);
     }
 
     /// <summary>
-    ///     A series of negative deltas that pushes the window below <see cref="int.MinValue" />
-    ///     must clamp to <see cref="int.MinValue" /> rather than overflowing.
+    ///     A delta that would push the window below <see cref="int.MinValue" /> returns false
+    ///     and leaves the window unchanged rather than overflowing.
     /// </summary>
     [Test]
-    public async Task ApplyInitialSizeDelta_BelowMinimum_ClampsToInt32Minimum()
+    public async Task HasAppliedInitialSizeDelta_BelowMinimum_ReturnsFalseAndLeavesWindowUnchanged()
     {
         var window = new HypertextTransferProtocolVersion2FlowControlWindow(0);
+        var firstShift = window.HasAppliedInitialSizeDelta(int.MinValue);
 
-        window.ApplyInitialSizeDelta(int.MinValue);
-        window.ApplyInitialSizeDelta(-1);
+        var result = window.HasAppliedInitialSizeDelta(-1);
 
+        await Assert.That(firstShift).IsTrue();
+        await Assert.That(result).IsFalse();
         await Assert.That(window.Available).IsEqualTo(int.MinValue);
     }
 }

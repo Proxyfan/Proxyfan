@@ -59,4 +59,35 @@ public sealed class FormUrlEncodedParserTests
         await Assert.That(result.Count).IsEqualTo(2);
         await Assert.That(result[1].Value).IsEqualTo("2");
     }
+
+    /// <summary>
+    ///     Verifies that a leading <c>?</c> in a form body is preserved as part of the first
+    ///     field name and not treated as a URI query delimiter.
+    /// </summary>
+    [Test]
+    public async Task Parse_StringStartingWithQuestionMark_PreservesQuestionMarkInName()
+    {
+        var result = FormUrlEncodedParser.Parse("?token=abc&b=2");
+
+        await Assert.That(result.Count).IsEqualTo(2);
+        await Assert.That(result[0].Name).IsEqualTo("?token");
+        await Assert.That(result[0].Value).IsEqualTo("abc");
+        await Assert.That(result[1].Name).IsEqualTo("b");
+        await Assert.That(result[1].Value).IsEqualTo("2");
+    }
+
+    /// <summary>
+    ///     Verifies that a leading <c>?</c> in a form body byte payload is preserved.
+    /// </summary>
+    [Test]
+    public async Task Parse_BytesStartingWithQuestionMark_PreservesQuestionMarkInName()
+    {
+        var body = Encoding.UTF8.GetBytes("?token=abc");
+
+        var result = FormUrlEncodedParser.Parse(body);
+
+        await Assert.That(result.Count).IsEqualTo(1);
+        await Assert.That(result[0].Name).IsEqualTo("?token");
+        await Assert.That(result[0].Value).IsEqualTo("abc");
+    }
 }

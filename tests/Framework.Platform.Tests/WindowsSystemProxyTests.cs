@@ -24,7 +24,7 @@ public sealed class WindowsSystemProxyTests
     [Test]
     public async Task RegisterAsync_WhenCalledWithPort_SetsRegistryValues(CancellationToken cancellationToken)
     {
-        var proxy = new WindowsSystemProxy();
+        var proxy = new WindowsSystemProxy(new StubWindowsInternetSettingsRefresher());
         var originalState = CaptureProxyRegistryState();
 
         try
@@ -49,7 +49,7 @@ public sealed class WindowsSystemProxyTests
     [Test]
     public async Task UnregisterAsync_WhenCalledAfterRegister_DisablesProxy(CancellationToken cancellationToken)
     {
-        var proxy = new WindowsSystemProxy();
+        var proxy = new WindowsSystemProxy(new StubWindowsInternetSettingsRefresher());
         var originalState = CaptureProxyRegistryState();
 
         try
@@ -61,6 +61,52 @@ public sealed class WindowsSystemProxyTests
 
             await Assert.That(enable).IsEqualTo(0);
             await Assert.That(server).IsNull();
+        }
+        finally
+        {
+            RestoreProxyRegistryState(originalState);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that registering broadcasts the Windows Internet Settings
+    ///     change so already-running applications observe the new proxy.
+    /// </summary>
+    [Test]
+    public async Task RegisterAsync_WhenCalledWithPort_BroadcastsSettingsChange(CancellationToken cancellationToken)
+    {
+        var refresher = new StubWindowsInternetSettingsRefresher();
+        var proxy = new WindowsSystemProxy(refresher);
+        var originalState = CaptureProxyRegistryState();
+
+        try
+        {
+            await proxy.RegisterAsync(9092, cancellationToken);
+
+            await Assert.That(refresher.RefreshCount).IsEqualTo(1);
+        }
+        finally
+        {
+            RestoreProxyRegistryState(originalState);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that unregistering broadcasts the Windows Internet Settings
+    ///     change so already-running applications drop the previous proxy.
+    /// </summary>
+    [Test]
+    public async Task UnregisterAsync_WhenCalled_BroadcastsSettingsChange(CancellationToken cancellationToken)
+    {
+        var refresher = new StubWindowsInternetSettingsRefresher();
+        var proxy = new WindowsSystemProxy(refresher);
+        var originalState = CaptureProxyRegistryState();
+
+        try
+        {
+            await proxy.UnregisterAsync(cancellationToken);
+
+            await Assert.That(refresher.RefreshCount).IsEqualTo(1);
         }
         finally
         {

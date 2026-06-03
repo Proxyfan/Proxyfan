@@ -23,7 +23,13 @@ public sealed class HypertextTransferProtocolVersion2HeaderBlockAssembler
     public const int DefaultMaximumByteSize = 65536;
     private readonly ArrayBufferWriter<byte> _buffer;
     private readonly int _maximumByteSize;
-    private uint _activeStreamIdentifier;
+
+    /// <summary>
+    ///     Gets the stream identifier of the in-progress header block, or 0 when no block is
+    ///     currently being assembled. Used by the orchestrator to detect interleaved frames
+    ///     that violate the HEADERS/CONTINUATION contiguity rule (RFC 7540 § 6.10).
+    /// </summary>
+    public uint ActiveStreamIdentifier { get; private set; }
 
     /// <summary>
     ///     Gets the current size of the in-progress header block fragment (0 when no block is in progress).
@@ -34,7 +40,7 @@ public sealed class HypertextTransferProtocolVersion2HeaderBlockAssembler
     ///     Gets a value indicating whether a HEADERS/PUSH_PROMISE block is currently being
     ///     assembled and awaits its END_HEADERS-bearing CONTINUATION.
     /// </summary>
-    public bool IsInProgress => _activeStreamIdentifier != 0;
+    public bool IsInProgress => ActiveStreamIdentifier != 0;
 
     /// <summary>
     ///     Initializes a new assembler with the default 64 KB size cap.
@@ -70,7 +76,7 @@ public sealed class HypertextTransferProtocolVersion2HeaderBlockAssembler
         {
             return null;
         }
-        if (streamIdentifier != _activeStreamIdentifier)
+        if (streamIdentifier != ActiveStreamIdentifier)
         {
             Reset();
             return null;
@@ -122,7 +128,7 @@ public sealed class HypertextTransferProtocolVersion2HeaderBlockAssembler
             _buffer.ResetWrittenCount();
             return complete;
         }
-        _activeStreamIdentifier = streamIdentifier;
+        ActiveStreamIdentifier = streamIdentifier;
         return null;
     }
 
@@ -132,6 +138,6 @@ public sealed class HypertextTransferProtocolVersion2HeaderBlockAssembler
     public void Reset()
     {
         _buffer.ResetWrittenCount();
-        _activeStreamIdentifier = 0;
+        ActiveStreamIdentifier = 0;
     }
 }
