@@ -132,6 +132,37 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     A malformed configuration file is rejected with diagnostics and is not rewritten.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLine_ReturnsParseDiagnosticsAndDoesNotRewrite()
+    {
+        var path = CreateTempPath();
+        var originalText = "version=1.0\nmalformed-line\nproxy.port=8080\n";
+
+        try
+        {
+            File.WriteAllText(path, originalText);
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.IsSuccessful).IsFalse();
+            await Assert.That(result.ParseDiagnostics.Count).IsEqualTo(1);
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(result.Snapshot.Count).IsEqualTo(0);
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(originalText);
+            await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());

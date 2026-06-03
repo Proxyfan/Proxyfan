@@ -85,6 +85,22 @@ public sealed class KeyValueConfigurationParserTests
     }
 
     /// <summary>
+    ///     Verifies that malformed lines are reported via parse diagnostics.
+    /// </summary>
+    [Test]
+    public async Task ParseWithDiagnostics_LineWithoutEquals_ReportsDiagnostic()
+    {
+        const string text = "no-equals-here\nproxy.port=8080";
+
+        var parseResult = KeyValueConfigurationParser.ParseWithDiagnostics(text);
+
+        await Assert.That(parseResult.IsSuccessful).IsFalse();
+        await Assert.That(parseResult.Diagnostics.Count).IsEqualTo(1);
+        await Assert.That(parseResult.Diagnostics[0].Contains("Line 1")).IsTrue();
+        await Assert.That(parseResult.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+    }
+
+    /// <summary>
     ///     Verifies that multiple keys are parsed.
     /// </summary>
     [Test]

@@ -63,6 +63,16 @@ public partial class App : Application
         _hostBuilder = Host.CreateDefaultBuilder();
         _hostBuilder.ConfigureAppConfiguration((_, configurationBuilder) =>
         {
+            if (!migrationResult.IsSuccessful)
+            {
+                foreach (var diagnostic in migrationResult.ParseDiagnostics)
+                {
+                    Debug.WriteLine($"Skipping malformed configuration file: {diagnostic}");
+                }
+
+                return;
+            }
+
             var migratedSnapshot = migrationResult.Snapshot;
             var migratedPairs = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in migratedSnapshot.Enumerate())

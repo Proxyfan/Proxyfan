@@ -1,4 +1,5 @@
 using Proxyfan.Domain.Configuration.Migration;
+using System.Collections.Generic;
 
 namespace Proxyfan.Domain.Configuration;
 
@@ -15,6 +16,17 @@ public sealed class MigratingConfigurationLoadResult
     ///     was missing or no migration occurred).
     /// </summary>
     public required string? BackupPath { get; init; }
+
+    /// <summary>
+    ///     Gets a value indicating whether the load completed without parse errors.
+    /// </summary>
+    public bool IsSuccessful => ParseDiagnostics.Count == 0;
+
+    /// <summary>
+    ///     Gets diagnostics for malformed configuration lines when the source file could not
+    ///     be parsed safely.
+    /// </summary>
+    public required IReadOnlyList<string> ParseDiagnostics { get; init; }
 
     /// <summary>
     ///     Gets the migration pipeline result containing the version transition record and
