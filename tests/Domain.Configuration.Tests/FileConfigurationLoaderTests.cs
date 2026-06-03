@@ -132,6 +132,44 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     A malformed configuration line is rejected and does not trigger rewrite/backup.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLine_ThrowsAndLeavesFileUntouched()
+    {
+        var path = CreateTempPath();
+        var backupPath = path + FileConfigurationLoader.BackupExtension;
+        const string text = "version=1.0\nmalformed line\nold.key=value\n";
+
+        try
+        {
+            File.WriteAllText(path, text);
+            var operation = new ConfigurationRenameKeyOperation
+            {
+                NewKey = "new.key",
+                OldKey = "old.key",
+            };
+            var migrator = new ConfigurationMigrator
+            {
+                From = new ConfigurationVersion(1, 0),
+                Operations = [operation],
+                To = new ConfigurationVersion(1, 1),
+            };
+            var pipeline = new ConfigurationMigrationPipeline([migrator]);
+            var loader = new FileConfigurationLoader(path, pipeline, new ConfigurationVersion(1, 1));
+
+            await Assert.That(() => loader.Load()).Throws<InvalidDataException>();
+            await Assert.That(File.Exists(backupPath)).IsFalse();
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(text);
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(backupPath);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());

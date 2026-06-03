@@ -48,7 +48,13 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var parseResult = KeyValueConfigurationParser.Parse(text);
+        if (parseResult.MalformedLineNumbers.Count > 0)
+        {
+            throw new InvalidDataException(BuildMalformedConfigurationExceptionMessage(parseResult));
+        }
+
+        var snapshot = parseResult.Snapshot;
         var sourceValues = new Dictionary<string, string>();
 
         foreach (var pair in snapshot.Enumerate())
@@ -104,5 +110,10 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
         };
+    }
+
+    private string BuildMalformedConfigurationExceptionMessage(KeyValueConfigurationParseResult parseResult)
+    {
+        return $"Configuration file '{_filePath}' contains malformed line(s): {string.Join(", ", parseResult.MalformedLineNumbers)}.";
     }
 }

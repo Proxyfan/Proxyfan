@@ -24,7 +24,7 @@ public sealed class KeyValueConfigurationWriterTests
         var snapshot = new ConfigurationSnapshot(input);
 
         var text = KeyValueConfigurationWriter.Write(snapshot);
-        var parsed = KeyValueConfigurationParser.Parse(text);
+        var parsed = KeyValueConfigurationParser.Parse(text).Snapshot;
 
         await Assert.That(parsed.Count).IsEqualTo(3);
         await Assert.That(parsed.Get("a.key", string.Empty)).IsEqualTo("one");
@@ -90,7 +90,7 @@ public sealed class KeyValueConfigurationWriterTests
         };
 
         var text = KeyValueConfigurationWriter.Write(input);
-        var parsed = KeyValueConfigurationParser.Parse(text);
+        var parsed = KeyValueConfigurationParser.Parse(text).Snapshot;
 
         await Assert.That(parsed.Get("query", string.Empty)).IsEqualTo("name = value");
         await Assert.That(parsed.Get("plain", string.Empty)).IsEqualTo("hello world");
