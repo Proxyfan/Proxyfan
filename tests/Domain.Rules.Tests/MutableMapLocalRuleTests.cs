@@ -153,6 +153,61 @@ public sealed class MutableMapLocalRuleTests
     }
 
     /// <summary>
+    ///     AddEntry does not retain a failing entry when matcher compilation throws.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatcherCompile_LeavesExistingStateUnchanged()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var firstEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://stable.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+        rule.AddEntry(firstEntry);
+
+        var count = 0;
+        rule.Changed += () => count++;
+
+        var failingEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://broken.example.com/*", (MatchingRuleKind)(-1)),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(failingEntry)).Throws<InvalidOperationException>();
+
+        var entries = rule.GetEntries();
+        await Assert.That(entries.Count).IsEqualTo(1);
+        await Assert.That(entries[0]).IsSameReferenceAs(firstEntry);
+        await Assert.That(count).IsEqualTo(0);
+
+        var action = rule.EvaluateRequest(CreateRequest("https://stable.example.com/path"));
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+
+        rule.AddEntry(new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://next.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "Created",
+            StatusCode = 201,
+        });
+
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(2);
+        await Assert.That(count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Removing a registered entry raises Changed and removes the entry.
     /// </summary>
     [Test]
