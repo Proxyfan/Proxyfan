@@ -25,6 +25,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     private readonly ICertificateStore _certificateStore;
     private readonly IFilePickerService _filePickerService;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
+    private bool _isActivated;
     [ObservableProperty]
     private bool _isBusy;
     [ObservableProperty]
@@ -70,6 +71,20 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     /// <inheritdoc />
     public void Dispose()
     {
+    }
+
+    /// <summary>
+    ///     Starts the one-time initial refresh for the view model.
+    /// </summary>
+    public void Activate()
+    {
+        if (_isActivated)
+        {
+            return;
+        }
+
+        _isActivated = true;
+        RefreshCommand.Execute(null);
     }
 
     private void ApplyAuthority(CertificateAuthority authority, bool installed)
