@@ -1,5 +1,6 @@
 ﻿using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
+using System;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -254,5 +255,61 @@ public sealed class MutableBreakpointConfigurationTests
 
         await Assert.That(snapshot.Count).IsEqualTo(1);
         await Assert.That(configuration.GetPatterns().Count).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Adding a malformed regex pattern throws and does not retain the rule in the pattern list.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_ThrowsAndDoesNotAddToPatterns()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+
+        await Assert.That(() => configuration.AddPattern(new MatchingRule("[unclosed", MatchingRuleKind.Regex)))
+            .Throws<Exception>();
+
+        await Assert.That(configuration.GetPatterns().Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding a malformed regex pattern does not raise the Changed event.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotRaiseChanged()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var count = 0;
+        configuration.Changed += () => count++;
+
+        try
+        {
+            configuration.AddPattern(new MatchingRule("[unclosed", MatchingRuleKind.Regex));
+        }
+        catch (Exception)
+        {
+        }
+
+        await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     A valid pattern added before a malformed one continues to match after the failed add.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotPoisonPreviousPatterns()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.AddPattern(new MatchingRule("https://example.com/*", MatchingRuleKind.Wildcard));
+
+        try
+        {
+            configuration.AddPattern(new MatchingRule("[unclosed", MatchingRuleKind.Regex));
+        }
+        catch (Exception)
+        {
+        }
+
+        await Assert.That(configuration.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(configuration.HasRequestMatch("https://example.com/api")).IsTrue();
     }
 }

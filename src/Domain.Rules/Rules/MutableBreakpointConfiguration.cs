@@ -53,6 +53,9 @@ public sealed class MutableBreakpointConfiguration
     ///     Adds a new URL pattern to the configuration. Duplicate patterns are ignored.
     /// </summary>
     /// <param name="rule">The matching rule describing the URL pattern.</param>
+    /// <exception cref="System.ArgumentException">
+    ///     Thrown when <paramref name="rule" />'s pattern is malformed and cannot be compiled.
+    /// </exception>
     public void AddPattern(MatchingRule rule)
     {
         lock (_mutationLock)
@@ -65,8 +68,13 @@ public sealed class MutableBreakpointConfiguration
                 }
             }
 
+            var newMatcher = rule.Compile();
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            var updated = new List<IUrlMatcher>(_matchers)
+            {
+                newMatcher,
+            };
+            _matchers = updated;
         }
 
         RaiseChanged();
