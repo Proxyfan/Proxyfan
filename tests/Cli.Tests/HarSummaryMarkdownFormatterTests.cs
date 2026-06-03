@@ -105,6 +105,54 @@ public sealed class HarSummaryMarkdownFormatterTests
         await Assert.That(result.Contains("| - |", StringComparison.Ordinal)).IsTrue();
     }
 
+    /// <summary>
+    ///     Verifies pipe characters in the request method are escaped so they cannot split the table cell.
+    /// </summary>
+    [Test]
+    public async Task Format_MethodWithPipe_EscapesPipe()
+    {
+        var flow = BuildFlow("GE|T", "https://example.com/", 200);
+        var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
+
+        await Assert.That(result.Contains("GE\\|T", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Contains("| GE|T |", StringComparison.Ordinal)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies newlines in the request method are normalized so they cannot break the table row.
+    /// </summary>
+    [Test]
+    public async Task Format_MethodWithNewline_NormalizesNewline()
+    {
+        var flow = BuildFlow("GE\r\nT", "https://example.com/", 200);
+        var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
+
+        await Assert.That(result.Contains("GE T", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Contains("GE\r\nT", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(result.Contains("GE\nT", StringComparison.Ordinal)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies pipe characters in the URL are escaped even inside the inline-code wrapper.
+    /// </summary>
+    [Test]
+    public async Task Format_UrlWithPipe_EscapesPipe()
+    {
+        var flow = BuildFlow("GET", "https://example.com/?a=1|2", 200);
+        var url = flow.Request!.RequestUri.ToString();
+        var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
+
+        if (url.Contains('|', StringComparison.Ordinal))
+        {
+            await Assert.That(result.Contains("\\|", StringComparison.Ordinal)).IsTrue();
+            await Assert.That(result.Contains(url, StringComparison.Ordinal)).IsFalse();
+        }
+        else
+        {
+            await Assert.That(result.Contains(url, StringComparison.Ordinal)).IsTrue();
+        }
+    }
+
     private static TrafficFlow BuildFlow(string method, string url, int status)
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);
