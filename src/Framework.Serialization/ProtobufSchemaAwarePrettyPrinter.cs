@@ -60,15 +60,19 @@ public static class ProtobufSchemaAwarePrettyPrinter
         }
     }
 
-    private static void AppendMessageBody(ProtobufSchemaAwarePrettyPrintContext context, byte[] bytes, ProtobufMessageDescriptor nestedDescriptor, int indentLevel)
+    private static void AppendMalformedMessageBytesField(StringBuilder builder, string fieldName, byte[] bytes, int indentLevel)
     {
-        var nestedFields = TryDecodeNested(bytes);
-        if (nestedFields is null)
+        AppendIndent(builder, indentLevel);
+        builder.Append(fieldName);
+        builder.Append(" (malformed message, ");
+        builder.Append(bytes.Length.ToString(CultureInfo.InvariantCulture));
+        builder.Append(bytes.Length == 1 ? " byte): 0x" : " bytes): 0x");
+        for (var byteIndex = 0; byteIndex < bytes.Length; byteIndex++)
         {
-            return;
+            builder.Append(bytes[byteIndex].ToString("x2", CultureInfo.InvariantCulture));
         }
 
-        WriteFields(context, nestedFields, nestedDescriptor, indentLevel);
+        builder.Append('\n');
     }
 
     private static void AppendRawBytesField(StringBuilder builder, string fieldName, byte[] bytes, int indentLevel)
@@ -268,10 +272,17 @@ public static class ProtobufSchemaAwarePrettyPrinter
             var nestedDescriptor = context.Index.TryResolveMessage(fieldDescriptor.TypeName);
             if (nestedDescriptor is not null)
             {
+                var nestedFields = TryDecodeNested(bytes);
+                if (nestedFields is null)
+                {
+                    AppendMalformedMessageBytesField(context.Builder, fieldDescriptor.Name, bytes, indentLevel);
+                    return;
+                }
+
                 AppendIndent(context.Builder, indentLevel);
                 context.Builder.Append(fieldDescriptor.Name);
                 context.Builder.Append(" {\n");
-                AppendMessageBody(context, bytes, nestedDescriptor, indentLevel + 1);
+                WriteFields(context, nestedFields, nestedDescriptor, indentLevel + 1);
                 AppendIndent(context.Builder, indentLevel);
                 context.Builder.Append("}\n");
                 return;

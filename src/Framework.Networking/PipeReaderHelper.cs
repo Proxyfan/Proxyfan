@@ -1,4 +1,3 @@
-using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading;
@@ -66,12 +65,11 @@ public static class PipeReaderHelper
         {
             var result = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
             var buffer = result.Buffer;
-            var bufferedBytes = buffer.ToArray();
-            var endOfHeadersIndex = GetEndOfHeadersIndex(bufferedBytes);
+            var sequenceReader = new SequenceReader<byte>(buffer);
 
-            if (endOfHeadersIndex >= 0)
+            if (sequenceReader.TryReadTo(out ReadOnlySequence<byte> _, EndOfHeadersSequence, advancePastDelimiter: true))
             {
-                var headerLength = endOfHeadersIndex + EndOfHeadersSequence.Length;
+                var headerLength = sequenceReader.Consumed;
 
                 if (headerLength > maxBytes)
                 {
@@ -79,10 +77,9 @@ public static class PipeReaderHelper
                     return null;
                 }
 
-                var consumedPosition = buffer.GetPosition(headerLength);
-                var headerBytes = new byte[headerLength];
-                Array.Copy(bufferedBytes, headerBytes, headerLength);
-                reader.AdvanceTo(consumedPosition, buffer.End);
+                var endOfHeadersPosition = sequenceReader.Position;
+                var headerBytes = buffer.Slice(0, endOfHeadersPosition).ToArray();
+                reader.AdvanceTo(endOfHeadersPosition, buffer.End);
                 return headerBytes;
             }
 
@@ -94,28 +91,5 @@ public static class PipeReaderHelper
 
             reader.AdvanceTo(buffer.Start, buffer.End);
         }
-    }
-
-    private static int GetEndOfHeadersIndex(byte[] bytes)
-    {
-        if (bytes.Length < EndOfHeadersSequence.Length)
-        {
-            return -1;
-        }
-
-        var searchLimit = bytes.Length - EndOfHeadersSequence.Length;
-
-        for (var index = 0; index <= searchLimit; index++)
-        {
-            if (bytes[index] == EndOfHeadersSequence[0]
-                && bytes[index + 1] == EndOfHeadersSequence[1]
-                && bytes[index + 2] == EndOfHeadersSequence[2]
-                && bytes[index + 3] == EndOfHeadersSequence[3])
-            {
-                return index;
-            }
-        }
-
-        return -1;
     }
 }

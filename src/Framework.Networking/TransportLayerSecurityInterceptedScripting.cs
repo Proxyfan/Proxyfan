@@ -9,15 +9,18 @@ namespace Proxyfan.Framework.Networking;
 /// <summary>
 ///     Static scripting wrappers used by <see cref="TransportLayerSecurityInterceptorHandler" />
 ///     to safely invoke optional <see cref="Proxyfan.Domain.Scripting.IScriptingHandler" />
-///     request/response hooks. The helpers swallow non-cancellation exceptions so that one
-///     misbehaving script never disrupts an otherwise-healthy proxy flow.
+///     request/response hooks. The helpers translate scripting <c>Result</c> failures and any
+///     stray non-cancellation exceptions into a logged warning, falling back to the
+///     unmodified traffic so one misbehaving script never disrupts an otherwise-healthy
+///     proxy flow.
 /// </summary>
 public static class TransportLayerSecurityInterceptedScripting
 {
     /// <summary>
     ///     Invokes the request-phase script hook on the supplied handler when present; returns
-    ///     the supplied request unchanged when no handler is configured or when the script
-    ///     throws a non-cancellation exception.
+    ///     the supplied request unchanged when no handler is configured, when the scripting
+    ///     handler reports a failure result, or when the script throws a non-cancellation
+    ///     exception.
     /// </summary>
     /// <param name="request">The bundled scripting invocation arguments.</param>
     /// <param name="cancellationToken">A token that cancels the script invocation.</param>
@@ -34,8 +37,17 @@ public static class TransportLayerSecurityInterceptedScripting
         try
         {
             var flowId = request.Flow.Id.ToString();
-            var projected = await request.Handler.ApplyRequestAsync(flowId, request.EffectiveRequest, cancellationToken).ConfigureAwait(false);
-            return projected;
+            var result = await request.Handler.ApplyRequestAsync(flowId, request.EffectiveRequest, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                return result.Value;
+            }
+
+            request.Logger.LogWarning(
+                "TLS scripting request-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified request",
+                result.Error!.Code,
+                result.Error.Message);
+            return request.EffectiveRequest;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -46,8 +58,9 @@ public static class TransportLayerSecurityInterceptedScripting
 
     /// <summary>
     ///     Invokes the response-phase script hook on the supplied handler when present; returns
-    ///     the supplied response unchanged when no handler is configured or when the script
-    ///     throws a non-cancellation exception.
+    ///     the supplied response unchanged when no handler is configured, when the scripting
+    ///     handler reports a failure result, or when the script throws a non-cancellation
+    ///     exception.
     /// </summary>
     /// <param name="request">The bundled scripting invocation arguments.</param>
     /// <param name="cancellationToken">A token that cancels the script invocation.</param>
@@ -64,8 +77,17 @@ public static class TransportLayerSecurityInterceptedScripting
         try
         {
             var flowId = request.Flow.Id.ToString();
-            var projected = await request.Handler.ApplyResponseAsync(flowId, request.EffectiveRequest, request.FinalResponse, cancellationToken).ConfigureAwait(false);
-            return projected;
+            var result = await request.Handler.ApplyResponseAsync(flowId, request.EffectiveRequest, request.FinalResponse, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                return result.Value;
+            }
+
+            request.Logger.LogWarning(
+                "TLS scripting response-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified response",
+                result.Error!.Code,
+                result.Error.Message);
+            return request.FinalResponse;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

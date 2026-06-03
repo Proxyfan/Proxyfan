@@ -117,6 +117,34 @@ public sealed class FileShortcutBindingsStoreTests
     }
 
     /// <summary>
+    ///     Verifies a locked/unreadable file loads as empty rather than throwing, so callers
+    ///     can fall back to default bindings.
+    /// </summary>
+    [Test]
+    public async Task Load_LockedFile_ReturnsEmpty()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            File.WriteAllText(path, "{}");
+
+            using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                var store = new FileShortcutBindingsStore(path);
+
+                var result = store.Load();
+
+                await Assert.That(result.Count).IsEqualTo(0);
+            }
+        }
+        finally
+        {
+            DeleteFileIfExists(path);
+        }
+    }
+
+    /// <summary>
     ///     Verifies that a second Save overwrites the first.
     /// </summary>
     [Test]

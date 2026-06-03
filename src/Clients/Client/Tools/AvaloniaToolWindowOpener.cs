@@ -243,6 +243,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
         window.Closed += (_, _) =>
         {
             _keyboardShortcutsWindow = null;
+            viewModel.Dispose();
         };
         _keyboardShortcutsWindow = window;
         ToolWindowDisplay.Show(window);

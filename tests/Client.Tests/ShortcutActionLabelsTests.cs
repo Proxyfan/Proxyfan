@@ -1,5 +1,8 @@
+using System.Globalization;
+using System.Resources;
 using System.Threading.Tasks;
 using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Shortcuts;
 
 namespace Proxyfan.Client.Tests;
@@ -10,21 +13,37 @@ namespace Proxyfan.Client.Tests;
 public sealed class ShortcutActionLabelsTests
 {
     /// <summary>
-    ///     GetLabel returns a non-empty label for every defined <see cref="ShortcutAction" />.
+    ///     GetResourceKey returns the expected resource key for each known action.
     /// </summary>
     [Test]
-    public async Task GetLabel_AllActions_ReturnsNonEmptyLabel()
+    [Arguments(ShortcutAction.ToggleCapture, "Tools_KeyboardShortcuts_Action_ToggleCapture")]
+    [Arguments(ShortcutAction.ClearTraffic, "Tools_KeyboardShortcuts_Action_ClearTraffic")]
+    [Arguments(ShortcutAction.Find, "Tools_KeyboardShortcuts_Action_Find")]
+    [Arguments(ShortcutAction.ToggleNoCaching, "Tools_KeyboardShortcuts_Action_ToggleNoCaching")]
+    [Arguments(ShortcutAction.ToggleBreakpoint, "Tools_KeyboardShortcuts_Action_ToggleBreakpoint")]
+    [Arguments(ShortcutAction.ExportSession, "Tools_KeyboardShortcuts_Action_ExportSession")]
+    [Arguments(ShortcutAction.RemoveSelected, "Tools_KeyboardShortcuts_Action_RemoveSelected")]
+    public async Task GetResourceKey_KnownAction_ReturnsExpectedKey(ShortcutAction action, string expected)
     {
-        foreach (var action in System.Enum.GetValues<ShortcutAction>())
-        {
-            var label = ShortcutActionLabels.GetLabel(action);
+        var key = ShortcutActionLabels.GetResourceKey(action);
 
-            await Assert.That(label).IsNotEmpty();
-        }
+        await Assert.That(key).IsEqualTo(expected);
     }
 
     /// <summary>
-    ///     GetLabel returns the expected text for each known action.
+    ///     GetResourceKey returns the unknown-action key for action values that have no mapping.
+    /// </summary>
+    [Test]
+    public async Task GetResourceKey_UnknownAction_ReturnsUnknownKey()
+    {
+        var key = ShortcutActionLabels.GetResourceKey((ShortcutAction)999);
+
+        await Assert.That(key).IsEqualTo(ShortcutActionLabels.UnknownResourceKey);
+    }
+
+    /// <summary>
+    ///     GetLabel returns the localized text from the Client Strings resource table
+    ///     for every defined <see cref="ShortcutAction" />.
     /// </summary>
     [Test]
     [Arguments(ShortcutAction.ToggleCapture, "Toggle capture")]
@@ -34,21 +53,34 @@ public sealed class ShortcutActionLabelsTests
     [Arguments(ShortcutAction.ToggleBreakpoint, "Toggle breakpoint")]
     [Arguments(ShortcutAction.ExportSession, "Export session")]
     [Arguments(ShortcutAction.RemoveSelected, "Remove selected")]
-    public async Task GetLabel_KnownAction_ReturnsExpectedText(ShortcutAction action, string expected)
+    public async Task GetLabel_KnownAction_ReturnsLocalizedText(ShortcutAction action, string expected)
     {
-        var label = ShortcutActionLabels.GetLabel(action);
+        var localization = CreateLocalizationServiceWithClientResources();
+
+        var label = ShortcutActionLabels.GetLabel(action, localization);
 
         await Assert.That(label).IsEqualTo(expected);
     }
 
     /// <summary>
-    ///     GetLabel falls back to <c>ToString()</c> for unknown action values.
+    ///     GetLabel resolves the unknown-action resource key for action values that have no mapping.
     /// </summary>
     [Test]
-    public async Task GetLabel_UnknownAction_FallsBackToEnumName()
+    public async Task GetLabel_UnknownAction_ReturnsLocalizedUnknown()
     {
-        var label = ShortcutActionLabels.GetLabel((ShortcutAction)999);
+        var localization = CreateLocalizationServiceWithClientResources();
 
-        await Assert.That(label).IsEqualTo("999");
+        var label = ShortcutActionLabels.GetLabel((ShortcutAction)999, localization);
+
+        await Assert.That(label).IsEqualTo("Unknown action");
+    }
+
+    private static LocalizationService CreateLocalizationServiceWithClientResources()
+    {
+        var localization = new LocalizationService(CultureInfo.InvariantCulture);
+        var clientAssembly = typeof(Proxyfan.Client.App).Assembly;
+        var manager = new ResourceManager("Proxyfan.Client.Resources.Strings", clientAssembly);
+        localization.RegisterManager(manager);
+        return localization;
     }
 }
