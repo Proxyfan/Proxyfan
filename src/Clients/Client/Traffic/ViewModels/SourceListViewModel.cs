@@ -73,8 +73,9 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    ///     Synchronously rebuilds the source list, leaving only the
-    ///     synthetic "All" group selected.
+    ///     Synchronously rebuilds the source list from the current
+    ///     traffic-list host snapshot, leaving the synthetic "All" group
+    ///     selected.
     /// </summary>
     public void Rebuild()
     {
@@ -113,6 +114,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         Sources.Clear();
         Sources.Add(allGroup);
         SelectedSource = allGroup;
+
+        foreach (var host in _coordinator.GetSourceHostsSnapshot())
+        {
+            RegisterHostOnUiThread(host);
+        }
     }
 
     private void RegisterHostOnUiThread(string host)

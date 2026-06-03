@@ -387,6 +387,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
         }
+
+        _coordinator.NotifyFlowsCleared();
     }
 
     private void OnCoordinatorHostFilterRequested(string host)
@@ -412,6 +414,14 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
         RebuildVisibleFlowsOnUiThread();
+        var hosts = new List<string>(Flows.Count);
+
+        foreach (var flow in Flows)
+        {
+            hosts.Add(flow.Host);
+        }
+
+        _coordinator.SetSourceHostsSnapshot(hosts);
     }
 
     partial void OnHostFilterChanged(string value)

@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Threading;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -24,6 +27,41 @@ public sealed class TrafficListCoordinator
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
 
+    private readonly Lock _sourceHostsGate;
+    private readonly List<string> _sourceHostsSnapshot;
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListCoordinator" />.
+    /// </summary>
+    public TrafficListCoordinator()
+    {
+        var sourceHostsGate = new Lock();
+        _sourceHostsGate = sourceHostsGate;
+        var sourceHostsSnapshot = new List<string>();
+        _sourceHostsSnapshot = sourceHostsSnapshot;
+    }
+
+    /// <summary>
+    ///     Returns a point-in-time snapshot of source hosts, one entry per flow.
+    /// </summary>
+    /// <returns>
+    ///     A copy of the current source-host snapshot.
+    /// </returns>
+    public IReadOnlyList<string> GetSourceHostsSnapshot()
+    {
+        lock (_sourceHostsGate)
+        {
+            if (_sourceHostsSnapshot.Count == 0)
+            {
+                return [];
+            }
+
+            var snapshot = new string[_sourceHostsSnapshot.Count];
+            _sourceHostsSnapshot.CopyTo(snapshot);
+            return snapshot;
+        }
+    }
+
     /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
     /// </summary>
@@ -43,5 +81,23 @@ public sealed class TrafficListCoordinator
     public void RequestHostFilter(string? host)
     {
         HostFilterRequested?.Invoke(host ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Replaces the source-host snapshot consumed by sibling view models.
+    /// </summary>
+    /// <param name="hosts">
+    ///     The source hosts to persist as the latest snapshot.
+    /// </param>
+    public void SetSourceHostsSnapshot(IReadOnlyList<string> hosts)
+    {
+        lock (_sourceHostsGate)
+        {
+            _sourceHostsSnapshot.Clear();
+            foreach (var host in hosts)
+            {
+                _sourceHostsSnapshot.Add(host);
+            }
+        }
     }
 }
