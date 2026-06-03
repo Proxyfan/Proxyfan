@@ -36,7 +36,7 @@ public sealed class HypertextTransferProtocolPluginUpdateFeedTests
     [Test]
     public async Task FetchAsync_HappyPath_ReturnsManifest()
     {
-        var json = """{ "plugins": [ { "id": "com.x", "latestVersion": "1.0.0" } ] }""";
+        var json = """{ "plugins": [ { "id": "com.x", "latestVersion": "1.0.0", "downloadUrl": "https://example.invalid/com.x.zip", "minApiVersion": "0.0" } ] }""";
         using var server = LoopbackHttpServer.Start(200, json);
         using var client = new HttpClient();
         var provider = new PluginUpdateManifestUrlProvider(server.Url);
