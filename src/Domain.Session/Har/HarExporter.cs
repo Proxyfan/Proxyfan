@@ -21,7 +21,7 @@ public sealed class HarExporter : IHarExporter
             Indented = true,
         };
         await using var writer = new Utf8JsonWriter(output, writerOptions);
-        HarDocumentWriter.WriteLog(writer, flows);
+        HarDocumentWriter.WriteLog(writer, flows, cancellationToken);
         await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 }

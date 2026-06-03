@@ -664,6 +664,27 @@
   <data name="Tools_Throttle_Apply" xml:space="preserve">
     <value>Apply</value>
   </data>
+  <data name="Tools_Throttle_Preset_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Tools_Throttle_Preset_2G" xml:space="preserve">
+    <value>2G</value>
+  </data>
+  <data name="Tools_Throttle_Preset_3G" xml:space="preserve">
+    <value>3G</value>
+  </data>
+  <data name="Tools_Throttle_Preset_4G" xml:space="preserve">
+    <value>4G</value>
+  </data>
+  <data name="Tools_Throttle_Preset_WiFi" xml:space="preserve">
+    <value>WiFi</value>
+  </data>
+  <data name="Tools_Throttle_Preset_BadNetwork" xml:space="preserve">
+    <value>Bad Network</value>
+  </data>
+  <data name="Tools_Throttle_Preset_CompleteLoss" xml:space="preserve">
+    <value>100% Loss</value>
+  </data>
   <data name="Tools_Theme_Title" xml:space="preserve">
     <value>Theme</value>
   </data>
@@ -672,6 +693,15 @@
   </data>
   <data name="Tools_Theme_Apply" xml:space="preserve">
     <value>Apply</value>
+  </data>
+  <data name="Tools_Theme_Option_System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Tools_Theme_Option_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Tools_Theme_Option_Dark" xml:space="preserve">
+    <value>Dark</value>
   </data>
   <data name="Tools_KeyboardShortcuts_Title" xml:space="preserve">
     <value>Keyboard Shortcuts</value>

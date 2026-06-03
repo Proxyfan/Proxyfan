@@ -156,4 +156,24 @@ public sealed class HypertextTransferProtocolVersion2FrameWriterTests
         await Assert.That(() => HypertextTransferProtocolVersion2FrameWriter.WriteFrame(buffer, descriptor, payload))
             .Throws<ArgumentException>();
     }
+
+    /// <summary>
+    ///     A descriptor whose payload length disagrees with the supplied payload is rejected.
+    /// </summary>
+    [Test]
+    public async Task WriteFrame_DescriptorPayloadLengthMismatch_Throws()
+    {
+        var payload = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        var buffer = new byte[9 + payload.Length];
+        var descriptor = new HypertextTransferProtocolVersion2FrameDescriptor
+        {
+            PayloadLength = payload.Length + 1,
+            Type = HypertextTransferProtocolVersion2FrameType.Data,
+            Flags = HypertextTransferProtocolVersion2FrameFlag.None,
+            StreamIdentifier = 1,
+        };
+
+        await Assert.That(() => HypertextTransferProtocolVersion2FrameWriter.WriteFrame(buffer, descriptor, payload))
+            .Throws<ArgumentException>();
+    }
 }

@@ -1,6 +1,8 @@
 using Proxyfan.Client.EndToEndTests.Infrastructure;
 using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Theming;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -24,7 +26,7 @@ public sealed class ThemeViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var themeService = new ThemeService(AppTheme.System);
-            using var vm = new ThemeViewModel(themeService);
+            using var vm = new ThemeViewModel(themeService, new LocalizationService(CultureInfo.InvariantCulture));
 
             await Assert.That(vm.Options.Count).IsEqualTo(3);
             await Assert.That(vm.Options[0].Theme).IsEqualTo(AppTheme.System);
@@ -39,7 +41,7 @@ public sealed class ThemeViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var themeService = new ThemeService(AppTheme.Light);
-            using var vm = new ThemeViewModel(themeService);
+            using var vm = new ThemeViewModel(themeService, new LocalizationService(CultureInfo.InvariantCulture));
 
             await Assert.That(vm.SelectedOption).IsNotNull();
             await Assert.That(vm.SelectedOption!.Theme).IsEqualTo(AppTheme.Light);
@@ -52,7 +54,7 @@ public sealed class ThemeViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var themeService = new ThemeService(AppTheme.System);
-            using var vm = new ThemeViewModel(themeService);
+            using var vm = new ThemeViewModel(themeService, new LocalizationService(CultureInfo.InvariantCulture));
             vm.SelectedOption = vm.Options.First(o => o.Theme == AppTheme.Dark);
 
             vm.ApplyCommand.Execute(null);
@@ -67,7 +69,7 @@ public sealed class ThemeViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var themeService = new ThemeService(AppTheme.Light);
-            using var vm = new ThemeViewModel(themeService);
+            using var vm = new ThemeViewModel(themeService, new LocalizationService(CultureInfo.InvariantCulture));
             vm.SelectedOption = null;
 
             vm.ApplyCommand.Execute(null);
@@ -82,7 +84,7 @@ public sealed class ThemeViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var themeService = new ThemeService(AppTheme.System);
-            using var vm = new ThemeViewModel(themeService);
+            using var vm = new ThemeViewModel(themeService, new LocalizationService(CultureInfo.InvariantCulture));
 
             themeService.SwitchTheme(AppTheme.Dark);
 
