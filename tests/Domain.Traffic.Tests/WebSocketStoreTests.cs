@@ -131,6 +131,45 @@ public sealed class WebSocketStoreTests
     }
 
     /// <summary>
+    ///     Verifies that re-adding an existing flow id replaces the entry in place.
+    /// </summary>
+    [Test]
+    public async Task Add_WhenSameIdAddedTwice_ReplacesInPlaceWithoutDuplicating()
+    {
+        var store = new WebSocketStore(3);
+        var id = Guid.NewGuid();
+        var originalFlow = new WebSocketFlow(new TrafficFlow(id, "127.0.0.1:8080", DateTimeOffset.UtcNow));
+        var replacementFlow = new WebSocketFlow(new TrafficFlow(id, "127.0.0.1:9090", DateTimeOffset.UtcNow));
+        store.Add(originalFlow);
+
+        store.Add(replacementFlow);
+
+        await Assert.That(store.Count).IsEqualTo(1);
+        await Assert.That(store.GetAll().Count).IsEqualTo(1);
+        await Assert.That(store.GetById(id)).IsEqualTo(replacementFlow);
+    }
+
+    /// <summary>
+    ///     Verifies that re-adding an existing flow id does not consume ring-buffer capacity.
+    /// </summary>
+    [Test]
+    public async Task Add_WhenSameIdAddedTwiceThenFilledToCapacity_DoesNotEvictOldestFlow()
+    {
+        var store = new WebSocketStore(2);
+        var firstFlow = CreateFlow();
+        var secondFlow = CreateFlow();
+        store.Add(firstFlow);
+        store.Add(firstFlow);
+
+        store.Add(secondFlow);
+
+        await Assert.That(store.Count).IsEqualTo(2);
+        await Assert.That(store.GetById(firstFlow.Id)).IsNotNull();
+        await Assert.That(store.GetById(secondFlow.Id)).IsNotNull();
+        await Assert.That(store.GetAll().Count).IsEqualTo(2);
+    }
+
+    /// <summary>
     ///     Verifies that concurrent reads during writes remain consistent.
     /// </summary>
     [Test]
