@@ -32,7 +32,7 @@ public static class UserPreferencesJsonSerializer
     ///     Deserializes a <see cref="UserPreferences" /> instance from JSON text. Returns the
     ///     defaults when the JSON is empty, the schema version is unknown, or the payload is
     ///     malformed. Fields that fall outside the valid ranges enforced by the Preferences UI
-    ///     (proxy port 1024-65535, upstream proxy port 1-65535, capture cap &gt;= 100) are
+    ///     (proxy port 1024-65535, upstream proxy port 1-65535, capture cap 100-1,000,000) are
     ///     replaced with their documented defaults so a hand-edited or corrupted file cannot
     ///     start the application with out-of-range settings.
     /// </summary>
@@ -145,7 +145,7 @@ public static class UserPreferencesJsonSerializer
 
     private static int SanitizeCaptureMaximumFlows(int? value, int fallback)
     {
-        if (value is null or < 100)
+        if (value is null || !UserPreferencesValidation.HasValidCaptureMaximumFlows(value.Value))
         {
             return fallback;
         }
