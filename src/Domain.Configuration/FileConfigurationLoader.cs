@@ -114,6 +114,14 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         };
     }
 
+    /// <summary>
+    ///     Builds a rejected-load result for malformed configuration input. The returned
+    ///     snapshot intentionally contains only the target version marker and the original file
+    ///     is left untouched; callers should treat non-empty
+    ///     <see cref="MigratingConfigurationLoadResult.ParseDiagnostics" /> as load rejection.
+    /// </summary>
+    /// <param name="parseDiagnostics">Malformed-line diagnostics captured during parse.</param>
+    /// <returns>A rejected load result with parse diagnostics.</returns>
     private MigratingConfigurationLoadResult BuildMalformedResult(
         IReadOnlyList<KeyValueConfigurationParseDiagnostic> parseDiagnostics)
     {

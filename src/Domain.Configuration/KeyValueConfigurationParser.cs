@@ -12,7 +12,8 @@ namespace Proxyfan.Domain.Configuration;
 public static class KeyValueConfigurationParser
 {
     /// <summary>
-    ///     Parses the supplied configuration text into a snapshot.
+    ///     Parses the supplied configuration text into a snapshot, discarding any malformed-line
+    ///     diagnostics. Call <see cref="ParseWithDiagnostics" /> when diagnostics are required.
     /// </summary>
     /// <param name="text">The configuration text.</param>
     /// <returns>The parsed snapshot.</returns>

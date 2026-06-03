@@ -165,7 +165,9 @@ public sealed class FileConfigurationLoaderTests
             await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
             await Assert.That(result.BackupPath).IsNull();
             await Assert.That(result.ParseDiagnostics.Count).IsEqualTo(1);
+            await Assert.That(result.ParseDiagnostics[0].Line).IsEqualTo("malformed line");
             await Assert.That(result.ParseDiagnostics[0].LineNumber).IsEqualTo(2);
+            await Assert.That(result.ParseDiagnostics[0].Message).IsEqualTo("Configuration line must be in key=value format.");
             await Assert.That(fileAfterLoad).IsEqualTo(malformedText);
             await Assert.That(File.Exists(backupPath)).IsFalse();
         }
