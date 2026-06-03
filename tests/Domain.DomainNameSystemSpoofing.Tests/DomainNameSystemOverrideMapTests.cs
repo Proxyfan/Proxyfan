@@ -315,4 +315,69 @@ public sealed class DomainNameSystemOverrideMapTests
 
         await Assert.That(map.HasOverride("API.Example.COM.")).IsTrue();
     }
+
+    /// <summary>
+    ///     Verifies HasSetEnabled toggles the matching entry and reports the change.
+    /// </summary>
+    [Test]
+    public async Task HasSetEnabled_WithExistingPattern_TogglesEntryAndReturnsTrue()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        map.Add(entry);
+
+        var changed = map.HasSetEnabled(entry.CanonicalPattern, false);
+
+        await Assert.That(changed).IsTrue();
+        await Assert.That(entry.IsEnabled).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies HasSetEnabled returns false when the requested state already matches.
+    /// </summary>
+    [Test]
+    public async Task HasSetEnabled_WithSameState_ReturnsFalse()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        map.Add(entry);
+
+        var changed = map.HasSetEnabled(entry.CanonicalPattern, true);
+
+        await Assert.That(changed).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies HasSetEnabled returns false when no entry matches the supplied pattern.
+    /// </summary>
+    [Test]
+    public async Task HasSetEnabled_WithUnknownPattern_ReturnsFalse()
+    {
+        var map = new DomainNameSystemOverrideMap();
+
+        var changed = map.HasSetEnabled("missing.example.com", false);
+
+        await Assert.That(changed).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies ResetAllMatchCounts zeroes the counter on every entry.
+    /// </summary>
+    [Test]
+    public async Task ResetAllMatchCounts_AfterMatches_ZeroesEveryEntry()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        var first = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        var second = new DomainNameSystemOverrideEntry("*.example.org", IPAddress.Loopback);
+        map.Add(first);
+        map.Add(second);
+        first.RecordMatch();
+        second.RecordMatch();
+        second.RecordMatch();
+
+        map.ResetAllMatchCounts();
+
+        await Assert.That(first.MatchCount).IsEqualTo(0);
+        await Assert.That(second.MatchCount).IsEqualTo(0);
+    }
 }
