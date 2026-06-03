@@ -198,4 +198,19 @@ public sealed class ConfigurationSnapshotTests
 
         await Assert.That(count).IsEqualTo(3);
     }
+
+    /// <summary>
+    ///     Verifies that <see cref="ConfigurationSnapshot.Enumerate" /> does not expose the mutable
+    ///     backing dictionary instance.
+    /// </summary>
+    [Test]
+    public async Task Enumerate_ReturnedSequence_DoesNotExposeDictionary()
+    {
+        var data = new Dictionary<string, string> { ["a"] = "1" };
+        var snapshot = new ConfigurationSnapshot(data);
+
+        var values = snapshot.Enumerate();
+
+        await Assert.That(values is Dictionary<string, string>).IsFalse();
+    }
 }
