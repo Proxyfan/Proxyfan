@@ -24,7 +24,8 @@ public sealed class WindowsSystemProxyTests
     [Test]
     public async Task RegisterAsync_WhenCalledWithPort_SetsRegistryValues(CancellationToken cancellationToken)
     {
-        var proxy = new WindowsSystemProxy();
+        var refreshCount = 0;
+        var proxy = new WindowsSystemProxy(() => refreshCount++);
         var originalState = CaptureProxyRegistryState();
 
         try
@@ -35,6 +36,30 @@ public sealed class WindowsSystemProxyTests
 
             await Assert.That(enable).IsEqualTo(1);
             await Assert.That(server).IsEqualTo("127.0.0.1:9090");
+            await Assert.That(refreshCount).IsEqualTo(1);
+        }
+        finally
+        {
+            RestoreProxyRegistryState(originalState);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="WindowsSystemProxy.RegisterAsync" /> propagates
+    ///     failures raised by the internet settings refresh delegate so that callers
+    ///     can surface broadcast failures rather than silently leaving running
+    ///     clients on stale proxy configuration.
+    /// </summary>
+    [Test]
+    public async Task RegisterAsync_WhenRefreshDelegateThrows_SurfacesException(CancellationToken cancellationToken)
+    {
+        var proxy = new WindowsSystemProxy(() => throw new InvalidOperationException("refresh failed"));
+        var originalState = CaptureProxyRegistryState();
+
+        try
+        {
+            await Assert.That(async () => await proxy.RegisterAsync(9092, cancellationToken))
+                .Throws<InvalidOperationException>();
         }
         finally
         {
@@ -49,7 +74,8 @@ public sealed class WindowsSystemProxyTests
     [Test]
     public async Task UnregisterAsync_WhenCalledAfterRegister_DisablesProxy(CancellationToken cancellationToken)
     {
-        var proxy = new WindowsSystemProxy();
+        var refreshCount = 0;
+        var proxy = new WindowsSystemProxy(() => refreshCount++);
         var originalState = CaptureProxyRegistryState();
 
         try
@@ -61,6 +87,7 @@ public sealed class WindowsSystemProxyTests
 
             await Assert.That(enable).IsEqualTo(0);
             await Assert.That(server).IsNull();
+            await Assert.That(refreshCount).IsEqualTo(2);
         }
         finally
         {
