@@ -44,6 +44,11 @@ public static class KeyValueConfigurationParser
         return result;
     }
 
+    /// <summary>
+    ///     Adds a malformed-line diagnostic for the supplied one-based line number.
+    /// </summary>
+    /// <param name="diagnostics">The destination collection for malformed-line diagnostics.</param>
+    /// <param name="lineNumber">The one-based line number in the source text.</param>
     private static void AddMalformedLineDiagnostic(
         ICollection<KeyValueConfigurationParseDiagnostic> diagnostics,
         int lineNumber)
@@ -54,6 +59,17 @@ public static class KeyValueConfigurationParser
         diagnostics.Add(diagnostic);
     }
 
+    /// <summary>
+    ///     Parses a non-empty, non-comment line and adds its key/value pair when valid.
+    /// </summary>
+    /// <param name="values">The destination dictionary for parsed values.</param>
+    /// <param name="diagnostics">The destination collection for malformed-line diagnostics.</param>
+    /// <param name="line">The raw configuration line.</param>
+    /// <param name="lineNumber">The one-based line number in the source text.</param>
+    /// <returns>
+    ///     <see langword="true" /> when the line was parsed successfully; otherwise,
+    ///     <see langword="false" />.
+    /// </returns>
     private static bool CanAddValue(
         Dictionary<string, string> values,
         ICollection<KeyValueConfigurationParseDiagnostic> diagnostics,
@@ -80,6 +96,12 @@ public static class KeyValueConfigurationParser
         return true;
     }
 
+    /// <summary>
+    ///     Determines whether the supplied line should be ignored because it is blank or a
+    ///     comment.
+    /// </summary>
+    /// <param name="line">The raw configuration line.</param>
+    /// <returns><see langword="true" /> when the line should be skipped.</returns>
     private static bool CanSkipLine(string line)
     {
         var trimmed = line.Trim();

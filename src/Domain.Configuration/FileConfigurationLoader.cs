@@ -106,6 +106,12 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         };
     }
 
+    /// <summary>
+    ///     Builds the exception thrown when the configuration file contains malformed lines.
+    /// </summary>
+    /// <param name="filePath">The configuration file path.</param>
+    /// <param name="diagnostics">The malformed-line diagnostics discovered by the parser.</param>
+    /// <returns>The exception describing the malformed file.</returns>
     private InvalidDataException BuildMalformedConfigurationException(
         string filePath,
         IReadOnlyList<KeyValueConfigurationParseDiagnostic> diagnostics)
@@ -121,6 +127,11 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             $"Configuration file '{filePath}' is malformed: {string.Join("; ", details)}");
     }
 
+    /// <summary>
+    ///     Copies snapshot values into a mutable dictionary for the migration pipeline.
+    /// </summary>
+    /// <param name="snapshot">The parsed configuration snapshot.</param>
+    /// <returns>The copied values.</returns>
     private Dictionary<string, string> CopyValues(ConfigurationSnapshot snapshot)
     {
         var sourceValues = new Dictionary<string, string>();
