@@ -184,4 +184,17 @@ public sealed class UserPreferencesJsonSerializerTests
         await Assert.That(preferences.UpstreamProxyPort).IsEqualTo(65535);
         await Assert.That(preferences.CaptureMaximumFlows).IsEqualTo(100);
     }
+
+    /// <summary>
+    ///     Verifies that a CaptureMaximumFlows value above the maximum is replaced with the default.
+    /// </summary>
+    [Test]
+    public async Task Deserialize_CaptureMaximumFlowsAboveMaximum_ReturnsDefault()
+    {
+        var json = "{\"schemaVersion\":1,\"preferences\":{\"captureMaximumFlows\":1000001}}";
+
+        var preferences = UserPreferencesJsonSerializer.Deserialize(json);
+
+        await Assert.That(preferences.CaptureMaximumFlows).IsEqualTo(UserPreferencesDefaults.Create().CaptureMaximumFlows);
+    }
 }

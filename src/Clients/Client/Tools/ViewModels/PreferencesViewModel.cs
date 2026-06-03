@@ -98,7 +98,7 @@ public sealed partial class PreferencesViewModel : ObservableObject
             return false;
         }
 
-        if (CaptureMaximumFlows < 100)
+        if (!UserPreferencesValidation.HasValidCaptureMaximumFlows(CaptureMaximumFlows))
         {
             return false;
         }
