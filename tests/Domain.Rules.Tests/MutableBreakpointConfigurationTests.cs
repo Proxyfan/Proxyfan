@@ -1,6 +1,5 @@
-﻿using Proxyfan.Domain.Rules.Matching;
+using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
-using System;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -140,7 +139,7 @@ public sealed class MutableBreakpointConfigurationTests
         configuration.Changed += () => count++;
 
         await Assert.That(() => configuration.AddPattern(new MatchingRule("(", MatchingRuleKind.Regex)))
-            .Throws<ArgumentException>();
+            .Throws<global::System.ArgumentException>();
 
         configuration.AddPattern(new MatchingRule("https://new.example/*", MatchingRuleKind.Wildcard));
 
