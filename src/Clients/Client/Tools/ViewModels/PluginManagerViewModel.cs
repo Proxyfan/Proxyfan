@@ -25,6 +25,7 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     private readonly IPluginDirectoryWatcher _directoryWatcher;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
+    private readonly Lock _lifecycleLock;
     private readonly IPluginHost _pluginHost;
     private readonly PluginRegistry _registry;
     private readonly IPluginUpdateFeed _updateFeed;
@@ -84,6 +85,8 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         _updateFeed = updateFeed;
         _pluginHost = pluginHost;
         _directoryWatcher = directoryWatcher;
+        var lifecycleLock = new Lock();
+        _lifecycleLock = lifecycleLock;
         _userInterfaceScheduler = userInterfaceScheduler;
         _summary = string.Empty;
         _updateCheckStatus = string.Empty;
@@ -100,24 +103,30 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     /// <inheritdoc />
     public void Dispose()
     {
-        if (_isDisposed)
+        lock (_lifecycleLock)
         {
-            return;
-        }
+            if (_isDisposed)
+            {
+                return;
+            }
 
-        _isDisposed = true;
-        _directoryWatcher.PluginsDirectoryChanged -= OnDirectoryChanged;
+            _isDisposed = true;
+            _directoryWatcher.PluginsDirectoryChanged -= OnDirectoryChanged;
+        }
     }
 
     private void ApplyDirectoryChangedUpdate()
     {
-        if (_isDisposed)
+        lock (_lifecycleLock)
         {
-            return;
-        }
+            if (_isDisposed)
+            {
+                return;
+            }
 
-        IsRestartRequired = true;
-        UpdateCheckStatus = "Plugins folder changed — reload to pick up changes.";
+            IsRestartRequired = true;
+            UpdateCheckStatus = "Plugins folder changed — reload to pick up changes.";
+        }
     }
 
     [RelayCommand]
@@ -164,9 +173,12 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
 
     private void OnDirectoryChanged()
     {
-        if (_isDisposed)
+        lock (_lifecycleLock)
         {
-            return;
+            if (_isDisposed)
+            {
+                return;
+            }
         }
 
         _userInterfaceScheduler.Post(ApplyDirectoryChangedUpdate);
