@@ -38,7 +38,10 @@ public sealed class ConfigurationSnapshot
     /// <returns>An enumeration of name-value pairs.</returns>
     public IEnumerable<KeyValuePair<string, string>> Enumerate()
     {
-        return _values;
+        foreach (var pair in _values)
+        {
+            yield return pair;
+        }
     }
 
     /// <summary>
