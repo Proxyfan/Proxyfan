@@ -205,6 +205,11 @@ public static class PluginVersionComparer
             return new SemanticVersion(coreNumbers[0], coreNumbers[1], coreNumbers[2], identifiers);
         }
 
+        private static bool HasLeadingZero(string numeric)
+        {
+            return numeric.Length > 1 && numeric[0] == '0';
+        }
+
         private static int[]? ParseCore(string core)
         {
             if (core.Length == 0)
@@ -235,6 +240,11 @@ public static class PluginVersionComparer
 
         private static int? ParseCoreNumber(string part)
         {
+            if (HasLeadingZero(part))
+            {
+                return null;
+            }
+
             if (int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
             {
                 return value;
@@ -254,6 +264,7 @@ public static class PluginVersionComparer
                     return null;
                 }
 
+                var isNumeric = true;
                 foreach (var character in part)
                 {
                     var isAllowed = character is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or '-';
@@ -261,6 +272,16 @@ public static class PluginVersionComparer
                     {
                         return null;
                     }
+
+                    if (character is < '0' or > '9')
+                    {
+                        isNumeric = false;
+                    }
+                }
+
+                if (isNumeric && HasLeadingZero(part))
+                {
+                    return null;
                 }
             }
 

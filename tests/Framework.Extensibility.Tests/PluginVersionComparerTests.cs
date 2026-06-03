@@ -96,7 +96,8 @@ public sealed class PluginVersionComparerTests
     }
 
     /// <summary>
-    ///     Both versions are SemVer-shaped — fall back is not used.
+    ///     When neither version is SemVer-shaped, the comparer falls back to ordinal
+    ///     string comparison so "beta" is reported as newer than "alpha".
     /// </summary>
     [Test]
     public async Task HasNewerCandidate_UnparseableCurrent_FallsBackToOrdinal()
