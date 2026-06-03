@@ -62,6 +62,37 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="PeriodicUpdateChecker.StopAsync" /> awaits the in-flight
+    ///     poll before disposing the cancellation source, so the loop never observes an
+    ///     <see cref="ObjectDisposedException" /> when interacting with the token.
+    /// </summary>
+    [Test]
+    public async Task StopAsync_WithInflightCheck_DoesNotDisposeSourceBeforeLoopDrains()
+    {
+        using var checker = new TokenRegisteringUpdateChecker();
+        var notification = new MutableUpdateNotification();
+        var options = new PeriodicUpdateCheckOptions
+        {
+            CurrentVersion = "1.0.0",
+            InitialDelay = TimeSpan.Zero,
+            PollInterval = TimeSpan.FromMilliseconds(20),
+        };
+        using var periodic = new PeriodicUpdateChecker(checker, notification, options);
+
+        periodic.Start();
+        await checker.WaitForCheckStartedAsync();
+
+        var stopTask = periodic.StopAsync(CancellationToken.None);
+        await Task.Yield();
+        var stopCompletedBeforeRelease = stopTask.IsCompleted;
+        checker.ReleaseGate();
+        await stopTask;
+
+        await Assert.That(stopCompletedBeforeRelease).IsFalse();
+        await Assert.That(checker.RegistrationException).IsNull();
+    }
+
+    /// <summary>
     ///     Verifies that double-disposing the checker is a safe no-op.
     /// </summary>
     [Test]
@@ -116,7 +147,11 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
 
         public async Task WaitForCheckStartedAsync()
         {
-            await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            var started = await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            if (!started)
+            {
+                throw new TimeoutException("Timed out waiting for BlockingUpdateChecker.CheckAsync to start.");
+            }
         }
 
         public async Task<bool> WaitForCheckStartedWithinAsync(TimeSpan timeout)
@@ -131,6 +166,61 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
             using var registration = ctsForTimeout.Token.Register(() => timeoutSource.TrySetResult(false));
             var completed = await Task.WhenAny(_cancellationObserved.Task, timeoutSource.Task);
             return completed == _cancellationObserved.Task;
+        }
+
+        public void Dispose()
+        {
+            _checkStarted.Dispose();
+        }
+    }
+
+    private sealed class TokenRegisteringUpdateChecker : IUpdateChecker, IDisposable
+    {
+        private readonly SemaphoreSlim _checkStarted;
+        private readonly TaskCompletionSource _gate;
+
+        public TokenRegisteringUpdateChecker()
+        {
+            _checkStarted = new SemaphoreSlim(0);
+            _gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public Exception? RegistrationException { get; private set; }
+
+        public async Task<UpdateInfo?> CheckAsync(string currentVersion, CancellationToken cancellationToken)
+        {
+            _ = currentVersion;
+            _checkStarted.Release();
+            await _gate.Task.ConfigureAwait(false);
+            try
+            {
+                // Touching WaitHandle on a CancellationToken whose source has been disposed
+                // raises ObjectDisposedException, so this records whether StopAsync raced ahead
+                // and disposed the source while this poll was still in flight.
+                var handle = cancellationToken.WaitHandle;
+                _ = handle.WaitOne(0);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                RegistrationException = ex;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+
+        public async Task WaitForCheckStartedAsync()
+        {
+            var started = await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            if (!started)
+            {
+                throw new TimeoutException("Timed out waiting for TokenRegisteringUpdateChecker.CheckAsync to start.");
+            }
+        }
+
+        public void ReleaseGate()
+        {
+            _gate.TrySetResult();
         }
 
         public void Dispose()
