@@ -64,8 +64,14 @@ public sealed class UserScriptingHandler : IScriptingHandler
             return Result.Failure<HypertextTransferProtocolRequestData>(error);
         }
 
-        var projected = ScriptableProjector.Project(view, request);
-        return Result.Success(projected);
+        var projection = ScriptableProjector.Project(view, request);
+        if (!projection.IsSuccess)
+        {
+            throw new InvalidOperationException(
+                $"Script request projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
+        }
+
+        return Result.Success(projection.Value);
     }
 
     /// <inheritdoc />
@@ -106,8 +112,14 @@ public sealed class UserScriptingHandler : IScriptingHandler
         }
 
         _sharedStatesByFlow.TryRemove(flowId, out _);
-        var projected = ScriptableProjector.Project(responseView, response);
-        return Result.Success(projected);
+        var projection = ScriptableProjector.Project(responseView, response);
+        if (!projection.IsSuccess)
+        {
+            throw new InvalidOperationException(
+                $"Script response projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
+        }
+
+        return Result.Success(projection.Value);
     }
 
     private IDictionary<string, object?> GetOrCreateSharedState(string flowId)

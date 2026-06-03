@@ -292,6 +292,44 @@ public sealed class UserScriptingHandlerTests
         }
     }
 
+    /// <summary>
+    ///     Verifies that when the script sets an invalid request URL the handler throws so the
+    ///     scripting wrappers can log the failure rather than silently producing malformed HTTP.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_InvalidScriptUrl_Throws()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "bad-url",
+            onRequest: (request, state) => request.Url = "not a url"));
+        var handler = new UserScriptingHandler(configuration);
+        var source = BuildRequest("GET");
+
+        await Assert.That(async () => await handler.ApplyRequestAsync("flow", source, CancellationToken.None))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     Verifies that when the script sets an out-of-range status code the handler throws so
+    ///     the scripting wrappers can log the failure rather than silently producing malformed
+    ///     HTTP.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_InvalidScriptStatusCode_Throws()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "bad-status",
+            onResponse: (req, resp, state) => resp.StatusCode = 99999));
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        await Assert.That(async () => await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None))
+            .Throws<InvalidOperationException>();
+    }
+
     private static HypertextTransferProtocolRequestData BuildRequest(string method)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
