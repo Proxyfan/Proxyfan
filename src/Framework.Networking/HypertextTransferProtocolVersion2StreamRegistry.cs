@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace Proxyfan.Framework.Networking;
@@ -101,6 +102,7 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistry
     /// </returns>
     public bool HasAppliedLocalInitialReceiveWindowSize(int newInitialSize)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(newInitialSize);
         var delta = newInitialSize - _initialReceiveWindowSize;
         _initialReceiveWindowSize = newInitialSize;
         if (delta == 0)
@@ -133,6 +135,7 @@ public sealed class HypertextTransferProtocolVersion2StreamRegistry
     /// </returns>
     public bool HasAppliedPeerInitialSendWindowSize(int newInitialSize)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(newInitialSize);
         var delta = newInitialSize - _initialSendWindowSize;
         _initialSendWindowSize = newInitialSize;
         if (delta == 0)
