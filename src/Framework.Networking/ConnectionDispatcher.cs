@@ -145,7 +145,8 @@ public sealed partial class ConnectionDispatcher : IConnectionDispatcher
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 LogHandlerError(ex, connection.RemoteEndPoint);
-                var errorEvent = new ConnectionErrorOccurred(connection.RemoteEndPoint, ex, DateTimeOffset.UtcNow);
+                var error = new ConnectionHandlerError(ex);
+                var errorEvent = new ConnectionErrorOccurred(connection.RemoteEndPoint, error, DateTimeOffset.UtcNow);
                 _eventBus.Publish(errorEvent);
             }
 

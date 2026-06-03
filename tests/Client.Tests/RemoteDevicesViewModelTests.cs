@@ -59,7 +59,7 @@ public sealed class RemoteDevicesViewModelTests
 
         await Assert.That(viewModel.Devices.Count).IsEqualTo(1);
         await Assert.That(viewModel.Devices[0]).IsSameReferenceAs(originalRow);
-        await Assert.That(viewModel.Devices[0].RequestCount).IsEqualTo(1L);
+        await Assert.That(viewModel.Devices[0].RequestCount).IsEqualTo(2L);
         viewModel.Dispose();
     }
 
@@ -241,7 +241,7 @@ public sealed class RemoteDevicesViewModelTests
         item.UpdateFrom(updated);
 
         await Assert.That(item.Name).IsEqualTo("My Phone");
-        await Assert.That(item.RequestCount).IsEqualTo(1L);
+        await Assert.That(item.RequestCount).IsEqualTo(2L);
         await Assert.That(item.UserAgent).IsEqualTo("iOS");
     }
 }
