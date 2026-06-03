@@ -90,7 +90,11 @@ public sealed class FormattingService : INotifyPropertyChanged, IDisposable
     public string FormatDuration(TimeSpan value)
     {
         var sign = value.Ticks < 0 ? "-" : string.Empty;
-        var magnitude = value.Ticks < 0 ? value.Negate() : value;
+        // TimeSpan.MinValue cannot be negated (its absolute value exceeds TimeSpan.MaxValue
+        // by one tick), so substitute TimeSpan.MaxValue to avoid OverflowException.
+        var magnitude = value.Ticks < 0
+            ? (value == TimeSpan.MinValue ? TimeSpan.MaxValue : value.Negate())
+            : value;
         if (magnitude.TotalMilliseconds < 1.0)
         {
             return sign + magnitude.TotalMilliseconds.ToString("F2", CurrentCulture) + " ms";

@@ -213,6 +213,21 @@ public sealed class FormattingServiceTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="FormattingService.FormatDuration" /> handles
+    ///     <see cref="TimeSpan.MinValue" /> without throwing
+    ///     <see cref="OverflowException" />, since its absolute value exceeds
+    ///     <see cref="TimeSpan.MaxValue" /> by one tick.
+    /// </summary>
+    [Test]
+    public async Task FormatDuration_MinValue_DoesNotThrow()
+    {
+        var formattingService = CreateFormattingService("en-US");
+        var formatted = formattingService.FormatDuration(TimeSpan.MinValue);
+        await Assert.That(formatted).IsNotNull();
+        await Assert.That(formatted).StartsWith("-");
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="FormattingService.CurrentCulture" /> tracks the
     ///     underlying <see cref="LocalizationService" /> culture.
     /// </summary>
