@@ -25,6 +25,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.Versioning;
+using System.Threading;
 
 namespace Proxyfan.DependencyInjection;
 
@@ -105,12 +106,13 @@ public static class ServiceCollectionExtensions
         where TImplementation : notnull
     {
         var type = typeof(TImplementation);
+        var singleton = new Lazy<TImplementation>(implementation.Invoke, LazyThreadSafetyMode.ExecutionAndPublication);
 
         foreach (var @interface in type.GetInterfaces())
         {
             if (@interface != typeof(IDisposable))
             {
-                var descriptor = new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton);
+                var descriptor = new ServiceDescriptor(@interface, _ => singleton.Value, ServiceLifetime.Singleton);
                 serviceCollection.Add(descriptor);
             }
         }

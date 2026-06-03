@@ -73,6 +73,25 @@ public sealed class ServiceCollectionExtensionsTests
         await Assert.That(disposable).IsNull();
     }
 
+    [Test]
+    public async Task AddSingletonAsImplementedInterfaces_WhenResolvedViaMultipleInterfaces_ReusesSameSingletonInstance()
+    {
+        var creationCount = 0;
+        var services = new ServiceCollection();
+        services.AddSingletonAsImplementedInterfaces<SampleImplementation>(() =>
+        {
+            creationCount++;
+            return new SampleImplementation();
+        });
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        var first = provider.GetRequiredService<IFirstContract>();
+        var second = provider.GetRequiredService<ISecondContract>();
+
+        await Assert.That(first).IsSameReferenceAs(second);
+        await Assert.That(creationCount).IsEqualTo(1);
+    }
+
     /// <summary>
     ///     Resolving the singletons that are wired in by AddProxyListener forces the
     ///     DI factory lambdas to execute, covering the body of those registrations
