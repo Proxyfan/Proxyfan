@@ -122,6 +122,43 @@ public sealed class MutableMapRemoteRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry whose matching rule fails to compile leaves <c>_entries</c> and
+    ///     <c>_compiled</c> in their original state and does not raise <see cref="MutableMapRemoteRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_CompilationFailure_DoesNotLeaveStaleState()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        var good = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
+        };
+        rule.AddEntry(good);
+
+        var changedCount = 0;
+        rule.Changed += () => changedCount++;
+
+        var bad = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("[invalid-regex", MatchingRuleKind.Regex),
+        };
+
+        await Assert.That(() => rule.AddEntry(bad)).Throws<Exception>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+        await Assert.That(changedCount).IsEqualTo(0);
+
+        // The rule must still evaluate correctly after the failed add.
+        var request = CreateRequest("https://public.example.com/api/users");
+        var action = rule.EvaluateRequest(request);
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Redirect>();
+    }
+
+    /// <summary>
     ///     Adding an entry raises the <see cref="MutableMapRemoteRule.Changed" /> event.
     /// </summary>
     [Test]

@@ -98,7 +98,15 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
         lock (_mutationLock)
         {
             _entries.Add(entry);
-            RebuildUnderLock();
+            try
+            {
+                RebuildUnderLock();
+            }
+            catch
+            {
+                _entries.RemoveAt(_entries.Count - 1);
+                throw;
+            }
         }
 
         RaiseChanged();

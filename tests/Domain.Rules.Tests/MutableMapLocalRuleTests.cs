@@ -129,6 +129,48 @@ public sealed class MutableMapLocalRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry whose matching rule fails to compile leaves <c>_entries</c> and
+    ///     <c>_compiled</c> in their original state and does not raise <see cref="MutableMapLocalRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_CompilationFailure_DoesNotLeaveStaleState()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var good = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://stub.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+        rule.AddEntry(good);
+
+        var changedCount = 0;
+        rule.Changed += () => changedCount++;
+
+        var bad = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("[invalid-regex", MatchingRuleKind.Regex),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(bad)).Throws<Exception>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+        await Assert.That(changedCount).IsEqualTo(0);
+
+        // The rule must still evaluate correctly after the failed add.
+        var request = CreateRequest("https://stub.example.com/test");
+        var action = rule.EvaluateRequest(request);
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+    }
+
+    /// <summary>
     ///     Adding an entry raises the <see cref="MutableMapLocalRule.Changed" /> event.
     /// </summary>
     [Test]
