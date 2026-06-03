@@ -18,17 +18,27 @@ public sealed class ConfigurationMigrationPipeline
     /// <summary>
     ///     Initializes a new <see cref="ConfigurationMigrationPipeline" /> with the supplied
     ///     migrators. Each migrator must have a unique <see cref="IConfigurationMigrator.From" />
-    ///     version.
+    ///     version, and its <see cref="IConfigurationMigrator.To" /> version must be strictly
+    ///     greater than its <see cref="IConfigurationMigrator.From" /> version.
     /// </summary>
     /// <param name="migrators">The migrators that compose the pipeline.</param>
     /// <exception cref="ArgumentException">
-    ///     Two migrators share the same <see cref="IConfigurationMigrator.From" /> version.
+    ///     Two migrators share the same <see cref="IConfigurationMigrator.From" /> version,
+    ///     or a migrator's <see cref="IConfigurationMigrator.To" /> is not strictly greater
+    ///     than its <see cref="IConfigurationMigrator.From" />.
     /// </exception>
     public ConfigurationMigrationPipeline(IEnumerable<IConfigurationMigrator> migrators)
     {
         var byFrom = new Dictionary<ConfigurationVersion, IConfigurationMigrator>();
         foreach (var migrator in migrators)
         {
+            if (!migrator.From.HasLowerOrderThan(migrator.To))
+            {
+                throw new ArgumentException(
+                    $"Configuration migrator from {migrator.From} to {migrator.To} does not advance the version: To must be strictly greater than From.",
+                    nameof(migrators));
+            }
+
             if (byFrom.ContainsKey(migrator.From))
             {
                 throw new ArgumentException(
@@ -53,7 +63,9 @@ public sealed class ConfigurationMigrationPipeline
     /// <returns>The migration result.</returns>
     /// <exception cref="InvalidOperationException">
     ///     A migrator was needed to transition from the current version to the target but
-    ///     none was registered, leaving the pipeline unable to make progress.
+    ///     none was registered, leaving the pipeline unable to make progress; or a registered
+    ///     migrator's <see cref="IConfigurationMigrator.To" /> version overshoots
+    ///     <paramref name="targetVersion" />.
     /// </exception>
     public ConfigurationMigrationPipelineResult Migrate(
         IReadOnlyDictionary<string, string> source,
@@ -89,6 +101,13 @@ public sealed class ConfigurationMigrationPipeline
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
             aggregateActions.AddRange(stepResult.Actions);
+
+            if (migrator.To > targetVersion)
+            {
+                throw new InvalidOperationException(
+                    $"Configuration migrator from {migrator.From} overshoots the target: To ({migrator.To}) exceeds the target version ({targetVersion}).");
+            }
+
             currentVersion = migrator.To;
         }
 
