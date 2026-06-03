@@ -29,6 +29,22 @@ public sealed class CertificateManagerViewModelTests
     }
 
     /// <summary>
+    ///     Activate triggers an initial refresh using the same command pipeline as the view.
+    /// </summary>
+    [Test]
+    public async Task Activate_FreshAuthority_PopulatesMetadataAndIsInstalled()
+    {
+        var (viewModel, _, _, store) = Create();
+
+        viewModel.Activate();
+        await WaitForRefreshCompletion(viewModel).ConfigureAwait(false);
+
+        await Assert.That(viewModel.Subject).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(store.IsInstalledCallCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     The InstallCommand delegates to the certificate store and sets <see cref="CertificateManagerViewModel.IsInstalled" />.
     /// </summary>
     [Test]
@@ -162,5 +178,17 @@ public sealed class CertificateManagerViewModelTests
         var filePicker = picker ?? new ShellViewModelFactory.StubFilePickerService();
         var viewModel = new CertificateManagerViewModel(provider, store, filePicker, InlineUserInterfaceScheduler.Instance);
         return (viewModel, generator, provider, store);
+    }
+
+    private static async Task WaitForRefreshCompletion(CertificateManagerViewModel viewModel)
+    {
+        var executionTask = viewModel.RefreshCommand.ExecutionTask;
+        while (executionTask is null)
+        {
+            await Task.Yield();
+            executionTask = viewModel.RefreshCommand.ExecutionTask;
+        }
+
+        await executionTask.ConfigureAwait(false);
     }
 }

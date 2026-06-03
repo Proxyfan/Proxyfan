@@ -72,6 +72,17 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     {
     }
 
+    /// <summary>
+    ///     Runs initial certificate metadata hydration when the tool window is activated.
+    /// </summary>
+    public void Activate()
+    {
+        if (RefreshCommand.CanExecute(null))
+        {
+            RefreshCommand.Execute(null);
+        }
+    }
+
     private void ApplyAuthority(CertificateAuthority authority, bool installed)
     {
         var certificate = authority.Certificate;
