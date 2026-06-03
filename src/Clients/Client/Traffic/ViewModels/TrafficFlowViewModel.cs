@@ -176,6 +176,7 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         if (Source.Status == TrafficFlowStatus.Active)
         {
             Source.SetResponse(responseEvent.Response);
+            OnPropertyChanged(nameof(Source));
         }
     }
 

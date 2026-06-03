@@ -78,6 +78,31 @@ public sealed class TrafficFlowViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="Client.Traffic.ViewModels.TrafficFlowViewModel.UpdateResponse" />
+    ///     raises <see cref="Client.Traffic.ViewModels.TrafficFlowViewModel.Source" /> change notifications
+    ///     so custom-column bindings re-evaluate when response data arrives.
+    /// </summary>
+    [Test]
+    public async Task UpdateResponse_WithResponseEvent_RaisesSourcePropertyChanged()
+    {
+        var requestEvent = CreateRequestEvent();
+        var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
+        var responseEvent = CreateResponseEvent(requestEvent.TrafficFlowId);
+        var sourcePropertyChangedRaised = false;
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(Client.Traffic.ViewModels.TrafficFlowViewModel.Source))
+            {
+                sourcePropertyChangedRaised = true;
+            }
+        };
+
+        viewModel.UpdateResponse(responseEvent);
+
+        await Assert.That(sourcePropertyChangedRaised).IsTrue();
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="Client.Traffic.ViewModels.TrafficFlowViewModel.UpdateStatus" /> sets the terminal status and duration.
     /// </summary>
     [Test]

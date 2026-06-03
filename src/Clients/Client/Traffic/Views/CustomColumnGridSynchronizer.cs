@@ -1,9 +1,14 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Proxyfan.Client.Traffic.ViewModels;
+using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Columns;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Proxyfan.Client.Traffic.Views;
 
@@ -55,6 +60,12 @@ public sealed class CustomColumnGridSynchronizer
 
     private DataGridTemplateColumn BuildColumn(CustomColumnDefinition definition)
     {
+        var converter = new CustomColumnValueConverter(definition);
+        var binding = new Binding(nameof(TrafficFlowViewModel.Source))
+        {
+            Converter = converter,
+            Mode = BindingMode.OneWay,
+        };
         var template = new FuncDataTemplate<TrafficFlowViewModel>((flow, _) =>
         {
             var margin = new Avalonia.Thickness(4, 0, 4, 0);
@@ -63,12 +74,7 @@ public sealed class CustomColumnGridSynchronizer
                 Margin = margin,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            if (flow is null)
-            {
-                return textBlock;
-            }
-
-            textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
+            textBlock.Bind(TextBlock.TextProperty, binding);
             return textBlock;
         });
         var width = new DataGridLength(120);
@@ -104,6 +110,31 @@ public sealed class CustomColumnGridSynchronizer
             var column = BuildColumn(definition);
             _dataGrid.Columns.Add(column);
             _addedColumns.Add(column);
+        }
+    }
+
+    private sealed class CustomColumnValueConverter : IValueConverter
+    {
+        private readonly CustomColumnDefinition _definition;
+
+        public CustomColumnValueConverter(CustomColumnDefinition definition)
+        {
+            _definition = definition;
+        }
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is not TrafficFlow flow)
+            {
+                return string.Empty;
+            }
+
+            return CustomColumnValueExtractor.Extract(_definition, flow);
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
         }
     }
 }
