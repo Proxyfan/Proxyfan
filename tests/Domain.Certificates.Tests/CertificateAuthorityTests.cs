@@ -2,6 +2,7 @@
 using Proxyfan.Framework.Platform;
 using System;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -39,6 +40,47 @@ public sealed class CertificateAuthorityTests
 
         await Assert.That(leaf.Issuer).IsEqualTo(authority.Certificate.Subject);
         await Assert.That(leaf.GetNameInfo(X509NameType.DnsName, false)).IsEqualTo("api.example.com");
+    }
+
+    [Test]
+    public async Task Sign_WithIpv4HostName_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        var leaf = authority.Sign("127.0.0.1");
+        var subjectAlternativeName = GetSubjectAlternativeNameExtension(leaf);
+        var hasLoopbackAddress = false;
+        foreach (var address in subjectAlternativeName.EnumerateIPAddresses())
+        {
+            if (address.Equals(IPAddress.Loopback))
+            {
+                hasLoopbackAddress = true;
+                break;
+            }
+        }
+
+        await Assert.That(hasLoopbackAddress).IsTrue();
+    }
+
+    [Test]
+    public async Task Sign_WithBracketedIpv6HostName_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+        var expectedAddress = IPAddress.Parse("2001:db8::1");
+
+        var leaf = authority.Sign("[2001:db8::1]");
+        var subjectAlternativeName = GetSubjectAlternativeNameExtension(leaf);
+        var hasExpectedAddress = false;
+        foreach (var address in subjectAlternativeName.EnumerateIPAddresses())
+        {
+            if (address.Equals(expectedAddress))
+            {
+                hasExpectedAddress = true;
+                break;
+            }
+        }
+
+        await Assert.That(hasExpectedAddress).IsTrue();
     }
 
     /// <summary>
@@ -84,6 +126,14 @@ public sealed class CertificateAuthorityTests
         await Assert.That(() => authority.Sign(string.Empty)).Throws<ArgumentException>();
     }
 
+    [Test]
+    public async Task Sign_WithInvalidHostName_ThrowsArgumentException()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        await Assert.That(() => authority.Sign("invalid host")).Throws<ArgumentException>();
+    }
+
     /// <summary>
     ///     Verifies that two calls to <see cref="CertificateAuthority.Sign" /> for the same host
     ///     return distinct certificate instances.
@@ -103,5 +153,18 @@ public sealed class CertificateAuthorityTests
     {
         var generator = new RsaCertificateGenerator();
         return await generator.GenerateRootCertificateAuthorityAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static X509SubjectAlternativeNameExtension GetSubjectAlternativeNameExtension(X509Certificate2 certificate)
+    {
+        foreach (var extension in certificate.Extensions)
+        {
+            if (extension is X509SubjectAlternativeNameExtension subjectAlternativeNameExtension)
+            {
+                return subjectAlternativeNameExtension;
+            }
+        }
+
+        throw new InvalidOperationException("Expected Subject Alternative Name extension was not found.");
     }
 }

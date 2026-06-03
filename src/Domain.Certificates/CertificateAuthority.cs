@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
@@ -47,12 +48,13 @@ public sealed class CertificateAuthority
             throw new ArgumentException("Leaf certificate host name must be provided.", nameof(hostname));
         }
 
+        var normalizedHost = NormalizeHostName(hostname);
         using var key = RSA.Create(2048);
-        var request = new CertificateRequest($"CN={hostname}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var request = new CertificateRequest($"CN={normalizedHost}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         var constraints = new X509BasicConstraintsExtension(false, false, 0, true);
         var keyUsage = new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true);
         var serverAuthenticationUsage = CreateServerAuthenticationUsage();
-        var serverNameIndicationExtension = CreateServerNameIndicationExtension(hostname);
+        var serverNameIndicationExtension = CreateServerNameIndicationExtension(normalizedHost);
         var subjectKeyIdentifier = new X509SubjectKeyIdentifierExtension(request.PublicKey, false);
         request.CertificateExtensions.Add(constraints);
         request.CertificateExtensions.Add(keyUsage);
@@ -85,8 +87,41 @@ public sealed class CertificateAuthority
     private X509Extension CreateServerNameIndicationExtension(string hostname)
     {
         var builder = new SubjectAlternativeNameBuilder();
-        builder.AddDnsName(hostname);
+        if (IPAddress.TryParse(hostname, out var ipAddress))
+        {
+            builder.AddIpAddress(ipAddress);
+        }
+        else
+        {
+            builder.AddDnsName(hostname);
+        }
+
         var extension = builder.Build();
         return extension;
+    }
+
+    private string NormalizeHostName(string hostname)
+    {
+        var candidate = hostname.Trim();
+        if (candidate.Length > 2
+            && candidate[0] == '['
+            && candidate[^1] == ']')
+        {
+            candidate = candidate[1..^1];
+        }
+
+        if (IPAddress.TryParse(candidate, out _))
+        {
+            return candidate;
+        }
+
+        var normalizedHostName = candidate.TrimEnd('.');
+        if (string.IsNullOrWhiteSpace(normalizedHostName)
+            || Uri.CheckHostName(normalizedHostName) != UriHostNameType.Dns)
+        {
+            throw new ArgumentException("Leaf certificate host name must be a valid DNS name or IP address.", nameof(hostname));
+        }
+
+        return normalizedHostName;
     }
 }
