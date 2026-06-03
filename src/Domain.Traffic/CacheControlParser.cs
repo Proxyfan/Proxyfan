@@ -94,6 +94,17 @@ public static class CacheControlParser
         }
     }
 
+    private static bool HasUnescapedQuote(string headerValue, int quoteIndex)
+    {
+        var backslashCount = 0;
+        for (var slashIndex = quoteIndex - 1; slashIndex >= 0 && headerValue[slashIndex] == '\\'; slashIndex--)
+        {
+            backslashCount++;
+        }
+
+        return backslashCount % 2 == 0;
+    }
+
     private static IEnumerable<string> SplitDirectives(string headerValue)
     {
         var start = 0;
@@ -103,7 +114,7 @@ public static class CacheControlParser
         {
             var character = headerValue[index];
 
-            if (character == '"' && (index == 0 || headerValue[index - 1] != '\\'))
+            if (character == '"' && HasUnescapedQuote(headerValue, index))
             {
                 inQuotes = !inQuotes;
             }
