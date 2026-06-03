@@ -86,8 +86,9 @@ public sealed class MutableBlockListRule : IRequestPhaseRule
                 }
             }
 
+            var compiled = rule.Compile();
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            _matchers = [.. _matchers, compiled];
         }
 
         RaiseChanged();

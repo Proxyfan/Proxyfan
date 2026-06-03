@@ -221,6 +221,40 @@ public sealed class MutableBlockListRuleTests
     }
 
     /// <summary>
+    ///     Adding a pattern whose <see cref="MatchingRule.Compile" /> throws must not poison
+    ///     <c>_patterns</c> and must not raise <see cref="MutableBlockListRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedPattern_DoesNotPoisonPatternListOrRaiseChanged()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        rule.AddPattern(new MatchingRule("https://example.com/*", MatchingRuleKind.Wildcard));
+        var count = 0;
+        rule.Changed += () => count++;
+
+        var malformed = new MatchingRule("[invalid", MatchingRuleKind.Regex);
+
+        await Assert.That(() => rule.AddPattern(malformed)).Throws<ArgumentException>();
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     After a failed AddPattern, a subsequent valid pattern can still be added successfully.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_AfterMalformedPattern_CanStillAddValidPattern()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        var malformed = new MatchingRule("[invalid", MatchingRuleKind.Regex);
+        await Assert.That(() => rule.AddPattern(malformed)).Throws<ArgumentException>();
+
+        rule.AddPattern(new MatchingRule("https://example.com/*", MatchingRuleKind.Wildcard));
+
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     GetPatterns returns a defensive snapshot — mutating the rule does not affect prior snapshots.
     /// </summary>
     [Test]
