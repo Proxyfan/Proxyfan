@@ -24,6 +24,8 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     private HypertextTransferProtocolResponseData? _response;
     [ObservableProperty]
     private int _statusCode;
+    [ObservableProperty]
+    private FlowTimings? _timings;
 
     /// <summary>
     ///     Gets the remote client endpoint address.
@@ -67,11 +69,6 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     public HypertextTransferProtocolRequestData? Request { get; }
 
     /// <summary>
-    ///     Gets the underlying domain flow snapshot used for summary and timing display.
-    /// </summary>
-    public TrafficFlow Source { get; }
-
-    /// <summary>
     ///     Gets the UTC instant at which the flow started.
     /// </summary>
     public DateTimeOffset StartedAt { get; }
@@ -103,10 +100,7 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         _flowStatus = TrafficFlowStatus.Active;
         _response = null;
         _statusCode = 0;
-
-        var source = new TrafficFlow(requestEvent.TrafficFlowId, requestEvent.ClientEndPoint, requestEvent.Timestamp);
-        source.SetRequest(requestEvent.Request);
-        Source = source;
+        _timings = null;
     }
 
     /// <summary>
@@ -128,7 +122,6 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         Number = number;
         PathAndQuery = flow.Request?.RequestUri.PathAndQuery ?? "/";
         Request = flow.Request;
-        Source = flow;
         StartedAt = flow.StartedAt;
         _bodySize = flow.Response?.Body.Length ?? 0;
         _colorTag = flow.ColorTag;
@@ -137,28 +130,34 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         _flowStatus = flow.Status;
         _response = flow.Response;
         _statusCode = flow.Response?.StatusCode ?? 0;
+        _timings = flow.Timings;
     }
 
     /// <summary>
-    ///     Assigns the given color tag to this flow and propagates it to the
-    ///     underlying domain source.
+    ///     Assigns the given color tag to this flow.
     /// </summary>
     /// <param name="colorTag">The color to assign; use <see cref="TrafficFlowColorTag.None" /> to clear.</param>
     public void ApplyColorTag(TrafficFlowColorTag colorTag)
     {
         ColorTag = colorTag;
-        Source.SetColorTag(colorTag);
     }
 
     /// <summary>
-    ///     Assigns the given comment to this flow and propagates it to the
-    ///     underlying domain source.
+    ///     Assigns the given comment to this flow.
     /// </summary>
     /// <param name="comment">The comment text; <see langword="null" /> or whitespace clears it.</param>
     public void ApplyComment(string? comment)
     {
         Comment = comment;
-        Source.SetComment(comment);
+    }
+
+    /// <summary>
+    ///     Replaces the timing milestones displayed by this view model with the supplied snapshot.
+    /// </summary>
+    /// <param name="timings">The updated timing milestones from the domain flow.</param>
+    public void SetTimings(FlowTimings timings)
+    {
+        Timings = timings;
     }
 
     /// <summary>
@@ -172,11 +171,6 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         BodySize = responseEvent.Response.Body.Length;
         Response = responseEvent.Response;
         StatusCode = responseEvent.Response.StatusCode;
-
-        if (Source.Status == TrafficFlowStatus.Active)
-        {
-            Source.SetResponse(responseEvent.Response);
-        }
     }
 
     /// <summary>
@@ -189,27 +183,5 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     {
         Duration = completedEvent.Timestamp - StartedAt;
         FlowStatus = completedEvent.Status;
-
-        SynchronizeSourceStatus(completedEvent.Status);
-    }
-
-    private void SynchronizeSourceStatus(TrafficFlowStatus status)
-    {
-        if (status == TrafficFlowStatus.Complete && Source.Status == TrafficFlowStatus.Active)
-        {
-            Source.Complete();
-            return;
-        }
-
-        if (status == TrafficFlowStatus.Failed)
-        {
-            Source.Fail();
-            return;
-        }
-
-        if (status == TrafficFlowStatus.Aborted)
-        {
-            Source.Abort();
-        }
     }
 }

@@ -24,6 +24,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private readonly Proxyfan.Presentation.Clipboard.IClipboardService? _clipboardService;
     private readonly TrafficListCoordinator _coordinator;
     private readonly TrafficFlowDiffPool? _diffPool;
+    private readonly ConcurrentDictionary<Guid, TrafficFlow> _domainFlowById;
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
     private readonly IDisposable _requestReceivedSubscription;
@@ -174,6 +175,9 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
         _coordinator = effectiveCoordinator;
 
+        var domainFlowById = new ConcurrentDictionary<Guid, TrafficFlow>();
+        _domainFlowById = domainFlowById;
+
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
 
@@ -203,6 +207,37 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _requestReceivedSubscription.Dispose();
         _responseReceivedSubscription.Dispose();
         _flowCompletedSubscription.Dispose();
+    }
+
+    /// <summary>
+    ///     Returns the domain <see cref="TrafficFlow" /> owned by this coordinator for the
+    ///     given flow identifier, or <see langword="null" /> when no matching flow exists.
+    /// </summary>
+    /// <param name="id">The unique flow identifier to look up.</param>
+    /// <returns>The domain flow, or <see langword="null" />.</returns>
+    public TrafficFlow? GetDomainFlow(Guid id)
+    {
+        _domainFlowById.TryGetValue(id, out var flow);
+        return flow;
+    }
+
+    /// <summary>
+    ///     Returns a snapshot of all domain <see cref="TrafficFlow" /> objects currently
+    ///     owned by this coordinator, ordered to match <see cref="Flows" />.
+    /// </summary>
+    /// <returns>An ordered list of domain flows.</returns>
+    public IReadOnlyList<TrafficFlow> GetDomainFlows()
+    {
+        var result = new List<TrafficFlow>(Flows.Count);
+        foreach (var viewModel in Flows)
+        {
+            if (_domainFlowById.TryGetValue(viewModel.Id, out var flow))
+            {
+                result.Add(flow);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -283,7 +318,10 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _diffPool.Add(flow.Source);
+        if (_domainFlowById.TryGetValue(flow.Id, out var domainFlow))
+        {
+            _diffPool.Add(domainFlow);
+        }
     }
 
     [RelayCommand]
@@ -296,6 +334,10 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
 
         flow.ApplyColorTag(colorTag);
+        if (_domainFlowById.TryGetValue(flow.Id, out var domainFlow))
+        {
+            domainFlow.SetColorTag(colorTag);
+        }
     }
 
     [RelayCommand]
@@ -308,6 +350,10 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
 
         flow.ApplyComment(comment);
+        if (_domainFlowById.TryGetValue(flow.Id, out var domainFlow))
+        {
+            domainFlow.SetComment(comment);
+        }
     }
 
     [RelayCommand]
@@ -318,6 +364,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void ClearOnUiThread()
     {
+        _domainFlowById.Clear();
         _flowById.Clear();
         Flows.Clear();
         SelectedFlow = null;
@@ -328,7 +375,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedAsCurlAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -341,7 +388,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedAsRawHypertextTransferProtocolAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -354,7 +401,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedUrlAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -383,6 +430,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         {
             number++;
             Interlocked.Exchange(ref _nextNumber, number);
+            _domainFlowById.TryAdd(flow.Id, flow);
             var viewModel = new TrafficFlowViewModel(flow, number);
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
@@ -406,7 +454,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateStatus(domainEvent));
+        _userInterfaceScheduler.Post(() =>
+        {
+            SynchronizeDomainFlowStatus(domainEvent, viewModel);
+            viewModel.UpdateStatus(domainEvent);
+        });
     }
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
@@ -426,11 +478,19 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var domainFlow = new TrafficFlow(domainEvent.TrafficFlowId, domainEvent.ClientEndPoint, domainEvent.Timestamp);
+        domainFlow.SetRequest(domainEvent.Request);
+        _domainFlowById.TryAdd(domainEvent.TrafficFlowId, domainFlow);
+
         var number = Interlocked.Increment(ref _nextNumber);
         var viewModel = new TrafficFlowViewModel(domainEvent, number);
         _flowById.TryAdd(domainEvent.TrafficFlowId, viewModel);
 
-        _userInterfaceScheduler.Post(() => Flows.Add(viewModel));
+        _userInterfaceScheduler.Post(() =>
+        {
+            viewModel.SetTimings(domainFlow.Timings);
+            Flows.Add(viewModel);
+        });
     }
 
     private void OnResponseReceived(ResponseReceived domainEvent)
@@ -443,6 +503,13 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _userInterfaceScheduler.Post(() =>
         {
             viewModel.UpdateResponse(domainEvent);
+            if (_domainFlowById.TryGetValue(domainEvent.TrafficFlowId, out var domainFlow)
+                && domainFlow.Status == TrafficFlowStatus.Active)
+            {
+                domainFlow.SetResponse(domainEvent.Response);
+                viewModel.SetTimings(domainFlow.Timings);
+            }
+
             if (!string.IsNullOrWhiteSpace(FilterText))
             {
                 RebuildVisibleFlowsOnUiThread();
@@ -477,7 +544,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void RemoveSelectedOnUiThread(TrafficFlowViewModel viewModel)
     {
-        _flowById.TryRemove(viewModel.Source.Id, out _);
+        _domainFlowById.TryRemove(viewModel.Id, out _);
+        _flowById.TryRemove(viewModel.Id, out _);
         Flows.Remove(viewModel);
         if (ReferenceEquals(SelectedFlow, viewModel))
         {
@@ -530,6 +598,30 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private async Task RepeatSelectedTenTimesAsync(CancellationToken cancellationToken)
     {
         await RepeatFlowAsync(SelectedFlow, repeatCount: 10, cancellationToken).ConfigureAwait(false);
+    }
+
+    private void SynchronizeDomainFlowStatus(TrafficFlowCompleted domainEvent, TrafficFlowViewModel viewModel)
+    {
+        if (!_domainFlowById.TryGetValue(domainEvent.TrafficFlowId, out var domainFlow))
+        {
+            return;
+        }
+
+        var status = domainEvent.Status;
+        if (status == TrafficFlowStatus.Complete && domainFlow.Status == TrafficFlowStatus.Active)
+        {
+            domainFlow.Complete();
+        }
+        else if (status == TrafficFlowStatus.Failed)
+        {
+            domainFlow.Fail();
+        }
+        else if (status == TrafficFlowStatus.Aborted)
+        {
+            domainFlow.Abort();
+        }
+
+        viewModel.SetTimings(domainFlow.Timings);
     }
 
     [RelayCommand]

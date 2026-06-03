@@ -228,22 +228,14 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             ClearResponseSections();
         }
 
-        if (selectedFlow.Source is not null)
-        {
-            SummaryText = FlowSummaryFormatter.Format(selectedFlow.Source);
-            TimingText = FlowTimingFormatter.Format(selectedFlow.Source.Timings);
-            UpdateTimingWaterfall(selectedFlow.Source.Timings);
-        }
-        else
-        {
-            SummaryText = string.Empty;
-            TimingText = string.Empty;
-            TotalDurationText = string.Empty;
-            _timingPhases.Clear();
-        }
+        var domainFlow = _trafficListViewModel.GetDomainFlow(selectedFlow.Id);
+        SummaryText = domainFlow is not null ? FlowSummaryFormatter.Format(domainFlow) : string.Empty;
+        var timings = selectedFlow.Timings;
+        TimingText = timings is not null ? FlowTimingFormatter.Format(timings) : string.Empty;
+        UpdateTimingWaterfall(timings);
     }
 
-    private void UpdateTimingWaterfall(FlowTimings timings)
+    private void UpdateTimingWaterfall(FlowTimings? timings)
     {
         _timingPhases.Clear();
         var phases = TimingWaterfallCalculator.Calculate(timings);
@@ -254,7 +246,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             _timingPhases.Add(phaseViewModel);
         }
 
-        if (timings.TotalDuration.HasValue)
+        if (timings is not null && timings.TotalDuration.HasValue)
         {
             TotalDurationText = timings.TotalDuration.Value.TotalMilliseconds
                 .ToString("F2", CultureInfo.InvariantCulture) + " ms";
