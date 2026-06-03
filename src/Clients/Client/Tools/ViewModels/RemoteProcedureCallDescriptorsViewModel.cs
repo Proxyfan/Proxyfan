@@ -158,8 +158,9 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
                     return null;
                 }
 
-                var additional = Math.Min(ReadBufferSizeInBytes, MaxDescriptorFileSizeInBytes - buffer.Length);
-                Array.Resize(ref buffer, buffer.Length + additional);
+                var doubledSize = buffer.Length * 2;
+                var newSize = Math.Min(doubledSize, MaxDescriptorFileSizeInBytes);
+                Array.Resize(ref buffer, newSize);
             }
 
             var readBuffer = new Memory<byte>(buffer, total, buffer.Length - total);
