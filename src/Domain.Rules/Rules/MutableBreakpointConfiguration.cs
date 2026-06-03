@@ -65,8 +65,14 @@ public sealed class MutableBreakpointConfiguration
                 }
             }
 
+            var compiled = rule.Compile();
+            var existingMatchers = _matchers;
+            var rebuilt = new List<IUrlMatcher>(existingMatchers.Count + 1);
+            rebuilt.AddRange(existingMatchers);
+            rebuilt.Add(compiled);
+
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            _matchers = rebuilt;
         }
 
         RaiseChanged();

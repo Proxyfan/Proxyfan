@@ -29,17 +29,20 @@ public sealed class MapRemoteDestinationTests
     }
 
     /// <summary>
-    ///     Verifies that an empty host (zero-length string) is rejected.
+    ///     Verifies that an empty host (zero-length string) is normalized to null,
+    ///     so the rewriter preserves the original host.
     /// </summary>
     [Test]
-    public async Task Constructor_WithEmptyHost_Throws()
+    public async Task Constructor_WithEmptyHost_NormalizesToNull()
     {
-        await Assert.That(() => _ = new Domain.Rules.Rules.MapRemoteDestination(
+        var destination = new Domain.Rules.Rules.MapRemoteDestination(
             scheme: null,
             host: string.Empty,
             port: null,
             path: null,
-            isPreservingHostHeader: false)).Throws<ArgumentException>();
+            isPreservingHostHeader: false);
+
+        await Assert.That(destination.Host).IsNull();
     }
 
     /// <summary>
@@ -87,5 +90,66 @@ public sealed class MapRemoteDestinationTests
         await Assert.That(destination.Host).IsNull();
         await Assert.That(destination.Port).IsNull();
         await Assert.That(destination.Path).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that whitespace-only scheme, host, and path values are normalized to null
+    ///     so that the rewriter preserves the original components.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithWhitespaceComponents_NormalizesToNull()
+    {
+        var destination = new Domain.Rules.Rules.MapRemoteDestination(
+            scheme: "   ",
+            host: "\t",
+            port: null,
+            path: "  ",
+            isPreservingHostHeader: false);
+
+        await Assert.That(destination.Scheme).IsNull();
+        await Assert.That(destination.Host).IsNull();
+        await Assert.That(destination.Path).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that an invalid scheme is rejected up front.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithInvalidScheme_Throws()
+    {
+        await Assert.That(() => _ = new Domain.Rules.Rules.MapRemoteDestination(
+            scheme: "http s",
+            host: null,
+            port: null,
+            path: null,
+            isPreservingHostHeader: false)).Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that an invalid host is rejected up front.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithInvalidHost_Throws()
+    {
+        await Assert.That(() => _ = new Domain.Rules.Rules.MapRemoteDestination(
+            scheme: null,
+            host: "bad host with spaces",
+            port: null,
+            path: null,
+            isPreservingHostHeader: false)).Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that a non-absolute path is rejected up front.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithRelativePath_Throws()
+    {
+        await Assert.That(() => _ = new Domain.Rules.Rules.MapRemoteDestination(
+            scheme: null,
+            host: null,
+            port: null,
+            path: "relative/path",
+            isPreservingHostHeader: false)).Throws<ArgumentException>();
     }
 }
