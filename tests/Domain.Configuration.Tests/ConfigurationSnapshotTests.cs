@@ -198,4 +198,19 @@ public sealed class ConfigurationSnapshotTests
 
         await Assert.That(count).IsEqualTo(3);
     }
+
+    /// <summary>
+    ///     Verifies that the sequence returned by <see cref="ConfigurationSnapshot.Enumerate" /> is not
+    ///     the mutable backing dictionary; callers must not be able to cast it to a mutable type.
+    /// </summary>
+    [Test]
+    public async Task Enumerate_ReturnedSequence_IsNotMutableDictionary()
+    {
+        var data = new Dictionary<string, string> { ["x"] = "1" };
+        var snapshot = new ConfigurationSnapshot(data);
+
+        var result = snapshot.Enumerate();
+
+        await Assert.That(result is Dictionary<string, string>).IsFalse();
+    }
 }
