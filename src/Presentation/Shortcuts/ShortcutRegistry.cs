@@ -75,7 +75,7 @@ public sealed class ShortcutRegistry
     {
         foreach (var entry in _bindings)
         {
-            if (entry.Value.Modifiers == gesture.Modifiers && entry.Value.Key == gesture.Key)
+            if (entry.Value.Modifiers == gesture.Modifiers && string.Equals(entry.Value.Key, gesture.Key, System.StringComparison.OrdinalIgnoreCase))
             {
                 return entry.Key;
             }

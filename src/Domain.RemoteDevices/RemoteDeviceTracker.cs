@@ -140,11 +140,11 @@ public sealed class RemoteDeviceTracker
     /// </summary>
     /// <param name="address">The device address.</param>
     /// <param name="userAgent">The request's User-Agent, or null when absent.</param>
-    /// <returns>The updated <see cref="RemoteDeviceInfo" />.</returns>
+    /// <returns>An immutable snapshot of the device state after the request was recorded.</returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="address" /> is empty or whitespace.
     /// </exception>
-    public RemoteDeviceInfo RecordRequest(string address, string? userAgent)
+    public RemoteDeviceSnapshot RecordRequest(string address, string? userAgent)
     {
         if (string.IsNullOrWhiteSpace(address))
         {
@@ -152,19 +152,19 @@ public sealed class RemoteDeviceTracker
         }
 
         var now = _timeProvider.GetUtcNow();
-        RemoteDeviceInfo info;
+        RemoteDeviceSnapshot info;
         lock (_lock)
         {
             if (!_devices.TryGetValue(address, out var existing))
             {
                 var newInfo = new RemoteDeviceInfo(address, now, userAgent);
                 _devices[address] = newInfo;
-                info = newInfo;
+                info = newInfo.ToSnapshot();
             }
             else
             {
                 existing.RecordRequest(now, userAgent);
-                info = existing;
+                info = existing.ToSnapshot();
             }
         }
 
@@ -204,22 +204,24 @@ public sealed class RemoteDeviceTracker
     }
 
     /// <summary>
-    ///     Returns a read-only snapshot of the current devices in insertion order.
+    ///     Returns a read-only snapshot of the current devices in insertion order. Each
+    ///     entry is an immutable copy of the device state at the moment the snapshot was
+    ///     taken; later tracker mutations do not affect previously returned snapshots.
     /// </summary>
-    /// <returns>A new read-only collection.</returns>
-    public ReadOnlyCollection<RemoteDeviceInfo> Snapshot()
+    /// <returns>A new read-only collection of immutable device snapshots.</returns>
+    public ReadOnlyCollection<RemoteDeviceSnapshot> Snapshot()
     {
         lock (_lock)
         {
-            var array = new RemoteDeviceInfo[_devices.Count];
+            var array = new RemoteDeviceSnapshot[_devices.Count];
             var index = 0;
             foreach (var entry in _devices)
             {
-                array[index] = entry.Value;
+                array[index] = entry.Value.ToSnapshot();
                 index++;
             }
 
-            var snapshot = new ReadOnlyCollection<RemoteDeviceInfo>(array);
+            var snapshot = new ReadOnlyCollection<RemoteDeviceSnapshot>(array);
             return snapshot;
         }
     }
