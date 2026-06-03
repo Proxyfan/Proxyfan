@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Proxyfan.Framework.Serialization;
+using Proxyfan.Domain.Traffic;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Threading;
 using System;
@@ -20,7 +20,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
     private readonly IFilePickerService _filePickerService;
-    private readonly IRemoteProcedureCallDescriptorLibrary _library;
+    private readonly IRemoteProcedureCallDescriptorRepository _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private string? _selectedFilePath;
@@ -36,11 +36,11 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
     ///     Initializes a new <see cref="RemoteProcedureCallDescriptorsViewModel" /> bound to
     ///     the supplied library and file picker.
     /// </summary>
-    /// <param name="library">The descriptor library to mutate.</param>
+    /// <param name="library">The descriptor repository to mutate.</param>
     /// <param name="filePickerService">The file picker used to choose <c>.pb</c> files.</param>
     /// <param name="userInterfaceScheduler">The UI-thread scheduler.</param>
     public RemoteProcedureCallDescriptorsViewModel(
-        IRemoteProcedureCallDescriptorLibrary library,
+        IRemoteProcedureCallDescriptorRepository library,
         IFilePickerService filePickerService,
         IUserInterfaceScheduler userInterfaceScheduler)
     {

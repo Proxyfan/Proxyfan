@@ -23,6 +23,7 @@ using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Session.Har;
+using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Columns;
 using Proxyfan.Domain.Updates;
 using Proxyfan.Framework.Serialization;
@@ -83,7 +84,9 @@ public partial class App : Application
             services.AddSingleton<SourceListViewModel>();
             services.AddSingleton<WebSocketInspectorViewModel>();
             services.AddSingleton<ServerSentEventsInspectorViewModel>();
-            services.AddSingleton<IRemoteProcedureCallDescriptorLibrary, RemoteProcedureCallDescriptorLibrary>();
+            services.AddSingleton<RemoteProcedureCallDescriptorLibrary>();
+            services.AddSingleton<IRemoteProcedureCallDescriptorLibrary>(static serviceProvider => serviceProvider.GetRequiredService<RemoteProcedureCallDescriptorLibrary>());
+            services.AddSingleton<IRemoteProcedureCallDescriptorRepository>(static serviceProvider => serviceProvider.GetRequiredService<RemoteProcedureCallDescriptorLibrary>());
             services.AddSingleton<RemoteProcedureCallInspectorViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<TabHostViewModel>();

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Proxyfan.Domain.Traffic;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -12,7 +13,7 @@ namespace Proxyfan.Framework.Serialization;
 ///     Mutations are serialized via a single internal lock, while <see cref="Index" /> reads
 ///     are lock-free and observe published updates via <see cref="Volatile.Read{T}" />.
 /// </summary>
-public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallDescriptorLibrary
+public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallDescriptorLibrary, IRemoteProcedureCallDescriptorRepository
 {
     private readonly Dictionary<string, IReadOnlyList<ProtobufFileDescriptor>> _filesBySource;
     private readonly Lock _gate;
