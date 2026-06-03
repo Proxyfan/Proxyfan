@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Domain.Certificates;
+using Proxyfan.Presentation;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Threading;
 using System;
@@ -16,7 +17,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 ///     in the Windows trust store, regenerate the authority, and export it as a
 ///     DER-encoded <c>.cer</c> file.
 /// </summary>
-public sealed partial class CertificateManagerViewModel : ObservableObject, IDisposable
+public sealed partial class CertificateManagerViewModel : ObservableObject, IActivatable, IDisposable
 {
     private const string CerExtension = "cer";
     private const string CerTypeDescription = "X.509 Certificate (DER)";
@@ -25,6 +26,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     private readonly ICertificateStore _certificateStore;
     private readonly IFilePickerService _filePickerService;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
+    private bool _isActivated;
     [ObservableProperty]
     private bool _isBusy;
     [ObservableProperty]
@@ -65,6 +67,18 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         _statusMessage = string.Empty;
         _notBefore = DateTimeOffset.MinValue;
         _notAfter = DateTimeOffset.MinValue;
+    }
+
+    /// <inheritdoc />
+    public void Activate()
+    {
+        if (_isActivated)
+        {
+            return;
+        }
+
+        _isActivated = true;
+        RefreshCommand.Execute(null);
     }
 
     /// <inheritdoc />
