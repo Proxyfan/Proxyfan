@@ -325,6 +325,24 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _coordinator.NotifyFlowsCleared();
     }
 
+    private int ComputeVisibleInsertIndex(TrafficFlowViewModel viewModel)
+    {
+        var flowIndex = Flows.IndexOf(viewModel);
+        var insertIndex = 0;
+
+        foreach (var visible in VisibleFlows)
+        {
+            if (Flows.IndexOf(visible) > flowIndex)
+            {
+                break;
+            }
+
+            insertIndex++;
+        }
+
+        return insertIndex;
+    }
+
     [RelayCommand]
     private async Task CopySelectedAsCurlAsync(CancellationToken cancellationToken)
     {
@@ -440,7 +458,13 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateResponse(domainEvent));
+        _userInterfaceScheduler.Post(() => OnResponseReceivedOnUiThread(viewModel, domainEvent));
+    }
+
+    private void OnResponseReceivedOnUiThread(TrafficFlowViewModel viewModel, ResponseReceived domainEvent)
+    {
+        viewModel.UpdateResponse(domainEvent);
+        ReevaluateFlowVisibility(viewModel);
     }
 
     private void RebuildVisibleFlowsOnUiThread()
@@ -453,6 +477,21 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             {
                 VisibleFlows.Add(flow);
             }
+        }
+    }
+
+    private void ReevaluateFlowVisibility(TrafficFlowViewModel viewModel)
+    {
+        var shouldBeVisible = HasFilterMatch(viewModel);
+        var isCurrentlyVisible = VisibleFlows.Contains(viewModel);
+
+        if (shouldBeVisible && !isCurrentlyVisible)
+        {
+            VisibleFlows.Insert(ComputeVisibleInsertIndex(viewModel), viewModel);
+        }
+        else if (!shouldBeVisible && isCurrentlyVisible)
+        {
+            VisibleFlows.Remove(viewModel);
         }
     }
 
