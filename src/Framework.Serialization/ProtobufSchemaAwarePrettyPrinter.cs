@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -88,6 +89,24 @@ public static class ProtobufSchemaAwarePrettyPrinter
         }
 
         builder.Append('\n');
+    }
+
+    private static bool CanBePackedAsPrimitive(ProtobufFieldKind kind)
+    {
+        return kind is ProtobufFieldKind.TypeDouble
+            or ProtobufFieldKind.TypeFloat
+            or ProtobufFieldKind.TypeInt64
+            or ProtobufFieldKind.TypeUInt64
+            or ProtobufFieldKind.TypeInt32
+            or ProtobufFieldKind.TypeFixed64
+            or ProtobufFieldKind.TypeFixed32
+            or ProtobufFieldKind.TypeBool
+            or ProtobufFieldKind.TypeUInt32
+            or ProtobufFieldKind.TypeEnum
+            or ProtobufFieldKind.TypeSignedFixed32
+            or ProtobufFieldKind.TypeSignedFixed64
+            or ProtobufFieldKind.TypeSignedInt32
+            or ProtobufFieldKind.TypeSignedInt64;
     }
 
     private static ProtobufFieldDescriptor? FindFieldDescriptor(ProtobufMessageDescriptor messageDescriptor, int fieldNumber)
@@ -199,6 +218,16 @@ public static class ProtobufSchemaAwarePrettyPrinter
         return field.Value.ToString() ?? string.Empty;
     }
 
+    private static ProtobufWireType GetPackedElementWireType(ProtobufFieldKind kind)
+    {
+        return kind switch
+        {
+            ProtobufFieldKind.TypeDouble or ProtobufFieldKind.TypeFixed64 or ProtobufFieldKind.TypeSignedFixed64 => ProtobufWireType.I64,
+            ProtobufFieldKind.TypeFloat or ProtobufFieldKind.TypeFixed32 or ProtobufFieldKind.TypeSignedFixed32 => ProtobufWireType.I32,
+            _ => ProtobufWireType.Varint,
+        };
+    }
+
     private static IReadOnlyList<ProtobufField>? TryDecodeNested(byte[] bytes)
     {
         try
@@ -208,6 +237,95 @@ public static class ProtobufSchemaAwarePrettyPrinter
         catch (InvalidDataException)
         {
             return null;
+        }
+    }
+
+    private static List<ProtobufField>? TryDecodePackedElements(byte[] bytes, int fieldNumber, ProtobufWireType elementWireType)
+    {
+        var initialCapacity = elementWireType switch
+        {
+            ProtobufWireType.I32 => bytes.Length / 4,
+            ProtobufWireType.I64 => bytes.Length / 8,
+            _ => 0,
+        };
+        var elements = new List<ProtobufField>(initialCapacity);
+        var offset = 0;
+        while (offset < bytes.Length)
+        {
+            switch (elementWireType)
+            {
+                case ProtobufWireType.Varint:
+                    var varint = TryReadVarintAt(bytes, offset);
+                    if (varint is null)
+                    {
+                        return null;
+                    }
+
+                    var varintField = new ProtobufField(fieldNumber, ProtobufWireType.Varint, varint.Value.Value);
+                    elements.Add(varintField);
+                    offset += varint.Value.BytesConsumed;
+                    break;
+                case ProtobufWireType.I32:
+                    if (offset + 4 > bytes.Length)
+                    {
+                        return null;
+                    }
+
+                    var span32 = new ReadOnlySpan<byte>(bytes, offset, 4);
+                    var raw32 = BinaryPrimitives.ReadUInt32LittleEndian(span32);
+                    var field32 = new ProtobufField(fieldNumber, ProtobufWireType.I32, raw32);
+                    elements.Add(field32);
+                    offset += 4;
+                    break;
+                case ProtobufWireType.I64:
+                    if (offset + 8 > bytes.Length)
+                    {
+                        return null;
+                    }
+
+                    var span64 = new ReadOnlySpan<byte>(bytes, offset, 8);
+                    var raw64 = BinaryPrimitives.ReadUInt64LittleEndian(span64);
+                    var field64 = new ProtobufField(fieldNumber, ProtobufWireType.I64, raw64);
+                    elements.Add(field64);
+                    offset += 8;
+                    break;
+                case ProtobufWireType.LengthDelimited:
+                case ProtobufWireType.StartGroup:
+                case ProtobufWireType.EndGroup:
+                default:
+                    return null;
+            }
+        }
+
+        return elements;
+    }
+
+    private static PackedVarintRead? TryReadVarintAt(byte[] bytes, int offset)
+    {
+        ulong value = 0;
+        var bytesConsumed = 0;
+        var shift = 0;
+        while (true)
+        {
+            if (offset + bytesConsumed >= bytes.Length)
+            {
+                return null;
+            }
+
+            var current = bytes[offset + bytesConsumed];
+            bytesConsumed++;
+            value |= (ulong)(current & 0x7F) << shift;
+
+            if ((current & 0x80) == 0)
+            {
+                return new PackedVarintRead(value, bytesConsumed);
+            }
+
+            shift += 7;
+            if (shift >= 64)
+            {
+                return null;
+            }
         }
     }
 
@@ -289,7 +407,43 @@ public static class ProtobufSchemaAwarePrettyPrinter
             }
         }
 
+        if (fieldDescriptor.Label == ProtobufFieldLabel.Repeated && CanBePackedAsPrimitive(fieldDescriptor.Kind))
+        {
+            var elementWireType = GetPackedElementWireType(fieldDescriptor.Kind);
+            var elements = TryDecodePackedElements(bytes, fieldDescriptor.Number, elementWireType);
+            if (elements is not null)
+            {
+                WritePackedRepeatedField(context, elements, fieldDescriptor, indentLevel);
+                return;
+            }
+        }
+
         AppendRawBytesField(context.Builder, fieldDescriptor.Name, bytes, indentLevel);
+    }
+
+    private static void WritePackedRepeatedField(ProtobufSchemaAwarePrettyPrintContext context, List<ProtobufField> elements, ProtobufFieldDescriptor fieldDescriptor, int indentLevel)
+    {
+        AppendIndent(context.Builder, indentLevel);
+        context.Builder.Append(fieldDescriptor.Name);
+        context.Builder.Append(": [");
+        for (var elementIndex = 0; elementIndex < elements.Count; elementIndex++)
+        {
+            if (elementIndex > 0)
+            {
+                context.Builder.Append(", ");
+            }
+
+            var element = elements[elementIndex];
+            if (element.WireType == ProtobufWireType.I64 && element.Value is ulong raw64)
+            {
+                context.Builder.Append(FormatI64Value(raw64, fieldDescriptor));
+                continue;
+            }
+
+            context.Builder.Append(FormatScalarValue(element, fieldDescriptor, context.Index));
+        }
+
+        context.Builder.Append("]\n");
     }
 
     private static void WriteUnknownField(StringBuilder builder, ProtobufField field, int indentLevel)
