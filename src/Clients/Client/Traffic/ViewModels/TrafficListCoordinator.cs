@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -12,6 +14,12 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed class TrafficListCoordinator
 {
     /// <summary>
+    ///     Raised when the traffic list flow collection changes. The payload
+    ///     is the latest collection snapshot.
+    /// </summary>
+    public event TrafficListFlowsChangedHandler? FlowsChanged;
+
+    /// <summary>
     ///     Raised when the traffic list clears its flow collection. The
     ///     source list rebuilds its host groups in response.
     /// </summary>
@@ -23,6 +31,33 @@ public sealed class TrafficListCoordinator
     ///     empty string clears the filter.
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
+
+    /// <summary>
+    ///     Gets the latest traffic-flow collection snapshot provided by the
+    ///     traffic list.
+    /// </summary>
+    public IReadOnlyList<TrafficFlowViewModel> CurrentFlows { get; private set; }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListCoordinator" />.
+    /// </summary>
+    public TrafficListCoordinator()
+    {
+        CurrentFlows = [];
+    }
+
+    /// <summary>
+    ///     Publishes a flows-changed notification to subscribers and updates
+    ///     the latest flow snapshot.
+    /// </summary>
+    /// <param name="flows">
+    ///     The current flow collection snapshot.
+    /// </param>
+    public void NotifyFlowsChanged(IReadOnlyList<TrafficFlowViewModel> flows)
+    {
+        CurrentFlows = flows;
+        FlowsChanged?.Invoke(flows);
+    }
 
     /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
