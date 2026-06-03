@@ -3,6 +3,7 @@ using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -214,7 +215,7 @@ public sealed class MutableAllowListRuleTests
         var count = 0;
         rule.Changed += () => count++;
 
-        Assert.Throws<Exception>(() =>
+        Assert.Throws<RegexParseException>(() =>
             rule.AddPattern(new MatchingRule("[invalid", MatchingRuleKind.Regex)));
 
         await Assert.That(count).IsEqualTo(0);

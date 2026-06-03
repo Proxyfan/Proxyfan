@@ -1,6 +1,7 @@
 ﻿using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -254,7 +255,7 @@ public sealed class MutableBreakpointConfigurationTests
         var count = 0;
         configuration.Changed += () => count++;
 
-        Assert.Throws<Exception>(() =>
+        Assert.Throws<RegexParseException>(() =>
             configuration.AddPattern(new MatchingRule("[invalid", MatchingRuleKind.Regex)));
 
         await Assert.That(count).IsEqualTo(0);
