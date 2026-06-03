@@ -7,9 +7,9 @@
         <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
         <!--
             E2E UI tests boot a headless Avalonia app and exercise real Views.
-            They are deliberately excluded from CI:
-              - The CI workflow (.github/workflows/ci.yml) runs `Run-Tests.ps1`
-                without -IncludeEndToEnd, which sets EXCLUDE_END_TO_END=true.
+            They are deliberately excluded from the default test run:
+              - The standard local gate (`Run-Tests.ps1` without
+                `-IncludeEndToEnd`) sets EXCLUDE_END_TO_END=true.
               - The release workflow (.github/workflows/release.yml) does the same.
               - Locally, `Run-Tests.ps1 -IncludeEndToEnd` opts in.
             The property below is the gate `Run-Tests.ps1` checks on.
