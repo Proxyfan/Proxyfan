@@ -4,39 +4,28 @@ namespace Proxyfan.Domain.Tests;
 
 /// <summary>
 ///     Tests for <see cref="VoidResult" />.
-///     Covers success and failure constructor behavior.
+///     Covers the parameterless success constructor and the <see cref="DomainError" /> failure
+///     constructor, ensuring a failed result always carries its error.
 /// </summary>
 public sealed class VoidResultTests
 {
     /// <summary>
-    ///     Verifies that constructing with <see langword="true" /> marks the result successful.
-    ///     Also verifies that a successful result has no associated error.
+    ///     Verifies that the parameterless <see cref="VoidResult" /> constructor produces a
+    ///     successful result with no error.
     /// </summary>
     [Test]
-    public async Task Constructor_WithTrue_IsSuccessAndNoError()
+    public async Task Constructor_Parameterless_IsSuccessAndNoError()
     {
-        var result = new VoidResult(true);
+        var result = new VoidResult();
 
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Error).IsNull();
     }
 
     /// <summary>
-    ///     Verifies that constructing with <see langword="false" /> marks the result unsuccessful.
-    ///     Also verifies that the boolean-failure overload leaves the error unset.
-    /// </summary>
-    [Test]
-    public async Task Constructor_WithFalse_IsNotSuccessAndNoError()
-    {
-        var result = new VoidResult(false);
-
-        await Assert.That(result.IsSuccess).IsFalse();
-        await Assert.That(result.Error).IsNull();
-    }
-
-    /// <summary>
-    ///     Verifies that constructing with a <see cref="DomainError" /> marks the result unsuccessful.
-    ///     Also verifies that the provided error instance is preserved.
+    ///     Verifies that the <see cref="DomainError" /> constructor produces an unsuccessful
+    ///     result that preserves the supplied error so callers never observe a failure with a
+    ///     null error.
     /// </summary>
     [Test]
     public async Task Constructor_WithDomainError_IsNotSuccessAndHoldsError()
