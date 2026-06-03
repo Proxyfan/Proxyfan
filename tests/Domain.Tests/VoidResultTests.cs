@@ -4,31 +4,34 @@ namespace Proxyfan.Domain.Tests;
 
 /// <summary>
 ///     Tests for <see cref="VoidResult" />.
-///     Covers success and failure constructor behavior.
+///     Covers the parameterless success constructor and the <see cref="DomainError" /> failure
+///     constructor, ensuring a failed result always carries its error.
 /// </summary>
 public sealed class VoidResultTests
 {
     /// <summary>
-    ///     Verifies that <see cref="Result.Success()" /> produces a successful result with no error.
+    ///     Verifies that the parameterless <see cref="VoidResult" /> constructor produces a
+    ///     successful result with no error.
     /// </summary>
     [Test]
-    public async Task Success_WhenInvoked_IsSuccessAndNoError()
+    public async Task Constructor_Parameterless_IsSuccessAndNoError()
     {
-        var result = Result.Success();
+        var result = new VoidResult();
 
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Error).IsNull();
     }
 
     /// <summary>
-    ///     Verifies that <see cref="Result.Failure(DomainError)" /> produces an unsuccessful result that
-    ///     preserves the supplied <see cref="DomainError" /> so callers never observe a failure with a null error.
+    ///     Verifies that the <see cref="DomainError" /> constructor produces an unsuccessful
+    ///     result that preserves the supplied error so callers never observe a failure with a
+    ///     null error.
     /// </summary>
     [Test]
-    public async Task Failure_WithDomainError_IsNotSuccessAndHoldsError()
+    public async Task Constructor_WithDomainError_IsNotSuccessAndHoldsError()
     {
         var error = new TestError("TEST_CODE", "Test error message");
-        var result = Result.Failure(error);
+        var result = new VoidResult(error);
 
         await Assert.That(result.IsSuccess).IsFalse();
         await Assert.That(result.Error).IsSameReferenceAs(error);
