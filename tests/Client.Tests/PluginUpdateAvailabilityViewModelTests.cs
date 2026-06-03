@@ -1,5 +1,4 @@
 using Proxyfan.Client.Tools.ViewModels;
-using Proxyfan.Framework.Extensibility;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -43,16 +42,14 @@ public sealed class PluginUpdateAvailabilityViewModelTests
     [Test]
     public async Task Construct_PopulatedAvailability_ExposesAllFields()
     {
-        var availability = new PluginUpdateAvailability
-        {
-            Identifier = "com.x",
-            Name = "X plugin",
-            Author = "Author X",
-            CurrentVersion = "1.0.0",
-            LatestVersion = "1.2.3",
-            DownloadUrl = "https://example.com/x.zip",
-            IsCompatible = true,
-        };
+        var availability = new PluginUpdateAvailabilitySnapshot(
+            "com.x",
+            "X plugin",
+            "Author X",
+            "1.0.0",
+            "1.2.3",
+            "https://example.com/x.zip",
+            true);
 
         var viewModel = new PluginUpdateAvailabilityViewModel(availability);
 
@@ -64,18 +61,16 @@ public sealed class PluginUpdateAvailabilityViewModelTests
         await Assert.That(viewModel.DownloadUrl).IsEqualTo("https://example.com/x.zip");
     }
 
-    private static PluginUpdateAvailability BuildAvailability(string current, string latest, bool isCompatible)
+    private static PluginUpdateAvailabilitySnapshot BuildAvailability(string current, string latest, bool isCompatible)
     {
-        var availability = new PluginUpdateAvailability
-        {
-            Identifier = "com.x",
-            Name = "X",
-            Author = "A",
-            CurrentVersion = current,
-            LatestVersion = latest,
-            DownloadUrl = "https://example.com/x.zip",
-            IsCompatible = isCompatible,
-        };
+        var availability = new PluginUpdateAvailabilitySnapshot(
+            "com.x",
+            "X",
+            "A",
+            current,
+            latest,
+            "https://example.com/x.zip",
+            isCompatible);
         return availability;
     }
 }
