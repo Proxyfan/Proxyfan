@@ -66,6 +66,19 @@ public sealed class ThrottledStreamWriterTests
     }
 
     /// <summary>
+    ///     Verifies that a zero retry delay throws ArgumentOutOfRangeException so the
+    ///     throttled write loop cannot busy-spin when the bucket is exhausted.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithZeroRetryDelay_Throws()
+    {
+        var bucket = new TokenBucket(64, 64, TimeProvider.System);
+
+        await Assert.That(() => new ThrottledStreamWriter(bucket, TimeProvider.System, TimeSpan.Zero))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
     ///     Verifies that the default constructor uses a 5ms retry delay and writes the buffer.
     /// </summary>
     [Test]

@@ -7,6 +7,8 @@ namespace Proxyfan.Domain.DomainNameSystemSpoofing;
 ///     Validates user-supplied DNS override patterns. Accepts exact host names
 ///     (e.g. <c>api.example.com</c>) and wildcard subdomain patterns
 ///     (e.g. <c>*.example.com</c>). Wildcards may only appear as the leading label.
+///     A single trailing root dot (e.g. <c>api.example.com.</c>) is tolerated to
+///     match the canonical form produced by <see cref="DomainPatternNormalization" />.
 /// </summary>
 public static class DomainPatternValidator
 {
@@ -36,6 +38,11 @@ public static class DomainPatternValidator
         }
 
         var trimmed = pattern.Trim();
+        if (trimmed.Length > 1 && trimmed.EndsWith('.'))
+        {
+            trimmed = trimmed[..^1];
+        }
+
         try
         {
             return PatternRegex.IsMatch(trimmed);

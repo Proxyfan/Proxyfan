@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Shortcuts;
 
 namespace Proxyfan.Client.Tests;
@@ -19,7 +21,7 @@ public sealed class KeyboardShortcutsViewModelTests
     {
         var registry = new ShortcutRegistry();
         var store = new StubShortcutBindingsStore();
-        var viewModel = new KeyboardShortcutsViewModel(registry, store);
+        var viewModel = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
 
         await Assert.That(viewModel.Bindings.Count).IsEqualTo(System.Enum.GetValues<ShortcutAction>().Length);
 
@@ -36,7 +38,7 @@ public sealed class KeyboardShortcutsViewModelTests
     public async Task CanRebind_UnusedGesture_ReturnsTrue()
     {
         var registry = new ShortcutRegistry();
-        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore());
+        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore(), new LocalizationService(CultureInfo.InvariantCulture));
         var unused = new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Control | KeyboardModifier.Shift };
 
         var canRebind = viewModel.CanRebind(ShortcutAction.Find, unused);
@@ -51,7 +53,7 @@ public sealed class KeyboardShortcutsViewModelTests
     public async Task CanRebind_SameActionSameGesture_ReturnsTrue()
     {
         var registry = new ShortcutRegistry();
-        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore());
+        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore(), new LocalizationService(CultureInfo.InvariantCulture));
         var current = registry.GetGesture(ShortcutAction.Find)!;
 
         var canRebind = viewModel.CanRebind(ShortcutAction.Find, current);
@@ -66,7 +68,7 @@ public sealed class KeyboardShortcutsViewModelTests
     public async Task CanRebind_GestureBoundToOtherAction_ReturnsFalse()
     {
         var registry = new ShortcutRegistry();
-        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore());
+        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore(), new LocalizationService(CultureInfo.InvariantCulture));
         var findGesture = registry.GetGesture(ShortcutAction.Find)!;
 
         var canRebind = viewModel.CanRebind(ShortcutAction.ClearTraffic, findGesture);
@@ -82,7 +84,7 @@ public sealed class KeyboardShortcutsViewModelTests
     public async Task Rebind_UnusedGesture_UpdatesRegistryAndEntry()
     {
         var registry = new ShortcutRegistry();
-        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore());
+        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore(), new LocalizationService(CultureInfo.InvariantCulture));
         viewModel.StatusMessage = "old message";
         var newGesture = new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Control | KeyboardModifier.Shift };
 
@@ -102,7 +104,7 @@ public sealed class KeyboardShortcutsViewModelTests
     public async Task Rebind_ConflictingGesture_SetsStatusMessageAndLeavesUnchanged()
     {
         var registry = new ShortcutRegistry();
-        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore());
+        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore(), new LocalizationService(CultureInfo.InvariantCulture));
         var findGesture = registry.GetGesture(ShortcutAction.Find)!;
         var originalClearTraffic = registry.GetGesture(ShortcutAction.ClearTraffic);
 
@@ -121,7 +123,7 @@ public sealed class KeyboardShortcutsViewModelTests
     {
         var registry = new ShortcutRegistry();
         var store = new StubShortcutBindingsStore();
-        var viewModel = new KeyboardShortcutsViewModel(registry, store);
+        var viewModel = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
 
         viewModel.SaveCommand.Execute(null);
 
@@ -138,7 +140,7 @@ public sealed class KeyboardShortcutsViewModelTests
     {
         var registry = new ShortcutRegistry();
         var store = new StubShortcutBindingsStore();
-        var viewModel = new KeyboardShortcutsViewModel(registry, store);
+        var viewModel = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
         viewModel.Rebind(
             ShortcutAction.Find,
             new KeyboardGesture { Key = "Q", Modifiers = KeyboardModifier.Control | KeyboardModifier.Shift });
@@ -164,7 +166,7 @@ public sealed class KeyboardShortcutsViewModelTests
     public async Task SelectedEntry_AssignNew_RaisesPropertyChanged()
     {
         var registry = new ShortcutRegistry();
-        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore());
+        var viewModel = new KeyboardShortcutsViewModel(registry, new StubShortcutBindingsStore(), new LocalizationService(CultureInfo.InvariantCulture));
         string? raised = null;
         viewModel.PropertyChanged += (_, args) =>
         {

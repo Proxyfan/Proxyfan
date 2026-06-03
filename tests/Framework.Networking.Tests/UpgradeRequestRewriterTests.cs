@@ -137,6 +137,64 @@ public sealed class UpgradeRequestRewriterTests
         await Assert.That(asString).Contains("MalformedNoColon");
     }
 
+    /// <summary>Verifies that a header named by the client's Connection list is stripped.</summary>
+    [Test]
+    public async Task RewriteHeaders_ConnectionListedHeader_IsStripped()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "GET /chat HTTP/1.1\r\nHost: example.com\r\nConnection: upgrade, X-Hop\r\nUpgrade: websocket\r\nX-Hop: secret\r\n\r\n");
+        var request = BuildRelativeRequest("GET", "/chat");
+
+        var rewritten = UpgradeRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("X-Hop: secret");
+        await Assert.That(asString).DoesNotContain("secret");
+        await Assert.That(asString).Contains("Connection: upgrade, X-Hop");
+        await Assert.That(asString).Contains("Upgrade: websocket");
+    }
+
+    /// <summary>Verifies that standard hop-by-hop headers are stripped from upgrade requests.</summary>
+    [Test]
+    public async Task RewriteHeaders_HopByHopHeaders_AreStripped()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "GET /chat HTTP/1.1\r\nHost: example.com\r\nConnection: upgrade\r\nUpgrade: websocket\r\nKeep-Alive: timeout=5\r\nTE: trailers\r\nTrailer: Expires\r\nTransfer-Encoding: chunked\r\n\r\n");
+        var request = BuildRelativeRequest("GET", "/chat");
+
+        var rewritten = UpgradeRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).DoesNotContain("Keep-Alive");
+        await Assert.That(asString).DoesNotContain("TE:");
+        await Assert.That(asString).DoesNotContain("Trailer:");
+        await Assert.That(asString).DoesNotContain("Transfer-Encoding");
+        await Assert.That(asString).Contains("Connection: upgrade");
+        await Assert.That(asString).Contains("Upgrade: websocket");
+    }
+
+    /// <summary>
+    ///     Verifies that when the request carries a non-empty decoded body, the rewriter injects
+    ///     a fresh <c>Content-Length</c> matching the body length and strips any inbound framing
+    ///     headers (<c>Transfer-Encoding</c>, original <c>Content-Length</c>).
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_NonEmptyBody_InjectsContentLengthAndStripsFramingHeaders()
+    {
+        var original = Encoding.ASCII.GetBytes(
+            "GET /chat HTTP/1.1\r\nHost: example.com\r\nConnection: upgrade\r\nUpgrade: websocket\r\nContent-Length: 99\r\nTransfer-Encoding: chunked\r\n\r\n");
+        var request = BuildRelativeRequestWithBody("GET", "/chat", new byte[] { 0x01, 0x02, 0x03 });
+
+        var rewritten = UpgradeRequestRewriter.RewriteHeaders(original, request);
+        var asString = Encoding.ASCII.GetString(rewritten);
+
+        await Assert.That(asString).Contains("Content-Length: 3");
+        await Assert.That(asString).DoesNotContain("Content-Length: 99");
+        await Assert.That(asString).DoesNotContain("Transfer-Encoding");
+        await Assert.That(asString).Contains("Connection: upgrade");
+        await Assert.That(asString).Contains("Upgrade: websocket");
+    }
+
     private static HypertextTransferProtocolRequestData BuildAbsoluteRequest(string method, string absoluteUri)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
@@ -155,6 +213,19 @@ public sealed class UpgradeRequestRewriterTests
         var parameters = new HypertextTransferProtocolRequestDataParameters
         {
             Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", "example.com"),
+            Method = method,
+            RequestUri = new Uri(path, UriKind.Relative),
+            Version = "HTTP/1.1",
+        };
+        return new HypertextTransferProtocolRequestData(parameters);
+    }
+
+    private static HypertextTransferProtocolRequestData BuildRelativeRequestWithBody(string method, string path, byte[] body)
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = body,
             Headers = HeaderCollection.Empty.Add("Host", "example.com"),
             Method = method,
             RequestUri = new Uri(path, UriKind.Relative),

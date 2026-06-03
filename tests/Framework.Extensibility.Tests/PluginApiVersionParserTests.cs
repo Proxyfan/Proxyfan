@@ -66,4 +66,28 @@ public sealed class PluginApiVersionParserTests
 
         await Assert.That(version).IsNull();
     }
+
+    /// <summary>
+    ///     A negative major component returns null, since negative version numbers
+    ///     violate SemVer and must not satisfy the compatibility gate.
+    /// </summary>
+    [Test]
+    public async Task Parse_NegativeMajor_ReturnsNull()
+    {
+        var version = PluginApiVersionParser.Parse("-1.5");
+
+        await Assert.That(version).IsNull();
+    }
+
+    /// <summary>
+    ///     A negative minor component returns null, since negative version numbers
+    ///     violate SemVer and must not satisfy the compatibility gate.
+    /// </summary>
+    [Test]
+    public async Task Parse_NegativeMinor_ReturnsNull()
+    {
+        var version = PluginApiVersionParser.Parse("1.-1");
+
+        await Assert.That(version).IsNull();
+    }
 }

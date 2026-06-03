@@ -3,6 +3,7 @@ using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using System;
 using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
@@ -111,7 +112,18 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
     private async Task HandleSocks4Async(IProxyConnection connection, CancellationToken cancellationToken)
     {
         var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(connection.Transport.Input, 9, Socks4MaxRequestLength, cancellationToken).ConfigureAwait(false);
-        var request = Socks4ConnectRequestParser.TryParse(bytes);
+        Socks4ConnectRequest? request;
+
+        try
+        {
+            request = Socks4ConnectRequestParser.TryParse(bytes);
+        }
+        catch (InvalidDataException ex)
+        {
+            LogProtocolFailure(ex, connection.RemoteEndPoint);
+            await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: false, cancellationToken).ConfigureAwait(false);
+            return;
+        }
 
         if (request is null)
         {
@@ -128,7 +140,19 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task HandleSocks5Async(IProxyConnection connection, CancellationToken cancellationToken)
     {
-        var greeting = await ReadSocks5GreetingAsync(connection.Transport.Input, cancellationToken).ConfigureAwait(false);
+        Socks5Greeting? greeting;
+
+        try
+        {
+            greeting = await ReadSocks5GreetingAsync(connection.Transport.Input, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidDataException ex)
+        {
+            LogProtocolFailure(ex, connection.RemoteEndPoint);
+            await connection.Transport.Output.WriteAsync(Socks5NoAcceptableMethods, cancellationToken).ConfigureAwait(false);
+            await connection.Transport.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
 
         if (greeting is null)
         {
@@ -145,7 +169,18 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         await connection.Transport.Output.WriteAsync(Socks5NoAuthSelection, cancellationToken).ConfigureAwait(false);
         await connection.Transport.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-        var request = await ReadSocks5ConnectRequestAsync(connection.Transport.Input, cancellationToken).ConfigureAwait(false);
+        Socks5ConnectRequest? request;
+
+        try
+        {
+            request = await ReadSocks5ConnectRequestAsync(connection.Transport.Input, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidDataException ex)
+        {
+            LogProtocolFailure(ex, connection.RemoteEndPoint);
+            await SocksReplyWriter.WriteSocks5FailureReplyAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
+            return;
+        }
 
         if (request is null)
         {
@@ -160,6 +195,9 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "SOCKS handshake error from {RemoteEndPoint}")]
     private partial void LogHandshakeError(Exception ex, EndPoint? remoteEndPoint);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "SOCKS protocol failure from {RemoteEndPoint}")]
+    private partial void LogProtocolFailure(Exception ex, EndPoint? remoteEndPoint);
 
     [LoggerMessage(Level = LogLevel.Trace, Message = "SOCKS relay direction cancelled")]
     private partial void LogRelayCancelled();
@@ -267,50 +305,63 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task TunnelToEndpointAsync(IProxyConnection connection, IPEndPoint endpoint, CancellationToken cancellationToken)
     {
-        TcpClient? tunnelClient;
+        var tunnelClient = new TcpClient();
 
         try
         {
-            var client = new TcpClient();
-            await client.ConnectAsync(endpoint.Address, endpoint.Port, cancellationToken).ConfigureAwait(false);
-            tunnelClient = client;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            LogConnectFailed(ex, endpoint.Address.ToString(), endpoint.Port);
-            await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: false, cancellationToken).ConfigureAwait(false);
-            return;
-        }
+            try
+            {
+                await tunnelClient.ConnectAsync(endpoint.Address, endpoint.Port, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogConnectFailed(ex, endpoint.Address.ToString(), endpoint.Port);
+                await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: false, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
-        using (tunnelClient)
-        {
             await SocksReplyWriter.WriteSocks4ReplyAsync(connection.Transport.Output, isSuccess: true, cancellationToken).ConfigureAwait(false);
             await RelayAsync(connection, tunnelClient.GetStream(), cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            tunnelClient.Dispose();
         }
     }
 
     private async Task TunnelToHostAsync(IProxyConnection connection, string host, int port, CancellationToken cancellationToken)
     {
-        TcpClient? tunnelClient;
+        var tunnelClient = new TcpClient();
 
         try
         {
-            var client = new TcpClient();
-            var effectiveHost = _hostResolver is null ? host : _hostResolver.Resolve(host);
-            await client.ConnectAsync(effectiveHost, port, cancellationToken).ConfigureAwait(false);
-            tunnelClient = client;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            LogConnectFailed(ex, host, port);
-            await SocksReplyWriter.WriteSocks5FailureReplyAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
-            return;
-        }
+            try
+            {
+                var effectiveHost = host;
+                if (_hostResolver is not null)
+                {
+                    var canBeIpLiteral = host.Contains('.', StringComparison.Ordinal) || host.Contains(':', StringComparison.Ordinal);
+                    if (!canBeIpLiteral || !IPAddress.TryParse(host, out _))
+                    {
+                        effectiveHost = _hostResolver.Resolve(host);
+                    }
+                }
 
-        using (tunnelClient)
-        {
+                await tunnelClient.ConnectAsync(effectiveHost, port, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogConnectFailed(ex, host, port);
+                await SocksReplyWriter.WriteSocks5FailureReplyAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             await SocksReplyWriter.WriteSocks5SuccessReplyAsync(connection.Transport.Output, cancellationToken).ConfigureAwait(false);
             await RelayAsync(connection, tunnelClient.GetStream(), cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            tunnelClient.Dispose();
         }
     }
 }

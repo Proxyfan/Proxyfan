@@ -102,7 +102,7 @@ public static class Result
             return _voidSuccess;
         }
 
-        var success = new VoidResult(isSuccess: true);
+        var success = new VoidResult();
         Interlocked.CompareExchange(ref _voidSuccess, success, null);
         return _voidSuccess;
     }
