@@ -296,7 +296,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
 
         flow.ApplyColorTag(colorTag);
-        flow.GetDomainFlow().SetColorTag(flow.ColorTag);
+        flow.GetDomainFlow().SetColorTag(colorTag);
     }
 
     [RelayCommand]
@@ -308,8 +308,9 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        flow.ApplyComment(comment);
-        flow.GetDomainFlow().SetComment(flow.Comment);
+        var normalizedComment = string.IsNullOrWhiteSpace(comment) ? null : comment;
+        flow.ApplyComment(normalizedComment);
+        flow.GetDomainFlow().SetComment(normalizedComment);
     }
 
     [RelayCommand]
