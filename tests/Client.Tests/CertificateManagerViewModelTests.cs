@@ -12,6 +12,20 @@ namespace Proxyfan.Client.Tests;
 public sealed class CertificateManagerViewModelTests
 {
     /// <summary>
+    ///     Activate performs the initial refresh once and is a no-op on subsequent calls.
+    /// </summary>
+    [Test]
+    public async Task Activate_CalledTwice_RefreshesOnlyOnce()
+    {
+        var (viewModel, _, _, store) = Create();
+
+        viewModel.Activate();
+        viewModel.Activate();
+
+        await Assert.That(store.IsInstalledCallCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     The RefreshCommand loads metadata from the current authority and reports the trust-store state.
     /// </summary>
     [Test]

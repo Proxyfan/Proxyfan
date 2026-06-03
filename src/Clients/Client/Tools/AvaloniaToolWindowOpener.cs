@@ -134,6 +134,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
         };
         _certificateManagerWindow = window;
         ToolWindowDisplay.Show(window);
+        viewModel.Activate();
     }
 
     /// <inheritdoc />
