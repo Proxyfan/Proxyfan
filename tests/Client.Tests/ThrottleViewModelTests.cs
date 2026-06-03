@@ -25,7 +25,8 @@ public sealed class ThrottleViewModelTests
     public async Task Constructor_DefaultHolder_ExposesSevenPresets()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         var names = viewModel.Presets.Select(p => p.DisplayName).ToArray();
 
@@ -39,7 +40,8 @@ public sealed class ThrottleViewModelTests
     public async Task Constructor_DefaultHolder_SelectsOffPreset()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("Off");
         await Assert.That(viewModel.ActiveProfileName).IsEqualTo("Off");
@@ -52,7 +54,8 @@ public sealed class ThrottleViewModelTests
     public async Task Constructor_SeededHolderWithKnownProfile_SelectsMatchingPreset()
     {
         var holder = new MutableThrottleProfile(ThrottleProfilePresets.ThirdGeneration());
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         await Assert.That(viewModel.SelectedPreset!.DisplayName).IsEqualTo("3G");
         await Assert.That(viewModel.ActiveProfileName).IsEqualTo("3G");
@@ -65,7 +68,8 @@ public sealed class ThrottleViewModelTests
     public async Task ApplyCommand_OffPreset_DisablesThrottle()
     {
         var holder = new MutableThrottleProfile(ThrottleProfilePresets.Wireless());
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
         viewModel.SelectedPreset = viewModel.Presets[0];
 
         viewModel.ApplyCommand.Execute(null);
@@ -81,7 +85,8 @@ public sealed class ThrottleViewModelTests
     public async Task ApplyCommand_BadNetworkPreset_StoresBadNetworkProfile()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
         var badNetwork = viewModel.Presets.First(p => p.DisplayName == "Bad Network");
         viewModel.SelectedPreset = badNetwork;
 
@@ -99,7 +104,8 @@ public sealed class ThrottleViewModelTests
     public async Task ApplyCommand_NullSelection_DoesNothing()
     {
         var holder = new MutableThrottleProfile(ThrottleProfilePresets.Wireless());
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
         viewModel.SelectedPreset = null;
 
         viewModel.ApplyCommand.Execute(null);
@@ -114,7 +120,8 @@ public sealed class ThrottleViewModelTests
     public async Task ExternalChange_FourthGeneration_UpdatesActiveProfileName()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
         holder.SetProfile(ThrottleProfilePresets.FastFourthGeneration());
 
@@ -129,7 +136,8 @@ public sealed class ThrottleViewModelTests
     public async Task Dispose_AfterChange_StopsReceivingUpdates()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
         viewModel.Dispose();
 
         holder.SetProfile(ThrottleProfilePresets.SlowSecondGeneration());
@@ -144,7 +152,8 @@ public sealed class ThrottleViewModelTests
     public async Task ExternalChange_UnknownProfile_LeavesSelectedPresetNull()
     {
         var holder = new MutableThrottleProfile();
-        var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService: null);
+        using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
         var parameters = new ThrottleProfileParameters
         {
             UploadBytesPerSecond = 1,
@@ -189,7 +198,8 @@ public sealed class ThrottleViewModelTests
             var stub = new StubResourceManager(lookup);
             localizationService.RegisterManager(stub);
             var holder = new MutableThrottleProfile();
-            var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
+            using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+            var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService);
             var offPreset = viewModel.Presets.First(p => p.Identifier == "Off");
             var badNetworkPreset = viewModel.Presets.First(p => p.Identifier == "Bad Network");
 
@@ -232,7 +242,8 @@ public sealed class ThrottleViewModelTests
             var localizationService = new LocalizationService(french);
             localizationService.RegisterManager(new StubResourceManager(lookup));
             var holder = new MutableThrottleProfile();
-            var viewModel = new ThrottleViewModel(holder, InlineUserInterfaceScheduler.Instance, localizationService);
+            using var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+            var viewModel = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService);
 
             holder.SetProfile(ThrottleProfilePresets.ThirdGeneration());
 
