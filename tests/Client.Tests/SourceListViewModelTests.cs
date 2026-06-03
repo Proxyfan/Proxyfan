@@ -104,10 +104,10 @@ public sealed class SourceListViewModelTests
     }
 
     /// <summary>
-    ///     Verifies that clearing the traffic list clears all host groups except "All".
+    ///     Verifies that rebuild derives host groups from the current traffic-list flows.
     /// </summary>
     [Test]
-    public async Task Rebuild_AfterClear_KeepsOnlyAllGroup()
+    public async Task Rebuild_WithCurrentFlows_RecreatesHostGroupsAndCounts()
     {
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
@@ -118,9 +118,13 @@ public sealed class SourceListViewModelTests
 
         sourceList.Rebuild();
 
-        await Assert.That(sourceList.Sources.Count).IsEqualTo(1);
+        await Assert.That(sourceList.Sources.Count).IsEqualTo(3);
         await Assert.That(sourceList.Sources[0].IsAllGroup).IsTrue();
-        await Assert.That(sourceList.Sources[0].Count).IsEqualTo(0);
+        await Assert.That(sourceList.Sources[0].Count).IsEqualTo(2);
+        await Assert.That(sourceList.Sources[1].Host).IsEqualTo("example.com");
+        await Assert.That(sourceList.Sources[1].Count).IsEqualTo(1);
+        await Assert.That(sourceList.Sources[2].Host).IsEqualTo("other.com");
+        await Assert.That(sourceList.Sources[2].Count).IsEqualTo(1);
     }
 
     /// <summary>
@@ -195,6 +199,33 @@ public sealed class SourceListViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that loading imported flows rebuilds host groups from the
+    ///     current traffic-list flow collection.
+    /// </summary>
+    [Test]
+    public async Task LoadFlows_GivenImportedFlows_RebuildsSourceList()
+    {
+        var bus = new RecordingEventBus();
+        var coordinator = new TrafficListCoordinator();
+        using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
+        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+
+        trafficList.LoadFlows([
+            CreateImportedFlow("example.com"),
+            CreateImportedFlow("example.com"),
+            CreateImportedFlow("other.com"),
+        ]);
+
+        await Assert.That(sourceList.Sources.Count).IsEqualTo(3);
+        await Assert.That(sourceList.Sources[0].IsAllGroup).IsTrue();
+        await Assert.That(sourceList.Sources[0].Count).IsEqualTo(3);
+        await Assert.That(sourceList.Sources[1].Host).IsEqualTo("example.com");
+        await Assert.That(sourceList.Sources[1].Count).IsEqualTo(2);
+        await Assert.That(sourceList.Sources[2].Host).IsEqualTo("other.com");
+        await Assert.That(sourceList.Sources[2].Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Verifies that selecting a host group propagates to the traffic
     ///     list's host filter through the shared coordinator, without the
     ///     source list holding a direct reference to the traffic list.
@@ -244,6 +275,24 @@ public sealed class SourceListViewModelTests
         };
         var request = new HypertextTransferProtocolRequestData(parameters);
         return new RequestReceived(flowId, request, "127.0.0.1:9000", DateTimeOffset.UtcNow);
+    }
+
+    private static TrafficFlow CreateImportedFlow(string host)
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9000", DateTimeOffset.UtcNow);
+        var uri = new Uri($"https://{host}/api");
+        var headers = HeaderCollection.Empty.Add("Host", host);
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = headers,
+            Method = "GET",
+            RequestUri = uri,
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+        flow.SetRequest(request);
+        return flow;
     }
 
     private sealed class RecordingEventBus : IDomainEventBus
