@@ -178,6 +178,86 @@ public sealed class TrafficListViewModelToggleCaptureAndFilterTests
     }
 
     /// <summary>
+    ///     A flow hidden while its status is still 0 must appear in VisibleFlows once a
+    ///     matching response arrives (filter set before the response).
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_StatusCodeFilterSetBeforeResponse_FlowAppearsWhenMatchingResponseArrives()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://a/1"));
+        viewModel.FilterText = "404";
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 404));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.VisibleFlows[0].StatusCode).IsEqualTo(404);
+    }
+
+    /// <summary>
+    ///     A flow that does not match the status-code filter must stay hidden even after a
+    ///     non-matching response arrives.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_StatusCodeFilterSetBeforeResponse_FlowRemainsHiddenWhenNonMatchingResponseArrives()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://a/1"));
+        viewModel.FilterText = "404";
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 200));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     A flow visible because its pending status (0) matches the filter must be removed
+    ///     from VisibleFlows when the arriving response carries a non-matching status code.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_StatusCodeFilter_FlowRemovedWhenResponseMakesItNonMatching()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://a/1"));
+        viewModel.FilterText = "0";
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 111));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     When multiple flows become visible via status-code filter as responses arrive,
+    ///     VisibleFlows must preserve the same order as Flows.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_StatusCodeFilter_MultipleFlowsInsertedInFlowsOrder()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId1 = Guid.NewGuid();
+        var flowId2 = Guid.NewGuid();
+        var flowId3 = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId1, "GET", "https://a/1"));
+        bus.PublishRequestReceived(CreateRequestEvent(flowId2, "GET", "https://a/2"));
+        bus.PublishRequestReceived(CreateRequestEvent(flowId3, "GET", "https://a/3"));
+        viewModel.FilterText = "404";
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId3, 404));
+        bus.PublishResponseReceived(CreateResponseEvent(flowId1, 404));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(2);
+        await Assert.That(viewModel.VisibleFlows[0].Number).IsEqualTo(1);
+        await Assert.That(viewModel.VisibleFlows[1].Number).IsEqualTo(3);
+    }
+
+    /// <summary>
     ///     Empty filter text means everything is visible.
     /// </summary>
     [Test]

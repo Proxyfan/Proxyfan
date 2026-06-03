@@ -374,6 +374,32 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         return string.Equals(flow.Host, HostFilter, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     Inserts <paramref name="viewModel" /> into <see cref="VisibleFlows" /> at the position
+    ///     that preserves the same relative ordering as <see cref="Flows" />.
+    /// </summary>
+    /// <param name="viewModel">The flow to insert.</param>
+    private void InsertIntoVisibleFlowsInOrder(TrafficFlowViewModel viewModel)
+    {
+        var insertAt = 0;
+        var visibleCursor = 0;
+        foreach (var flow in Flows)
+        {
+            if (ReferenceEquals(flow, viewModel))
+            {
+                break;
+            }
+
+            if (visibleCursor < VisibleFlows.Count && ReferenceEquals(VisibleFlows[visibleCursor], flow))
+            {
+                visibleCursor++;
+                insertAt = visibleCursor;
+            }
+        }
+
+        VisibleFlows.Insert(insertAt, viewModel);
+    }
+
     private void LoadFlowsOnUiThread(IReadOnlyList<TrafficFlow> importedFlows)
     {
         ClearOnUiThread();
@@ -440,7 +466,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateResponse(domainEvent));
+        _userInterfaceScheduler.Post(() => UpdateResponseOnUiThread(viewModel, domainEvent));
     }
 
     private void RebuildVisibleFlowsOnUiThread()
@@ -453,6 +479,31 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             {
                 VisibleFlows.Add(flow);
             }
+        }
+    }
+
+    /// <summary>
+    ///     Adds or removes <paramref name="viewModel" /> from <see cref="VisibleFlows" /> based on
+    ///     whether it matches the current filters. Must be called on the UI thread.
+    /// </summary>
+    /// <param name="viewModel">The flow whose visibility should be reevaluated.</param>
+    private void ReevaluateFlowVisibility(TrafficFlowViewModel viewModel)
+    {
+        var isVisible = VisibleFlows.Contains(viewModel);
+        var shouldBeVisible = HasFilterMatch(viewModel);
+
+        if (shouldBeVisible == isVisible)
+        {
+            return;
+        }
+
+        if (shouldBeVisible)
+        {
+            InsertIntoVisibleFlowsInOrder(viewModel);
+        }
+        else
+        {
+            VisibleFlows.Remove(viewModel);
         }
     }
 
@@ -529,5 +580,18 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private void ToggleCapture()
     {
         IsCapturing = !IsCapturing;
+    }
+
+    /// <summary>
+    ///     Applies a <see cref="ResponseReceived" /> event to <paramref name="viewModel" /> and
+    ///     then reevaluates its visibility in <see cref="VisibleFlows" /> so that status-code
+    ///     filters take effect immediately. Must be called on the UI thread.
+    /// </summary>
+    /// <param name="viewModel">The flow view model to update.</param>
+    /// <param name="domainEvent">The response event carrying the new status code and headers.</param>
+    private void UpdateResponseOnUiThread(TrafficFlowViewModel viewModel, ResponseReceived domainEvent)
+    {
+        viewModel.UpdateResponse(domainEvent);
+        ReevaluateFlowVisibility(viewModel);
     }
 }
