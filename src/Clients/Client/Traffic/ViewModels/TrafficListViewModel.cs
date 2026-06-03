@@ -24,6 +24,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private readonly Proxyfan.Presentation.Clipboard.IClipboardService? _clipboardService;
     private readonly TrafficListCoordinator _coordinator;
     private readonly TrafficFlowDiffPool? _diffPool;
+    private readonly ConcurrentDictionary<Guid, TrafficFlow> _domainFlowById;
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
     private readonly IDisposable _requestReceivedSubscription;
@@ -174,6 +175,9 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
         _coordinator = effectiveCoordinator;
 
+        var domainFlowById = new ConcurrentDictionary<Guid, TrafficFlow>();
+        _domainFlowById = domainFlowById;
+
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
 
@@ -203,6 +207,25 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _requestReceivedSubscription.Dispose();
         _responseReceivedSubscription.Dispose();
         _flowCompletedSubscription.Dispose();
+    }
+
+    /// <summary>
+    ///     Creates a stable domain snapshot of the current flow order for export or serialization.
+    /// </summary>
+    /// <returns>The current flows in UI order.</returns>
+    public IReadOnlyList<TrafficFlow> CreateFlowSnapshot()
+    {
+        var snapshot = new List<TrafficFlow>(Flows.Count);
+        foreach (var viewModel in Flows)
+        {
+            var domainFlow = GetDomainFlow(viewModel.Id);
+            if (domainFlow is not null)
+            {
+                snapshot.Add(domainFlow);
+            }
+        }
+
+        return snapshot;
     }
 
     /// <summary>
@@ -283,7 +306,13 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _diffPool.Add(flow.Source);
+        var domainFlow = GetDomainFlow(flow.Id);
+        if (domainFlow is null)
+        {
+            return;
+        }
+
+        _diffPool.Add(domainFlow);
     }
 
     [RelayCommand]
@@ -296,6 +325,13 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
 
         flow.ApplyColorTag(colorTag);
+        var domainFlow = GetDomainFlow(flow.Id);
+        if (domainFlow is null)
+        {
+            return;
+        }
+
+        domainFlow.SetColorTag(colorTag);
     }
 
     [RelayCommand]
@@ -308,6 +344,13 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
 
         flow.ApplyComment(comment);
+        var domainFlow = GetDomainFlow(flow.Id);
+        if (domainFlow is null)
+        {
+            return;
+        }
+
+        domainFlow.SetComment(comment);
     }
 
     [RelayCommand]
@@ -318,6 +361,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void ClearOnUiThread()
     {
+        _domainFlowById.Clear();
         _flowById.Clear();
         Flows.Clear();
         SelectedFlow = null;
@@ -328,7 +372,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedAsCurlAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -341,7 +385,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedAsRawHypertextTransferProtocolAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -354,7 +398,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedUrlAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -362,6 +406,23 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
         var url = request.RequestUri.ToString();
         await _clipboardService.SetTextAsync(url, cancellationToken).ConfigureAwait(false);
+    }
+
+    private TrafficFlow CreateDomainFlow(RequestReceived domainEvent)
+    {
+        var domainFlow = new TrafficFlow(domainEvent.TrafficFlowId, domainEvent.ClientEndPoint, domainEvent.Timestamp);
+        domainFlow.SetRequest(domainEvent.Request);
+        return domainFlow;
+    }
+
+    private TrafficFlow? GetDomainFlow(Guid id)
+    {
+        if (_domainFlowById.TryGetValue(id, out var domainFlow))
+        {
+            return domainFlow;
+        }
+
+        return null;
     }
 
     private bool HasHostFilterMatch(TrafficFlowViewModel flow)
@@ -383,6 +444,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         {
             number++;
             Interlocked.Exchange(ref _nextNumber, number);
+            _domainFlowById[flow.Id] = flow;
             var viewModel = new TrafficFlowViewModel(flow, number);
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
@@ -406,6 +468,23 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var domainFlow = GetDomainFlow(domainEvent.TrafficFlowId);
+        if (domainFlow is not null)
+        {
+            if (domainEvent.Status == TrafficFlowStatus.Complete)
+            {
+                domainFlow.Complete();
+            }
+            else if (domainEvent.Status == TrafficFlowStatus.Failed)
+            {
+                domainFlow.Fail();
+            }
+            else if (domainEvent.Status == TrafficFlowStatus.Aborted)
+            {
+                domainFlow.Abort();
+            }
+        }
+
         _userInterfaceScheduler.Post(() => viewModel.UpdateStatus(domainEvent));
     }
 
@@ -427,6 +506,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
 
         var number = Interlocked.Increment(ref _nextNumber);
+        var domainFlow = CreateDomainFlow(domainEvent);
+        _domainFlowById.TryAdd(domainEvent.TrafficFlowId, domainFlow);
         var viewModel = new TrafficFlowViewModel(domainEvent, number);
         _flowById.TryAdd(domainEvent.TrafficFlowId, viewModel);
 
@@ -438,6 +519,12 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         if (!_flowById.TryGetValue(domainEvent.TrafficFlowId, out var viewModel))
         {
             return;
+        }
+
+        var domainFlow = GetDomainFlow(domainEvent.TrafficFlowId);
+        if (domainFlow is not null && domainFlow.Status == TrafficFlowStatus.Active)
+        {
+            domainFlow.SetResponse(domainEvent.Response);
         }
 
         _userInterfaceScheduler.Post(() =>
@@ -477,7 +564,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void RemoveSelectedOnUiThread(TrafficFlowViewModel viewModel)
     {
-        _flowById.TryRemove(viewModel.Source.Id, out _);
+        _domainFlowById.TryRemove(viewModel.Id, out _);
+        _flowById.TryRemove(viewModel.Id, out _);
         Flows.Remove(viewModel);
         if (ReferenceEquals(SelectedFlow, viewModel))
         {

@@ -8,12 +8,10 @@ using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Session.Har;
-using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Updates;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Threading;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -325,11 +323,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task SaveSessionAsync(CancellationToken cancellationToken)
     {
-        var snapshot = new List<TrafficFlow>(TrafficList.Flows.Count);
-        foreach (var viewModel in TrafficList.Flows)
-        {
-            snapshot.Add(viewModel.Source);
-        }
+        var snapshot = TrafficList.CreateFlowSnapshot();
 
         var request = new FilePickerSaveRequest
         {

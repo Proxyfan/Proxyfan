@@ -11,9 +11,8 @@ namespace Proxyfan.Client.EndToEndTests;
 /// <summary>
 ///     End-to-end UI tests covering the per-flow color tag and comment
 ///     annotation surface described in <c>docs/DESIGN.md § 6.23 Color Tags and
-///     Comments</c>. The mutation flows through
-///     <see cref="Proxyfan.Client.Traffic.ViewModels.TrafficFlowViewModel" /> to
-///     the underlying domain <see cref="TrafficFlow" />.
+///     Comments</c>. The view model exposes bindable annotation state without
+///     publishing the mutable domain <see cref="TrafficFlow" />.
 /// </summary>
 public sealed class TrafficFlowViewModelAnnotationEndToEndTests : EndToEndTestBase
 {
@@ -34,7 +33,7 @@ public sealed class TrafficFlowViewModelAnnotationEndToEndTests : EndToEndTestBa
     }
 
     [Test]
-    public async Task SetColorTag_OnTrafficFlowViewModel_PropagatesToSource()
+    public async Task SetColorTag_OnTrafficFlowViewModel_UpdatesObservableState()
     {
         await RunOnUiThreadAsync(async () =>
         {
