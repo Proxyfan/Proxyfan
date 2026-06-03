@@ -1,4 +1,3 @@
-using FrameworkDescriptorLibrary = Proxyfan.Framework.Serialization.IRemoteProcedureCallDescriptorLibrary;
 using Proxyfan.Presentation.RemoteProcedureCall;
 using System.Collections.Generic;
 
@@ -9,13 +8,13 @@ namespace Proxyfan.Client.Tools;
 /// </summary>
 public sealed class RemoteProcedureCallDescriptorFileLibraryAdapter : IRemoteProcedureCallDescriptorFileLibrary
 {
-    private readonly FrameworkDescriptorLibrary _library;
+    private readonly Proxyfan.Framework.Serialization.IRemoteProcedureCallDescriptorLibrary _library;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="RemoteProcedureCallDescriptorFileLibraryAdapter" /> class.
     /// </summary>
     /// <param name="library">The framework descriptor library.</param>
-    public RemoteProcedureCallDescriptorFileLibraryAdapter(FrameworkDescriptorLibrary library)
+    public RemoteProcedureCallDescriptorFileLibraryAdapter(Proxyfan.Framework.Serialization.IRemoteProcedureCallDescriptorLibrary library)
     {
         _library = library;
     }
