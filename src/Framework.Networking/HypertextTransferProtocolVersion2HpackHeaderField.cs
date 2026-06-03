@@ -11,11 +11,12 @@ namespace Proxyfan.Framework.Networking;
 public sealed class HypertextTransferProtocolVersion2HpackHeaderField
 {
     /// <summary>
-    ///     RFC 7541 § 4.1 — the entry size is the sum of the name length in octets, value length
-    ///     in octets, and a 32-byte overhead representing the entry's bookkeeping. Lengths are
-    ///     counted as UTF-8 octets (not UTF-16 characters) so that non-ASCII values are not
-    ///     undercounted against the dynamic-table budget. Cached at construction because both
-    ///     name and value are immutable and the value is read repeatedly during table operations.
+    ///     RFC 7541 § 4.1 — <see cref="EntrySize" /> is the sum of the name length in octets,
+    ///     value length in octets, and a 32-byte overhead representing the entry's bookkeeping.
+    ///     Lengths are counted as UTF-8 octets (not UTF-16 characters) so that non-ASCII names
+    ///     or values are not undercounted against the dynamic-table budget. <see cref="EntrySize" />
+    ///     is cached at construction because both name and value are immutable and the property
+    ///     is read repeatedly during dynamic-table operations.
     /// </summary>
     public int EntrySize { get; }
 
