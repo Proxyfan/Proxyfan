@@ -1,5 +1,6 @@
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Presentation.Threading;
+using System;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
@@ -7,7 +8,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 ///     Bridges the mutable domain throttle holder into a presentation-facing
 ///     abstraction that view models can observe and command.
 /// </summary>
-public sealed class ThrottleProfileCoordinator : IThrottleProfileCoordinator
+public sealed class ThrottleProfileCoordinator : IThrottleProfileCoordinator, IDisposable
 {
     /// <inheritdoc />
     public event ThrottleProfileCoordinatorChangedHandler? Changed;
@@ -32,17 +33,20 @@ public sealed class ThrottleProfileCoordinator : IThrottleProfileCoordinator
     /// <inheritdoc />
     public void Apply(ThrottleProfile? profile)
     {
-        _userInterfaceScheduler.Post(() =>
+        if (profile is null)
         {
-            if (profile is null)
-            {
-                _mutableProfile.Disable();
-            }
-            else
-            {
-                _mutableProfile.SetProfile(profile);
-            }
-        });
+            _mutableProfile.Disable();
+        }
+        else
+        {
+            _mutableProfile.SetProfile(profile);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _mutableProfile.Changed -= OnProfileChanged;
     }
 
     /// <inheritdoc />

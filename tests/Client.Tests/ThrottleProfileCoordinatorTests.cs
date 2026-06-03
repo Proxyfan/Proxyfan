@@ -52,4 +52,21 @@ public sealed class ThrottleProfileCoordinatorTests
         await Assert.That(observedProfile!.Name).IsEqualTo(profile.Name);
     }
 
+    [Test]
+    public async Task Dispose_AfterExternalChange_DoesNotRaiseChanged()
+    {
+        var holder = new MutableThrottleProfile();
+        var coordinator = new ThrottleProfileCoordinator(holder, InlineUserInterfaceScheduler.Instance);
+        var changeCount = 0;
+        coordinator.Changed += _ =>
+        {
+            changeCount++;
+        };
+        coordinator.Dispose();
+
+        holder.SetProfile(ThrottleProfilePresets.FastFourthGeneration());
+
+        await Assert.That(changeCount).IsEqualTo(0);
+    }
+
 }
