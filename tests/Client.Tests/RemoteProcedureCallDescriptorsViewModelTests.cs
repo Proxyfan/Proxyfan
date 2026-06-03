@@ -15,6 +15,8 @@ namespace Proxyfan.Client.Tests;
 /// </summary>
 public sealed class RemoteProcedureCallDescriptorsViewModelTests
 {
+    private const long OversizedDescriptorFileSize = 10 * 1024 * 1024 + 1;
+
     /// <summary>
     ///     A freshly-constructed view model exposes an empty file list.
     /// </summary>
@@ -147,7 +149,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         var library = new RemoteProcedureCallDescriptorLibrary();
         var picker = new StubPickerService
         {
-            Stream = new LargeStream(10 * 1024 * 1024 + 1),
+            Stream = new LargeStream(OversizedDescriptorFileSize),
             DisplayName = "huge.pb",
         };
         var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
