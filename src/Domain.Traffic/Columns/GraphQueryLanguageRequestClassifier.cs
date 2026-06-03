@@ -7,7 +7,8 @@ namespace Proxyfan.Domain.Traffic.Columns;
 /// <summary>
 ///     Projects the Graph Query Language (GraphQL) operation name from a captured HTTP
 ///     request for surfacing in the traffic list column. Returns <see langword="null" />
-///     when the request is not a GraphQL request or the operation name cannot be determined.
+///     when the request is not a GraphQL request or the operation name cannot be determined,
+///     including malformed JSON payloads.
 /// </summary>
 public static class GraphQueryLanguageRequestClassifier
 {
