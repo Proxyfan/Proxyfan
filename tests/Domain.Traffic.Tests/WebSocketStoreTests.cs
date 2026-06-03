@@ -46,6 +46,33 @@ public sealed class WebSocketStoreTests
     }
 
     /// <summary>
+    ///     Verifies that adding an existing flow id replaces in place without corrupting ring-buffer order.
+    /// </summary>
+    [Test]
+    public async Task Add_WhenFlowIdAlreadyExists_ReplacesFlowWithoutChangingRingCount()
+    {
+        var store = new WebSocketStore(3);
+        var firstFlow = CreateFlow();
+        var secondFlow = CreateFlow();
+        var updatedFirstFlow = CreateFlow(firstFlow.Id);
+        var thirdFlow = CreateFlow();
+        store.Add(firstFlow);
+        store.Add(secondFlow);
+
+        store.Add(updatedFirstFlow);
+
+        await Assert.That(store.Count).IsEqualTo(2);
+        await Assert.That(store.GetAll().Count).IsEqualTo(2);
+        await Assert.That(store.GetById(firstFlow.Id)).IsEqualTo(updatedFirstFlow);
+
+        store.Add(thirdFlow);
+
+        await Assert.That(store.Count).IsEqualTo(3);
+        await Assert.That(store.GetAll().Count).IsEqualTo(3);
+        await Assert.That(store.GetById(firstFlow.Id)).IsEqualTo(updatedFirstFlow);
+    }
+
+    /// <summary>
     ///     Verifies that the parameterless constructor selects a positive default capacity.
     /// </summary>
     [Test]
@@ -149,9 +176,9 @@ public sealed class WebSocketStoreTests
         await Assert.That(store.GetAll().Count).IsEqualTo(32);
     }
 
-    private WebSocketFlow CreateFlow()
+    private WebSocketFlow CreateFlow(Guid? id = null)
     {
-        var traffic = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:8080", DateTimeOffset.UtcNow);
+        var traffic = new TrafficFlow(id ?? Guid.NewGuid(), "127.0.0.1:8080", DateTimeOffset.UtcNow);
         var flow = new WebSocketFlow(traffic);
         return flow;
     }
