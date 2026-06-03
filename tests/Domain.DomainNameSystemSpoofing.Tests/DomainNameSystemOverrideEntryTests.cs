@@ -224,4 +224,20 @@ public sealed class DomainNameSystemOverrideEntryTests
 
         await Assert.That(entry.MatchCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     Verifies RecordMatch saturates at <see cref="int.MaxValue" /> instead of wrapping
+    ///     to a negative value when the counter is already at the maximum.
+    /// </summary>
+    [Test]
+    public async Task RecordMatch_AtIntMaxValue_SaturatesWithoutWrapping()
+    {
+        var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
+        entry.SeedMatchCountForTesting(int.MaxValue);
+
+        var result = entry.RecordMatch();
+
+        await Assert.That(result).IsEqualTo(int.MaxValue);
+        await Assert.That(entry.MatchCount).IsEqualTo(int.MaxValue);
+    }
 }
