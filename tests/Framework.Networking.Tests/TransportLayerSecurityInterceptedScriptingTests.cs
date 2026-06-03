@@ -159,6 +159,57 @@ public sealed class TransportLayerSecurityInterceptedScriptingTests
         await Assert.That(result).IsSameReferenceAs(original);
     }
 
+    /// <summary>
+    ///     Verifies that a handler that reports a failed <see cref="Result{T}" /> for the
+    ///     request hook is treated as a no-op and the original request is returned.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_HandlerReturnsFailure_ReturnsOriginalRequest()
+    {
+        var original = BuildRequest();
+        var handler = new StubScriptingHandler
+        {
+            RequestError = new ScriptError("SCRIPT_REQUEST_FAILED", "boom"),
+        };
+        var requestBundle = new TransportLayerSecurityInterceptedScriptingRequestRequest
+        {
+            EffectiveRequest = original,
+            Flow = BuildFlow(),
+            Handler = handler,
+            Logger = NullLogger.Instance,
+        };
+
+        var result = await TransportLayerSecurityInterceptedScripting.ApplyRequestAsync(requestBundle, CancellationToken.None);
+
+        await Assert.That(result).IsSameReferenceAs(original);
+    }
+
+    /// <summary>
+    ///     Verifies that a handler that reports a failed <see cref="Result{T}" /> for the
+    ///     response hook is treated as a no-op and the original response is returned.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_HandlerReturnsFailure_ReturnsOriginalResponse()
+    {
+        var original = BuildResponse();
+        var handler = new StubScriptingHandler
+        {
+            ResponseError = new ScriptError("SCRIPT_RESPONSE_FAILED", "boom"),
+        };
+        var responseBundle = new TransportLayerSecurityInterceptedScriptingResponseRequest
+        {
+            EffectiveRequest = BuildRequest(),
+            FinalResponse = original,
+            Flow = BuildFlow(),
+            Handler = handler,
+            Logger = NullLogger.Instance,
+        };
+
+        var result = await TransportLayerSecurityInterceptedScripting.ApplyResponseAsync(responseBundle, CancellationToken.None);
+
+        await Assert.That(result).IsSameReferenceAs(original);
+    }
+
     private static TrafficFlow BuildFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:50001", DateTimeOffset.UtcNow);
@@ -193,37 +244,51 @@ public sealed class TransportLayerSecurityInterceptedScriptingTests
 
     private sealed class StubScriptingHandler : IScriptingHandler
     {
+        public ScriptError? RequestError { get; set; }
+
         public Exception? RequestException { get; set; }
 
         public HypertextTransferProtocolRequestData? RequestProjection { get; set; }
+
+        public ScriptError? ResponseError { get; set; }
 
         public Exception? ResponseException { get; set; }
 
         public HypertextTransferProtocolResponseData? ResponseProjection { get; set; }
 
-        public Task<HypertextTransferProtocolRequestData> ApplyRequestAsync(string flowId, HypertextTransferProtocolRequestData request, CancellationToken cancellationToken)
+        public Task<Result<HypertextTransferProtocolRequestData>> ApplyRequestAsync(string flowId, HypertextTransferProtocolRequestData request, CancellationToken cancellationToken)
         {
             _ = flowId;
             _ = cancellationToken;
             if (RequestException is not null)
             {
-                return Task.FromException<HypertextTransferProtocolRequestData>(RequestException);
+                return Task.FromException<Result<HypertextTransferProtocolRequestData>>(RequestException);
             }
 
-            return Task.FromResult(RequestProjection ?? request);
+            if (RequestError is not null)
+            {
+                return Task.FromResult(Result.Failure<HypertextTransferProtocolRequestData>(RequestError));
+            }
+
+            return Task.FromResult(Result.Success(RequestProjection ?? request));
         }
 
-        public Task<HypertextTransferProtocolResponseData> ApplyResponseAsync(string flowId, HypertextTransferProtocolRequestData request, HypertextTransferProtocolResponseData response, CancellationToken cancellationToken)
+        public Task<Result<HypertextTransferProtocolResponseData>> ApplyResponseAsync(string flowId, HypertextTransferProtocolRequestData request, HypertextTransferProtocolResponseData response, CancellationToken cancellationToken)
         {
             _ = flowId;
             _ = request;
             _ = cancellationToken;
             if (ResponseException is not null)
             {
-                return Task.FromException<HypertextTransferProtocolResponseData>(ResponseException);
+                return Task.FromException<Result<HypertextTransferProtocolResponseData>>(ResponseException);
             }
 
-            return Task.FromResult(ResponseProjection ?? response);
+            if (ResponseError is not null)
+            {
+                return Task.FromResult(Result.Failure<HypertextTransferProtocolResponseData>(ResponseError));
+            }
+
+            return Task.FromResult(Result.Success(ResponseProjection ?? response));
         }
     }
 }
