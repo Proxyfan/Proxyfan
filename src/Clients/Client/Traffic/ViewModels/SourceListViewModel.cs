@@ -86,12 +86,12 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsChanged()
     {
-        _userInterfaceScheduler.Post(RebuildOnUiThread);
+        Rebuild();
     }
 
     private void OnFlowsCleared()
     {
-        _userInterfaceScheduler.Post(RebuildOnUiThread);
+        Rebuild();
     }
 
     private void OnRequestReceived(RequestReceived domainEvent)

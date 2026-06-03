@@ -33,7 +33,7 @@ public sealed class TrafficListCoordinator
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
 
-    private string[] _sourceHosts;
+    private List<string> _sourceHosts;
 
     /// <summary>
     ///     Initializes a new <see cref="TrafficListCoordinator" />.
@@ -89,12 +89,10 @@ public sealed class TrafficListCoordinator
     /// <param name="flows">The current traffic-list flow collection.</param>
     public void UpdateSourceHosts(ObservableCollection<TrafficFlowViewModel> flows)
     {
-        var hosts = new string[flows.Count];
-        var index = 0;
+        var hosts = new List<string>(flows.Count);
         foreach (var flow in flows)
         {
-            hosts[index] = flow.Host;
-            index++;
+            hosts.Add(flow.Host);
         }
 
         _sourceHosts = hosts;
