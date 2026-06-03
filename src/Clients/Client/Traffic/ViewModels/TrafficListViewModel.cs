@@ -189,6 +189,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
         Flows.CollectionChanged += OnFlowsCollectionChanged;
         _coordinator.HostFilterRequested += OnCoordinatorHostFilterRequested;
+        _coordinator.UpdateSourceHosts(Flows);
 
         _requestReceivedSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
         _responseReceivedSubscription = eventBus.Subscribe<ResponseReceived>(OnResponseReceived);
@@ -411,6 +412,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
+        _coordinator.UpdateSourceHosts(Flows);
+        _coordinator.NotifyFlowsChanged();
         RebuildVisibleFlowsOnUiThread();
     }
 
