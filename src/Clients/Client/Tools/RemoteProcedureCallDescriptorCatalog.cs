@@ -32,9 +32,7 @@ public sealed class RemoteProcedureCallDescriptorCatalog : IRemoteProcedureCallD
         _library.Load(sourcePath, payload);
     }
 
-    /// <summary>
-    ///     Gets the file paths from which descriptor sets are currently loaded.
-    /// </summary>
+    /// <inheritdoc />
     public IReadOnlyList<string> LoadedFilePaths => _library.LoadedFilePaths;
 
     /// <inheritdoc />
