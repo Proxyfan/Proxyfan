@@ -98,7 +98,7 @@ public sealed class KeyValueConfigurationParserTests
     ///     Verifies that multiple malformed lines are all reported in the parse error.
     /// </summary>
     [Test]
-    public async Task Parse_MultiplemalformedLines_ReportsAllInError()
+    public async Task Parse_MultipleMalformedLines_ReportsAllInError()
     {
         const string text = "bad-line-one\nproxy.port=8080\nbad-line-two";
 

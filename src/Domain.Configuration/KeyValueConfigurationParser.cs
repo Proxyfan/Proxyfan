@@ -38,7 +38,7 @@ public static class KeyValueConfigurationParser
             var separatorIndex = trimmed.IndexOf('=', StringComparison.Ordinal);
             if (separatorIndex <= 0)
             {
-                malformedLines.Add(line);
+                malformedLines.Add(trimmed);
                 continue;
             }
 
