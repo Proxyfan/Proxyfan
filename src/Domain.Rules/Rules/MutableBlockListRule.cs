@@ -86,8 +86,9 @@ public sealed class MutableBlockListRule : IRequestPhaseRule
                 }
             }
 
+            var rebuilt = BuildMatchersWithAppendedRuleUnderLock(rule);
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            _matchers = rebuilt;
         }
 
         RaiseChanged();
@@ -148,6 +149,18 @@ public sealed class MutableBlockListRule : IRequestPhaseRule
 
         _isEnabled = isEnabled;
         RaiseChanged();
+    }
+
+    private List<IUrlMatcher> BuildMatchersWithAppendedRuleUnderLock(MatchingRule rule)
+    {
+        var rebuilt = new List<IUrlMatcher>(_patterns.Count + 1);
+        foreach (var pattern in _patterns)
+        {
+            rebuilt.Add(pattern.Compile());
+        }
+
+        rebuilt.Add(rule.Compile());
+        return rebuilt;
     }
 
     private void RaiseChanged()

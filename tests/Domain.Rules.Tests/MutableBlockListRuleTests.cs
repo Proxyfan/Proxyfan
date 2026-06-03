@@ -3,6 +3,7 @@ using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -101,6 +102,35 @@ public sealed class MutableBlockListRuleTests
         rule.AddPattern(pattern);
 
         await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding an invalid pattern throws without mutating the block list snapshot.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_InvalidPattern_DoesNotMutateState()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        var firstPattern = new MatchingRule("https://first.example.com/*", MatchingRuleKind.Wildcard);
+        var secondPattern = new MatchingRule("https://second.example.com/*", MatchingRuleKind.Wildcard);
+        rule.AddPattern(firstPattern);
+        var count = 0;
+        rule.Changed += () => count++;
+
+        await Assert.That(() => rule.AddPattern(new MatchingRule("([unclosed", MatchingRuleKind.Regex)))
+            .Throws<RegexParseException>();
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(rule.EvaluateRequest(CreateRequest("https://first.example.com/path")))
+            .IsTypeOf<RequestPipelineAction.Block>();
+
+        rule.AddPattern(secondPattern);
+
+        await Assert.That(count).IsEqualTo(1);
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(2);
+        await Assert.That(rule.EvaluateRequest(CreateRequest("https://second.example.com/path")))
+            .IsTypeOf<RequestPipelineAction.Block>();
     }
 
     /// <summary>
