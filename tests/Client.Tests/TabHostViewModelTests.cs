@@ -245,7 +245,7 @@ public sealed class TabHostViewModelTests
 
         trafficList.SelectedFlow = flow;
 
-        await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsEqualTo(flow.Source.Id);
+        await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsEqualTo(flow.Id);
     }
 
     /// <summary>
@@ -259,7 +259,7 @@ public sealed class TabHostViewModelTests
         var flow = AddFlow(trafficList, "y.example", 1);
         var host = new TabHostViewModel(trafficList);
         trafficList.SelectedFlow = flow;
-        await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsEqualTo(flow.Source.Id);
+        await Assert.That(host.ActiveTab.Source.SelectedFlowId).IsEqualTo(flow.Id);
 
         trafficList.SelectedFlow = null;
 

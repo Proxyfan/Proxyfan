@@ -12,12 +12,12 @@ namespace Proxyfan.Client.Tests;
 /// <summary>
 ///     Tests for the color tag and comment annotation commands on
 ///     <see cref="TrafficListViewModel" />. Verifies the commands forward to the
-///     selected flow's view model and that the underlying domain flow is updated.
+///     selected flow's view model.
 /// </summary>
 public sealed class TrafficListViewModelAnnotationTests
 {
     /// <summary>
-    ///     ApplyColorTagToSelected sets both the view model and the underlying source.
+    ///     ApplyColorTagToSelected updates the selected flow view-model state.
     /// </summary>
     [Test]
     public async Task ApplyColorTagToSelectedCommand_WithSelection_UpdatesFlow()
@@ -30,7 +30,6 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyColorTagToSelectedCommand.Execute(TrafficFlowColorTag.Blue);
 
         await Assert.That(viewModel.SelectedFlow.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
-        await Assert.That(viewModel.SelectedFlow.Source.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
     }
 
     /// <summary>
@@ -46,7 +45,7 @@ public sealed class TrafficListViewModelAnnotationTests
     }
 
     /// <summary>
-    ///     ApplyCommentToSelected sets both the view model and the underlying source.
+    ///     ApplyCommentToSelected updates the selected flow view-model state.
     /// </summary>
     [Test]
     public async Task ApplyCommentToSelectedCommand_WithSelection_UpdatesFlow()
@@ -59,7 +58,6 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyCommentToSelectedCommand.Execute("login failure repro");
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsEqualTo("login failure repro");
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsEqualTo("login failure repro");
     }
 
     /// <summary>
@@ -77,7 +75,6 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyCommentToSelectedCommand.Execute(null);
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsNull();
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsNull();
     }
 
     /// <summary>
