@@ -113,15 +113,30 @@ public sealed class CustomColumnGridSynchronizer
         }
     }
 
+    /// <summary>
+    ///     Converts a bound <see cref="TrafficFlow" /> into the display text for one custom column.
+    /// </summary>
     private sealed class CustomColumnValueConverter : IValueConverter
     {
         private readonly CustomColumnDefinition _definition;
 
+        /// <summary>
+        ///     Initializes a converter for a specific custom column definition.
+        /// </summary>
+        /// <param name="definition">The custom column definition to evaluate for each row.</param>
         public CustomColumnValueConverter(CustomColumnDefinition definition)
         {
             _definition = definition;
         }
 
+        /// <summary>
+        ///     Computes the cell text for the bound traffic-flow row.
+        /// </summary>
+        /// <param name="value">The bound value, expected to be a <see cref="TrafficFlow" />.</param>
+        /// <param name="targetType">The destination type requested by the binding engine.</param>
+        /// <param name="parameter">Optional converter parameter supplied by the binding.</param>
+        /// <param name="culture">The culture requested by the binding engine.</param>
+        /// <returns>The resolved custom-column value, or an empty string when unavailable.</returns>
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is not TrafficFlow flow)
@@ -132,6 +147,15 @@ public sealed class CustomColumnGridSynchronizer
             return CustomColumnValueExtractor.Extract(_definition, flow);
         }
 
+        /// <summary>
+        ///     Reverse conversion is not supported.
+        /// </summary>
+        /// <param name="value">The value to convert back.</param>
+        /// <param name="targetType">The desired source type.</param>
+        /// <param name="parameter">Optional converter parameter.</param>
+        /// <param name="culture">The requested culture.</param>
+        /// <returns>This method never returns a value.</returns>
+        /// <exception cref="NotSupportedException">Always thrown because reverse conversion is unsupported.</exception>
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             throw new NotSupportedException();
