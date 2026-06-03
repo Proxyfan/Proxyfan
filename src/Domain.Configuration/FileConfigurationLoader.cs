@@ -10,6 +10,9 @@ namespace Proxyfan.Domain.Configuration;
 ///     <see cref="ConfigurationMigrationPipeline" />, and rewrites the file with the
 ///     migrated values. The original file is backed up to <c>&lt;path&gt;.bak</c> before
 ///     overwriting so that a user can recover from an unexpected migration.
+///     If the file contains malformed lines, loading is aborted: the loader returns the
+///     partially-parsed snapshot together with the malformed line numbers and does not
+///     apply migration or rewrite the file.
 /// </summary>
 public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
 {
@@ -48,10 +51,16 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var parseResult = KeyValueConfigurationParser.Parse(text);
+
+        if (parseResult.MalformedLineNumbers.Count > 0)
+        {
+            return BuildMalformedResult(parseResult);
+        }
+
         var sourceValues = new Dictionary<string, string>();
 
-        foreach (var pair in snapshot.Enumerate())
+        foreach (var pair in parseResult.Snapshot.Enumerate())
         {
             sourceValues[pair.Key] = pair.Value;
         }
@@ -64,6 +73,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             return new MigratingConfigurationLoadResult
             {
                 BackupPath = null,
+                MalformedLineNumbers = [],
                 PipelineResult = pipelineResult,
                 Snapshot = unchanged,
             };
@@ -78,6 +88,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = backupPath,
+            MalformedLineNumbers = [],
             PipelineResult = pipelineResult,
             Snapshot = migrated,
         };
@@ -101,8 +112,29 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = null,
+            MalformedLineNumbers = [],
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
+        };
+    }
+
+    private MigratingConfigurationLoadResult BuildMalformedResult(ConfigurationParseResult parseResult)
+    {
+        var emptyValues = new Dictionary<string, string>();
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = emptyValues,
+        };
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            MalformedLineNumbers = parseResult.MalformedLineNumbers,
+            PipelineResult = pipelineResult,
+            Snapshot = parseResult.Snapshot,
         };
     }
 }

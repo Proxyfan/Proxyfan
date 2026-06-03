@@ -132,6 +132,120 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     A file with malformed lines returns the malformed line numbers and does not
+    ///     rewrite the file.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLines_ReturnsMalformedLineNumbersAndDoesNotRewriteFile()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            const string originalContent = "version=1.0\nbad-line\nproxy.port=8080\n";
+            File.WriteAllText(path, originalContent);
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.MalformedLineNumbers.Count).IsEqualTo(1);
+            await Assert.That(result.MalformedLineNumbers[0]).IsEqualTo(2);
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(originalContent);
+        }
+        finally
+        {
+            DeleteIfExists(path);
+        }
+    }
+
+    /// <summary>
+    ///     A file with malformed lines still returns the valid settings in the snapshot.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLines_SnapshotContainsValidLines()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            File.WriteAllText(path, "version=1.0\nbad-line\nproxy.port=8080\n");
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.Snapshot.Get("proxy.port", string.Empty)).IsEqualTo("8080");
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+        }
+    }
+
+    /// <summary>
+    ///     A file with malformed lines does not apply the migration pipeline even when the
+    ///     source version is below the target.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLines_MigrationIsNotApplied()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            File.WriteAllText(path, "version=1.0\nbad-line\nold.key=value\n");
+            var operation = new ConfigurationRenameKeyOperation
+            {
+                NewKey = "new.key",
+                OldKey = "old.key",
+            };
+            var migrator = new ConfigurationMigrator
+            {
+                From = new ConfigurationVersion(1, 0),
+                Operations = [operation],
+                To = new ConfigurationVersion(1, 1),
+            };
+            var pipeline = new ConfigurationMigrationPipeline([migrator]);
+            var loader = new FileConfigurationLoader(path, pipeline, new ConfigurationVersion(1, 1));
+
+            var result = loader.Load();
+
+            await Assert.That(result.MalformedLineNumbers.Count).IsEqualTo(1);
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
+        }
+    }
+
+    /// <summary>
+    ///     A file with no malformed lines returns an empty malformed line number list.
+    /// </summary>
+    [Test]
+    public async Task Load_WellFormedFile_MalformedLineNumbersIsEmpty()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            File.WriteAllText(path, "version=1.0\nproxy.port=8080\n");
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.MalformedLineNumbers.Count).IsEqualTo(0);
+        }
+        finally
+        {
+            DeleteIfExists(path);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());
