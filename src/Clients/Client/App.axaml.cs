@@ -84,6 +84,7 @@ public partial class App : Application
             services.AddSingleton<WebSocketInspectorViewModel>();
             services.AddSingleton<ServerSentEventsInspectorViewModel>();
             services.AddSingleton<IRemoteProcedureCallDescriptorLibrary, RemoteProcedureCallDescriptorLibrary>();
+            services.AddSingleton<IRemoteProcedureCallDescriptorFileLibrary, RemoteProcedureCallDescriptorFileLibraryAdapter>();
             services.AddSingleton<RemoteProcedureCallInspectorViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<TabHostViewModel>();
