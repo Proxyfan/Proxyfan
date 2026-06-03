@@ -78,10 +78,6 @@ public sealed class ConfigurationMigrationPipeline
         IReadOnlyDictionary<string, string> currentValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
         var aggregateActions = new List<ConfigurationMigrationAction>();
         var currentVersion = sourceVersion;
-        var visitedVersions = new HashSet<ConfigurationVersion>
-        {
-            currentVersion,
-        };
         while (currentVersion.HasLowerOrderThan(targetVersion))
         {
             if (!_migratorsByFrom.TryGetValue(currentVersion, out var migrator))
@@ -90,7 +86,7 @@ public sealed class ConfigurationMigrationPipeline
                     $"No configuration migrator registered for source version {currentVersion}.");
             }
 
-            ValidateTransition(currentVersion, migrator.To, targetVersion, visitedVersions);
+            ValidateTransition(currentVersion, migrator.To, targetVersion);
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
             aggregateActions.AddRange(stepResult.Actions);
@@ -111,8 +107,7 @@ public sealed class ConfigurationMigrationPipeline
     private void ValidateTransition(
         ConfigurationVersion currentVersion,
         ConfigurationVersion nextVersion,
-        ConfigurationVersion targetVersion,
-        HashSet<ConfigurationVersion> visitedVersions)
+        ConfigurationVersion targetVersion)
     {
         if (nextVersion <= currentVersion)
         {
@@ -124,12 +119,6 @@ public sealed class ConfigurationMigrationPipeline
         {
             throw new InvalidOperationException(
                 $"Configuration migrator for source version {currentVersion} overshot target version {targetVersion}.");
-        }
-
-        if (!visitedVersions.Add(nextVersion))
-        {
-            throw new InvalidOperationException(
-                $"Configuration migrator for source version {currentVersion} revisited version {nextVersion}.");
         }
     }
 }

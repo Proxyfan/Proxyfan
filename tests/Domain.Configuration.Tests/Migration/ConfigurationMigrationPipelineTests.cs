@@ -188,8 +188,9 @@ public sealed class ConfigurationMigrationPipelineTests
             ["version"] = "1.0",
         };
 
-        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(1, 1)))
+        var exception = await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(1, 1)))
             .Throws<InvalidOperationException>();
+        await Assert.That(exception!.Message).Contains("did not advance");
     }
 
     /// <summary>
@@ -210,8 +211,9 @@ public sealed class ConfigurationMigrationPipelineTests
             ["version"] = "1.0",
         };
 
-        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(1, 1)))
+        var exception = await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(1, 1)))
             .Throws<InvalidOperationException>();
+        await Assert.That(exception!.Message).Contains("overshot target version");
     }
 
     /// <summary>
