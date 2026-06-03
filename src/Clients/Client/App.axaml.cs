@@ -108,6 +108,7 @@ public partial class App : Application
             services.AddTransient<ScriptingViewModel>();
             services.AddTransient<ThemeViewModel>();
             services.AddTransient<ThrottleViewModel>();
+            services.AddSingleton<IThrottleProfileCoordinator, ThrottleProfileCoordinator>();
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
