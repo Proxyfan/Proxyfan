@@ -103,6 +103,40 @@ public sealed class HypertextTransferProtocolVersion2ResponseTranslationTests
         }
     }
 
+    [Test]
+    public async Task Translate_ConnectionListedHeaders_StripsThem()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "X-Internal, X-Trace")
+            .Add("Connection", "X-Another")
+            .Add("X-Internal", "secret")
+            .Add("X-Trace", "trace-1")
+            .Add("X-Another", "value")
+            .Add("Content-Type", "text/plain");
+        var response = BuildResponse(200, "OK", headers, ReadOnlyMemory<byte>.Empty);
+
+        var result = HypertextTransferProtocolVersion2ResponseTranslation.Translate(response);
+
+        for (var index = 0; index < result.Headers.Count; index++)
+        {
+            var name = result.Headers[index].Name;
+            await Assert.That(string.Equals(name, "x-internal", StringComparison.OrdinalIgnoreCase)).IsFalse();
+            await Assert.That(string.Equals(name, "x-trace", StringComparison.OrdinalIgnoreCase)).IsFalse();
+            await Assert.That(string.Equals(name, "x-another", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        }
+
+        var hasContentType = false;
+        for (var index = 0; index < result.Headers.Count; index++)
+        {
+            if (string.Equals(result.Headers[index].Name, "content-type", StringComparison.Ordinal))
+            {
+                hasContentType = true;
+                break;
+            }
+        }
+        await Assert.That(hasContentType).IsTrue();
+    }
+
     /// <summary>
     ///     The body view is carried through verbatim.
     /// </summary>

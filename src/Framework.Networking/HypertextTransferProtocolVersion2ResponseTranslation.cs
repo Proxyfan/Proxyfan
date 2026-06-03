@@ -12,7 +12,8 @@ namespace Proxyfan.Framework.Networking;
 ///     status code onto a <c>:status</c> pseudo-header (which must precede regular headers),
 ///     lowercases header names (HTTP/2 wire format requirement, § 8.1.2), and strips the
 ///     connection-specific headers (<c>Connection</c>, <c>Keep-Alive</c>, <c>Proxy-Connection</c>,
-///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids.
+///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids, plus any additional header names
+///     listed in the response's <c>Connection</c> header values.
 /// </summary>
 public static class HypertextTransferProtocolVersion2ResponseTranslation
 {
@@ -62,10 +63,11 @@ public static class HypertextTransferProtocolVersion2ResponseTranslation
         HeaderCollection source,
         List<HypertextTransferProtocolVersion2HpackHeaderField> destination)
     {
+        var forbiddenHeaders = GetForbiddenHeaders(source);
         foreach (var pair in source)
         {
             var name = pair.Key;
-            if (ForbiddenConnectionHeaders.Contains(name))
+            if (forbiddenHeaders.Contains(name))
             {
                 continue;
             }
@@ -77,5 +79,22 @@ public static class HypertextTransferProtocolVersion2ResponseTranslation
                 destination.Add(field);
             }
         }
+    }
+
+    private static HashSet<string> GetForbiddenHeaders(HeaderCollection source)
+    {
+        var forbiddenHeaders = new HashSet<string>(ForbiddenConnectionHeaders, StringComparer.OrdinalIgnoreCase);
+        var connectionValues = source.GetAll("Connection");
+
+        foreach (var connectionValue in connectionValues)
+        {
+            var tokens = connectionValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var token in tokens)
+            {
+                forbiddenHeaders.Add(token);
+            }
+        }
+
+        return forbiddenHeaders;
     }
 }
