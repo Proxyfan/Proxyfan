@@ -199,6 +199,79 @@ public sealed class PluginLoaderTests
         }
     }
 
+    /// <summary>
+    ///     Verifies that the isolated load context is unloaded when the registry rejects
+    ///     the instantiated plugin (e.g. incompatible API version), so the plugin assembly
+    ///     can be collected rather than remaining resident.
+    /// </summary>
+    [Test]
+    public async Task LoadAll_IncompatibleApiVersion_UnloadsPluginLoadContext()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var directory = Directory.CreateDirectory(Path.Combine(root, "p1"));
+            WriteManifest(directory.FullName, "p1");
+            var hostAssemblyPath = typeof(PluginLoaderTests).Assembly.Location;
+            var context = new PluginLoadContext(hostAssemblyPath);
+            var unloadSignaled = false;
+            context.Unloading += _ => unloadSignaled = true;
+            var registry = new PluginRegistry();
+            var host = new RecordingPluginHost("2.0");
+            var loader = new PluginLoader(
+                new PluginDirectoryScanner(),
+                new StubInstanceFactory(c => PluginInstantiationResults.Success(new StubPlugin(c.Manifest!.Metadata, _ => { }), context)),
+                registry,
+                new StubEnabledStateStore());
+
+            var results = loader.LoadAll(root, host);
+
+            await Assert.That(results.Count).IsEqualTo(1);
+            await Assert.That(results[0].IsLoaded).IsFalse();
+            await Assert.That(unloadSignaled).IsTrue();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that the isolated load context is unloaded when the plugin's
+    ///     <see cref="IProxyfanPlugin.Initialize" /> throws.
+    /// </summary>
+    [Test]
+    public async Task LoadAll_InitializeThrows_UnloadsPluginLoadContext()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var directory = Directory.CreateDirectory(Path.Combine(root, "p1"));
+            WriteManifest(directory.FullName, "p1");
+            var hostAssemblyPath = typeof(PluginLoaderTests).Assembly.Location;
+            var context = new PluginLoadContext(hostAssemblyPath);
+            var unloadSignaled = false;
+            context.Unloading += _ => unloadSignaled = true;
+            var registry = new PluginRegistry();
+            var host = new RecordingPluginHost("1.0");
+            var loader = new PluginLoader(
+                new PluginDirectoryScanner(),
+                new StubInstanceFactory(c => PluginInstantiationResults.Success(new StubPlugin(c.Manifest!.Metadata, _ => throw new InvalidOperationException("init boom")), context)),
+                registry,
+                new StubEnabledStateStore());
+
+            var results = loader.LoadAll(root, host);
+
+            await Assert.That(results.Count).IsEqualTo(1);
+            await Assert.That(results[0].IsLoaded).IsFalse();
+            await Assert.That(unloadSignaled).IsTrue();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private sealed class StubInstanceFactory : IPluginInstanceFactory
     {
         private readonly Func<PluginCandidate, PluginInstantiationResult> _create;

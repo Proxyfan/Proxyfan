@@ -47,9 +47,15 @@ public static class PluginRuntimeIdentityChecker
             PluginLoadContextUnloader.Unload(rejectedContext);
         }
 
-        var message = idsMatch
-            ? "Disabled by user."
-            : $"Plugin metadata id '{runtimeId}' does not match manifest id '{manifestId}'.";
+        string message;
+        if (idsMatch)
+        {
+            message = "Disabled by user.";
+        }
+        else
+        {
+            message = $"Plugin metadata id '{runtimeId}' does not match manifest id '{manifestId}'.";
+        }
         return new LoadedPlugin(manifestMetadata, null, false, message, sourceDirectory);
     }
 }

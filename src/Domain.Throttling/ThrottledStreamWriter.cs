@@ -31,12 +31,12 @@ public sealed class ThrottledStreamWriter
     /// </summary>
     /// <param name="bucket">The token bucket used to limit throughput.</param>
     /// <param name="timeProvider">The time provider used for delays.</param>
-    /// <param name="retryDelay">The delay between bucket-empty retries.</param>
+    /// <param name="retryDelay">The delay between bucket-empty retries. Must be greater than zero.</param>
     public ThrottledStreamWriter(TokenBucket bucket, TimeProvider timeProvider, TimeSpan retryDelay)
     {
-        if (retryDelay < TimeSpan.Zero)
+        if (retryDelay <= TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(retryDelay), retryDelay, "Retry delay must be non-negative.");
+            throw new ArgumentOutOfRangeException(nameof(retryDelay), retryDelay, "Retry delay must be greater than zero to avoid busy-spinning the throttled write loop.");
         }
 
         _bucket = bucket;

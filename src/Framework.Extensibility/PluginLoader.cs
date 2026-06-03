@@ -103,7 +103,12 @@ public sealed class PluginLoader
             return RecordFailed(rejection);
         }
 
-        return _registry.TryInitialize(instantiation.Plugin, host, candidate.DirectoryPath);
+        var loaded = _registry.TryInitialize(instantiation.Plugin, host, candidate.DirectoryPath);
+        if (!loaded.IsLoaded && instantiation.LoadContext is PluginLoadContext pluginContext)
+        {
+            PluginLoadContextUnloader.Unload(pluginContext);
+        }
+        return loaded;
     }
 
     private LoadedPlugin RecordFailed(LoadedPlugin failed)

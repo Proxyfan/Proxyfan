@@ -1,5 +1,6 @@
 ﻿using Proxyfan.Domain.Traffic;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
 
@@ -22,11 +23,16 @@ namespace Proxyfan.Framework.Networking;
 ///             <c>Via</c> chain.
 ///         </item>
 ///     </list>
+///     Header values are copied verbatim as raw bytes; only header names and synthesized lines
+///     (request line, <c>Via</c>, <c>Content-Length</c>) are parsed or emitted as ASCII. This
+///     preserves any obs-text bytes (RFC 7230 § 3.2.6) present in cookies, signed headers, or
+///     custom metadata that would otherwise be mangled by an ASCII decode/encode round trip.
 /// </summary>
 public static class OriginRequestRewriter
 {
     private const string ViaToken = "1.1 proxyfan";
     private static readonly HashSet<string> AlwaysStrippedHeaders;
+    private static readonly byte[] LineTerminator;
 
     static OriginRequestRewriter()
     {
@@ -41,6 +47,12 @@ public static class OriginRequestRewriter
             "Transfer-Encoding",
         };
         AlwaysStrippedHeaders = alwaysStripped;
+        var lineTerminator = new byte[]
+        {
+            (byte)'\r',
+            (byte)'\n',
+        };
+        LineTerminator = lineTerminator;
     }
 
     /// <summary>
@@ -56,8 +68,8 @@ public static class OriginRequestRewriter
     /// <returns>The rewritten header bytes ending with the CRLF CRLF terminator.</returns>
     public static byte[] RewriteHeaders(ReadOnlyMemory<byte> originalHeaderBytes, HypertextTransferProtocolRequestData request)
     {
-        var text = Encoding.ASCII.GetString(originalHeaderBytes.Span);
-        var firstLineEnd = text.IndexOf("\r\n", StringComparison.Ordinal);
+        var span = originalHeaderBytes.Span;
+        var firstLineEnd = FindLineTerminatorIndex(span, 0);
 
         if (firstLineEnd < 0)
         {
@@ -67,31 +79,46 @@ public static class OriginRequestRewriter
         var originForm = BuildOriginForm(request);
         var rewrittenRequestLine = $"{request.Method} {originForm} {request.Version}";
 
-        var headerSection = text[(firstLineEnd + 2)..];
-        var headerLines = SplitHeaderLines(headerSection);
-        var connectionListedNames = ExtractConnectionListedHeaderNames(headerLines);
+        var headerSectionStart = firstLineEnd + 2;
+        var headerSection = originalHeaderBytes[headerSectionStart..];
+        var headerLines = SplitHeaderLines(headerSection.Span);
+        var connectionListedNames = ExtractConnectionListedHeaderNames(headerLines, headerSection.Span);
 
-        var rebuilt = new StringBuilder(text.Length + ViaToken.Length + 16);
-        rebuilt.Append(rewrittenRequestLine);
-        rebuilt.Append("\r\n");
-        var viaAppendedInline = HasAppendedHeadersWithInlineVia(rebuilt, headerLines, connectionListedNames);
+        var output = new ArrayBufferWriter<byte>(originalHeaderBytes.Length + ViaToken.Length + 64);
+        AppendAscii(output, rewrittenRequestLine);
+        AppendLineTerminator(output);
+
+        var viaAppendedInline = HasAppendedHeadersWithInlineVia(output, headerSection.Span, headerLines, connectionListedNames);
 
         if (!viaAppendedInline)
         {
-            rebuilt.Append("Via: ");
-            rebuilt.Append(ViaToken);
-            rebuilt.Append("\r\n");
+            AppendAscii(output, "Via: ");
+            AppendAscii(output, ViaToken);
+            AppendLineTerminator(output);
         }
 
         if (request.Body.Length > 0)
         {
-            rebuilt.Append("Content-Length: ");
-            rebuilt.Append(request.Body.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            rebuilt.Append("\r\n");
+            AppendAscii(output, "Content-Length: ");
+            AppendAscii(output, request.Body.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            AppendLineTerminator(output);
         }
 
-        rebuilt.Append("\r\n");
-        return Encoding.ASCII.GetBytes(rebuilt.ToString());
+        AppendLineTerminator(output);
+        return output.WrittenSpan.ToArray();
+    }
+
+    private static void AppendAscii(ArrayBufferWriter<byte> output, string value)
+    {
+        var byteCount = Encoding.ASCII.GetByteCount(value);
+        var destination = output.GetSpan(byteCount);
+        Encoding.ASCII.GetBytes(value, destination);
+        output.Advance(byteCount);
+    }
+
+    private static void AppendLineTerminator(ArrayBufferWriter<byte> output)
+    {
+        output.Write(LineTerminator);
     }
 
     private static string BuildOriginForm(HypertextTransferProtocolRequestData request)
@@ -125,27 +152,53 @@ public static class OriginRequestRewriter
         return string.IsNullOrEmpty(originalPath) ? "/" : originalPath;
     }
 
-    private static HashSet<string> ExtractConnectionListedHeaderNames(IReadOnlyList<string> headerLines)
+    private static string DecodeTrimmedAscii(ReadOnlySpan<byte> span)
+    {
+        var start = 0;
+        var end = span.Length;
+
+        while (start < end && HasOptionalWhitespace(span[start]))
+        {
+            start++;
+        }
+
+        while (end > start && HasOptionalWhitespace(span[end - 1]))
+        {
+            end--;
+        }
+
+        return Encoding.ASCII.GetString(span[start..end]);
+    }
+
+    private static HashSet<string> ExtractConnectionListedHeaderNames(
+        IReadOnlyList<HeaderLineRange> headerLines,
+        ReadOnlySpan<byte> headerSectionSpan)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var line in headerLines)
+        foreach (var range in headerLines)
         {
-            var colonIndex = line.IndexOf(':');
+            if (range.Length == 0)
+            {
+                continue;
+            }
+
+            var lineSpan = headerSectionSpan.Slice(range.Offset, range.Length);
+            var colonIndex = lineSpan.IndexOf((byte)':');
 
             if (colonIndex <= 0)
             {
                 continue;
             }
 
-            var name = line[..colonIndex].Trim();
+            var name = DecodeTrimmedAscii(lineSpan[..colonIndex]);
 
             if (!string.Equals(name, "Connection", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var value = line[(colonIndex + 1)..].Trim();
+            var value = DecodeTrimmedAscii(lineSpan[(colonIndex + 1)..]);
             var tokens = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             foreach (var token in tokens)
@@ -163,30 +216,45 @@ public static class OriginRequestRewriter
         return names;
     }
 
+    private static int FindLineTerminatorIndex(ReadOnlySpan<byte> span, int start)
+    {
+        for (var index = start; index + 1 < span.Length; index++)
+        {
+            if (span[index] == (byte)'\r' && span[index + 1] == (byte)'\n')
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
     private static bool HasAppendedHeadersWithInlineVia(
-        StringBuilder rebuilt,
-        IReadOnlyList<string> headerLines,
+        ArrayBufferWriter<byte> output,
+        ReadOnlySpan<byte> headerSectionSpan,
+        IReadOnlyList<HeaderLineRange> headerLines,
         HashSet<string> connectionListedNames)
     {
         var viaAppendedInline = false;
 
-        foreach (var line in headerLines)
+        foreach (var range in headerLines)
         {
-            if (line.Length == 0)
+            if (range.Length == 0)
             {
                 continue;
             }
 
-            var colonIndex = line.IndexOf(':');
+            var lineSpan = headerSectionSpan.Slice(range.Offset, range.Length);
+            var colonIndex = lineSpan.IndexOf((byte)':');
 
             if (colonIndex <= 0)
             {
-                rebuilt.Append(line);
-                rebuilt.Append("\r\n");
+                output.Write(lineSpan);
+                AppendLineTerminator(output);
                 continue;
             }
 
-            var name = line[..colonIndex].Trim();
+            var name = DecodeTrimmedAscii(lineSpan[..colonIndex]);
 
             if (AlwaysStrippedHeaders.Contains(name) || connectionListedNames.Contains(name))
             {
@@ -195,31 +263,73 @@ public static class OriginRequestRewriter
 
             if (string.Equals(name, "Via", StringComparison.OrdinalIgnoreCase))
             {
-                rebuilt.Append(line.TrimEnd());
-                rebuilt.Append(", ");
-                rebuilt.Append(ViaToken);
-                rebuilt.Append("\r\n");
+                var trimmed = TrimTrailingWhitespace(lineSpan);
+                output.Write(trimmed);
+                AppendAscii(output, ", ");
+                AppendAscii(output, ViaToken);
+                AppendLineTerminator(output);
                 viaAppendedInline = true;
                 continue;
             }
 
-            rebuilt.Append(line);
-            rebuilt.Append("\r\n");
+            output.Write(lineSpan);
+            AppendLineTerminator(output);
         }
 
         return viaAppendedInline;
     }
 
-    private static List<string> SplitHeaderLines(string headerSection)
+    private static bool HasOptionalWhitespace(byte value)
     {
-        var lines = headerSection.Split("\r\n", StringSplitOptions.None);
-        var result = new List<string>(lines.Length);
+        return value is (byte)' ' or (byte)'\t';
+    }
 
-        foreach (var line in lines)
+    private static List<HeaderLineRange> SplitHeaderLines(ReadOnlySpan<byte> headerSectionSpan)
+    {
+        var result = new List<HeaderLineRange>();
+        var cursor = 0;
+
+        while (cursor < headerSectionSpan.Length)
         {
-            result.Add(line);
+            var next = FindLineTerminatorIndex(headerSectionSpan, cursor);
+
+            if (next < 0)
+            {
+                var tail = new HeaderLineRange(cursor, headerSectionSpan.Length - cursor);
+                result.Add(tail);
+                break;
+            }
+
+            var range = new HeaderLineRange(cursor, next - cursor);
+            result.Add(range);
+            cursor = next + 2;
         }
 
         return result;
+    }
+
+    private static ReadOnlySpan<byte> TrimTrailingWhitespace(ReadOnlySpan<byte> span)
+    {
+        var end = span.Length;
+
+        while (end > 0 && HasOptionalWhitespace(span[end - 1]))
+        {
+            end--;
+        }
+
+        return span[..end];
+    }
+
+    private readonly struct HeaderLineRange
+    {
+        public int Length { get; }
+
+        public int Offset { get; }
+
+        public HeaderLineRange(int offset, int length)
+        {
+            Offset = offset;
+            Length = length;
+        }
     }
 }

@@ -27,4 +27,13 @@ public enum HypertextTransferProtocolBodyFraming
     ///     where neither <c>Transfer-Encoding</c> nor <c>Content-Length</c> is present.
     /// </summary>
     UntilClose,
+
+    /// <summary>
+    ///     The message contains a <c>Content-Length</c> header whose value is malformed,
+    ///     negative, comma-joined with conflicting tokens, or repeated across header lines with
+    ///     conflicting numeric values (RFC 7230 § 3.3.2). The message must be rejected rather
+    ///     than mapped to <see cref="UntilClose" />, because doing so would let invalid framing
+    ///     stall the connection or desynchronize subsequent reads on a keep-alive socket.
+    /// </summary>
+    Invalid,
 }
