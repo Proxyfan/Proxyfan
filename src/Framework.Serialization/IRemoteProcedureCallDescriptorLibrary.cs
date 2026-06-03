@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Proxyfan.Framework.Serialization;
 
@@ -30,7 +31,7 @@ public interface IRemoteProcedureCallDescriptorLibrary
     /// </summary>
     /// <param name="sourcePath">A path identifying the descriptor source (file path or URI).</param>
     /// <param name="payload">The binary FileDescriptorSet bytes.</param>
-    void Load(string sourcePath, byte[] payload);
+    void Load(string sourcePath, ReadOnlyMemory<byte> payload);
 
     /// <summary>
     ///     Removes the descriptor set previously loaded from <paramref name="sourcePath" />,

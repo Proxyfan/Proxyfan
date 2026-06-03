@@ -19,6 +19,8 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
+    private const int MaxDescriptorFileSizeInBytes = 10 * 1024 * 1024;
+    private const int ReadBufferSizeInBytes = 8192;
     private readonly IFilePickerService _filePickerService;
     private readonly IRemoteProcedureCallDescriptorLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
@@ -60,6 +62,30 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         _library.Clear();
         RefreshLoadedFiles();
         StatusText = "All descriptor files unloaded.";
+    }
+
+    private bool HasRemainingByteCount(Stream stream, out int remainingByteCount)
+    {
+        remainingByteCount = 0;
+        if (!stream.CanSeek)
+        {
+            return false;
+        }
+
+        var remainingBytes = stream.Length - stream.Position;
+        if (remainingBytes <= 0)
+        {
+            return true;
+        }
+
+        if (remainingBytes > int.MaxValue)
+        {
+            remainingByteCount = int.MaxValue;
+            return true;
+        }
+
+        remainingByteCount = (int)remainingBytes;
+        return true;
     }
 
     [RelayCommand]
@@ -112,10 +138,15 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             await using (picked.Stream.ConfigureAwait(true))
             {
-                using var memory = new MemoryStream();
-                await picked.Stream.CopyToAsync(memory, cancellationToken).ConfigureAwait(true);
                 var sourcePath = string.IsNullOrEmpty(picked.DisplayName) ? "descriptor.pb" : picked.DisplayName;
-                _library.Load(sourcePath, memory.ToArray());
+                var payload = await TryReadPayloadAsync(picked.Stream, cancellationToken).ConfigureAwait(true);
+                if (!payload.HasValue)
+                {
+                    _userInterfaceScheduler.Post(() => StatusText = "Descriptor file exceeds the 10 MB size limit.");
+                    return;
+                }
+
+                _library.Load(sourcePath, payload.Value);
                 _userInterfaceScheduler.Post(() =>
                 {
                     RefreshLoadedFiles();
@@ -131,6 +162,59 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             _userInterfaceScheduler.Post(() => StatusText = "Failed to read descriptor file: " + ex.Message);
         }
+    }
+
+    private async Task<ReadOnlyMemory<byte>?> TryReadPayloadAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        if (HasRemainingByteCount(stream, out var remainingByteCount))
+        {
+            if (remainingByteCount > MaxDescriptorFileSizeInBytes)
+            {
+                return null;
+            }
+
+            var exactPayload = new byte[remainingByteCount];
+            var exactBuffer = new Memory<byte>(exactPayload);
+            await stream.ReadExactlyAsync(exactBuffer, cancellationToken).ConfigureAwait(true);
+            return exactPayload;
+        }
+
+        var payload = new byte[ReadBufferSizeInBytes];
+        var totalBytesRead = 0;
+        while (true)
+        {
+            if (totalBytesRead == payload.Length)
+            {
+                if (payload.Length == MaxDescriptorFileSizeInBytes)
+                {
+                    var probeBuffer = new byte[1];
+                    var probeReadBuffer = new Memory<byte>(probeBuffer);
+                    var probeBytesRead = await stream.ReadAsync(probeReadBuffer, cancellationToken).ConfigureAwait(true);
+                    if (probeBytesRead == 0)
+                    {
+                        var exactPayload = new ReadOnlyMemory<byte>(payload, 0, totalBytesRead);
+                        return exactPayload;
+                    }
+
+                    return null;
+                }
+
+                var nextBufferLength = Math.Min(payload.Length * 2, MaxDescriptorFileSizeInBytes);
+                Array.Resize(ref payload, nextBufferLength);
+            }
+
+            var readBuffer = new Memory<byte>(payload, totalBytesRead, payload.Length - totalBytesRead);
+            var bytesRead = await stream.ReadAsync(readBuffer, cancellationToken).ConfigureAwait(true);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            totalBytesRead += bytesRead;
+        }
+
+        var bufferedPayload = new ReadOnlyMemory<byte>(payload, 0, totalBytesRead);
+        return bufferedPayload;
     }
 
     [RelayCommand]

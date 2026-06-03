@@ -45,7 +45,7 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
     public ProtobufDescriptorIndex Index => Volatile.Read(ref _index);
 
     /// <inheritdoc />
-    public void Load(string sourcePath, byte[] payload)
+    public void Load(string sourcePath, ReadOnlyMemory<byte> payload)
     {
         var parsed = ProtobufFileDescriptorSetParser.Parse(payload);
         lock (_gate)
