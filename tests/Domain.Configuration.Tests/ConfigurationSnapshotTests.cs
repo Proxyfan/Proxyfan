@@ -210,7 +210,16 @@ public sealed class ConfigurationSnapshotTests
         var snapshot = new ConfigurationSnapshot(data);
 
         var values = snapshot.Enumerate();
+        var foundExpectedPair = false;
+        foreach (var pair in values)
+        {
+            if (pair.Key == "a" && pair.Value == "1")
+            {
+                foundExpectedPair = true;
+            }
+        }
 
         await Assert.That(values is Dictionary<string, string>).IsFalse();
+        await Assert.That(foundExpectedPair).IsTrue();
     }
 }
