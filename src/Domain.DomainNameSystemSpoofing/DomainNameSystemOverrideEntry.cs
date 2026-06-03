@@ -167,4 +167,14 @@ public sealed class DomainNameSystemOverrideEntry
     {
         Volatile.Write(ref _matchCount, 0);
     }
+
+    /// <summary>
+    ///     Seeds the internal match counter to a specific value. Test-only seam used to
+    ///     exercise saturation behaviour without performing billions of increments.
+    /// </summary>
+    /// <param name="value">The value to publish to the match counter.</param>
+    internal void SeedMatchCountForTesting(int value)
+    {
+        Volatile.Write(ref _matchCount, value);
+    }
 }

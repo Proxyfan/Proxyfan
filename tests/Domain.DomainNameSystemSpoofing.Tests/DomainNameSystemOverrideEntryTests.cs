@@ -233,11 +233,7 @@ public sealed class DomainNameSystemOverrideEntryTests
     public async Task RecordMatch_AtIntMaxValue_SaturatesWithoutWrapping()
     {
         var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
-        var field = typeof(DomainNameSystemOverrideEntry).GetField(
-            "_matchCount",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        await Assert.That(field).IsNotNull();
-        field!.SetValue(entry, int.MaxValue);
+        entry.SeedMatchCountForTesting(int.MaxValue);
 
         var result = entry.RecordMatch();
 
