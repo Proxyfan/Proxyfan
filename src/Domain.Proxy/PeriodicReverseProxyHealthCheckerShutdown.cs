@@ -12,31 +12,53 @@ namespace Proxyfan.Domain.Proxy;
 public static class PeriodicReverseProxyHealthCheckerShutdown
 {
     /// <summary>
-    ///     Cancels the supplied <paramref name="source" /> and returns whether the cancel
-    ///     completed normally. Swallows <see cref="ObjectDisposedException" /> so a parallel
-    ///     <see cref="IDisposable.Dispose" /> race is tolerated.
+    ///     Cancels the supplied <paramref name="source" /> and disposes it once the cancel
+    ///     drains. When the caller's <paramref name="cancellationToken" /> fires before the
+    ///     cancel completes, the resulting <see cref="OperationCanceledException" /> is
+    ///     propagated and <see cref="IDisposable.Dispose" /> is NOT invoked: disposing while
+    ///     <see cref="CancellationTokenSource.CancelAsync" /> is still draining callbacks
+    ///     is not thread-safe, so the source is left for finalization rather than racing
+    ///     the in-flight cancel. <see cref="ObjectDisposedException" /> from a parallel
+    ///     dispose race is swallowed.
     /// </summary>
-    /// <param name="source">The cancellation token source to cancel.</param>
-    /// <param name="cancellationToken">
-    ///     Cancels the wait for the cancel operation itself. When this token fires while
-    ///     <see cref="CancellationTokenSource.CancelAsync" /> is draining registered
-    ///     callbacks, the resulting <see cref="OperationCanceledException" /> is propagated
-    ///     so the caller's timeout is honored.
-    /// </param>
-    /// <returns><see langword="true" /> when the cancel propagated normally.</returns>
-    public static async Task<bool> HasCancelSucceededAsync(
+    /// <param name="source">The cancellation token source to cancel and dispose.</param>
+    /// <param name="cancellationToken">Cancels the wait for the cancel operation.</param>
+    /// <returns>
+    ///     A task that completes successfully when the cancel drained and the source was
+    ///     disposed. May complete as cancelled when <paramref name="cancellationToken" />
+    ///     fires before the cancel drains; in that case the source is intentionally left
+    ///     undisposed rather than risking a concurrent dispose / cancel race.
+    /// </returns>
+    public static async Task CancelAndDisposeAsync(
         CancellationTokenSource source,
         CancellationToken cancellationToken)
     {
+        Task cancelTask;
         try
         {
-            await source.CancelAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
-            return true;
+            cancelTask = source.CancelAsync();
         }
-        catch (ObjectDisposedException ex)
+        catch (ObjectDisposedException)
         {
-            _ = ex;
-            return false;
+            return;
+        }
+
+        try
+        {
+            await cancelTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        try
+        {
+            source.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            _ = source;
         }
     }
 
@@ -51,7 +73,11 @@ public static class PeriodicReverseProxyHealthCheckerShutdown
     /// </summary>
     /// <param name="loop">The background loop task to wait for.</param>
     /// <param name="cancellationToken">Cancels the wait.</param>
-    /// <returns>A task that completes when the loop drains.</returns>
+    /// <returns>
+    ///     A task that completes when the loop drains. May complete as cancelled when
+    ///     <paramref name="cancellationToken" /> fires before the loop drains; in that case
+    ///     the loop is left running to drain on its own.
+    /// </returns>
     public static async Task WaitForLoopAsync(Task loop, CancellationToken cancellationToken)
     {
         try

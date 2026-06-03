@@ -110,16 +110,9 @@ public sealed class PeriodicReverseProxyHealthChecker : IDisposable
 
         if (source is not null)
         {
-            try
-            {
-                await PeriodicReverseProxyHealthCheckerShutdown
-                    .HasCancelSucceededAsync(source, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            finally
-            {
-                source.Dispose();
-            }
+            await PeriodicReverseProxyHealthCheckerShutdown
+                .CancelAndDisposeAsync(source, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (loop is not null)

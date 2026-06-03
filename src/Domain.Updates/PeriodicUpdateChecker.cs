@@ -115,16 +115,9 @@ public sealed class PeriodicUpdateChecker : IDisposable
 
         if (source is not null)
         {
-            try
-            {
-                await PeriodicUpdateCheckerShutdown
-                    .HasCancelSucceededAsync(source, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            finally
-            {
-                source.Dispose();
-            }
+            await PeriodicUpdateCheckerShutdown
+                .CancelAndDisposeAsync(source, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (loop is not null)

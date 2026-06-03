@@ -10,39 +10,32 @@ namespace Proxyfan.Domain.Updates.Tests;
 public sealed class PeriodicUpdateCheckerShutdownTests
 {
     /// <summary>
-    ///     Verifies that <see cref="PeriodicUpdateCheckerShutdown.HasCancelSucceededAsync" />
-    ///     returns <see langword="true" /> when the source is alive.
+    ///     Verifies that <see cref="PeriodicUpdateCheckerShutdown.CancelAndDisposeAsync" />
+    ///     cancels an alive source and disposes it.
     /// </summary>
     [Test]
-    public async Task HasCancelSucceededAsync_AliveSource_ReturnsTrue()
+    public async Task CancelAndDisposeAsync_AliveSource_CancelsAndDisposes()
     {
         var source = new CancellationTokenSource();
-        try
-        {
-            var ok = await PeriodicUpdateCheckerShutdown.HasCancelSucceededAsync(source, CancellationToken.None);
+        var token = source.Token;
 
-            await Assert.That(ok).IsTrue();
-            await Assert.That(source.Token.IsCancellationRequested).IsTrue();
-        }
-        finally
-        {
-            source.Dispose();
-        }
+        await PeriodicUpdateCheckerShutdown.CancelAndDisposeAsync(source, CancellationToken.None);
+
+        await Assert.That(token.IsCancellationRequested).IsTrue();
+        await Assert.That(() => source.Token).Throws<ObjectDisposedException>();
     }
 
     /// <summary>
-    ///     Verifies that <see cref="PeriodicUpdateCheckerShutdown.HasCancelSucceededAsync" />
-    ///     returns <see langword="false" /> when the source has already been disposed.
+    ///     Verifies that <see cref="PeriodicUpdateCheckerShutdown.CancelAndDisposeAsync" />
+    ///     tolerates a source that has already been disposed.
     /// </summary>
     [Test]
-    public async Task HasCancelSucceededAsync_DisposedSource_ReturnsFalse()
+    public async Task CancelAndDisposeAsync_DisposedSource_ReturnsWithoutThrowing()
     {
         var source = new CancellationTokenSource();
         source.Dispose();
 
-        var ok = await PeriodicUpdateCheckerShutdown.HasCancelSucceededAsync(source, CancellationToken.None);
-
-        await Assert.That(ok).IsFalse();
+        await PeriodicUpdateCheckerShutdown.CancelAndDisposeAsync(source, CancellationToken.None);
     }
 
     /// <summary>
