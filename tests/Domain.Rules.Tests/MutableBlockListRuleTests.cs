@@ -236,6 +236,28 @@ public sealed class MutableBlockListRuleTests
         await Assert.That(rule.GetPatterns().Count).IsEqualTo(2);
     }
 
+    /// <summary>
+    ///     A malformed matcher pattern that fails to compile does not poison the rule:
+    ///     the patterns collection, compiled matcher snapshot, and Changed event are unaffected.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedMatcher_DoesNotMutateState()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        var valid = new MatchingRule("https://blocked.example.com/*", MatchingRuleKind.Wildcard);
+        rule.AddPattern(valid);
+        var count = 0;
+        rule.Changed += () => count++;
+        var malformed = new MatchingRule("[invalid", MatchingRuleKind.Regex);
+
+        await Assert.That(() => rule.AddPattern(malformed)).Throws<ArgumentException>();
+
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(count).IsEqualTo(0);
+        var action = rule.EvaluateRequest(CreateRequest("https://blocked.example.com/path"));
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

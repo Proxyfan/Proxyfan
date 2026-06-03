@@ -76,6 +76,8 @@ public sealed class MutableBlockListRule : IRequestPhaseRule
     /// <param name="rule">The matching rule to add.</param>
     public void AddPattern(MatchingRule rule)
     {
+        var compiled = rule.Compile();
+
         lock (_mutationLock)
         {
             foreach (var existing in _patterns)
@@ -86,8 +88,15 @@ public sealed class MutableBlockListRule : IRequestPhaseRule
                 }
             }
 
+            var rebuilt = new List<IUrlMatcher>(_patterns.Count + 1);
+            foreach (var existingMatcher in _matchers)
+            {
+                rebuilt.Add(existingMatcher);
+            }
+            rebuilt.Add(compiled);
+
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            _matchers = rebuilt;
         }
 
         RaiseChanged();
