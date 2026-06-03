@@ -89,6 +89,7 @@ public sealed class ServiceCollectionExtensionsTests
         var second = provider.GetRequiredService<ISecondContract>();
 
         await Assert.That(first).IsSameReferenceAs(second);
+        await Assert.That(first).IsTypeOf<SampleImplementation>();
         await Assert.That(creationCount).IsEqualTo(1);
     }
 
