@@ -387,6 +387,14 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
         }
+
+        var hosts = new List<string>(Flows.Count);
+        foreach (var flow in Flows)
+        {
+            hosts.Add(flow.Host);
+        }
+
+        _coordinator.UpdateSourceHosts(hosts);
     }
 
     private void OnCoordinatorHostFilterRequested(string host)

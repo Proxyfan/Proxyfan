@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -12,8 +14,8 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed class TrafficListCoordinator
 {
     /// <summary>
-    ///     Raised when the traffic list clears its flow collection. The
-    ///     source list rebuilds its host groups in response.
+    ///     Raised when the traffic list clears its flow collection. The source list
+    ///     rebuilds its host groups in response.
     /// </summary>
     public event TrafficListFlowsClearedHandler? FlowsCleared;
 
@@ -23,6 +25,12 @@ public sealed class TrafficListCoordinator
     ///     empty string clears the filter.
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
+
+    /// <summary>
+    ///     Raised when the traffic list publishes a complete host snapshot
+    ///     derived from its current flows.
+    /// </summary>
+    public event TrafficListSourceHostsUpdatedHandler? SourceHostsUpdated;
 
     /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
@@ -43,5 +51,15 @@ public sealed class TrafficListCoordinator
     public void RequestHostFilter(string? host)
     {
         HostFilterRequested?.Invoke(host ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Publishes a complete host snapshot derived from the current flow
+    ///     collection.
+    /// </summary>
+    /// <param name="hosts">The current flow hosts.</param>
+    public void UpdateSourceHosts(IReadOnlyList<string> hosts)
+    {
+        SourceHostsUpdated?.Invoke(hosts);
     }
 }
