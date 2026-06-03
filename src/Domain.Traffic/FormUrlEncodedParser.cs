@@ -24,7 +24,7 @@ public static class FormUrlEncodedParser
         }
 
         var text = Encoding.UTF8.GetString(body.Span);
-        return QueryStringParser.ParseQueryString(text);
+        return QueryStringParser.ParseEncodedPairs(text);
     }
 
     /// <summary>
@@ -34,6 +34,6 @@ public static class FormUrlEncodedParser
     /// <returns>The parsed parameters in the order they appeared.</returns>
     public static IReadOnlyList<QueryParameter> Parse(string bodyText)
     {
-        return QueryStringParser.ParseQueryString(bodyText);
+        return QueryStringParser.ParseEncodedPairs(bodyText);
     }
 }

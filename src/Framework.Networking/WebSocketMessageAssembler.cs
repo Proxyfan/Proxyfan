@@ -40,13 +40,19 @@ public sealed class WebSocketMessageAssembler
     /// <param name="timestamp">The timestamp to assign to a completed message.</param>
     /// <returns>The completed message, or null when more continuation frames are required.</returns>
     /// <exception cref="System.IO.InvalidDataException">
-    ///     Thrown when a continuation frame is received with no in-progress message, or when a
-    ///     new data-message frame arrives while a message is still in progress.
+    ///     Thrown when a continuation frame is received with no in-progress message, when a
+    ///     new data-message frame arrives while a message is still in progress, or when a
+    ///     control frame is received with <see cref="WebSocketFrame.IsFinalFragment"/> set to false.
     /// </exception>
     public WebSocketMessage? Accept(WebSocketFrame frame, WebSocketDirection direction, DateTimeOffset timestamp)
     {
         if (WebSocketOpcodes.HasControlBehavior(frame.Opcode))
         {
+            if (!frame.IsFinalFragment)
+            {
+                throw new System.IO.InvalidDataException("Fragmented control frame received; RFC 6455 forbids fragmentation of control frames.");
+            }
+
             var controlMessage = new WebSocketMessage(direction, frame.Opcode, frame.Payload, timestamp);
             return controlMessage;
         }

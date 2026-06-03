@@ -15,10 +15,10 @@ public sealed class FormattingService : INotifyPropertyChanged, IDisposable
     /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private const long BytesPerGigabyte = 1024L * 1024L * 1024L;
-    private const long BytesPerKilobyte = 1024L;
-    private const long BytesPerMegabyte = 1024L * 1024L;
-    private const long BytesPerTerabyte = 1024L * 1024L * 1024L * 1024L;
+    private const ulong BytesPerGigabyte = 1024UL * 1024UL * 1024UL;
+    private const ulong BytesPerKilobyte = 1024UL;
+    private const ulong BytesPerMegabyte = 1024UL * 1024UL;
+    private const ulong BytesPerTerabyte = 1024UL * 1024UL * 1024UL * 1024UL;
     private const string DefaultDateTimeFormat = "G";
     private const string IndexerPropertyName = "Item[]";
     private readonly LocalizationService _localizationService;
@@ -139,7 +139,7 @@ public sealed class FormattingService : INotifyPropertyChanged, IDisposable
     public string FormatFileSize(long bytes)
     {
         var sign = bytes < 0 ? "-" : string.Empty;
-        var magnitude = bytes < 0 ? -bytes : bytes;
+        var magnitude = bytes < 0 ? unchecked((ulong)~bytes + 1UL) : (ulong)bytes;
         if (magnitude < BytesPerKilobyte)
         {
             return sign + magnitude.ToString("N0", CurrentCulture) + " B";

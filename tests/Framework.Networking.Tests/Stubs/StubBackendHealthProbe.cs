@@ -10,6 +10,8 @@ namespace Proxyfan.Framework.Networking.Tests.Stubs;
 /// </summary>
 public sealed class StubBackendHealthProbe : IBackendHealthProbe
 {
+    private readonly TaskCompletionSource _probeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>
     ///     Gets or sets the response the probe returns.
     /// </summary>
@@ -20,11 +22,28 @@ public sealed class StubBackendHealthProbe : IBackendHealthProbe
     /// </summary>
     public int ProbeCount { get; private set; }
 
+    /// <summary>
+    ///     Gets or sets an optional gate. When set, ProbeAsync awaits the task before returning.
+    /// </summary>
+    public Task? ProbeGate { get; set; }
+
+    /// <summary>
+    ///     Gets a task that completes when ProbeAsync has been entered. Useful for
+    ///     deterministically waiting until the probe is in-flight from a test.
+    /// </summary>
+    public Task ProbeStarted => _probeStarted.Task;
+
     /// <inheritdoc />
-    public Task<bool> ProbeAsync(string host, int port, CancellationToken cancellationToken)
+    public async Task<bool> ProbeAsync(string host, int port, CancellationToken cancellationToken)
     {
         _ = (host, port, cancellationToken);
         ProbeCount++;
-        return Task.FromResult(ResponseHealthy);
+        _probeStarted.TrySetResult();
+        if (ProbeGate is not null)
+        {
+            await ProbeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return ResponseHealthy;
     }
 }

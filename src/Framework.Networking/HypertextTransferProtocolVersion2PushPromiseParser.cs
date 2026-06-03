@@ -13,6 +13,8 @@ namespace Proxyfan.Framework.Networking;
 ///     </list>
 ///     Returns <c>null</c> when the payload is too short to contain the mandatory fields or
 ///     when the padding length exceeds the available payload — both are FRAME_SIZE_ERROR cases.
+///     Also returns <c>null</c> when the promised stream identifier is zero or odd (client-initiated):
+///     PUSH_PROMISE must reference a non-zero, server-initiated (even) stream id per RFC 7540 § 5.1.1.
 /// </summary>
 public static class HypertextTransferProtocolVersion2PushPromiseParser
 {
@@ -42,6 +44,10 @@ public static class HypertextTransferProtocolVersion2PushPromiseParser
         }
         var raw = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(offset, 4));
         var promisedStreamIdentifier = raw & 0x7FFFFFFFu;
+        if (promisedStreamIdentifier == 0 || (promisedStreamIdentifier & 1u) == 1u)
+        {
+            return null;
+        }
         offset += 4;
         var fragmentEnd = span.Length - paddingLength;
         if (fragmentEnd < offset)
