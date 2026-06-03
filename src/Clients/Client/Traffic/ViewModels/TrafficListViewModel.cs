@@ -445,7 +445,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             viewModel.UpdateResponse(domainEvent);
             if (!string.IsNullOrWhiteSpace(FilterText))
             {
-                RebuildVisibleFlowsOnUiThread();
+                ReevaluateVisibleFlowOnUiThread(viewModel);
             }
         });
     }
@@ -461,6 +461,43 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
                 VisibleFlows.Add(flow);
             }
         }
+    }
+
+    private void ReevaluateVisibleFlowOnUiThread(TrafficFlowViewModel flow)
+    {
+        var matching = HasFilterMatch(flow);
+        var existingIndex = VisibleFlows.IndexOf(flow);
+
+        if (!matching)
+        {
+            if (existingIndex >= 0)
+            {
+                VisibleFlows.RemoveAt(existingIndex);
+            }
+
+            return;
+        }
+
+        if (existingIndex >= 0)
+        {
+            return;
+        }
+
+        var insertionIndex = 0;
+        foreach (var candidate in Flows)
+        {
+            if (ReferenceEquals(candidate, flow))
+            {
+                break;
+            }
+
+            if (HasFilterMatch(candidate))
+            {
+                insertionIndex++;
+            }
+        }
+
+        VisibleFlows.Insert(insertionIndex, flow);
     }
 
     [RelayCommand]
