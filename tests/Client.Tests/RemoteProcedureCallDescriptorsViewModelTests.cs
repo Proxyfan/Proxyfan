@@ -88,6 +88,26 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     }
 
     /// <summary>
+    ///     A descriptor file over the size limit is rejected with a read failure message.
+    /// </summary>
+    [Test]
+    public async Task LoadFromFile_DescriptorExceedsLimit_ReportsReadFailure()
+    {
+        var library = new RemoteProcedureCallDescriptorLibrary();
+        var picker = new StubPickerService
+        {
+            Stream = new OversizedDescriptorStream(),
+            DisplayName = "huge.pb",
+        };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.LoadFromFileCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
+        await Assert.That(viewModel.StatusText).Contains("exceeds maximum allowed size");
+    }
+
+    /// <summary>
     ///     UnloadSelected removes the selected entry and updates the status text.
     /// </summary>
     [Test]
@@ -205,6 +225,44 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         public Task<Stream?> OpenForWriteAsync(FilePickerSaveRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult<Stream?>(null);
+        }
+    }
+
+    private sealed class OversizedDescriptorStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => true;
+
+        public override bool CanWrite => false;
+
+        public override long Length => 64L * 1024L * 1024L;
+
+        public override long Position { get; set; }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            return 0;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            Position = offset;
+            return Position;
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
         }
     }
 }
