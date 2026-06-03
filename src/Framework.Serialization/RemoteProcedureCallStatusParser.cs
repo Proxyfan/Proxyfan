@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 
 namespace Proxyfan.Framework.Serialization;
@@ -27,7 +28,8 @@ public static class RemoteProcedureCallStatusParser
         }
 
         var typedCode = ConvertRawCode(rawCode);
-        var status = new RemoteProcedureCallStatus(rawCode, typedCode, string.IsNullOrWhiteSpace(messageHeaderValue) ? null : messageHeaderValue);
+        var decodedMessage = string.IsNullOrWhiteSpace(messageHeaderValue) ? null : DecodeRemoteProcedureCallMessage(messageHeaderValue);
+        var status = new RemoteProcedureCallStatus(rawCode, typedCode, decodedMessage);
         return status;
     }
 
@@ -39,5 +41,17 @@ public static class RemoteProcedureCallStatusParser
         }
 
         return RemoteProcedureCallStatusCode.Unknown;
+    }
+
+    private static string DecodeRemoteProcedureCallMessage(string messageHeaderValue)
+    {
+        try
+        {
+            return Uri.UnescapeDataString(messageHeaderValue);
+        }
+        catch (UriFormatException)
+        {
+            return messageHeaderValue;
+        }
     }
 }

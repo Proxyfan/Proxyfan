@@ -70,6 +70,39 @@ public sealed class RemoteProcedureCallStatusParserTests
     }
 
     /// <summary>
+    ///     Verifies that grpc-message percent-encoded spaces are decoded.
+    /// </summary>
+    [Test]
+    public async Task Parse_PercentEncodedSpaceInMessage_Decodes()
+    {
+        var status = RemoteProcedureCallStatusParser.Parse("5", "Not%20Found");
+
+        await Assert.That(status!.Message).IsEqualTo("Not Found");
+    }
+
+    /// <summary>
+    ///     Verifies that grpc-message encoded percent literals are decoded.
+    /// </summary>
+    [Test]
+    public async Task Parse_PercentLiteralInMessage_Decodes()
+    {
+        var status = RemoteProcedureCallStatusParser.Parse("5", "50%25%20off");
+
+        await Assert.That(status!.Message).IsEqualTo("50% off");
+    }
+
+    /// <summary>
+    ///     Verifies that grpc-message UTF-8 percent-encoded sequences are decoded.
+    /// </summary>
+    [Test]
+    public async Task Parse_Utf8PercentEncodedMessage_Decodes()
+    {
+        var status = RemoteProcedureCallStatusParser.Parse("5", "%E2%9C%93");
+
+        await Assert.That(status!.Message).IsEqualTo("✓");
+    }
+
+    /// <summary>
     ///     Verifies that OK (status 0) maps correctly.
     /// </summary>
     [Test]
