@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Files;
+using Proxyfan.Presentation.RemoteProcedureCalls;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.ObjectModel;
@@ -19,8 +19,8 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
+    private readonly IRemoteProcedureCallDescriptorCatalog _catalog;
     private readonly IFilePickerService _filePickerService;
-    private readonly IRemoteProcedureCallDescriptorLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private string? _selectedFilePath;
@@ -34,17 +34,17 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
 
     /// <summary>
     ///     Initializes a new <see cref="RemoteProcedureCallDescriptorsViewModel" /> bound to
-    ///     the supplied library and file picker.
+    ///     the supplied catalog and file picker.
     /// </summary>
-    /// <param name="library">The descriptor library to mutate.</param>
+    /// <param name="catalog">The descriptor catalog to mutate.</param>
     /// <param name="filePickerService">The file picker used to choose <c>.pb</c> files.</param>
     /// <param name="userInterfaceScheduler">The UI-thread scheduler.</param>
     public RemoteProcedureCallDescriptorsViewModel(
-        IRemoteProcedureCallDescriptorLibrary library,
+        IRemoteProcedureCallDescriptorCatalog catalog,
         IFilePickerService filePickerService,
         IUserInterfaceScheduler userInterfaceScheduler)
     {
-        _library = library;
+        _catalog = catalog;
         _filePickerService = filePickerService;
         _userInterfaceScheduler = userInterfaceScheduler;
         var loaded = new ObservableCollection<string>();
@@ -57,7 +57,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
     [RelayCommand]
     private void Clear()
     {
-        _library.Clear();
+        _catalog.Clear();
         RefreshLoadedFiles();
         StatusText = "All descriptor files unloaded.";
     }
@@ -95,7 +95,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
     private void RefreshLoadedFiles()
     {
         LoadedFilePaths.Clear();
-        foreach (var path in _library.LoadedFilePaths)
+        foreach (var path in _catalog.LoadedFilePaths)
         {
             LoadedFilePaths.Add(path);
         }
@@ -115,7 +115,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
                 using var memory = new MemoryStream();
                 await picked.Stream.CopyToAsync(memory, cancellationToken).ConfigureAwait(true);
                 var sourcePath = string.IsNullOrEmpty(picked.DisplayName) ? "descriptor.pb" : picked.DisplayName;
-                _library.Load(sourcePath, memory.ToArray());
+                _catalog.Load(sourcePath, memory.ToArray());
                 _userInterfaceScheduler.Post(() =>
                 {
                     RefreshLoadedFiles();
@@ -142,7 +142,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
             return;
         }
 
-        _library.Unload(selected);
+        _catalog.Unload(selected);
         RefreshLoadedFiles();
         StatusText = "Unloaded " + selected + ".";
     }

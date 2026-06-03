@@ -1,8 +1,9 @@
 using Proxyfan.Client.Tools.ViewModels;
-using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Files;
+using Proxyfan.Presentation.RemoteProcedureCalls;
 using Proxyfan.Presentation.Threading;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,9 +22,9 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task Construct_Empty_HasNoLoadedFiles()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var catalog = new StubDescriptorCatalog();
         var picker = new StubPickerService();
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
         await Assert.That(viewModel.StatusText).IsEqualTo(string.Empty);
@@ -35,14 +36,13 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_ValidDescriptorSet_AppearsInFileList()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
-        var setBytes = BuildEmptyDescriptorSet("test.proto", "demo");
+        var catalog = new StubDescriptorCatalog();
         var picker = new StubPickerService
         {
-            Stream = new MemoryStream(setBytes),
+            Stream = new MemoryStream(new byte[] { 0x01 }),
             DisplayName = "test.pb",
         };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
@@ -57,9 +57,9 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_CancelledPicker_NoChangeToLibrary()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var catalog = new StubDescriptorCatalog();
         var picker = new StubPickerService { Stream = null };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
@@ -73,13 +73,16 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_MalformedPayload_ReportsParseFailure()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var catalog = new StubDescriptorCatalog
+        {
+            ThrowInvalidDataException = true,
+        };
         var picker = new StubPickerService
         {
             Stream = new MemoryStream(new byte[] { 0x80 }),
             DisplayName = "broken.pb",
         };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
@@ -93,10 +96,9 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task UnloadSelected_AfterLoad_RemovesEntry()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
-        var setBytes = BuildEmptyDescriptorSet("a.proto", "a");
-        var picker = new StubPickerService { Stream = new MemoryStream(setBytes), DisplayName = "a.pb" };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var catalog = new StubDescriptorCatalog();
+        var picker = new StubPickerService { Stream = new MemoryStream(new byte[] { 0x01 }), DisplayName = "a.pb" };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, picker, Stubs.InlineUserInterfaceScheduler.Instance);
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
         viewModel.SelectedFilePath = "a.pb";
 
@@ -112,8 +114,8 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task UnloadSelected_NoSelection_NoOp()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, new StubPickerService(), Stubs.InlineUserInterfaceScheduler.Instance);
+        var catalog = new StubDescriptorCatalog();
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, new StubPickerService(), Stubs.InlineUserInterfaceScheduler.Instance);
 
         viewModel.UnloadSelectedCommand.Execute(null);
 
@@ -126,54 +128,15 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task Clear_AfterLoad_EmptiesLibrary()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
-        var setBytes = BuildEmptyDescriptorSet("a.proto", "a");
-        var picker = new StubPickerService { Stream = new MemoryStream(setBytes), DisplayName = "a.pb" };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var catalog = new StubDescriptorCatalog();
+        var picker = new StubPickerService { Stream = new MemoryStream(new byte[] { 0x01 }), DisplayName = "a.pb" };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(catalog, picker, Stubs.InlineUserInterfaceScheduler.Instance);
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
         viewModel.ClearCommand.Execute(null);
 
         await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
         await Assert.That(viewModel.StatusText).Contains("unloaded");
-    }
-
-    private static byte[] BuildEmptyDescriptorSet(string fileName, string package)
-    {
-        // FileDescriptorSet { repeated FileDescriptorProto file = 1; }
-        // FileDescriptorProto { string name = 1; string package = 2; }
-        using var memory = new MemoryStream();
-        memory.Write(BuildFieldString(1, fileName));
-        memory.Write(BuildFieldString(2, package));
-        var fileBytes = memory.ToArray();
-        return BuildLengthDelimitedField(1, fileBytes);
-    }
-
-    private static byte[] BuildLengthDelimitedField(int fieldNumber, byte[] payload)
-    {
-        var tag = (uint)((fieldNumber << 3) | 2);
-        using var memory = new MemoryStream();
-        WriteVarint(memory, tag);
-        WriteVarint(memory, (uint)payload.Length);
-        memory.Write(payload, 0, payload.Length);
-        return memory.ToArray();
-    }
-
-    private static byte[] BuildFieldString(int fieldNumber, string value)
-    {
-        var encoded = System.Text.Encoding.UTF8.GetBytes(value);
-        return BuildLengthDelimitedField(fieldNumber, encoded);
-    }
-
-    private static void WriteVarint(Stream stream, uint value)
-    {
-        while (value >= 0x80)
-        {
-            stream.WriteByte((byte)((value & 0x7F) | 0x80));
-            value >>= 7;
-        }
-
-        stream.WriteByte((byte)value);
     }
 
     private sealed class StubPickerService : IFilePickerService
@@ -205,6 +168,42 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         public Task<Stream?> OpenForWriteAsync(FilePickerSaveRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult<Stream?>(null);
+        }
+    }
+
+    private sealed class StubDescriptorCatalog : IRemoteProcedureCallDescriptorCatalog
+    {
+        private readonly List<string> _loadedFilePaths;
+
+        public StubDescriptorCatalog()
+        {
+            _loadedFilePaths = new List<string>();
+        }
+
+        public bool ThrowInvalidDataException { get; set; }
+
+        public IReadOnlyList<string> LoadedFilePaths => _loadedFilePaths;
+
+        public void Clear()
+        {
+            _loadedFilePaths.Clear();
+        }
+
+        public void Load(string sourcePath, byte[] payload)
+        {
+            _ = payload;
+            if (ThrowInvalidDataException)
+            {
+                throw new InvalidDataException("broken descriptor set");
+            }
+
+            _loadedFilePaths.Remove(sourcePath);
+            _loadedFilePaths.Add(sourcePath);
+        }
+
+        public void Unload(string sourcePath)
+        {
+            _loadedFilePaths.Remove(sourcePath);
         }
     }
 }
