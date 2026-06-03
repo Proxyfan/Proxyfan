@@ -191,6 +191,22 @@ public sealed class PreferencesViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that a CaptureMaximumFlows value above 1,000,000 fails validation.
+    /// </summary>
+    [Test]
+    public async Task ApplyCommand_CaptureMaximumFlowsAboveMaximum_DoesNotPersist()
+    {
+        var store = new StubUserPreferencesStore();
+        var themeService = new ThemeService(AppTheme.System);
+        var viewModel = new PreferencesViewModel(store, themeService) { CaptureMaximumFlows = 1_000_001 };
+
+        viewModel.ApplyCommand.Execute(parameter: null);
+
+        await Assert.That(store.SaveCallCount).IsEqualTo(0);
+        await Assert.That(viewModel.StatusMessage).IsEqualTo("Invalid values");
+    }
+
+    /// <summary>
     ///     Verifies that an out-of-range UpstreamProxyPort fails validation when upstream is enabled.
     /// </summary>
     [Test]
