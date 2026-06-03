@@ -61,7 +61,6 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _selectedSource = allGroup;
         _coordinator.FlowsChanged += OnFlowsChanged;
         _coordinator.FlowsCleared += OnFlowsCleared;
-        _coordinator.FlowsCleared += OnFlowsCleared;
     }
 
     /// <inheritdoc />
