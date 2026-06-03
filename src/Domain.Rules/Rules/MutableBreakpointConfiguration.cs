@@ -66,7 +66,15 @@ public sealed class MutableBreakpointConfiguration
             }
 
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            try
+            {
+                RebuildMatchersUnderLock();
+            }
+            catch
+            {
+                _patterns.RemoveAt(_patterns.Count - 1);
+                throw;
+            }
         }
 
         RaiseChanged();
