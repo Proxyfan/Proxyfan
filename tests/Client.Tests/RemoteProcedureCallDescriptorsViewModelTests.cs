@@ -230,7 +230,6 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
 
         public void Load(string sourcePath, byte[] payload)
         {
-            _ = payload;
             if (ThrowOnLoad)
             {
                 throw new InvalidDataException("Malformed descriptor set");
