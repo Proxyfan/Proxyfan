@@ -65,7 +65,7 @@ public sealed class UpstreamProxyOptions
             return false;
         }
 
-        if (Password is null)
+        if (string.IsNullOrEmpty(Password))
         {
             return false;
         }
