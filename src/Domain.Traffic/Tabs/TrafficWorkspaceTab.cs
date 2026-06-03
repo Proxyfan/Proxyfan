@@ -64,7 +64,7 @@ public sealed class TrafficWorkspaceTab
     /// <param name="query">The new filter query.</param>
     public void SetFilterQuery(string? query)
     {
-        var normalised = query ?? string.Empty;
+        var normalised = string.IsNullOrWhiteSpace(query) ? string.Empty : query;
         if (string.Equals(FilterQuery, normalised, StringComparison.Ordinal))
         {
             return;

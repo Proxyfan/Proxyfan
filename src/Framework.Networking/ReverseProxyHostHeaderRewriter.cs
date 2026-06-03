@@ -1,6 +1,8 @@
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 
 namespace Proxyfan.Framework.Networking;
 
@@ -72,11 +74,28 @@ public static class ReverseProxyHostHeaderRewriter
 
     private static string BuildHostValue(string backendHost, int backendPort)
     {
+        var formattedHost = FormatHostForHeader(backendHost);
         if (backendPort is DefaultHypertextTransferProtocolPort or DefaultHypertextTransferProtocolSecurePort)
+        {
+            return formattedHost;
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"{formattedHost}:{backendPort}");
+    }
+
+    private static string FormatHostForHeader(string backendHost)
+    {
+        if (backendHost.Length >= 2 && backendHost[0] == '[' && backendHost[^1] == ']')
         {
             return backendHost;
         }
 
-        return string.Create(CultureInfo.InvariantCulture, $"{backendHost}:{backendPort}");
+        if (IPAddress.TryParse(backendHost, out var address)
+            && address.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"[{backendHost}]");
+        }
+
+        return backendHost;
     }
 }

@@ -146,6 +146,47 @@ public sealed class WebSocketFlowTests
         await Assert.That(observedClosed).IsTrue();
     }
 
+    /// <summary>
+    ///     Verifies that an exception thrown by a <see cref="WebSocketFlow.MessageRecorded" />
+    ///     subscriber is isolated and does not propagate into the capture path nor prevent
+    ///     subsequent subscribers from being invoked.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_FaultySubscriber_DoesNotPropagateAndStillInvokesOthers()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var laterSubscriberInvoked = false;
+        webSocketFlow.MessageRecorded += _ => throw new InvalidOperationException("boom");
+        webSocketFlow.MessageRecorded += _ => laterSubscriberInvoked = true;
+        var message = new WebSocketMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text, new byte[] { 1 }, DateTimeOffset.UtcNow);
+
+        webSocketFlow.RecordMessage(message);
+
+        await Assert.That(laterSubscriberInvoked).IsTrue();
+        await Assert.That(webSocketFlow.Messages.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that an exception thrown by a <see cref="WebSocketFlow.Closed" />
+    ///     subscriber is isolated and does not propagate into the capture path nor prevent
+    ///     subsequent subscribers from being invoked.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_FaultySubscriber_DoesNotPropagateAndStillInvokesOthers()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var laterSubscriberInvoked = false;
+        webSocketFlow.Closed += () => throw new InvalidOperationException("boom");
+        webSocketFlow.Closed += () => laterSubscriberInvoked = true;
+
+        webSocketFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        await Assert.That(laterSubscriberInvoked).IsTrue();
+        await Assert.That(webSocketFlow.IsClosed).IsTrue();
+    }
+
     private static TrafficFlow CreateUnderlyingFlow(out Guid id)
     {
         id = Guid.NewGuid();
