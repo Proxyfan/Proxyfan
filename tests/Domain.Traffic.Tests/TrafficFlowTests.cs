@@ -283,6 +283,91 @@ public sealed class TrafficFlowTests
         await Assert.That(flow.Response).IsEqualTo(response);
     }
 
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetResponse" /> preserves a previously
+    ///     captured request-completed milestone so the waiting/TTFB phase is non-zero.
+    /// </summary>
+    [Test]
+    public async Task SetResponse_WhenRequestCompletedAlreadyMarked_PreservesMilestone()
+    {
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
+        flow.MarkRequestCompleted();
+        var requestCompletedAt = flow.Timings.RequestCompletedAt;
+
+        flow.SetResponse(response);
+
+        await Assert.That(flow.Timings.RequestCompletedAt).IsEqualTo(requestCompletedAt);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.SetResponse" /> preserves a previously
+    ///     captured response-started milestone so the waiting/TTFB phase is non-zero.
+    /// </summary>
+    [Test]
+    public async Task SetResponse_WhenResponseStartedAlreadyMarked_PreservesMilestone()
+    {
+        var flow = CreateFlow();
+        var request = CreateRequest();
+        var response = CreateResponse();
+        flow.SetRequest(request);
+        flow.MarkRequestCompleted();
+        flow.MarkResponseStarted();
+        var responseStartedAt = flow.Timings.ResponseStartedAt;
+
+        flow.SetResponse(response);
+
+        await Assert.That(flow.Timings.ResponseStartedAt).IsEqualTo(responseStartedAt);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.MarkRequestCompleted" /> is idempotent.
+    /// </summary>
+    [Test]
+    public async Task MarkRequestCompleted_WhenCalledRepeatedly_PreservesFirstTimestamp()
+    {
+        var flow = CreateFlow();
+        flow.SetRequest(CreateRequest());
+        flow.MarkRequestCompleted();
+        var firstTimestamp = flow.Timings.RequestCompletedAt;
+
+        flow.MarkRequestCompleted();
+
+        await Assert.That(flow.Timings.RequestCompletedAt).IsEqualTo(firstTimestamp);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.MarkResponseStarted" /> is idempotent.
+    /// </summary>
+    [Test]
+    public async Task MarkResponseStarted_WhenCalledRepeatedly_PreservesFirstTimestamp()
+    {
+        var flow = CreateFlow();
+        flow.SetRequest(CreateRequest());
+        flow.MarkResponseStarted();
+        var firstTimestamp = flow.Timings.ResponseStartedAt;
+
+        flow.MarkResponseStarted();
+
+        await Assert.That(flow.Timings.ResponseStartedAt).IsEqualTo(firstTimestamp);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="TrafficFlow.MarkRequestCompleted" /> is a no-op on
+    ///     a pending flow so that the request-start invariant is preserved.
+    /// </summary>
+    [Test]
+    public async Task MarkRequestCompleted_WhenPending_DoesNotRecordTimestamp()
+    {
+        var flow = CreateFlow();
+
+        flow.MarkRequestCompleted();
+
+        await Assert.That(flow.Timings.RequestCompletedAt).IsNull();
+    }
+
     private TrafficFlow CreateFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:12345", DateTimeOffset.UtcNow);

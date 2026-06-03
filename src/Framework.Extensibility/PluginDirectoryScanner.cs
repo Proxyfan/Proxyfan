@@ -33,7 +33,24 @@ public sealed class PluginDirectoryScanner
             return candidates;
         }
 
-        var subdirectories = Directory.GetDirectories(rootDirectory);
+        string[] subdirectories;
+        try
+        {
+            subdirectories = Directory.GetDirectories(rootDirectory);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return candidates;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return candidates;
+        }
+        catch (IOException)
+        {
+            return candidates;
+        }
+
         Array.Sort(subdirectories, StringComparer.OrdinalIgnoreCase);
         foreach (var directory in subdirectories)
         {

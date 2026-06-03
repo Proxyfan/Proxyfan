@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace Proxyfan.Domain.Traffic;
 
@@ -20,8 +22,8 @@ public static class ContentTypeParser
             return null;
         }
 
-        var parts = rawValue.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0)
+        var parts = SplitRespectingQuotes(rawValue);
+        if (parts.Count == 0)
         {
             return null;
         }
@@ -30,7 +32,7 @@ public static class ContentTypeParser
         string? charset = null;
         string? boundary = null;
 
-        for (var index = 1; index < parts.Length; index++)
+        for (var index = 1; index < parts.Count; index++)
         {
             var parameter = parts[index];
             var equalsIndex = parameter.IndexOf('=', StringComparison.Ordinal);
@@ -39,8 +41,8 @@ public static class ContentTypeParser
                 continue;
             }
 
-            var parameterName = parameter[..equalsIndex];
-            var parameterValue = StripQuotes(parameter[(equalsIndex + 1)..]);
+            var parameterName = parameter[..equalsIndex].Trim();
+            var parameterValue = UnquoteValue(parameter[(equalsIndex + 1)..].Trim());
 
             if (string.Equals(parameterName, "charset", StringComparison.OrdinalIgnoreCase))
             {
@@ -56,13 +58,98 @@ public static class ContentTypeParser
         return result;
     }
 
-    private static string StripQuotes(string value)
+    private static void AppendPart(List<string> parts, StringBuilder current)
     {
-        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+        var trimmed = current.ToString().Trim();
+        if (trimmed.Length > 0)
         {
-            return value[1..^1];
+            parts.Add(trimmed);
+        }
+    }
+
+    private static List<string> SplitRespectingQuotes(string rawValue)
+    {
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+        var index = 0;
+
+        while (index < rawValue.Length)
+        {
+            var character = rawValue[index];
+
+            if (inQuotes)
+            {
+                current.Append(character);
+                if (character == '\\' && index + 1 < rawValue.Length)
+                {
+                    current.Append(rawValue[index + 1]);
+                    index += 2;
+                    continue;
+                }
+
+                if (character == '"')
+                {
+                    inQuotes = false;
+                }
+
+                index++;
+                continue;
+            }
+
+            if (character == '"')
+            {
+                inQuotes = true;
+                current.Append(character);
+                index++;
+                continue;
+            }
+
+            if (character == ';')
+            {
+                AppendPart(parts, current);
+                current.Clear();
+                index++;
+                continue;
+            }
+
+            current.Append(character);
+            index++;
         }
 
-        return value;
+        AppendPart(parts, current);
+        return parts;
+    }
+
+    private static string UnquoteValue(string value)
+    {
+        if (value.Length < 2 || value[0] != '"' || value[^1] != '"')
+        {
+            return value;
+        }
+
+        var inner = value[1..^1];
+        if (inner.IndexOf('\\', StringComparison.Ordinal) < 0)
+        {
+            return inner;
+        }
+
+        var builder = new StringBuilder(inner.Length);
+        var index = 0;
+        while (index < inner.Length)
+        {
+            var character = inner[index];
+            if (character == '\\' && index + 1 < inner.Length)
+            {
+                builder.Append(inner[index + 1]);
+                index += 2;
+                continue;
+            }
+
+            builder.Append(character);
+            index++;
+        }
+
+        return builder.ToString();
     }
 }
