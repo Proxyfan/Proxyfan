@@ -198,4 +198,21 @@ public sealed class ConfigurationSnapshotTests
 
         await Assert.That(count).IsEqualTo(3);
     }
+
+    /// <summary>
+    ///     Verifies that <see cref="ConfigurationSnapshot.Enumerate" /> does not expose mutable storage.
+    /// </summary>
+    [Test]
+    public async Task Enumerate_ReturnValue_IsNotMutableDictionary()
+    {
+        var snapshot = new ConfigurationSnapshot(
+            new Dictionary<string, string>
+            {
+                ["a"] = "1",
+            });
+
+        var exposesDictionary = snapshot.Enumerate() is IDictionary<string, string>;
+
+        await Assert.That(exposesDictionary).IsFalse();
+    }
 }
