@@ -120,6 +120,58 @@ public sealed class UpgradeResponseRewriterTests
         await Assert.That(rewritten).IsNotSameReferenceAs(response);
     }
 
+    /// <summary>Verifies that headers listed in the Connection header are stripped.</summary>
+    [Test]
+    public async Task Rewrite_ConnectionListedHeader_IsStripped()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "upgrade, x-upstream-only")
+            .Add("Upgrade", "websocket")
+            .Add("X-Upstream-Only", "secret");
+        var response = CreateResponse(headers);
+
+        var rewritten = UpgradeResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("X-Upstream-Only")).IsFalse();
+        await Assert.That(rewritten.Headers.Get("Upgrade")).IsEqualTo("websocket");
+        await Assert.That(rewritten.Headers.Get("Connection")).IsEqualTo("upgrade, x-upstream-only");
+    }
+
+    /// <summary>Verifies that multiple Connection header values contribute tokens.</summary>
+    [Test]
+    public async Task Rewrite_MultipleConnectionHeaderValues_AllTokensStrip()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "upgrade")
+            .Add("Connection", "x-foo , x-bar")
+            .Add("Upgrade", "websocket")
+            .Add("X-Foo", "1")
+            .Add("X-Bar", "2")
+            .Add("X-Keep", "3");
+        var response = CreateResponse(headers);
+
+        var rewritten = UpgradeResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("X-Foo")).IsFalse();
+        await Assert.That(rewritten.Headers.HasHeader("X-Bar")).IsFalse();
+        await Assert.That(rewritten.Headers.Get("X-Keep")).IsEqualTo("3");
+    }
+
+    /// <summary>Verifies that the Connection header itself is preserved even when self-listed.</summary>
+    [Test]
+    public async Task Rewrite_ConnectionListsItself_PreservesConnectionAndUpgrade()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "Connection, Upgrade")
+            .Add("Upgrade", "websocket");
+        var response = CreateResponse(headers);
+
+        var rewritten = UpgradeResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.Get("Connection")).IsEqualTo("Connection, Upgrade");
+        await Assert.That(rewritten.Headers.Get("Upgrade")).IsEqualTo("websocket");
+    }
+
     private static HypertextTransferProtocolResponseData CreateResponse(HeaderCollection headers)
     {
         var parameters = new HypertextTransferProtocolResponseDataParameters

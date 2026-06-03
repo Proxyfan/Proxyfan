@@ -8,8 +8,10 @@ namespace Proxyfan.Framework.Networking;
 ///     Response-side rewriter for HTTP/1.1 <c>Upgrade</c> responses (typically <c>101 Switching
 ///     Protocols</c>). Preserves the <c>Connection</c> and <c>Upgrade</c> headers so the client
 ///     sees the upgrade acknowledgment intact, while still stripping <c>Proxy-Authenticate</c>,
-///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, and <c>Keep-Alive</c> and appending
-///     the <c>Via: 1.1 proxyfan</c> token (RFC 7230 § 5.7.1).
+///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, and <c>Keep-Alive</c>, dropping any
+///     additional hop-by-hop headers listed in the response <c>Connection</c> header (other than
+///     <c>Connection</c>/<c>Upgrade</c> themselves), and appending the <c>Via: 1.1 proxyfan</c>
+///     token (RFC 7230 § 5.7.1, § 6.1).
 /// </summary>
 public static class UpgradeResponseRewriter
 {
@@ -40,6 +42,7 @@ public static class UpgradeResponseRewriter
         var sanitized = HeaderCollection.Empty;
         var hasExistingVia = false;
         var existingViaChain = string.Empty;
+        var connectionListedHeaders = ExtractConnectionListedHeaders(response.Headers);
 
         foreach (var header in response.Headers)
         {
@@ -52,6 +55,13 @@ public static class UpgradeResponseRewriter
             {
                 existingViaChain = string.Join(", ", header.Value);
                 hasExistingVia = existingViaChain.Length > 0;
+                continue;
+            }
+
+            if (connectionListedHeaders.Contains(header.Key)
+                && !string.Equals(header.Key, "Connection", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(header.Key, "Upgrade", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
             }
 
@@ -73,5 +83,25 @@ public static class UpgradeResponseRewriter
             Version = response.Version,
         };
         return new HypertextTransferProtocolResponseData(parameters);
+    }
+
+    private static HashSet<string> ExtractConnectionListedHeaders(HeaderCollection headers)
+    {
+        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var value in headers.GetAll("Connection"))
+        {
+            foreach (var rawToken in value.Split(','))
+            {
+                var token = rawToken.Trim();
+
+                if (token.Length > 0)
+                {
+                    tokens.Add(token);
+                }
+            }
+        }
+
+        return tokens;
     }
 }
