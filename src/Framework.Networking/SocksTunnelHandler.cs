@@ -207,11 +207,6 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task<Socks5ConnectRequest?> ReadSocks5ConnectRequestAsync(PipeReader reader, CancellationToken cancellationToken)
     {
-        // Peek the 4-byte prefix (VER + CMD + RSV + ATYP) to validate the header and to
-        // determine the exact request length. A fixed minimum like 10 bytes would deadlock
-        // on short domain-name requests whose full length is below the minimum, and would
-        // under-read IPv6 (22 bytes) or longer domain-name requests when they arrive in
-        // multiple segments.
         var prefix = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 4, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
 
         if (prefix.Length < 4)
@@ -219,38 +214,17 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
             return null;
         }
 
-        // Validate VER/CMD/ATYP via the parser; this throws on an invalid header and is
-        // surfaced by the outer handshake-error catch.
         _ = Socks5ConnectRequestParser.TryParse(prefix);
 
-        var addressType = (Socks5AddressType)prefix[3];
-        int requiredLength;
-
-        switch (addressType)
+        var requiredLength = await Socks5RequestLengthDeriver.DeriveRequiredLengthAsync(reader, prefix, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
+        if (requiredLength is null)
         {
-            case Socks5AddressType.InternetProtocolVersionFour:
-                requiredLength = 10;
-                break;
-            case Socks5AddressType.InternetProtocolVersionSix:
-                requiredLength = 22;
-                break;
-            case Socks5AddressType.DomainName:
-                var withLengthByte = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 5, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
-
-                if (withLengthByte.Length < 5)
-                {
-                    return null;
-                }
-
-                requiredLength = 5 + withLengthByte[4] + 2;
-                break;
-            default:
-                return null;
+            return null;
         }
 
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, requiredLength, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, requiredLength.Value, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
 
-        if (bytes.Length < requiredLength)
+        if (bytes.Length < requiredLength.Value)
         {
             return null;
         }
