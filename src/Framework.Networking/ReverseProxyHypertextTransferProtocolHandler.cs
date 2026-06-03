@@ -113,6 +113,7 @@ public sealed class ReverseProxyHypertextTransferProtocolHandler
     private void FailAndCompleteFlow(TrafficFlow flow)
     {
         flow.Fail();
+        _trafficStore.Add(flow);
         _flowEventPublisher.PublishFlowCompleted(flow);
     }
 
