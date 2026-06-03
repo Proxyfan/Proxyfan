@@ -97,8 +97,10 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
 
         lock (_mutationLock)
         {
+            List<MapLocalEntry> candidateEntries = [.. _entries, entry];
+            var rebuilt = BuildCompiledEntries(candidateEntries);
             _entries.Add(entry);
-            RebuildUnderLock();
+            _compiled = rebuilt;
         }
 
         RaiseChanged();
@@ -153,17 +155,12 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
         RaiseChanged();
     }
 
-    private void RaiseChanged()
+    private CompiledEntry[] BuildCompiledEntries(List<MapLocalEntry> entries)
     {
-        Changed?.Invoke();
-    }
-
-    private void RebuildUnderLock()
-    {
-        var rebuilt = new CompiledEntry[_entries.Count];
-        for (var index = 0; index < _entries.Count; index++)
+        var rebuilt = new CompiledEntry[entries.Count];
+        for (var index = 0; index < entries.Count; index++)
         {
-            var entry = _entries[index];
+            var entry = entries[index];
             var headers = HeaderCollection.Empty;
             foreach (var header in entry.Headers)
             {
@@ -182,7 +179,17 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
             rebuilt[index] = compiled;
         }
 
-        _compiled = rebuilt;
+        return rebuilt;
+    }
+
+    private void RaiseChanged()
+    {
+        Changed?.Invoke();
+    }
+
+    private void RebuildUnderLock()
+    {
+        _compiled = BuildCompiledEntries(_entries);
     }
 
     private sealed class CompiledEntry

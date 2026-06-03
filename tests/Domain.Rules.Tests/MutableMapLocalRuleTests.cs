@@ -5,6 +5,7 @@ using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -150,6 +151,64 @@ public sealed class MutableMapLocalRuleTests
 
         await Assert.That(count).IsEqualTo(1);
         await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     A failed add does not retain the invalid entry or block later valid adds.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_WhenCompileThrows_DoesNotRetainInvalidEntry()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        rule.AddEntry(new MapLocalEntry
+        {
+            Body = Encoding.UTF8.GetBytes("first"),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://first.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        });
+        var changedCount = 0;
+        rule.Changed += () => changedCount++;
+
+        var invalidEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("(", MatchingRuleKind.Regex),
+            ReasonPhrase = "Broken",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<RegexParseException>();
+        await Assert.That(changedCount).IsEqualTo(0);
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+
+        var firstAction = rule.EvaluateRequest(CreateRequest("https://first.example.com/path"));
+        await Assert.That(firstAction).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+        var firstServe = (RequestPipelineAction.ServeLocalResponse)firstAction!;
+        await Assert.That(Encoding.UTF8.GetString(firstServe.LocalResponse.Body.Span)).IsEqualTo("first");
+
+        rule.AddEntry(new MapLocalEntry
+        {
+            Body = Encoding.UTF8.GetBytes("second"),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://second.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 201,
+        });
+
+        await Assert.That(changedCount).IsEqualTo(1);
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(2);
+
+        var secondAction = rule.EvaluateRequest(CreateRequest("https://second.example.com/path"));
+        await Assert.That(secondAction).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+        var secondServe = (RequestPipelineAction.ServeLocalResponse)secondAction!;
+        await Assert.That(secondServe.LocalResponse.StatusCode).IsEqualTo(201);
+        await Assert.That(Encoding.UTF8.GetString(secondServe.LocalResponse.Body.Span)).IsEqualTo("second");
     }
 
     /// <summary>
