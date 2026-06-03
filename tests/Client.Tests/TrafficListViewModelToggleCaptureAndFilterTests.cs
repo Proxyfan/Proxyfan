@@ -178,6 +178,46 @@ public sealed class TrafficListViewModelToggleCaptureAndFilterTests
     }
 
     /// <summary>
+    ///     Status-code filters must add a flow when the matching response arrives after the filter is set.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_StatusCodeFilter_ReevaluatesWhenMatchingResponseArrives()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://a/1"));
+
+        viewModel.FilterText = "404";
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 404));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.VisibleFlows[0].StatusCode).IsEqualTo(404);
+    }
+
+    /// <summary>
+    ///     Status-code filters must remove a flow when a later response status no longer matches.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_StatusCodeFilter_ReevaluatesWhenResponseStatusChanges()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://a/1"));
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 404));
+
+        viewModel.FilterText = "404";
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 200));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     Empty filter text means everything is visible.
     /// </summary>
     [Test]
