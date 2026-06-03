@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -73,6 +74,40 @@ public sealed class LeafCertificateCacheTests
         await Assert.That(factoryCallCount).IsEqualTo(1);
         await Assert.That(cache.Count).IsEqualTo(1);
         await Assert.That(results[0]).IsSameReferenceAs(results[^1]);
+    }
+
+    /// <summary>
+    ///     Verifies that a cache hit for another host is not blocked while a new certificate is being created.
+    /// </summary>
+    [Test]
+    public async Task GetOrAdd_WhenAnotherHostIsGenerating_DoesNotBlockCachedHit()
+    {
+        var cache = new LeafCertificateCache(8);
+        var cachedCertificate = CreateCertificate("cached.example");
+        using var factoryEntered = new ManualResetEventSlim();
+        using var allowFactoryToContinue = new ManualResetEventSlim();
+        cache.GetOrAdd("cached.example", _ => cachedCertificate);
+
+        var generatingTask = Task.Run(() => cache.GetOrAdd("blocked.example", _ =>
+        {
+            factoryEntered.Set();
+            allowFactoryToContinue.Wait(TimeSpan.FromSeconds(5));
+            return CreateCertificate("blocked.example");
+        }));
+
+        await Assert.That(factoryEntered.Wait(TimeSpan.FromSeconds(5))).IsTrue();
+
+        var stopwatch = Stopwatch.StartNew();
+        var cachedHitTask = Task.Run(() => cache.GetOrAdd("cached.example", _ => throw new InvalidOperationException("Factory should not be used for cached entries.")));
+        var cachedHitCompleted = cachedHitTask.Wait(TimeSpan.FromSeconds(1));
+        stopwatch.Stop();
+
+        allowFactoryToContinue.Set();
+
+        await Assert.That(cachedHitCompleted).IsTrue();
+        await Assert.That(stopwatch.Elapsed).IsLessThan(TimeSpan.FromSeconds(1));
+        await Assert.That(cachedHitTask.Result).IsSameReferenceAs(cachedCertificate);
+        await Assert.That(await generatingTask).IsNotNull();
     }
 
     private static X509Certificate2 CreateCertificate(string hostname)

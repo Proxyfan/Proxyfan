@@ -11,6 +11,7 @@ namespace Proxyfan.Domain.Certificates;
 public sealed class LeafCertificateCache : ICertificateCache
 {
     private readonly Dictionary<string, LinkedListNode<KeyValuePair<string, X509Certificate2>>> _entries;
+    private readonly Dictionary<string, Lazy<X509Certificate2>> _pendingEntries;
     private readonly Lock _syncRoot;
     private readonly LinkedList<KeyValuePair<string, X509Certificate2>> _usageOrder;
 
@@ -23,9 +24,11 @@ public sealed class LeafCertificateCache : ICertificateCache
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         Capacity = capacity;
         var entries = new Dictionary<string, LinkedListNode<KeyValuePair<string, X509Certificate2>>>(StringComparer.OrdinalIgnoreCase);
+        var pendingEntries = new Dictionary<string, Lazy<X509Certificate2>>(StringComparer.OrdinalIgnoreCase);
         var syncRoot = new Lock();
         var usageOrder = new LinkedList<KeyValuePair<string, X509Certificate2>>();
         _entries = entries;
+        _pendingEntries = pendingEntries;
         _syncRoot = syncRoot;
         _usageOrder = usageOrder;
     }
@@ -39,6 +42,7 @@ public sealed class LeafCertificateCache : ICertificateCache
         lock (_syncRoot)
         {
             _entries.Clear();
+            _pendingEntries.Clear();
             _usageOrder.Clear();
         }
     }
@@ -70,6 +74,8 @@ public sealed class LeafCertificateCache : ICertificateCache
                 _entries.Remove(hostname);
                 _usageOrder.Remove(entry);
             }
+
+            _pendingEntries.Remove(hostname);
         }
     }
 
@@ -86,20 +92,37 @@ public sealed class LeafCertificateCache : ICertificateCache
             throw new ArgumentException("Host name must be provided.", nameof(hostname));
         }
 
+        var pendingEntry = GetOrCreatePendingEntry(hostname, factory, out X509Certificate2? existingCertificate);
+
+        if (existingCertificate is not null)
+        {
+            return existingCertificate;
+        }
+
+        return ResolvePendingEntry(hostname, pendingEntry!);
+    }
+
+    private Lazy<X509Certificate2>? GetOrCreatePendingEntry(string hostname, CertificateFactory factory, out X509Certificate2? existingCertificate)
+    {
         lock (_syncRoot)
         {
             if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? existingEntry))
             {
                 MoveToFront(existingEntry);
-                return existingEntry.Value.Value;
+                existingCertificate = existingEntry.Value.Value;
+                return null;
             }
 
-            var certificate = factory(hostname);
-            var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, certificate);
-            var node = _usageOrder.AddFirst(cacheEntry);
-            _entries[hostname] = node;
-            RemoveLeastRecentlyUsedWhenRequired();
-            return certificate;
+            if (_pendingEntries.TryGetValue(hostname, out Lazy<X509Certificate2>? existingPendingEntry))
+            {
+                existingCertificate = null;
+                return existingPendingEntry;
+            }
+
+            var pendingEntry = new Lazy<X509Certificate2>(() => factory(hostname), LazyThreadSafetyMode.ExecutionAndPublication);
+            _pendingEntries[hostname] = pendingEntry;
+            existingCertificate = null;
+            return pendingEntry;
         }
     }
 
@@ -125,6 +148,53 @@ public sealed class LeafCertificateCache : ICertificateCache
 
         _entries.Remove(oldestEntry.Value.Key);
         _usageOrder.RemoveLast();
+    }
+
+    private void RemovePendingEntry(string hostname, Lazy<X509Certificate2> pendingEntry)
+    {
+        lock (_syncRoot)
+        {
+            if (_pendingEntries.TryGetValue(hostname, out Lazy<X509Certificate2>? registeredPendingEntry)
+                && ReferenceEquals(registeredPendingEntry, pendingEntry))
+            {
+                _pendingEntries.Remove(hostname);
+            }
+        }
+    }
+
+    private X509Certificate2 ResolvePendingEntry(string hostname, Lazy<X509Certificate2> pendingEntry)
+    {
+        try
+        {
+            var certificate = pendingEntry.Value;
+
+            lock (_syncRoot)
+            {
+                if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? existingEntry))
+                {
+                    _pendingEntries.Remove(hostname);
+                    MoveToFront(existingEntry);
+                    return existingEntry.Value.Value;
+                }
+
+                if (_pendingEntries.TryGetValue(hostname, out Lazy<X509Certificate2>? registeredPendingEntry)
+                    && ReferenceEquals(registeredPendingEntry, pendingEntry))
+                {
+                    var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, certificate);
+                    var node = _usageOrder.AddFirst(cacheEntry);
+                    _entries[hostname] = node;
+                    _pendingEntries.Remove(hostname);
+                    RemoveLeastRecentlyUsedWhenRequired();
+                }
+
+                return certificate;
+            }
+        }
+        catch
+        {
+            RemovePendingEntry(hostname, pendingEntry);
+            throw;
+        }
     }
 
     /// <summary>
