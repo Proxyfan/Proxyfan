@@ -51,6 +51,29 @@ public sealed class CacheControlParserTests
     }
 
     /// <summary>
+    ///     Verifies that no-cache with a field-name value is still treated as no-cache.
+    /// </summary>
+    [Test]
+    public async Task Parse_NoCacheWithFieldNameValue_SetsFlag()
+    {
+        var directives = CacheControlParser.Parse("no-cache=\"Set-Cookie\"");
+
+        await Assert.That(directives.IsNoCache).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that quoted field-name lists with commas are not split as directives.
+    /// </summary>
+    [Test]
+    public async Task Parse_PrivateWithQuotedCommaValue_SetsFlagAndParsesFollowingDirective()
+    {
+        var directives = CacheControlParser.Parse("private=\"Authorization, Set-Cookie\", max-age=60");
+
+        await Assert.That(directives.IsPrivate).IsTrue();
+        await Assert.That(directives.MaxAgeSeconds).IsEqualTo(60L);
+    }
+
+    /// <summary>
     ///     Verifies that max-age and s-maxage are captured.
     /// </summary>
     [Test]

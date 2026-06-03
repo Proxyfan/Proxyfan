@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Proxyfan.Domain.Traffic;
@@ -23,7 +24,7 @@ public static class CacheControlParser
             return new CacheControlDirectives(parameters);
         }
 
-        var parts = headerValue.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var parts = SplitDirectives(headerValue);
 
         foreach (var part in parts)
         {
@@ -44,10 +45,18 @@ public static class CacheControlParser
             return;
         }
 
-        var name = directive[..equalsIndex];
+        var name = directive[..equalsIndex].Trim();
         var value = StripQuotes(directive[(equalsIndex + 1)..]);
 
-        if (string.Equals(name, "max-age", StringComparison.OrdinalIgnoreCase)
+        if (string.Equals(name, "no-cache", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters.IsNoCache = true;
+        }
+        else if (string.Equals(name, "private", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters.IsPrivate = true;
+        }
+        else if (string.Equals(name, "max-age", StringComparison.OrdinalIgnoreCase)
             && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var maxAge)
             && maxAge >= 0)
         {
@@ -85,8 +94,53 @@ public static class CacheControlParser
         }
     }
 
+    private static bool HasUnescapedQuote(string headerValue, int quoteIndex)
+    {
+        var backslashCount = 0;
+        for (var slashIndex = quoteIndex - 1; slashIndex >= 0 && headerValue[slashIndex] == '\\'; slashIndex--)
+        {
+            backslashCount++;
+        }
+
+        return backslashCount % 2 == 0;
+    }
+
+    private static IEnumerable<string> SplitDirectives(string headerValue)
+    {
+        var start = 0;
+        var inQuotes = false;
+
+        for (var index = 0; index < headerValue.Length; index++)
+        {
+            var character = headerValue[index];
+
+            if (character == '"' && HasUnescapedQuote(headerValue, index))
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (!inQuotes && character == ',')
+            {
+                var directive = headerValue[start..index].Trim();
+                if (directive.Length > 0)
+                {
+                    yield return directive;
+                }
+
+                start = index + 1;
+            }
+        }
+
+        var lastDirective = headerValue[start..].Trim();
+        if (lastDirective.Length > 0)
+        {
+            yield return lastDirective;
+        }
+    }
+
     private static string StripQuotes(string value)
     {
+        value = value.Trim();
+
         if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
         {
             return value[1..^1];
