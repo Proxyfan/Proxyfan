@@ -104,13 +104,26 @@ public static class ServiceCollectionExtensions
         ImplementationFactory<TImplementation> implementation)
         where TImplementation : notnull
     {
+        object CreateImplementation(IServiceProvider provider)
+        {
+            return implementation.Invoke();
+        }
+
+        var implementationDescriptor = new ServiceDescriptor(typeof(TImplementation), CreateImplementation, ServiceLifetime.Singleton);
+        serviceCollection.Add(implementationDescriptor);
+
+        object ForwardToImplementation(IServiceProvider provider)
+        {
+            return provider.GetRequiredService(typeof(TImplementation));
+        }
+
         var type = typeof(TImplementation);
 
         foreach (var @interface in type.GetInterfaces())
         {
             if (@interface != typeof(IDisposable))
             {
-                var descriptor = new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton);
+                var descriptor = new ServiceDescriptor(@interface, ForwardToImplementation, ServiceLifetime.Singleton);
                 serviceCollection.Add(descriptor);
             }
         }

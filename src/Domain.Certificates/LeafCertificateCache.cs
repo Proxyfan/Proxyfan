@@ -93,13 +93,24 @@ public sealed class LeafCertificateCache : ICertificateCache
                 MoveToFront(existingEntry);
                 return existingEntry.Value.Value;
             }
+        }
 
-            var certificate = factory(hostname);
-            var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, certificate);
+        var generatedCertificate = factory(hostname);
+
+        lock (_syncRoot)
+        {
+            if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? existingEntry))
+            {
+                MoveToFront(existingEntry);
+                generatedCertificate.Dispose();
+                return existingEntry.Value.Value;
+            }
+
+            var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, generatedCertificate);
             var node = _usageOrder.AddFirst(cacheEntry);
             _entries[hostname] = node;
             RemoveLeastRecentlyUsedWhenRequired();
-            return certificate;
+            return generatedCertificate;
         }
     }
 
