@@ -189,6 +189,39 @@ public sealed class MutableMapRemoteRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry whose matcher fails to compile leaves the entry list and
+    ///     the compiled pipeline unchanged, and does not raise <see cref="MutableMapRemoteRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_CompileFails_EntriesAndCompiledAreUnchanged()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        rule.AddEntry(new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
+        });
+        var count = 0;
+        rule.Changed += () => count++;
+
+        // An invalid regex pattern causes Compile() to throw.
+        var invalidEntry = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("[invalid-regex", MatchingRuleKind.Regex),
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<Exception>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+        await Assert.That(count).IsEqualTo(0);
+        var request = CreateRequest("https://public.example.com/api");
+        await Assert.That(rule.EvaluateRequest(request)).IsTypeOf<RequestPipelineAction.Redirect>();
+    }
+
+    /// <summary>
     ///     SetEnabled changes the IsEnabled state and raises Changed.
     /// </summary>
     [Test]

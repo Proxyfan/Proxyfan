@@ -245,6 +245,44 @@ public sealed class MutableMapLocalRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry whose matcher fails to compile leaves the entry list and
+    ///     the compiled pipeline unchanged, and does not raise <see cref="MutableMapLocalRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_CompileFails_EntriesAndCompiledAreUnchanged()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        rule.AddEntry(new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://stub.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        });
+        var count = 0;
+        rule.Changed += () => count++;
+
+        // An invalid regex pattern causes Compile() to throw.
+        var invalidEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("[invalid-regex", MatchingRuleKind.Regex),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<Exception>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+        await Assert.That(count).IsEqualTo(0);
+        var request = CreateRequest("https://stub.example.com/api");
+        await Assert.That(rule.EvaluateRequest(request)).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+    }
+
+    /// <summary>
     ///     SetEnabled changes the IsEnabled state and raises Changed.
     /// </summary>
     [Test]
