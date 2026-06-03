@@ -210,7 +210,13 @@ public sealed class ConnectionDispatcherTests
         var events = new List<ConnectionErrorOccurred>(bus.PublishedOf<ConnectionErrorOccurred>());
         await Assert.That(events.Count).IsEqualTo(1);
         await Assert.That(events[0].RemoteEndPoint).IsSameReferenceAs(connection.RemoteEndPoint);
-        await Assert.That(events[0].Exception).IsNotNull();
+        await Assert.That(events[0].Error).IsNotNull();
+        await Assert.That(events[0].Error).IsTypeOf<ConnectionHandlerError>();
+        var handlerError = (ConnectionHandlerError)events[0].Error;
+        await Assert.That(handlerError.Code).IsEqualTo("CONNECTION_HANDLER_FAULTED");
+        await Assert.That(handlerError.ExceptionTypeName).IsEqualTo(typeof(InvalidOperationException).FullName);
+        await Assert.That(handlerError.InnerException).IsNull();
+        await Assert.That(handlerError.Message).DoesNotContain("simulated handler failure");
     }
 
     /// <summary>
