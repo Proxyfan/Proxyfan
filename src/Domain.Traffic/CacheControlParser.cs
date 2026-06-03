@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 
 namespace Proxyfan.Domain.Traffic;
 
@@ -23,15 +25,24 @@ public static class CacheControlParser
             return new CacheControlDirectives(parameters);
         }
 
-        var parts = headerValue.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var part in parts)
+        foreach (var part in EnumerateDirectives(headerValue))
         {
             ApplyDirective(parameters, part);
         }
 
         var directives = new CacheControlDirectives(parameters);
         return directives;
+    }
+
+    private static void AddDirective(StringBuilder builder, List<string> directives)
+    {
+        var directive = builder.ToString().Trim();
+        builder.Clear();
+
+        if (!string.IsNullOrEmpty(directive))
+        {
+            directives.Add(directive);
+        }
     }
 
     private static void ApplyDirective(CacheControlDirectivesParameters parameters, string directive)
@@ -44,10 +55,18 @@ public static class CacheControlParser
             return;
         }
 
-        var name = directive[..equalsIndex];
+        var name = directive[..equalsIndex].Trim();
         var value = StripQuotes(directive[(equalsIndex + 1)..]);
 
-        if (string.Equals(name, "max-age", StringComparison.OrdinalIgnoreCase)
+        if (string.Equals(name, "no-cache", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters.IsNoCache = true;
+        }
+        else if (string.Equals(name, "private", StringComparison.OrdinalIgnoreCase))
+        {
+            parameters.IsPrivate = true;
+        }
+        else if (string.Equals(name, "max-age", StringComparison.OrdinalIgnoreCase)
             && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var maxAge)
             && maxAge >= 0)
         {
@@ -85,8 +104,54 @@ public static class CacheControlParser
         }
     }
 
+    private static string[] EnumerateDirectives(string headerValue)
+    {
+        var directives = new List<string>();
+        var builder = new StringBuilder(headerValue.Length);
+        var isInsideQuotes = false;
+        var isEscaped = false;
+
+        foreach (var character in headerValue)
+        {
+            if (isEscaped)
+            {
+                builder.Append(character);
+                isEscaped = false;
+                continue;
+            }
+
+            if (character == '\\' && isInsideQuotes)
+            {
+                builder.Append(character);
+                isEscaped = true;
+                continue;
+            }
+
+            if (character == '"')
+            {
+                builder.Append(character);
+                isInsideQuotes = !isInsideQuotes;
+                continue;
+            }
+
+            if (character == ',' && !isInsideQuotes)
+            {
+                AddDirective(builder, directives);
+                continue;
+            }
+
+            builder.Append(character);
+        }
+
+        AddDirective(builder, directives);
+
+        return [.. directives];
+    }
+
     private static string StripQuotes(string value)
     {
+        value = value.Trim();
+
         if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
         {
             return value[1..^1];

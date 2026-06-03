@@ -37,6 +37,21 @@ public sealed class CacheControlParserTests
     }
 
     /// <summary>
+    ///     Verifies that field-name forms of no-cache and private still set their flags.
+    /// </summary>
+    /// <param name="directive">The directive value.</param>
+    [Test]
+    [Arguments("no-cache=\"Set-Cookie\"", true, false)]
+    [Arguments("private=\"Authorization\"", false, true)]
+    public async Task Parse_FieldNameDirective_SetsFlag(string directive, bool isNoCache, bool isPrivate)
+    {
+        var directives = CacheControlParser.Parse(directive);
+
+        await Assert.That(directives.IsNoCache).IsEqualTo(isNoCache);
+        await Assert.That(directives.IsPrivate).IsEqualTo(isPrivate);
+    }
+
+    /// <summary>
     ///     Verifies that no-store, public, private, must-revalidate are captured.
     /// </summary>
     [Test]
@@ -70,6 +85,18 @@ public sealed class CacheControlParserTests
     {
         var directives = CacheControlParser.Parse("max-age=\"600\"");
 
+        await Assert.That(directives.MaxAgeSeconds).IsEqualTo(600L);
+    }
+
+    /// <summary>
+    ///     Verifies that commas inside quoted field-name directives are not split.
+    /// </summary>
+    [Test]
+    public async Task Parse_QuotedFieldNameWithComma_DoesNotSplitDirective()
+    {
+        var directives = CacheControlParser.Parse("no-cache=\"Set-Cookie, Authorization\", max-age=600");
+
+        await Assert.That(directives.IsNoCache).IsTrue();
         await Assert.That(directives.MaxAgeSeconds).IsEqualTo(600L);
     }
 
