@@ -231,8 +231,8 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         if (selectedFlow.Source is not null)
         {
             SummaryText = FlowSummaryFormatter.Format(selectedFlow.Source);
-            TimingText = FlowTimingFormatter.Format(selectedFlow.Source.Timings);
-            UpdateTimingWaterfall(selectedFlow.Source.Timings);
+            TimingText = FlowTimingFormatter.Format(selectedFlow.Timings);
+            UpdateTimingWaterfall(selectedFlow.Timings);
         }
         else
         {

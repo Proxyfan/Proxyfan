@@ -295,6 +295,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        flow.Source.SetColorTag(colorTag);
         flow.ApplyColorTag(colorTag);
     }
 
@@ -307,6 +308,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        flow.Source.SetComment(comment);
         flow.ApplyComment(comment);
     }
 
@@ -328,7 +330,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedAsCurlAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -341,7 +343,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedAsRawHypertextTransferProtocolAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -354,7 +356,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CopySelectedUrlAsync(CancellationToken cancellationToken)
     {
-        var request = SelectedFlow?.Source?.Request;
+        var request = SelectedFlow?.Request;
         if (request is null || _clipboardService is null)
         {
             return;
@@ -406,7 +408,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateStatus(domainEvent));
+        _userInterfaceScheduler.Post(() =>
+        {
+            SynchronizeSourceStatus(viewModel.Source, domainEvent.Status);
+            viewModel.UpdateStatus(domainEvent);
+        });
     }
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
@@ -442,6 +448,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
         _userInterfaceScheduler.Post(() =>
         {
+            if (viewModel.Source.Status == TrafficFlowStatus.Active)
+            {
+                viewModel.Source.SetResponse(domainEvent.Response);
+            }
+
             viewModel.UpdateResponse(domainEvent);
             if (!string.IsNullOrWhiteSpace(FilterText))
             {
@@ -477,7 +488,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void RemoveSelectedOnUiThread(TrafficFlowViewModel viewModel)
     {
-        _flowById.TryRemove(viewModel.Source.Id, out _);
+        _flowById.TryRemove(viewModel.Id, out _);
         Flows.Remove(viewModel);
         if (ReferenceEquals(SelectedFlow, viewModel))
         {
@@ -530,6 +541,26 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private async Task RepeatSelectedTenTimesAsync(CancellationToken cancellationToken)
     {
         await RepeatFlowAsync(SelectedFlow, repeatCount: 10, cancellationToken).ConfigureAwait(false);
+    }
+
+    private void SynchronizeSourceStatus(TrafficFlow source, TrafficFlowStatus status)
+    {
+        if (status == TrafficFlowStatus.Complete && source.Status == TrafficFlowStatus.Active)
+        {
+            source.Complete();
+            return;
+        }
+
+        if (status == TrafficFlowStatus.Failed)
+        {
+            source.Fail();
+            return;
+        }
+
+        if (status == TrafficFlowStatus.Aborted)
+        {
+            source.Abort();
+        }
     }
 
     [RelayCommand]
