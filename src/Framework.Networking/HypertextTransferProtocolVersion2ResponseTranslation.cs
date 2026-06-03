@@ -10,9 +10,10 @@ namespace Proxyfan.Framework.Networking;
 ///     <see cref="HypertextTransferProtocolResponseData" /> into the HPACK-encoded header list
 ///     and body payload that an HTTP/2 server emits for a stream. The translator hoists the
 ///     status code onto a <c>:status</c> pseudo-header (which must precede regular headers),
-///     lowercases header names (HTTP/2 wire format requirement, § 8.1.2), and strips the
+///     lowercases header names (HTTP/2 wire format requirement, § 8.1.2), strips the
 ///     connection-specific headers (<c>Connection</c>, <c>Keep-Alive</c>, <c>Proxy-Connection</c>,
-///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids.
+///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids, and also strips any extension
+///     hop-by-hop headers named in the <c>Connection</c> header value (RFC 7230 § 6.1).
 /// </summary>
 public static class HypertextTransferProtocolVersion2ResponseTranslation
 {
@@ -49,23 +50,33 @@ public static class HypertextTransferProtocolVersion2ResponseTranslation
         {
             throw new ArgumentOutOfRangeException(nameof(response), response.StatusCode, "HTTP/2 :status must be a 3-digit value.");
         }
+        var connectionListedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var token in ConnectionHeaderTokenizer.Parse(response.Headers))
+        {
+            connectionListedHeaders.Add(token);
+        }
         var headers = new List<HypertextTransferProtocolVersion2HpackHeaderField>(response.Headers.Count + 1);
         var statusValue = response.StatusCode.ToString(CultureInfo.InvariantCulture);
         var statusField = new HypertextTransferProtocolVersion2HpackHeaderField(StatusPseudoHeader, statusValue);
         headers.Add(statusField);
-        AppendRegularHeaders(response.Headers, headers);
+        AppendRegularHeaders(response.Headers, headers, connectionListedHeaders);
         var result = new HypertextTransferProtocolVersion2ResponseTranslationResult(headers, response.Body);
         return result;
     }
 
     private static void AppendRegularHeaders(
         HeaderCollection source,
-        List<HypertextTransferProtocolVersion2HpackHeaderField> destination)
+        List<HypertextTransferProtocolVersion2HpackHeaderField> destination,
+        HashSet<string> connectionListedHeaders)
     {
         foreach (var pair in source)
         {
             var name = pair.Key;
             if (ForbiddenConnectionHeaders.Contains(name))
+            {
+                continue;
+            }
+            if (connectionListedHeaders.Contains(name))
             {
                 continue;
             }
