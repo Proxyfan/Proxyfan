@@ -1,6 +1,8 @@
 ﻿using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -187,6 +189,39 @@ public sealed class PluginManagerViewModelTests
     }
 
     [Test]
+    public async Task DirectoryWatcher_FireChange_DisposeBeforeScheduledUpdate_DoesNotMutateState()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = new ActivationHarness(scheduler);
+        var viewModel = harness.CreateViewModel();
+
+        harness.DirectoryWatcher.FireChange();
+        await Assert.That(viewModel.IsRestartRequired).IsFalse();
+
+        viewModel.Dispose();
+        scheduler.RunNext();
+
+        await Assert.That(viewModel.IsRestartRequired).IsFalse();
+        await Assert.That(viewModel.UpdateCheckStatus).IsEmpty();
+    }
+
+    [Test]
+    public async Task DirectoryWatcher_FireChange_SchedulesUiUpdate()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = new ActivationHarness(scheduler);
+        var viewModel = harness.CreateViewModel();
+
+        harness.DirectoryWatcher.FireChange();
+
+        await Assert.That(viewModel.IsRestartRequired).IsFalse();
+        scheduler.RunNext();
+
+        await Assert.That(viewModel.IsRestartRequired).IsTrue();
+        await Assert.That(viewModel.UpdateCheckStatus).Contains("Plugins folder changed");
+    }
+
+    [Test]
     public async Task Construct_OnCreation_StartsDirectoryWatcher()
     {
         using var harness = new ActivationHarness();
@@ -238,9 +273,11 @@ public sealed class PluginManagerViewModelTests
 
         public InMemoryStore Store { get; }
 
+        public IUserInterfaceScheduler UserInterfaceScheduler { get; }
+
         public StubUpdateFeed UpdateFeed { get; }
 
-        public ActivationHarness()
+        public ActivationHarness(IUserInterfaceScheduler? userInterfaceScheduler = null)
         {
             Registry = new PluginRegistry();
             Host = new RecordingPluginHost("1.0.0");
@@ -248,6 +285,7 @@ public sealed class PluginManagerViewModelTests
             Opener = new RecordingOpener();
             UpdateFeed = new StubUpdateFeed();
             DirectoryWatcher = new StubDirectoryWatcher();
+            UserInterfaceScheduler = userInterfaceScheduler ?? InlineUserInterfaceScheduler.Instance;
             _rootDirectory = Path.Combine(Path.GetTempPath(), "proxyfan-pmvm-" + Path.GetRandomFileName());
             Directory.CreateDirectory(_rootDirectory);
             var rootProvider = new PluginRootDirectoryProvider(_rootDirectory);
@@ -259,7 +297,7 @@ public sealed class PluginManagerViewModelTests
 
         public PluginManagerViewModel CreateViewModel()
         {
-            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher);
+            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher, UserInterfaceScheduler);
             return viewModel;
         }
 
@@ -354,6 +392,32 @@ public sealed class PluginManagerViewModelTests
         public void Start()
         {
             IsStarted = true;
+        }
+    }
+
+    private sealed class DeferredUserInterfaceScheduler : IUserInterfaceScheduler
+    {
+        private readonly Queue<UserInterfaceWorkItem> _workItems = [];
+
+        public bool HasAccess()
+        {
+            return false;
+        }
+
+        public void Post(UserInterfaceWorkItem action)
+        {
+            _workItems.Enqueue(action);
+        }
+
+        public void RunNext()
+        {
+            if (_workItems.Count == 0)
+            {
+                return;
+            }
+
+            var action = _workItems.Dequeue();
+            action();
         }
     }
 }
