@@ -176,11 +176,7 @@ public sealed class UserPreferencesJsonSerializerTests
     [Test]
     public async Task Deserialize_BoundaryValues_ArePreserved()
     {
-        var json = "{\"schemaVersion\":1,\"preferences\":{"
-                   + "\"proxyPort\":1024,"
-                   + "\"upstreamProxyPort\":65535,"
-                   + "\"captureMaximumFlows\":100"
-                   + "}}";
+        var json = "{\"schemaVersion\":1,\"preferences\":{\"proxyPort\":1024,\"upstreamProxyPort\":65535,\"captureMaximumFlows\":100}}";
 
         var preferences = UserPreferencesJsonSerializer.Deserialize(json);
 
