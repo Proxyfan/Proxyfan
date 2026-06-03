@@ -121,8 +121,7 @@ public sealed class MapLocalViewModelTests
         viewModel.AddEntryCommand.Execute(null);
 
         await Assert.That(rule.GetEntries().Count).IsEqualTo(0);
-        await Assert.That(viewModel.ValidationMessage).IsNotNull();
-        await Assert.That(viewModel.ValidationMessage!.Length).IsGreaterThan(0);
+        await Assert.That(viewModel.ValidationMessage).IsEqualTo("Pattern must be a valid regular expression.");
         await Assert.That(viewModel.NewPatternText).IsEqualTo("([unterminated");
         await Assert.That(viewModel.ResponseBody).IsEqualTo("{}");
         await Assert.That(viewModel.ResponseHeaders).IsEqualTo("Content-Type: application/json");

@@ -18,6 +18,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
 {
+    private const string InvalidRegexMessage = "Pattern must be a valid regular expression.";
     private readonly MutableMapLocalRule _rule;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
@@ -105,9 +106,9 @@ public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
         {
             _rule.AddEntry(entry);
         }
-        catch (RegexParseException exception)
+        catch (RegexParseException)
         {
-            ValidationMessage = exception.Message;
+            ValidationMessage = InvalidRegexMessage;
             return;
         }
         catch (ArgumentException exception)
