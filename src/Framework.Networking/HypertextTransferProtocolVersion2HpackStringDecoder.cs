@@ -53,9 +53,23 @@ public static class HypertextTransferProtocolVersion2HpackStringDecoder
     ///     <paramref name="output" />.
     /// </summary>
     /// <param name="output">The destination stream.</param>
-    /// <param name="value">The string to emit.</param>
+    /// <param name="value">The string to emit. Each character must fall within the
+    ///     Latin-1 range (U+0000..U+00FF); supplying any character outside that range
+    ///     yields a <see cref="FormatException" /> rather than a silent replacement.</param>
+    /// <exception cref="FormatException">
+    ///     When <paramref name="value" /> contains a character outside Latin-1.
+    /// </exception>
     public static void Encode(MemoryStream output, string value)
     {
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (value[index] > '\u00FF')
+            {
+                throw new FormatException(
+                    $"HPACK string literal at index {index} contains character U+{(int)value[index]:X4} which is outside the Latin-1 range (U+0000..U+00FF). HTTP header octets are an opaque byte sequence and cannot carry higher code points.");
+            }
+        }
+
         var rawBytes = Encoding.Latin1.GetBytes(value);
         var huffmanBytes = HypertextTransferProtocolVersion2HpackHuffman.Encode(rawBytes);
         Span<byte> lengthBuffer = stackalloc byte[6];

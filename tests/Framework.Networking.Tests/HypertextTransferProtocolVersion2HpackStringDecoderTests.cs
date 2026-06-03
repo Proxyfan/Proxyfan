@@ -136,6 +136,20 @@ public sealed class HypertextTransferProtocolVersion2HpackStringDecoderTests
     }
 
     /// <summary>
+    ///     Encoding a string with a code point above U+00FF must throw rather than silently
+    ///     replacing the character with '?': HPACK string literals carry opaque header octets
+    ///     and there is no defined mapping for higher code points.
+    /// </summary>
+    [Test]
+    public async Task Encode_NonLatin1Character_ThrowsFormatException()
+    {
+        using var output = new MemoryStream();
+
+        await Assert.That(() => HypertextTransferProtocolVersion2HpackStringDecoder.Encode(output, "hello\u4e2d"))
+            .Throws<FormatException>();
+    }
+
+    /// <summary>
     ///     A single 0x7F prefix byte (length 127, continuation flag set) without any continuation
     ///     bytes is a truncated HPACK integer; the decoder must throw because the length
     ///     <see cref="HypertextTransferProtocolVersion2HpackInteger.Decode" /> returns null.
