@@ -78,6 +78,10 @@ public sealed class ConfigurationMigrationPipeline
         IReadOnlyDictionary<string, string> currentValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
         var aggregateActions = new List<ConfigurationMigrationAction>();
         var currentVersion = sourceVersion;
+        var visitedVersions = new HashSet<ConfigurationVersion>
+        {
+            currentVersion,
+        };
         while (currentVersion.HasLowerOrderThan(targetVersion))
         {
             if (!_migratorsByFrom.TryGetValue(currentVersion, out var migrator))
@@ -86,6 +90,7 @@ public sealed class ConfigurationMigrationPipeline
                     $"No configuration migrator registered for source version {currentVersion}.");
             }
 
+            ValidateTransition(currentVersion, migrator.To, targetVersion, visitedVersions);
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
             aggregateActions.AddRange(stepResult.Actions);
@@ -101,5 +106,30 @@ public sealed class ConfigurationMigrationPipeline
             Values = currentValues,
         };
         return result;
+    }
+
+    private void ValidateTransition(
+        ConfigurationVersion currentVersion,
+        ConfigurationVersion nextVersion,
+        ConfigurationVersion targetVersion,
+        HashSet<ConfigurationVersion> visitedVersions)
+    {
+        if (nextVersion <= currentVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator for source version {currentVersion} did not advance to a later version.");
+        }
+
+        if (nextVersion > targetVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator for source version {currentVersion} overshot target version {targetVersion}.");
+        }
+
+        if (!visitedVersions.Add(nextVersion))
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator for source version {currentVersion} revisited version {nextVersion}.");
+        }
     }
 }
