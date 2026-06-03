@@ -8,6 +8,7 @@
              xmlns:viewModels="clr-namespace:Proxyfan.Client.Tools.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewModels:CertificateManagerViewModel}"
              presentation:ViewModelLocator.DataContext="{x:Type viewModels:CertificateManagerViewModel}"
+             presentation:ExecuteCommandOnLoadedBehavior.Command="{Binding RefreshCommand}"
              x:DataType="viewModels:CertificateManagerViewModel"
              mc:Ignorable="d">
     <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">

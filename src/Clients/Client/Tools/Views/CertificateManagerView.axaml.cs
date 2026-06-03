@@ -1,6 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Proxyfan.Client.Tools.ViewModels;
 
 namespace Proxyfan.Client.Tools.Views;
 
@@ -17,13 +15,5 @@ public partial class CertificateManagerView : UserControl
     public CertificateManagerView()
     {
         InitializeComponent();
-        Loaded += OnLoaded;
-    }
-    private void OnLoaded(object? sender, RoutedEventArgs args)
-    {
-        if (DataContext is CertificateManagerViewModel viewModel && viewModel.RefreshCommand.CanExecute(null))
-        {
-            viewModel.RefreshCommand.Execute(null);
-        }
     }
 }

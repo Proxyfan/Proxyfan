@@ -1,6 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Headless;
+﻿using Avalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Proxyfan.Presentation;
 using System;
@@ -16,9 +14,7 @@ public sealed class ViewModelLocatorTests
 {
     static ViewModelLocatorTests()
     {
-        AppBuilder.Configure<TestApplication>()
-            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = true })
-            .SetupWithoutStarting();
+        AvaloniaHeadlessFixture.EnsureInitialized();
     }
 
     /// <summary>
@@ -173,10 +169,6 @@ public sealed class ViewModelLocatorTests
         {
             ContainerLocator.Reset();
         }
-    }
-
-    private sealed class TestApplication : Application
-    {
     }
 
     private sealed class SampleViewModel
