@@ -29,7 +29,14 @@ public static class HypertextTransferProtocolVersion2OrchestratorWriter
     /// </returns>
     public static async Task<bool> TryForwardFrameAsync(Stream destination, HypertextTransferProtocolVersion2Frame frame, CancellationToken cancellationToken)
     {
-        var totalLength = HypertextTransferProtocolVersion2FrameParser.HeaderLength + frame.Header.Length;
+        if (frame.Header.Length != frame.Payload.Length)
+        {
+            throw new InvalidOperationException(
+                $"HTTP/2 frame header length ({frame.Header.Length}) does not match payload length ({frame.Payload.Length}); refusing to forward to avoid emitting stale or truncated bytes on the wire.");
+        }
+
+        var payloadLength = frame.Payload.Length;
+        var totalLength = HypertextTransferProtocolVersion2FrameParser.HeaderLength + payloadLength;
         var buffer = ArrayPool<byte>.Shared.Rent(totalLength);
         try
         {
