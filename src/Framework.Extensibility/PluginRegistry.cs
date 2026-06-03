@@ -15,10 +15,12 @@ public sealed class PluginRegistry
     private readonly List<LoadedPlugin> _plugins;
 
     /// <summary>
-    ///     Gets an immutable snapshot of currently-registered plugins. The returned list is a
+    ///     Gets a detached snapshot of currently-registered plugins. The returned list is a
     ///     defensive copy that is decoupled from the backing store, so callers can enumerate
-    ///     it safely even while concurrent reloads mutate the registry, and cannot mutate the
-    ///     registry by casting the result back to a mutable list.
+    ///     it safely even while concurrent reloads mutate the registry, and mutations on the
+    ///     registry after the snapshot is taken do not affect what callers see. The list
+    ///     itself is exposed as <see cref="IReadOnlyList{T}" />; callers should not rely on
+    ///     the concrete runtime type and should not down-cast.
     /// </summary>
     public IReadOnlyList<LoadedPlugin> Plugins
     {
