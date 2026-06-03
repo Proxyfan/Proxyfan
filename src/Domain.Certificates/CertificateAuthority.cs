@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
@@ -85,7 +86,14 @@ public sealed class CertificateAuthority
     private X509Extension CreateServerNameIndicationExtension(string hostname)
     {
         var builder = new SubjectAlternativeNameBuilder();
-        builder.AddDnsName(hostname);
+        if (IPAddress.TryParse(hostname, out var ipAddress))
+        {
+            builder.AddIpAddress(ipAddress);
+        }
+        else
+        {
+            builder.AddDnsName(hostname);
+        }
         var extension = builder.Build();
         return extension;
     }

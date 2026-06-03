@@ -2,6 +2,7 @@
 using Proxyfan.Framework.Platform;
 using System;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -97,6 +98,68 @@ public sealed class CertificateAuthorityTests
         var secondLeaf = authority.Sign("repeated.example.com");
 
         await Assert.That(firstLeaf).IsNotSameReferenceAs(secondLeaf);
+    }
+
+    /// <summary>
+    ///     Verifies that a leaf certificate generated for an IPv4 literal encodes the address as an
+    ///     iPAddress Subject Alternative Name entry rather than a dNSName entry.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIPv4Address_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+        var expectedAddress = IPAddress.Parse("192.168.1.1");
+
+        var leaf = authority.Sign("192.168.1.1");
+
+        var san = leaf.Extensions
+            .OfType<X509SubjectAlternativeNameExtension>()
+            .Single();
+        var ipAddresses = san.EnumerateIPAddresses().ToList();
+        var dnsNames = san.EnumerateDnsNames().ToList();
+        await Assert.That(ipAddresses).Contains(expectedAddress);
+        await Assert.That(dnsNames).IsEmpty();
+    }
+
+    /// <summary>
+    ///     Verifies that a leaf certificate generated for an IPv6 literal encodes the address as an
+    ///     iPAddress Subject Alternative Name entry rather than a dNSName entry.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIPv6Address_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+        var expectedAddress = IPAddress.Parse("::1");
+
+        var leaf = authority.Sign("::1");
+
+        var san = leaf.Extensions
+            .OfType<X509SubjectAlternativeNameExtension>()
+            .Single();
+        var ipAddresses = san.EnumerateIPAddresses().ToList();
+        var dnsNames = san.EnumerateDnsNames().ToList();
+        await Assert.That(ipAddresses).Contains(expectedAddress);
+        await Assert.That(dnsNames).IsEmpty();
+    }
+
+    /// <summary>
+    ///     Verifies that a leaf certificate generated for a DNS hostname encodes it as a dNSName
+    ///     Subject Alternative Name entry and does not produce any iPAddress entries.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithDnsHostName_ReturnsLeafCertificateWithDnsNameSanOnly()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        var leaf = authority.Sign("api.example.com");
+
+        var san = leaf.Extensions
+            .OfType<X509SubjectAlternativeNameExtension>()
+            .Single();
+        var ipAddresses = san.EnumerateIPAddresses().ToList();
+        var dnsNames = san.EnumerateDnsNames().ToList();
+        await Assert.That(dnsNames).Contains("api.example.com");
+        await Assert.That(ipAddresses).IsEmpty();
     }
 
     private static async Task<CertificateAuthority> CreateAuthorityAsync(CancellationToken cancellationToken)
