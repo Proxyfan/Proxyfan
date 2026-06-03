@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Certificates.Tests;
@@ -125,5 +127,52 @@ public sealed class LeafCertificateCacheAdditionalTests
 
         await Assert.That(() => cache.GetOrAdd("   ", _ => CertificateTestFactory.Create("unused")))
             .Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that when the factory throws the pending entry is removed from the cache so that a
+    ///     subsequent call can successfully create the certificate.
+    /// </summary>
+    [Test]
+    public async Task GetOrAdd_WhenFactoryThrows_RemovesEntryAndAllowsRetry()
+    {
+        var cache = new LeafCertificateCache(4);
+        var fallback = CertificateTestFactory.Create("retry.example");
+
+        await Assert.That(() => cache.GetOrAdd("retry.example", _ => throw new InvalidOperationException("factory error")))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(cache.Count).IsEqualTo(0);
+
+        var result = cache.GetOrAdd("retry.example", _ => fallback);
+        await Assert.That(result).IsSameReferenceAs(fallback);
+    }
+
+    /// <summary>
+    ///     Verifies that concurrent calls for different host names do not serialize on certificate
+    ///     generation — each host's factory can execute in parallel without holding the global lock.
+    /// </summary>
+    [Test]
+    public async Task GetOrAdd_WhenAccessedConcurrentlyForDifferentHosts_AllFactoriesRunInParallel()
+    {
+        const int hostCount = 4;
+        var cache = new LeafCertificateCache(hostCount);
+        using var barrier = new Barrier(hostCount);
+        var tasks = new Task<X509Certificate2>[hostCount];
+
+        for (var i = 0; i < hostCount; i++)
+        {
+            var host = $"host{i}.example";
+            tasks[i] = Task.Run(() => cache.GetOrAdd(host, h =>
+            {
+                barrier.SignalAndWait(TimeSpan.FromSeconds(2));
+                return CertificateTestFactory.Create(h);
+            }));
+        }
+
+        var results = await Task.WhenAll(tasks);
+
+        await Assert.That(cache.Count).IsEqualTo(hostCount);
+        await Assert.That(results).Count().IsEqualTo(hostCount);
     }
 }
