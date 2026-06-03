@@ -171,17 +171,34 @@ public sealed class UserPreferencesJsonSerializerTests
     }
 
     /// <summary>
+    ///     Verifies that a persisted CaptureMaximumFlows above 1,000,000 is replaced with the
+    ///     default so capture capacity stays within supported in-memory bounds.
+    /// </summary>
+    [Test]
+    [Arguments(1_000_001)]
+    [Arguments(2_000_000)]
+    [Arguments(int.MaxValue)]
+    public async Task Deserialize_CaptureMaximumFlowsAboveMaximum_FallsBackToDefault(int value)
+    {
+        var json = $"{{\"schemaVersion\":1,\"preferences\":{{\"captureMaximumFlows\":{value}}}}}";
+
+        var preferences = UserPreferencesJsonSerializer.Deserialize(json);
+
+        await Assert.That(preferences.CaptureMaximumFlows).IsEqualTo(10_000);
+    }
+
+    /// <summary>
     ///     Verifies that values at the edge of the valid ranges are preserved (boundary check).
     /// </summary>
     [Test]
     public async Task Deserialize_BoundaryValues_ArePreserved()
     {
-        var json = "{\"schemaVersion\":1,\"preferences\":{\"proxyPort\":1024,\"upstreamProxyPort\":65535,\"captureMaximumFlows\":100}}";
+        var json = "{\"schemaVersion\":1,\"preferences\":{\"proxyPort\":1024,\"upstreamProxyPort\":65535,\"captureMaximumFlows\":1000000}}";
 
         var preferences = UserPreferencesJsonSerializer.Deserialize(json);
 
         await Assert.That(preferences.ProxyPort).IsEqualTo(1024);
         await Assert.That(preferences.UpstreamProxyPort).IsEqualTo(65535);
-        await Assert.That(preferences.CaptureMaximumFlows).IsEqualTo(100);
+        await Assert.That(preferences.CaptureMaximumFlows).IsEqualTo(1_000_000);
     }
 }
