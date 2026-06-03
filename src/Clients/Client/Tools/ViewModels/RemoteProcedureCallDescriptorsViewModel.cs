@@ -20,7 +20,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
     private const int MaxDescriptorFileSizeInBytes = 10 * 1024 * 1024;
-    private const int ReadBufferSizeInBytes = 80 * 1024;
+    private const int ReadBufferSizeInBytes = 8 * 1024;
     private readonly IFilePickerService _filePickerService;
     private readonly IRemoteProcedureCallDescriptorLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
