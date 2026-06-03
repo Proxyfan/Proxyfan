@@ -106,11 +106,14 @@ public static class ServiceCollectionExtensions
     {
         var type = typeof(TImplementation);
 
+        var implementationDescriptor = new ServiceDescriptor(type, _ => implementation.Invoke(), ServiceLifetime.Singleton);
+        serviceCollection.Add(implementationDescriptor);
+
         foreach (var @interface in type.GetInterfaces())
         {
             if (@interface != typeof(IDisposable))
             {
-                var descriptor = new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton);
+                var descriptor = new ServiceDescriptor(@interface, serviceProvider => serviceProvider.GetRequiredService(type), ServiceLifetime.Singleton);
                 serviceCollection.Add(descriptor);
             }
         }
