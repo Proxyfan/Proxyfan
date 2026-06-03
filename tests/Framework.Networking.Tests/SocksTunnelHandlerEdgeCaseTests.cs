@@ -158,6 +158,39 @@ public sealed class SocksTunnelHandlerEdgeCaseTests
         await Assert.That(output[1]).IsEqualTo((byte)0x00);
     }
 
+    /// <summary>
+    ///     Verifies that a SOCKS5 CONNECT request with a non-zero reserved byte (RFC 1928 § 4
+    ///     requires 0x00) causes the handler to emit a SOCKS5 general failure reply after the
+    ///     no-auth method selection, instead of tunneling.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks5ConnectNonZeroReservedByte_WritesMethodSelectionAndFailureReply()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        await connection.InputWriter.WriteAsync(new byte[] { 0x05, 0x01, 0x00 });
+        await connection.InputWriter.WriteAsync(new byte[]
+        {
+            0x05, 0x01, 0xFF, 0x01,
+            0xC0, 0xA8, 0x01, 0x01,
+            0x01, 0xBB,
+        });
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsEqualTo(12);
+        await Assert.That(output[0]).IsEqualTo((byte)0x05);
+        await Assert.That(output[1]).IsEqualTo((byte)0x00);
+        await Assert.That(output[2]).IsEqualTo((byte)0x05);
+        await Assert.That(output[3]).IsEqualTo((byte)0x05);
+        await Assert.That(output[4]).IsEqualTo((byte)0x00);
+        await Assert.That(output[5]).IsEqualTo((byte)0x01);
+    }
+
     private static SocksTunnelHandler CreateHandler()
     {
         return new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance, null);

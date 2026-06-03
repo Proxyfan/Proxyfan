@@ -88,7 +88,7 @@ public sealed class ScriptableProjectorTests
     ///     rather than throwing from the <see cref="Uri" /> constructor.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableRequest_RelativeUrl_ReturnsFailure()
+    public async Task Project_RequestWithRelativeUrl_ReturnsFailure()
     {
         var source = BuildSourceRequest();
         var view = new ScriptableRequest(source);
@@ -104,7 +104,7 @@ public sealed class ScriptableProjectorTests
     ///     Verifies that projecting a request with a blank method returns a typed failure.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableRequest_EmptyMethod_ReturnsFailure()
+    public async Task Project_RequestWithEmptyMethod_ReturnsFailure()
     {
         var source = BuildSourceRequest();
         var view = new ScriptableRequest(source);
@@ -121,7 +121,7 @@ public sealed class ScriptableProjectorTests
     ///     (e.g. whitespace, which would corrupt the request line) returns a typed failure.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableRequest_MethodWithWhitespace_ReturnsFailure()
+    public async Task Project_RequestWithMethodContainingWhitespace_ReturnsFailure()
     {
         var source = BuildSourceRequest();
         var view = new ScriptableRequest(source);
@@ -138,7 +138,7 @@ public sealed class ScriptableProjectorTests
     ///     are rejected as a typed failure rather than being copied into the projected request.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableRequest_HeaderValueWithCarriageReturn_ReturnsFailure()
+    public async Task Project_RequestWithHeaderValueContainingCarriageReturn_ReturnsFailure()
     {
         var source = BuildSourceRequest();
         var view = new ScriptableRequest(source);
@@ -155,7 +155,7 @@ public sealed class ScriptableProjectorTests
     ///     (e.g. spaces) are rejected as a typed failure.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableRequest_HeaderNameWithInvalidCharacter_ReturnsFailure()
+    public async Task Project_RequestWithHeaderNameContainingInvalidCharacter_ReturnsFailure()
     {
         var source = BuildSourceRequest();
         var view = new ScriptableRequest(source);
@@ -172,7 +172,7 @@ public sealed class ScriptableProjectorTests
     ///     typed failure rather than producing an out-of-range status line.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableResponse_OutOfRangeStatusCode_ReturnsFailure()
+    public async Task Project_ResponseWithOutOfRangeStatusCode_ReturnsFailure()
     {
         var source = BuildSourceResponse();
         var view = new ScriptableResponse(source);
@@ -189,7 +189,7 @@ public sealed class ScriptableProjectorTests
     ///     prevent corruption of the status line.
     /// </summary>
     [Test]
-    public async Task Project_ScriptableResponse_ReasonPhraseWithNewline_ReturnsFailure()
+    public async Task Project_ResponseWithReasonPhraseContainingNewline_ReturnsFailure()
     {
         var source = BuildSourceResponse();
         var view = new ScriptableResponse(source);
@@ -199,6 +199,41 @@ public sealed class ScriptableProjectorTests
 
         await Assert.That(built.IsSuccess).IsFalse();
         await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_RESPONSE_REASON_PHRASE");
+    }
+
+    /// <summary>
+    ///     Verifies that header values containing C0 control bytes other than HTAB (here, a
+    ///     literal <c>0x01</c>) are rejected per RFC 9110 §5.5 so they cannot reach the wire.
+    /// </summary>
+    [Test]
+    public async Task Project_RequestWithHeaderValueContainingControlByte_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Headers.Set("X-Bad", "value\u0001trailing");
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_HEADER_VALUE");
+    }
+
+    /// <summary>
+    ///     Verifies that a URL whose scheme parses but whose authority is empty (e.g.
+    ///     <c>http:/path</c>) is rejected, because it would produce an unusable request
+    ///     target for the proxy pipeline.
+    /// </summary>
+    [Test]
+    public async Task Project_RequestWithSchemeOnlyUrl_ReturnsFailure()
+    {
+        var source = BuildSourceRequest();
+        var view = new ScriptableRequest(source);
+        view.Url = "http:/path";
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsFalse();
+        await Assert.That(built.Error!.Code).IsEqualTo("SCRIPT_INVALID_REQUEST_URL");
     }
 
     private static HypertextTransferProtocolRequestData BuildSourceRequest()

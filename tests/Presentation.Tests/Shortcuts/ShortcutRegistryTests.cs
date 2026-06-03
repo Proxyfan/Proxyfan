@@ -192,6 +192,85 @@ public sealed class ShortcutRegistryTests
     }
 
     /// <summary>
+    ///     Verifies that a persisted seed entry whose gesture is still bound to another action
+    ///     by default is skipped, falling back to the default for the affected action so the
+    ///     registry never holds two actions on the same gesture.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithSeededBindings_ConflictingEntryFallsBackToDefault()
+    {
+        // Find is seeded with Ctrl+K, which is the default gesture for ClearTraffic.
+        // The conflicting seed entry must be skipped and Find must keep its default Ctrl+F,
+        // leaving ClearTraffic on Ctrl+K so no two actions share a gesture.
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>
+        {
+            [ShortcutAction.Find] = new() { Key = "K", Modifiers = KeyboardModifier.Control },
+        };
+
+        var registry = new ShortcutRegistry(seed);
+
+        var find = registry.GetGesture(ShortcutAction.Find);
+        await Assert.That(find!.Key).IsEqualTo("F");
+        await Assert.That(find.Modifiers).IsEqualTo(KeyboardModifier.Control);
+
+        var clearTraffic = registry.GetGesture(ShortcutAction.ClearTraffic);
+        await Assert.That(clearTraffic!.Key).IsEqualTo("K");
+        await Assert.That(clearTraffic.Modifiers).IsEqualTo(KeyboardModifier.Control);
+
+        var lookup = registry.GetAction(new KeyboardGesture { Key = "K", Modifiers = KeyboardModifier.Control });
+        await Assert.That(lookup).IsEqualTo(ShortcutAction.ClearTraffic);
+    }
+
+    /// <summary>
+    ///     Verifies that two seed entries swapping defaults (e.g. Find takes ClearTraffic's
+    ///     Ctrl+K and ClearTraffic takes a fresh gesture) apply cleanly because clearing the
+    ///     overridden defaults up-front prevents spurious conflicts.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithSeededBindings_SwappedDefaultsApplyCleanly()
+    {
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>
+        {
+            [ShortcutAction.Find] = new() { Key = "K", Modifiers = KeyboardModifier.Control },
+            [ShortcutAction.ClearTraffic] = new() { Key = "L", Modifiers = KeyboardModifier.Control },
+        };
+
+        var registry = new ShortcutRegistry(seed);
+
+        var find = registry.GetGesture(ShortcutAction.Find);
+        await Assert.That(find!.Key).IsEqualTo("K");
+        var clearTraffic = registry.GetGesture(ShortcutAction.ClearTraffic);
+        await Assert.That(clearTraffic!.Key).IsEqualTo("L");
+    }
+
+    /// <summary>
+    ///     Verifies that when two seed entries target the same gesture, only the first wins
+    ///     and the second falls back to its default rather than producing duplicate bindings.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithSeededBindings_InternalConflictFallsBackToDefault()
+    {
+        var sharedGesture = new KeyboardGesture { Key = "J", Modifiers = KeyboardModifier.Control };
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>
+        {
+            [ShortcutAction.Find] = sharedGesture,
+            [ShortcutAction.ExportSession] = sharedGesture,
+        };
+
+        var registry = new ShortcutRegistry(seed);
+
+        var owner = registry.GetAction(sharedGesture);
+        await Assert.That(owner).IsNotNull();
+
+        // Whichever action was applied second must not also be bound to the shared gesture.
+        var find = registry.GetGesture(ShortcutAction.Find);
+        var export = registry.GetGesture(ShortcutAction.ExportSession);
+        await Assert.That(find).IsNotNull();
+        await Assert.That(export).IsNotNull();
+        await Assert.That(find!.Key == export!.Key && find.Modifiers == export.Modifiers).IsFalse();
+    }
+
+    /// <summary>
     ///     Verifies the seeded-bindings constructor with an empty dictionary yields the full
     ///     default binding set.
     /// </summary>

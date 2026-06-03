@@ -30,7 +30,10 @@ public static class ScriptableProjectorValidator
 
     /// <summary>
     ///     Returns <see langword="true" /> when <paramref name="value" /> contains only header
-    ///     field-value bytes (RFC 7230 §3.2.4): no NUL, no CR, no LF. Empty values are allowed.
+    ///     field-value bytes (RFC 7230 §3.2.6 / RFC 9110 §5.5): HTAB, SP, VCHAR (0x21–0x7E),
+    ///     and obs-text (0x80–0xFF). All other C0 controls (0x00–0x1F except HTAB) and DEL
+    ///     (0x7F) are rejected because they corrupt or terminate the header line on the wire.
+    ///     Empty values are allowed.
     /// </summary>
     /// <param name="value">The header value to validate.</param>
     /// <returns><see langword="true" /> when the value is a valid field-value; otherwise <see langword="false" />.</returns>
@@ -43,7 +46,7 @@ public static class ScriptableProjectorValidator
 
         foreach (var character in value)
         {
-            if (character is '\0' or '\r' or '\n')
+            if (!HasFieldValueCharacter(character))
             {
                 return false;
             }
@@ -102,9 +105,10 @@ public static class ScriptableProjectorValidator
 
     /// <summary>
     ///     Returns <see langword="true" /> when <paramref name="url" /> parses as an absolute
-    ///     HTTP(S) URI usable as an HTTP request target. Relative URLs, unparseable strings,
-    ///     and non-HTTP schemes (e.g. file://, ftp://) are rejected because <see cref="Uri" />
-    ///     would otherwise throw or produce ambiguous data when handed to the proxy pipeline.
+    ///     HTTP(S) URI with a non-empty host that is usable as an HTTP request target.
+    ///     Relative URLs, unparseable strings, non-HTTP schemes (e.g. file://, ftp://), and
+    ///     authority-less inputs such as <c>http:/path</c> are rejected because they would
+    ///     otherwise produce ambiguous data when handed to the proxy pipeline.
     /// </summary>
     /// <param name="url">The request URL to validate.</param>
     /// <returns><see langword="true" /> when the URL is a valid absolute HTTP(S) URI; otherwise <see langword="false" />.</returns>
@@ -120,7 +124,23 @@ public static class ScriptableProjectorValidator
             return false;
         }
 
-        return parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps;
+        if (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps)
+        {
+            return false;
+        }
+
+        return !string.IsNullOrEmpty(parsed.Host);
+    }
+
+    private static bool HasFieldValueCharacter(char character)
+    {
+        if (character == '\t')
+        {
+            return true;
+        }
+
+        return character is >= (char)0x20 and <= (char)0x7E
+            || character is >= (char)0x80 and <= (char)0xFF;
     }
 
     private static bool HasReasonPhraseCharacter(char character)

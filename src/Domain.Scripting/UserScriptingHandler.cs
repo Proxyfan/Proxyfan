@@ -15,6 +15,8 @@ namespace Proxyfan.Domain.Scripting;
 /// </summary>
 public sealed class UserScriptingHandler : IScriptingHandler
 {
+    private const string RequestScriptErrorCode = "SCRIPT_REQUEST_FAILED";
+    private const string ResponseScriptErrorCode = "SCRIPT_RESPONSE_FAILED";
     private readonly MutableScriptingConfiguration _configuration;
     private readonly ConcurrentDictionary<string, IDictionary<string, object?>> _sharedStatesByFlow;
 
@@ -30,25 +32,38 @@ public sealed class UserScriptingHandler : IScriptingHandler
     }
 
     /// <inheritdoc />
-    public async Task<HypertextTransferProtocolRequestData> ApplyRequestAsync(
+    public async Task<Result<HypertextTransferProtocolRequestData>> ApplyRequestAsync(
         string flowId,
         HypertextTransferProtocolRequestData request,
         CancellationToken cancellationToken)
     {
         if (!_configuration.IsEnabled)
         {
-            return request;
+            return Result.Success(request);
         }
 
         var script = _configuration.ActiveScript;
         if (script is null || !script.IsRequestPhaseEnabled)
         {
-            return request;
+            return Result.Success(request);
         }
 
         var view = new ScriptableRequest(request);
         var sharedState = GetOrCreateSharedState(flowId);
-        await script.OnRequestAsync(view, sharedState, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await script.OnRequestAsync(view, sharedState, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            var error = new ScriptError(RequestScriptErrorCode, ex.Message);
+            return Result.Failure<HypertextTransferProtocolRequestData>(error);
+        }
+
         var projection = ScriptableProjector.Project(view, request);
         if (!projection.IsSuccess)
         {
@@ -60,7 +75,7 @@ public sealed class UserScriptingHandler : IScriptingHandler
     }
 
     /// <inheritdoc />
-    public async Task<HypertextTransferProtocolResponseData> ApplyResponseAsync(
+    public async Task<Result<HypertextTransferProtocolResponseData>> ApplyResponseAsync(
         string flowId,
         HypertextTransferProtocolRequestData request,
         HypertextTransferProtocolResponseData response,
@@ -68,13 +83,13 @@ public sealed class UserScriptingHandler : IScriptingHandler
     {
         if (!_configuration.IsEnabled)
         {
-            return response;
+            return Result.Success(response);
         }
 
         var script = _configuration.ActiveScript;
         if (script is null || !script.IsResponsePhaseEnabled)
         {
-            return response;
+            return Result.Success(response);
         }
 
         var requestView = new ScriptableRequest(request);
@@ -84,11 +99,19 @@ public sealed class UserScriptingHandler : IScriptingHandler
         {
             await script.OnResponseAsync(requestView, responseView, sharedState, cancellationToken).ConfigureAwait(false);
         }
-        finally
+        catch (OperationCanceledException)
         {
             _sharedStatesByFlow.TryRemove(flowId, out _);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _sharedStatesByFlow.TryRemove(flowId, out _);
+            var error = new ScriptError(ResponseScriptErrorCode, ex.Message);
+            return Result.Failure<HypertextTransferProtocolResponseData>(error);
         }
 
+        _sharedStatesByFlow.TryRemove(flowId, out _);
         var projection = ScriptableProjector.Project(responseView, response);
         if (!projection.IsSuccess)
         {
