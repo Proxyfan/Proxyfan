@@ -552,10 +552,19 @@ public sealed class HypertextTransferProtocolVersion2OrchestratorTests
 
         await Assert.That(firstForwarded).IsNotNull();
         await Assert.That(firstForwarded!.Header.Type).IsEqualTo(HypertextTransferProtocolVersion2FrameType.Headers);
+        await Assert.That(firstForwarded.Header.StreamIdentifier).IsEqualTo<uint>(1);
+        await Assert.That(firstForwarded.Header.Flags).IsEqualTo(HypertextTransferProtocolVersion2FrameFlag.None);
+        await Assert.That(firstForwarded.Payload.ToArray()).IsEquivalentTo(firstHalf);
         await Assert.That(secondForwarded).IsNotNull();
         await Assert.That(secondForwarded!.Header.Type).IsEqualTo(HypertextTransferProtocolVersion2FrameType.Data);
+        await Assert.That(secondForwarded.Header.StreamIdentifier).IsEqualTo<uint>(1);
+        await Assert.That(secondForwarded.Header.Flags).IsEqualTo(HypertextTransferProtocolVersion2FrameFlag.None);
+        await Assert.That(secondForwarded.Payload.ToArray()).IsEquivalentTo(interleavedBody);
         await Assert.That(thirdForwarded).IsNotNull();
         await Assert.That(thirdForwarded!.Header.Type).IsEqualTo(HypertextTransferProtocolVersion2FrameType.Continuation);
+        await Assert.That(thirdForwarded.Header.StreamIdentifier).IsEqualTo<uint>(1);
+        await Assert.That(thirdForwarded.Header.Flags).IsEqualTo(HypertextTransferProtocolVersion2FrameFlag.EndHeaders);
+        await Assert.That(thirdForwarded.Payload.ToArray()).IsEquivalentTo(secondHalf);
         await Assert.That(store.AddedFlows.Count).IsEqualTo(0);
     }
 
