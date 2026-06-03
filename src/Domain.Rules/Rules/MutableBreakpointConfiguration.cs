@@ -65,8 +65,16 @@ public sealed class MutableBreakpointConfiguration
                 }
             }
 
+            var rebuilt = new List<IUrlMatcher>(_patterns.Count + 1);
+            foreach (var pattern in _patterns)
+            {
+                rebuilt.Add(pattern.Compile());
+            }
+
+            rebuilt.Add(rule.Compile());
+
             _patterns.Add(rule);
-            RebuildMatchersUnderLock();
+            _matchers = rebuilt;
         }
 
         RaiseChanged();
