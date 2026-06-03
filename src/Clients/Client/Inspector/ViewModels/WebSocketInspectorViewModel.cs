@@ -278,13 +278,13 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
         ConnectionStatusText = string.Empty;
 
         var selectedFlow = _trafficListViewModel.SelectedFlow;
-        if (selectedFlow?.Source is null)
+        if (selectedFlow is null)
         {
             IsWebSocket = false;
             return;
         }
 
-        var webSocketFlow = _webSocketStore.GetById(selectedFlow.Source.Id);
+        var webSocketFlow = _webSocketStore.GetById(selectedFlow.GetDomainFlow().Id);
         if (webSocketFlow is null)
         {
             IsWebSocket = false;
