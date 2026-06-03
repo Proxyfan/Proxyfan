@@ -6,9 +6,10 @@ namespace Proxyfan.Framework.Networking;
 ///     Pure decision helper used by
 ///     <see cref="TransportLayerSecurityInterceptorHandler" /> to decide whether the
 ///     intercepted HTTP exchange loop should continue or terminate after handling a single
-///     request/response. Connection-close indicators (HTTP/1.0 default, Connection: close,
-///     or an empty/aborted request line) end the loop; everything else keeps it alive for
-///     keep-alive pipelining.
+///     request/response. Connection-close indicators (HTTP/1.0 default, a "close" token in
+///     the Connection header, or an empty/aborted request line) end the loop; everything
+///     else keeps it alive for keep-alive pipelining. The Connection header is parsed as a
+///     comma-separated token list per RFC 7230.
 /// </summary>
 public static class HypertextTransferProtocolLoopContinuation
 {
@@ -33,7 +34,7 @@ public static class HypertextTransferProtocolLoopContinuation
             return false;
         }
 
-        if (string.Equals(connectionHeaderValue, "close", StringComparison.OrdinalIgnoreCase))
+        if (HasConnectionToken(connectionHeaderValue, "close"))
         {
             return false;
         }
@@ -42,9 +43,28 @@ public static class HypertextTransferProtocolLoopContinuation
 
         if (version.Equals("HTTP/1.0", StringComparison.OrdinalIgnoreCase))
         {
-            return string.Equals(connectionHeaderValue, "keep-alive", StringComparison.OrdinalIgnoreCase);
+            return HasConnectionToken(connectionHeaderValue, "keep-alive");
         }
 
         return true;
+    }
+
+    private static bool HasConnectionToken(string? connectionHeaderValue, string token)
+    {
+        if (string.IsNullOrEmpty(connectionHeaderValue))
+        {
+            return false;
+        }
+
+        var tokens = connectionHeaderValue.Split(',');
+        foreach (var candidate in tokens)
+        {
+            if (candidate.AsSpan().Trim().Equals(token.AsSpan(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

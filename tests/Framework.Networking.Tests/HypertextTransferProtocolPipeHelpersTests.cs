@@ -213,6 +213,41 @@ public sealed class HypertextTransferProtocolPipeHelpersTests
         await Assert.That(result).IsNull();
     }
 
+    /// <summary>
+    ///     A response with a malformed <c>Content-Length</c> header is rejected so the proxy
+    ///     does not silently fall through to read-until-close and desynchronize a keep-alive
+    ///     connection.
+    /// </summary>
+    [Test]
+    public async Task ReadResponseAsync_MalformedContentLength_ReturnsNull()
+    {
+        var pipe = new Pipe();
+        var bytes = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: not-a-number\r\n\r\nhello");
+        await pipe.Writer.WriteAsync(bytes);
+        await pipe.Writer.CompleteAsync();
+
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     A response with conflicting duplicate <c>Content-Length</c> header lines is rejected
+    ///     per RFC 7230 § 3.3.2.
+    /// </summary>
+    [Test]
+    public async Task ReadResponseAsync_ConflictingContentLengthHeaders_ReturnsNull()
+    {
+        var pipe = new Pipe();
+        var bytes = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nContent-Length: 7\r\n\r\nhello");
+        await pipe.Writer.WriteAsync(bytes);
+        await pipe.Writer.CompleteAsync();
+
+        var result = await HypertextTransferProtocolPipeHelpers.ReadResponseAsync(pipe.Reader, 4096, "GET", CancellationToken.None);
+
+        await Assert.That(result).IsNull();
+    }
+
     private static async Task<byte[]> ReadAllAsync(PipeReader reader)
     {
         using var memoryStream = new System.IO.MemoryStream();

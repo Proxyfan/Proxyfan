@@ -169,6 +169,58 @@ public sealed class TrafficFlow
     }
 
     /// <summary>
+    ///     Records the instant at which the request body finished being sent to the
+    ///     upstream origin. No-op when the flow is not active or when a
+    ///     request-completed timestamp has already been captured (idempotent).
+    /// </summary>
+    public void MarkRequestCompleted()
+    {
+        if (Status != TrafficFlowStatus.Active)
+        {
+            return;
+        }
+
+        if (Timings.RequestCompletedAt.HasValue)
+        {
+            return;
+        }
+
+        var timestamp = DateTimeOffset.UtcNow;
+        var flowTimings = new FlowTimings(
+            Timings.RequestStartedAt,
+            timestamp,
+            Timings.ResponseStartedAt,
+            Timings.ResponseCompletedAt);
+        Timings = flowTimings;
+    }
+
+    /// <summary>
+    ///     Records the instant at which the first byte of the upstream response was
+    ///     observed. No-op when the flow is not active or when a response-started
+    ///     timestamp has already been captured (idempotent).
+    /// </summary>
+    public void MarkResponseStarted()
+    {
+        if (Status != TrafficFlowStatus.Active)
+        {
+            return;
+        }
+
+        if (Timings.ResponseStartedAt.HasValue)
+        {
+            return;
+        }
+
+        var timestamp = DateTimeOffset.UtcNow;
+        var flowTimings = new FlowTimings(
+            Timings.RequestStartedAt,
+            Timings.RequestCompletedAt,
+            timestamp,
+            Timings.ResponseCompletedAt);
+        Timings = flowTimings;
+    }
+
+    /// <summary>
     ///     Sets the user-assigned colour tag for this flow.
     /// </summary>
     /// <param name="colorTag">
@@ -219,7 +271,11 @@ public sealed class TrafficFlow
     }
 
     /// <summary>
-    ///     Captures the HTTP response for an active flow.
+    ///     Captures the HTTP response for an active flow. When request-completed and
+    ///     response-started milestones have not been recorded via
+    ///     <see cref="MarkRequestCompleted" />/<see cref="MarkResponseStarted" /> they
+    ///     fall back to the current instant; previously captured milestones are
+    ///     preserved so the waiting/TTFB phase can be measured accurately.
     /// </summary>
     /// <param name="response">
     ///     The captured HTTP response.
@@ -234,7 +290,9 @@ public sealed class TrafficFlow
         Response = response;
 
         var timestamp = DateTimeOffset.UtcNow;
-        var flowTimings = new FlowTimings(Timings.RequestStartedAt, timestamp, timestamp, Timings.ResponseCompletedAt);
+        var requestCompletedAt = Timings.RequestCompletedAt ?? timestamp;
+        var responseStartedAt = Timings.ResponseStartedAt ?? timestamp;
+        var flowTimings = new FlowTimings(Timings.RequestStartedAt, requestCompletedAt, responseStartedAt, Timings.ResponseCompletedAt);
         Timings = flowTimings;
     }
 

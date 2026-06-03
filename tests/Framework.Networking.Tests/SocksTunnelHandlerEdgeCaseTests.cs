@@ -158,8 +158,151 @@ public sealed class SocksTunnelHandlerEdgeCaseTests
         await Assert.That(output[1]).IsEqualTo((byte)0x00);
     }
 
+    /// <summary>
+    ///     Verifies that a SOCKS5 CONNECT request with a non-zero reserved byte (RFC 1928 § 4
+    ///     requires 0x00) causes the handler to emit a SOCKS5 general failure reply after the
+    ///     no-auth method selection, instead of tunneling.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks5ConnectNonZeroReservedByte_WritesMethodSelectionAndFailureReply()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        await connection.InputWriter.WriteAsync(new byte[] { 0x05, 0x01, 0x00 });
+        await connection.InputWriter.WriteAsync(new byte[]
+        {
+            0x05, 0x01, 0xFF, 0x01,
+            0xC0, 0xA8, 0x01, 0x01,
+            0x01, 0xBB,
+        });
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsEqualTo(12);
+        await Assert.That(output[0]).IsEqualTo((byte)0x05);
+        await Assert.That(output[1]).IsEqualTo((byte)0x00);
+        await Assert.That(output[2]).IsEqualTo((byte)0x05);
+        await Assert.That(output[3]).IsEqualTo((byte)0x05);
+        await Assert.That(output[4]).IsEqualTo((byte)0x00);
+        await Assert.That(output[5]).IsEqualTo((byte)0x01);
+    }
+
     private static SocksTunnelHandler CreateHandler()
     {
         return new SocksTunnelHandler(NullLogger<SocksTunnelHandler>.Instance, null);
+    }
+
+    /// <summary>
+    ///     Verifies that a SOCKS4 request with an unsupported command byte (BIND = 0x02)
+    ///     triggers a SOCKS4 rejected reply (0x5B) rather than a silent close, so the
+    ///     client learns the request was refused at the protocol level.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks4UnsupportedCommand_WritesRejectedReply()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        var bytes = new byte[]
+        {
+            0x04, 0x02, 0x00, 0x50,
+            0x7F, 0x00, 0x00, 0x01,
+            0x00,
+        };
+        await connection.InputWriter.WriteAsync(bytes);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsEqualTo(8);
+        await Assert.That(output[0]).IsEqualTo((byte)0x00);
+        await Assert.That(output[1]).IsEqualTo((byte)0x5B);
+    }
+
+    /// <summary>
+    ///     Verifies that a SOCKS5 greeting declaring zero authentication methods triggers a
+    ///     no-acceptable-methods reply (0x05 0xFF) instead of a silent close.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks5GreetingZeroMethods_WritesNoAcceptableMethodsReply()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        await connection.InputWriter.WriteAsync(new byte[] { 0x05, 0x00 });
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsEqualTo(2);
+        await Assert.That(output[0]).IsEqualTo((byte)0x05);
+        await Assert.That(output[1]).IsEqualTo((byte)0xFF);
+    }
+
+    /// <summary>
+    ///     Verifies that a SOCKS5 request with an unsupported command byte (BIND = 0x02)
+    ///     triggers a SOCKS5 general-failure reply (REP=0x05) after the method-selection
+    ///     handshake, so the client learns the request was refused at the protocol level.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks5UnsupportedCommand_WritesFailureReply()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        await connection.InputWriter.WriteAsync(new byte[] { 0x05, 0x01, 0x00 });
+        await connection.InputWriter.WriteAsync(new byte[]
+        {
+            0x05, 0x02, 0x00, 0x01,
+            0x7F, 0x00, 0x00, 0x01,
+            0x00, 0x50,
+        });
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsEqualTo(12);
+        await Assert.That(output[0]).IsEqualTo((byte)0x05);
+        await Assert.That(output[1]).IsEqualTo((byte)0x00);
+        await Assert.That(output[2]).IsEqualTo((byte)0x05);
+        await Assert.That(output[3]).IsEqualTo((byte)0x05);
+    }
+
+    /// <summary>
+    ///     Verifies that a SOCKS5 request with an unknown address-type byte triggers a
+    ///     SOCKS5 general-failure reply (REP=0x05) after the method-selection handshake.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_Socks5UnknownAddressType_WritesFailureReply()
+    {
+        var handler = CreateHandler();
+        var connection = new StubFullDuplexProxyConnection();
+        await connection.InputWriter.WriteAsync(new byte[] { 0x05, 0x01, 0x00 });
+        await connection.InputWriter.WriteAsync(new byte[]
+        {
+            0x05, 0x01, 0x00, 0x09,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x50,
+        });
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+        var output = await connection.ReadAllOutputAsync();
+
+        await Assert.That(output.Length).IsEqualTo(12);
+        await Assert.That(output[2]).IsEqualTo((byte)0x05);
+        await Assert.That(output[3]).IsEqualTo((byte)0x05);
     }
 }
