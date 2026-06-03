@@ -202,6 +202,58 @@ public sealed class SocketProxyListenerTests
     }
 
     /// <summary>
+    ///     Verifies that stopping a saturated listener completes the graceful-shutdown contract
+    ///     without surfacing a cancellation exception, even when an accepted socket may be
+    ///     waiting on the connection-capacity semaphore. Regression test for the accept-loop
+    ///     path where <c>SemaphoreSlim.WaitAsync</c> observing cancellation could leak the
+    ///     accepted socket and propagate <see cref="OperationCanceledException" /> out of the
+    ///     shutdown await.
+    /// </summary>
+    [Test]
+    public async Task StopAsync_WhileSaturatedAndAwaitingCapacity_CompletesGracefully()
+    {
+        var blockHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort(), MaxConnections = 1 });
+
+        await listener.StartAsync(
+            async (_, _) =>
+            {
+                firstHandlerEntered.TrySetResult();
+                await blockHandler.Task;
+            },
+            CancellationToken.None);
+
+        try
+        {
+            using var first = new TcpClient();
+            await first.ConnectAsync(IPAddress.Loopback, listener.BoundPort!.Value);
+            await firstHandlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using var second = new TcpClient();
+            await second.ConnectAsync(IPAddress.Loopback, listener.BoundPort!.Value);
+
+            // Yield repeatedly to give the accept loop a chance to accept the second socket
+            // and reach the semaphore wait without using time-based delays (ATXTST004).
+            for (var i = 0; i < 100; i++)
+            {
+                await Task.Yield();
+            }
+        }
+        finally
+        {
+            // Stop the listener before releasing the handler so that the saturated-accept
+            // path (semaphore wait observing cancellation) is reliably exercised. Releasing
+            // the handler first could let the semaphore become available before shutdown
+            // cancellation, masking the regression scenario under some schedulers.
+            await listener.StopAsync(CancellationToken.None);
+            blockHandler.TrySetResult();
+        }
+
+        await Assert.That(listener.IsListening).IsFalse();
+    }
+
+    /// <summary>
     ///     When the connection handler throws a non-cancellation exception, the listener catches
     ///     it and logs without propagating, allowing subsequent connections to proceed normally.
     ///     Exercises the connection-error catch in <see cref="SocketProxyListener" />.

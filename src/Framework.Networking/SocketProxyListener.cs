@@ -209,7 +209,21 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
                 continue;
             }
 
-            await _connectionSemaphore!.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _connectionSemaphore!.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                acceptedSocket.Dispose();
+                break;
+            }
+            catch (ObjectDisposedException)
+            {
+                acceptedSocket.Dispose();
+                break;
+            }
+
             var connectionTask = HandleConnectionAsync(acceptedSocket, onConnectionAccepted, cancellationToken);
             pendingConnections.Add(connectionTask);
         }

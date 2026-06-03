@@ -3,6 +3,7 @@ using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -344,6 +345,27 @@ public sealed class HarExporterTests
         var cookies = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("request").GetProperty("cookies");
 
         await Assert.That(cookies.GetArrayLength()).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a cancelled token aborts the export before serialization, so callers
+    ///     are not blocked on large documents after requesting cancellation.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_CancelledToken_AbortsBeforeWritingEntries()
+    {
+        var exporter = new HarExporter();
+        var flows = Enumerable.Range(0, 500).Select(_ => CreateCompletedFlow()).ToList();
+        using var baseline = new MemoryStream();
+        await exporter.ExportAsync(flows, baseline, CancellationToken.None);
+        using var output = new MemoryStream();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.That(async () => await exporter.ExportAsync(flows, output, cts.Token))
+            .Throws<OperationCanceledException>();
+        await Assert.That(baseline.Length).IsGreaterThan(10_000);
+        await Assert.That(output.Length).IsLessThan(baseline.Length / 100);
     }
 
     private static TrafficFlow CreateCompletedFlow()
