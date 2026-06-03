@@ -28,6 +28,22 @@ public sealed class PeriodicReverseProxyHealthChecker : IDisposable
         IReverseProxyEngine engine,
         PeriodicReverseProxyHealthCheckOptions options)
     {
+        if (options.InitialDelay < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.InitialDelay,
+                $"{nameof(PeriodicReverseProxyHealthCheckOptions.InitialDelay)} must be greater than or equal to TimeSpan.Zero.");
+        }
+
+        if (options.PollInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.PollInterval,
+                $"{nameof(PeriodicReverseProxyHealthCheckOptions.PollInterval)} must be greater than TimeSpan.Zero.");
+        }
+
         _engine = engine;
         _options = options;
         var newLock = new Lock();

@@ -65,4 +65,43 @@ public sealed class ExactUrlMatcherTests
 
         await Assert.That(result).IsFalse();
     }
+
+    /// <summary>
+    ///     Verifies that paths differing only in case are not considered equal.
+    /// </summary>
+    [Test]
+    public async Task Matches_PathDifferingByCase_ReturnsFalse()
+    {
+        var matcher = new ExactUrlMatcher("https://example.com/Path");
+
+        var result = matcher.HasMatch("https://example.com/path");
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that queries differing only in case are not considered equal.
+    /// </summary>
+    [Test]
+    public async Task Matches_QueryDifferingByCase_ReturnsFalse()
+    {
+        var matcher = new ExactUrlMatcher("https://example.com/path?Token=ABC");
+
+        var result = matcher.HasMatch("https://example.com/path?Token=abc");
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that the scheme is compared case-insensitively.
+    /// </summary>
+    [Test]
+    public async Task Matches_SchemeDifferingByCase_ReturnsTrue()
+    {
+        var matcher = new ExactUrlMatcher("HTTPS://example.com/path");
+
+        var result = matcher.HasMatch("https://example.com/path");
+
+        await Assert.That(result).IsTrue();
+    }
 }
