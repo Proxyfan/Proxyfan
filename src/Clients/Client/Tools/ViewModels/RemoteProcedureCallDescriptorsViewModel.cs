@@ -144,7 +144,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
     {
         var buffer = new byte[ReadBufferSizeInBytes];
         using var memory = new MemoryStream();
-        var total = 0;
+        var total = 0L;
         while (true)
         {
             var readBuffer = new Memory<byte>(buffer);
