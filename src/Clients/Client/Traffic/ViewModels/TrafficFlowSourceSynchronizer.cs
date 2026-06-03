@@ -12,8 +12,11 @@ public static class TrafficFlowSourceSynchronizer
 {
     /// <summary>
     ///     Applies the terminal <paramref name="status" /> to <paramref name="source" />.
-    ///     No-ops that do not match an expected transition (e.g. double-completion) are
-    ///     silently ignored because the domain object guards its own invariants.
+    ///     The <see cref="TrafficFlowStatus.Complete" /> path is guarded by an Active check
+    ///     because <see cref="TrafficFlow.Complete" /> throws for flows that are not active.
+    ///     <see cref="TrafficFlow.Fail" /> and <see cref="TrafficFlow.Abort" /> are
+    ///     self-guarding: they silently no-op when the flow has already reached any terminal
+    ///     state, so no caller-side guard is required for those paths.
     /// </summary>
     /// <param name="source">The domain flow to transition.</param>
     /// <param name="status">The target terminal status.</param>
