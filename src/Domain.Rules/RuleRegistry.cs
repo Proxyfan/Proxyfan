@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -6,6 +7,8 @@ namespace Proxyfan.Domain.Rules;
 /// <summary>
 ///     Default thread-safe in-memory <see cref="IRuleRegistry" /> implementation
 ///     backed by independent locks for request- and response-phase rule lists.
+///     Sorted snapshots are cached on registration/unregistration so that the
+///     hot path reads them without per-evaluation allocation or sorting.
 /// </summary>
 public sealed class RuleRegistry : IRuleRegistry
 {
@@ -16,6 +19,8 @@ public sealed class RuleRegistry : IRuleRegistry
     private readonly List<IRequestPhaseRule> _requestRules;
     private readonly Lock _responseLock;
     private readonly List<IResponsePhaseRule> _responseRules;
+    private IRequestPhaseRule[] _requestSnapshot;
+    private IResponsePhaseRule[] _responseSnapshot;
 
     /// <summary>
     ///     Initializes a new empty <see cref="RuleRegistry" />.
@@ -29,28 +34,20 @@ public sealed class RuleRegistry : IRuleRegistry
         var responseLock = new Lock();
         _requestLock = requestLock;
         _responseLock = responseLock;
+        _requestSnapshot = [];
+        _responseSnapshot = [];
     }
 
     /// <inheritdoc />
     public IReadOnlyList<IRequestPhaseRule> GetRequestPhaseRules()
     {
-        lock (_requestLock)
-        {
-            var snapshot = new List<IRequestPhaseRule>(_requestRules);
-            snapshot.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
-            return snapshot;
-        }
+        return Volatile.Read(ref _requestSnapshot);
     }
 
     /// <inheritdoc />
     public IReadOnlyList<IResponsePhaseRule> GetResponsePhaseRules()
     {
-        lock (_responseLock)
-        {
-            var snapshot = new List<IResponsePhaseRule>(_responseRules);
-            snapshot.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
-            return snapshot;
-        }
+        return Volatile.Read(ref _responseSnapshot);
     }
 
     /// <inheritdoc />
@@ -59,6 +56,7 @@ public sealed class RuleRegistry : IRuleRegistry
         lock (_requestLock)
         {
             _requestRules.Add(rule);
+            RebuildRequestSnapshot();
         }
 
         RaiseChanged();
@@ -70,6 +68,7 @@ public sealed class RuleRegistry : IRuleRegistry
         lock (_responseLock)
         {
             _responseRules.Add(rule);
+            RebuildResponseSnapshot();
         }
 
         RaiseChanged();
@@ -82,6 +81,10 @@ public sealed class RuleRegistry : IRuleRegistry
         lock (_requestLock)
         {
             removed = _requestRules.Remove(rule);
+            if (removed)
+            {
+                RebuildRequestSnapshot();
+            }
         }
 
         if (removed)
@@ -97,6 +100,10 @@ public sealed class RuleRegistry : IRuleRegistry
         lock (_responseLock)
         {
             removed = _responseRules.Remove(rule);
+            if (removed)
+            {
+                RebuildResponseSnapshot();
+            }
         }
 
         if (removed)
@@ -108,5 +115,31 @@ public sealed class RuleRegistry : IRuleRegistry
     private void RaiseChanged()
     {
         Changed?.Invoke();
+    }
+
+    private void RebuildRequestSnapshot()
+    {
+        if (_requestRules.Count == 0)
+        {
+            Volatile.Write(ref _requestSnapshot, []);
+            return;
+        }
+
+        var snapshot = _requestRules.ToArray();
+        Array.Sort(snapshot, static (left, right) => left.Priority.CompareTo(right.Priority));
+        Volatile.Write(ref _requestSnapshot, snapshot);
+    }
+
+    private void RebuildResponseSnapshot()
+    {
+        if (_responseRules.Count == 0)
+        {
+            Volatile.Write(ref _responseSnapshot, []);
+            return;
+        }
+
+        var snapshot = _responseRules.ToArray();
+        Array.Sort(snapshot, static (left, right) => left.Priority.CompareTo(right.Priority));
+        Volatile.Write(ref _responseSnapshot, snapshot);
     }
 }
