@@ -24,6 +24,10 @@ public static class HypertextTransferProtocolVersion2FrameWriter
         HypertextTransferProtocolVersion2FrameDescriptor descriptor,
         ReadOnlySpan<byte> payload)
     {
+        if (descriptor.PayloadLength is < 0 or > 0xFFFFFF)
+        {
+            throw new ArgumentOutOfRangeException(nameof(descriptor), descriptor.PayloadLength, "Payload length must be in [0, 16777215].");
+        }
         if (descriptor.PayloadLength != payload.Length)
         {
             throw new ArgumentException(
