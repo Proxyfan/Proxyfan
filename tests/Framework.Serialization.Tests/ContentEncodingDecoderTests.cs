@@ -178,7 +178,11 @@ public sealed class ContentEncodingDecoderTests
 
     private static byte[] Encode(string text, EncodeFactory wrapperFactory)
     {
-        var bytes = Encoding.UTF8.GetBytes(text);
+        return Encode(Encoding.UTF8.GetBytes(text), wrapperFactory);
+    }
+
+    private static byte[] Encode(byte[] bytes, EncodeFactory wrapperFactory)
+    {
         using var destination = new MemoryStream();
 
         using (var compressor = wrapperFactory(destination))
