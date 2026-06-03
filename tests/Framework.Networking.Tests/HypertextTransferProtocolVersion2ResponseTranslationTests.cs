@@ -120,16 +120,13 @@ public sealed class HypertextTransferProtocolVersion2ResponseTranslationTests
 
         var result = HypertextTransferProtocolVersion2ResponseTranslation.Translate(response);
 
+        var hasContentType = false;
         for (var index = 0; index < result.Headers.Count; index++)
         {
             var name = result.Headers[index].Name;
             await Assert.That(string.Equals(name, "x-internal", StringComparison.OrdinalIgnoreCase)).IsFalse();
             await Assert.That(string.Equals(name, "x-session-token", StringComparison.OrdinalIgnoreCase)).IsFalse();
-        }
-        var hasContentType = false;
-        for (var index = 0; index < result.Headers.Count; index++)
-        {
-            if (string.Equals(result.Headers[index].Name, "content-type", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(name, "content-type", StringComparison.OrdinalIgnoreCase))
             {
                 hasContentType = true;
             }
