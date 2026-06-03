@@ -178,6 +178,49 @@ public sealed class TrafficListViewModelToggleCaptureAndFilterTests
     }
 
     /// <summary>
+    ///     When a status-code filter is active and a response arrives that makes a previously
+    ///     hidden flow match, the flow must be added to VisibleFlows.
+    /// </summary>
+    [Test]
+    public async Task OnResponseReceived_WithStatusCodeFilter_AddsFlowToVisibleFlowsWhenStatusMatches()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://example.com/api"));
+
+        viewModel.FilterText = "404";
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 404));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.VisibleFlows[0].StatusCode).IsEqualTo(404);
+    }
+
+    /// <summary>
+    ///     When a status-code filter is active and a response arrives that makes a previously
+    ///     visible flow no longer match, the flow must be removed from VisibleFlows.
+    /// </summary>
+    [Test]
+    public async Task OnResponseReceived_WithStatusCodeFilter_RemovesFlowFromVisibleFlowsWhenStatusNoLongerMatches()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId, "GET", "https://example.com/api"));
+
+        viewModel.FilterText = "0";
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 456));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     Empty filter text means everything is visible.
     /// </summary>
     [Test]

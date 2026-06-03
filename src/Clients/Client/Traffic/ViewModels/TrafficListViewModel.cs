@@ -440,7 +440,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateResponse(domainEvent));
+        _userInterfaceScheduler.Post(() =>
+        {
+            viewModel.UpdateResponse(domainEvent);
+            ReevaluateFlowVisibilityOnUiThread(viewModel);
+        });
     }
 
     private void RebuildVisibleFlowsOnUiThread()
@@ -453,6 +457,31 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             {
                 VisibleFlows.Add(flow);
             }
+        }
+    }
+
+    private void ReevaluateFlowVisibilityOnUiThread(TrafficFlowViewModel viewModel)
+    {
+        var shouldBeVisible = HasFilterMatch(viewModel);
+        var isCurrentlyVisible = VisibleFlows.Contains(viewModel);
+
+        if (shouldBeVisible && !isCurrentlyVisible)
+        {
+            var targetIndex = Flows.IndexOf(viewModel);
+            var insertAt = 0;
+            for (var visibleIndex = 0; visibleIndex < VisibleFlows.Count; visibleIndex++)
+            {
+                if (Flows.IndexOf(VisibleFlows[visibleIndex]) < targetIndex)
+                {
+                    insertAt = visibleIndex + 1;
+                }
+            }
+
+            VisibleFlows.Insert(insertAt, viewModel);
+        }
+        else if (!shouldBeVisible && isCurrentlyVisible)
+        {
+            VisibleFlows.Remove(viewModel);
         }
     }
 
