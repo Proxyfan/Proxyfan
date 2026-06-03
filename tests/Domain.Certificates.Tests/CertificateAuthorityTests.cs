@@ -48,17 +48,38 @@ public sealed class CertificateAuthorityTests
     ///     Alternative Names.
     /// </summary>
     [Test]
-    public async Task Sign_WithIpAddressLiteral_ReturnsLeafCertificateWithIpAddressSubjectAlternativeName()
+    [Arguments("127.0.0.1", "127.0.0.1")]
+    [Arguments("[2001:db8::1]", "2001:db8::1")]
+    public async Task Sign_WithIpAddressLiteral_ReturnsLeafCertificateWithIpAddressSubjectAlternativeName(string hostname, string expectedIpAddress)
     {
         var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
 
-        var leaf = authority.Sign("127.0.0.1");
+        var leaf = authority.Sign(hostname);
         var subjectAlternativeName = GetSubjectAlternativeNameExtension(leaf);
         var ipAddresses = subjectAlternativeName.EnumerateIPAddresses().ToArray();
 
         await Assert.That(ipAddresses.Length).IsEqualTo(1);
-        await Assert.That(ipAddresses[0]).IsEqualTo(IPAddress.Parse("127.0.0.1"));
+        await Assert.That(ipAddresses[0]).IsEqualTo(IPAddress.Parse(expectedIpAddress));
         await Assert.That(subjectAlternativeName.EnumerateDnsNames().Any()).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that the generated leaf certificate normalizes domain host names before
+    ///     encoding the Subject Alternative Name extension.
+    /// </summary>
+    [Test]
+    [Arguments("api.example.com.", "api.example.com")]
+    [Arguments("münich.example", "xn--mnich-kva.example")]
+    public async Task Sign_WithNormalizedDomainHostName_ReturnsLeafCertificateWithNormalizedDnsSubjectAlternativeName(string hostname, string expectedHostName)
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        var leaf = authority.Sign(hostname);
+        var dnsNames = GetSubjectAlternativeNameExtension(leaf).EnumerateDnsNames().ToArray();
+
+        await Assert.That(dnsNames.Length).IsEqualTo(1);
+        await Assert.That(dnsNames[0]).IsEqualTo(expectedHostName);
+        await Assert.That(leaf.Subject).IsEqualTo($"CN={expectedHostName}");
     }
 
     /// <summary>
@@ -105,6 +126,18 @@ public sealed class CertificateAuthorityTests
     }
 
     /// <summary>
+    ///     Verifies that calling <see cref="CertificateAuthority.Sign" /> with an invalid host
+    ///     name throws <see cref="ArgumentException" />.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithInvalidHostName_ThrowsArgumentException()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        await Assert.That(() => authority.Sign("bad host name")).Throws<ArgumentException>();
+    }
+
+    /// <summary>
     ///     Verifies that two calls to <see cref="CertificateAuthority.Sign" /> for the same host
     ///     return distinct certificate instances.
     /// </summary>
@@ -127,9 +160,14 @@ public sealed class CertificateAuthorityTests
 
     private static X509SubjectAlternativeNameExtension GetSubjectAlternativeNameExtension(X509Certificate2 certificate)
     {
-        var extension = certificate.Extensions
-            .OfType<X509SubjectAlternativeNameExtension>()
-            .FirstOrDefault();
-        return extension ?? throw new InvalidOperationException("Expected subject alternative name extension.");
+        foreach (var extension in certificate.Extensions)
+        {
+            if (extension is X509SubjectAlternativeNameExtension subjectAlternativeNameExtension)
+            {
+                return subjectAlternativeNameExtension;
+            }
+        }
+
+        throw new InvalidOperationException($"Expected subject alternative name extension on certificate '{certificate.Subject}'.");
     }
 }
