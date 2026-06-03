@@ -141,8 +141,9 @@ public static class ShellViewModelFactory
         var options = new ProxyOptions { Port = port };
         var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
         var eventBus = new NoopEventBus();
-        var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance);
-        var sourceList = new SourceListViewModel(eventBus, trafficList, InlineUserInterfaceScheduler.Instance);
+        var coordinator = new TrafficListCoordinator();
+        var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
+        var sourceList = new SourceListViewModel(eventBus, coordinator, InlineUserInterfaceScheduler.Instance);
         var tabHost = new TabHostViewModel(trafficList);
         return new ShellViewModel(
             systemProxy,

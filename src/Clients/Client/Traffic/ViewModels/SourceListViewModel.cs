@@ -11,15 +11,15 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 /// <summary>
 ///     View model for the source list panel that groups captured traffic
 ///     by host. Subscribes to <see cref="RequestReceived" /> events and
-///     publishes a host filter to the bound <see cref="TrafficListViewModel" />
-///     whenever the selection changes.
+///     publishes a host-filter request via the shared
+///     <see cref="TrafficListCoordinator" /> whenever the selection changes.
 /// </summary>
 public sealed partial class SourceListViewModel : ObservableObject, IDisposable
 {
     private const string AllGroupSentinel = "*";
+    private readonly TrafficListCoordinator _coordinator;
     private readonly Dictionary<string, SourceGroupViewModel> _groupsByHost;
     private readonly IDisposable _requestSubscription;
-    private readonly TrafficListViewModel _trafficList;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private SourceGroupViewModel? _selectedSource;
@@ -32,22 +32,22 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
 
     /// <summary>
     ///     Initializes a new <see cref="SourceListViewModel" /> and
-    ///     subscribes to the supplied event bus.
+    ///     subscribes to the supplied event bus and traffic-list coordinator.
     /// </summary>
     /// <param name="eventBus">The domain event bus to subscribe to.</param>
-    /// <param name="trafficList">
-    ///     The traffic list view model whose host filter is driven by
-    ///     selection changes on this source list.
+    /// <param name="coordinator">
+    ///     Shared mediator used to publish host-filter requests and to
+    ///     observe flows-cleared notifications from the traffic list.
     /// </param>
     /// <param name="userInterfaceScheduler">
     ///     Scheduler used to marshal collection mutations onto the UI thread.
     /// </param>
     public SourceListViewModel(
         IDomainEventBus eventBus,
-        TrafficListViewModel trafficList,
+        TrafficListCoordinator coordinator,
         IUserInterfaceScheduler userInterfaceScheduler)
     {
-        _trafficList = trafficList;
+        _coordinator = coordinator;
         _userInterfaceScheduler = userInterfaceScheduler;
         var groupsByHost = new Dictionary<string, SourceGroupViewModel>(StringComparer.OrdinalIgnoreCase);
         _groupsByHost = groupsByHost;
@@ -61,32 +61,29 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _groupsByHost[AllGroupSentinel] = allGroup;
         _selectedSource = allGroup;
 
-        _trafficList.Flows.CollectionChanged += OnFlowsCollectionChanged;
+        _coordinator.FlowsCleared += OnFlowsCleared;
         _requestSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
-        _trafficList.Flows.CollectionChanged -= OnFlowsCollectionChanged;
+        _coordinator.FlowsCleared -= OnFlowsCleared;
         _requestSubscription.Dispose();
     }
 
     /// <summary>
-    ///     Synchronously rebuilds the source list from the current
-    ///     <see cref="TrafficListViewModel.Flows" /> collection.
+    ///     Synchronously rebuilds the source list, leaving only the
+    ///     synthetic "All" group selected.
     /// </summary>
     public void Rebuild()
     {
         _userInterfaceScheduler.Post(RebuildOnUiThread);
     }
 
-    private void OnFlowsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs notifyArgs)
+    private void OnFlowsCleared()
     {
-        if (notifyArgs.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
-        {
-            RebuildOnUiThread();
-        }
+        _userInterfaceScheduler.Post(RebuildOnUiThread);
     }
 
     private void OnRequestReceived(RequestReceived domainEvent)
@@ -99,11 +96,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     {
         if (value is null || value.IsAllGroup)
         {
-            _trafficList.HostFilter = string.Empty;
+            _coordinator.RequestHostFilter(string.Empty);
             return;
         }
 
-        _trafficList.HostFilter = value.Host;
+        _coordinator.RequestHostFilter(value.Host);
     }
 
     private void RebuildOnUiThread()
