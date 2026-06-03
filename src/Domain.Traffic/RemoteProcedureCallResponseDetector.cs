@@ -18,7 +18,9 @@ public static class RemoteProcedureCallResponseDetector
     /// <summary>
     ///     Returns <see langword="true" /> when the supplied response headers carry a
     ///     <c>Content-Type</c> value whose media type is <c>application/grpc</c> or
-    ///     <c>application/grpc+suffix</c>.
+    ///     <c>application/grpc+suffix</c>. Optional whitespace (OWS) is tolerated between
+    ///     the media type and the parameter separator <c>;</c>, matching the more lenient
+    ///     behavior of <see cref="ContentTypeParser" />.
     /// </summary>
     /// <param name="headers">The response headers to inspect.</param>
     /// <returns><see langword="true" /> when the response is a gRPC stream.</returns>
@@ -35,12 +37,22 @@ public static class RemoteProcedureCallResponseDetector
             return false;
         }
 
-        if (value.Length == ContentTypePrefix.Length)
+        var index = ContentTypePrefix.Length;
+        if (index == value.Length)
         {
             return true;
         }
 
-        var next = value[ContentTypePrefix.Length];
-        return next is '+' or ';';
+        if (value[index] == '+')
+        {
+            return true;
+        }
+
+        while (index < value.Length && (value[index] == ' ' || value[index] == '\t'))
+        {
+            index++;
+        }
+
+        return index == value.Length || value[index] == ';';
     }
 }

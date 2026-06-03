@@ -73,6 +73,34 @@ public sealed class RemoteProcedureCallResponseDetectorTests
     }
 
     /// <summary>
+    ///     Optional whitespace between the media type and the parameter separator (RFC 9110
+    ///     OWS) is tolerated so values such as <c>application/grpc ; charset=utf-8</c> are
+    ///     still detected. Mirrors <see cref="ContentTypeParser" />'s behavior.
+    /// </summary>
+    [Test]
+    public async Task HasRemoteProcedureCallResponse_GrpcWithOwsBeforeParameters_ReturnsTrue()
+    {
+        var headers = BuildHeaders("Content-Type", "application/grpc ; charset=utf-8");
+
+        var hasMatch = RemoteProcedureCallResponseDetector.HasRemoteProcedureCallResponse(headers);
+
+        await Assert.That(hasMatch).IsTrue();
+    }
+
+    /// <summary>
+    ///     Trailing whitespace after the media type (no parameters) is tolerated.
+    /// </summary>
+    [Test]
+    public async Task HasRemoteProcedureCallResponse_GrpcWithTrailingOws_ReturnsTrue()
+    {
+        var headers = BuildHeaders("Content-Type", "application/grpc\t ");
+
+        var hasMatch = RemoteProcedureCallResponseDetector.HasRemoteProcedureCallResponse(headers);
+
+        await Assert.That(hasMatch).IsTrue();
+    }
+
+    /// <summary>
     ///     The sibling <c>application/grpc-web</c> media type is not detected as gRPC.
     /// </summary>
     [Test]
