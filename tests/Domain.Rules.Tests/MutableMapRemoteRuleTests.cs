@@ -151,6 +151,8 @@ public sealed class MutableMapRemoteRuleTests
     public async Task AddEntry_InvalidMatcher_ThrowsWithoutMutatingState()
     {
         var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var count = 0;
+        rule.Changed += () => count++;
         var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
         rule.AddEntry(new MapRemoteEntry
         {
@@ -158,8 +160,8 @@ public sealed class MutableMapRemoteRuleTests
             IsEnabled = true,
             MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
         });
-        var count = 0;
-        rule.Changed += () => count++;
+        await Assert.That(count).IsEqualTo(1);
+        count = 0;
 
         var invalidEntry = new MapRemoteEntry
         {
