@@ -111,7 +111,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         while (true)
         {
             var readBuffer = new Memory<byte>(buffer);
-            var bytesRead = await stream.ReadAsync(readBuffer, cancellationToken).ConfigureAwait(true);
+            var bytesRead = await stream.ReadAsync(readBuffer, cancellationToken).ConfigureAwait(false);
             if (bytesRead == 0)
             {
                 break;
@@ -124,7 +124,12 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
             }
 
             var writeBuffer = new ReadOnlyMemory<byte>(buffer, 0, bytesRead);
-            await memory.WriteAsync(writeBuffer, cancellationToken).ConfigureAwait(true);
+            await memory.WriteAsync(writeBuffer, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (memory.Length > MaximumDescriptorPayloadSizeInBytes)
+        {
+            return null;
         }
 
         var payloadLength = (int)memory.Length;
