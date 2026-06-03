@@ -132,6 +132,39 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     A file containing malformed lines is rejected: the result carries a
+    ///     <see cref="ConfigurationParseError" />, the snapshot is empty, no backup is
+    ///     created, and the original file is not overwritten.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedFile_ReturnsParseErrorAndDoesNotWriteFile()
+    {
+        var path = CreateTempPath();
+        const string originalContent = "this-is-not-valid\nproxy.port=8080\n";
+
+        try
+        {
+            File.WriteAllText(path, originalContent);
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.ParseError).IsNotNull();
+            await Assert.That(result.ParseError!.MalformedLines.Count).IsEqualTo(1);
+            await Assert.That(result.ParseError.MalformedLines[0]).IsEqualTo("this-is-not-valid");
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.Snapshot.Count).IsEqualTo(0);
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(originalContent);
+            await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());

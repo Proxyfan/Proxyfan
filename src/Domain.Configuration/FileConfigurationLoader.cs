@@ -48,10 +48,14 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
-        var sourceValues = new Dictionary<string, string>();
+        var parseResult = KeyValueConfigurationParser.Parse(text);
+        if (parseResult.Error is ConfigurationParseError parseError)
+        {
+            return BuildMalformedResult(parseError);
+        }
 
-        foreach (var pair in snapshot.Enumerate())
+        var sourceValues = new Dictionary<string, string>();
+        foreach (var pair in parseResult.Value.Enumerate())
         {
             sourceValues[pair.Key] = pair.Value;
         }
@@ -101,6 +105,27 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = null,
+            PipelineResult = pipelineResult,
+            Snapshot = snapshot,
+        };
+    }
+
+    private MigratingConfigurationLoadResult BuildMalformedResult(ConfigurationParseError parseError)
+    {
+        var emptyValues = new Dictionary<string, string>();
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = emptyValues,
+        };
+        var snapshot = new ConfigurationSnapshot(emptyValues);
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            ParseError = parseError,
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
         };
