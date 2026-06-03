@@ -1,8 +1,10 @@
 using Proxyfan.Client.EndToEndTests.Infrastructure;
 using Proxyfan.Client.EndToEndTests.Stubs;
 using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Presentation.Localization;
 using Proxyfan.Presentation.Shortcuts;
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -28,7 +30,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
 
             var expectedActionCount = Enum.GetValues<ShortcutAction>().Length;
             await Assert.That(vm.Bindings.Count).IsEqualTo(expectedActionCount);
@@ -42,7 +44,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
             var toggleCaptureGesture = registry.GetGesture(ShortcutAction.ToggleCapture);
             await Assert.That(toggleCaptureGesture).IsNotNull();
 
@@ -59,7 +61,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
             var freshGesture = new KeyboardGesture
             {
                 Key = "F9",
@@ -79,7 +81,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
             var freshGesture = new KeyboardGesture
             {
                 Key = "F9",
@@ -102,7 +104,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
             var toggleCaptureGesture = registry.GetGesture(ShortcutAction.ToggleCapture);
             await Assert.That(toggleCaptureGesture).IsNotNull();
 
@@ -121,7 +123,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
 
             vm.SaveCommand.Execute(null);
 
@@ -138,7 +140,7 @@ public sealed class KeyboardShortcutsViewModelEndToEndTests : EndToEndTestBase
         {
             var registry = new ShortcutRegistry();
             var store = new InMemoryShortcutBindingsStore();
-            var vm = new KeyboardShortcutsViewModel(registry, store);
+            var vm = new KeyboardShortcutsViewModel(registry, store, new LocalizationService(CultureInfo.InvariantCulture));
             // Mutate first so reset has visible effect
             vm.Rebind(ShortcutAction.ToggleCapture, new KeyboardGesture
             {

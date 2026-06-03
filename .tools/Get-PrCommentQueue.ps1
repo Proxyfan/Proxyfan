@@ -138,16 +138,16 @@ function Test-GhAvailable {
 }
 
 function Resolve-Pr {
-    param([string] $Input)
+    param([string] $Identifier)
 
-    if ($Input -match 'github\.com/([^/]+)/([^/]+)/pull/(\d+)') {
+    if ($Identifier -match 'github\.com/([^/]+)/([^/]+)/pull/(\d+)') {
         return [pscustomobject]@{
             Owner  = $Matches[1]
             Repo   = $Matches[2]
             Number = [int]$Matches[3]
         }
     }
-    if ($Input -match '^\d+$') {
+    if ($Identifier -match '^\d+$') {
         $repoView = & gh repo view --json owner,name 2>$null
         if ($LASTEXITCODE -ne 0 -or -not $repoView) {
             throw "Could not infer repo from current directory; supply a full PR URL instead of just the number."
@@ -156,10 +156,10 @@ function Resolve-Pr {
         return [pscustomobject]@{
             Owner  = $obj.owner.login
             Repo   = $obj.name
-            Number = [int]$Input
+            Number = [int]$Identifier
         }
     }
-    throw "Could not parse PR identifier: '$Input'. Supply a PR number or full GitHub PR URL."
+    throw "Could not parse PR identifier: '$Identifier'. Supply a PR number or full GitHub PR URL."
 }
 
 function Get-CommentSeverity {
@@ -363,7 +363,7 @@ if (-not (Test-GhAvailable)) {
 }
 
 try {
-    $prInfo  = Resolve-Pr -Input $Pr
+    $prInfo  = Resolve-Pr -Identifier $Pr
 } catch {
     Write-Failure $_.Exception.Message
     exit 1
