@@ -63,6 +63,7 @@ public sealed class InteractiveBreakpointHandler : IBreakpointHandler
         BreakpointPause pause,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         _inbox.Add(pause);
 
         var resolved = false;
@@ -76,7 +77,7 @@ public sealed class InteractiveBreakpointHandler : IBreakpointHandler
                 }
             }, pause);
 
-            var decision = await pause.WaitForDecisionAsync(CancellationToken.None).ConfigureAwait(false);
+            var decision = await pause.WaitForDecisionAsync(cancellationToken).ConfigureAwait(false);
             resolved = true;
             return decision;
         }
