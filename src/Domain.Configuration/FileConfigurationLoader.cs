@@ -10,6 +10,8 @@ namespace Proxyfan.Domain.Configuration;
 ///     <see cref="ConfigurationMigrationPipeline" />, and rewrites the file with the
 ///     migrated values. The original file is backed up to <c>&lt;path&gt;.bak</c> before
 ///     overwriting so that a user can recover from an unexpected migration.
+///     If the file contains malformed lines the load is rejected: no migration is applied
+///     and the file is not rewritten, preventing a bad parse from overwriting good data.
 /// </summary>
 public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
 {
@@ -48,7 +50,14 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var parseResult = KeyValueConfigurationParser.Parse(text);
+
+        if (!parseResult.IsSuccess)
+        {
+            return BuildMalformedResult(parseResult);
+        }
+
+        var snapshot = parseResult.Snapshot;
         var sourceValues = new Dictionary<string, string>();
 
         foreach (var pair in snapshot.Enumerate())
@@ -64,6 +73,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             return new MigratingConfigurationLoadResult
             {
                 BackupPath = null,
+                MalformedLines = [],
                 PipelineResult = pipelineResult,
                 Snapshot = unchanged,
             };
@@ -78,6 +88,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = backupPath,
+            MalformedLines = [],
             PipelineResult = pipelineResult,
             Snapshot = migrated,
         };
@@ -101,8 +112,29 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = null,
+            MalformedLines = null,
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
+        };
+    }
+
+    private MigratingConfigurationLoadResult BuildMalformedResult(KeyValueConfigurationParseResult parseResult)
+    {
+        var rejectedValues = new Dictionary<string, string>();
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = rejectedValues,
+        };
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            MalformedLines = parseResult.MalformedLines,
+            PipelineResult = pipelineResult,
+            Snapshot = parseResult.Snapshot,
         };
     }
 }

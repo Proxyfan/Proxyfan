@@ -13,9 +13,10 @@ public sealed class KeyValueConfigurationParserTests
     [Test]
     public async Task Parse_EmptyText_ReturnsEmptySnapshot()
     {
-        var snapshot = KeyValueConfigurationParser.Parse(string.Empty);
+        var result = KeyValueConfigurationParser.Parse(string.Empty);
 
-        await Assert.That(snapshot.Count).IsEqualTo(0);
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Count).IsEqualTo(0);
     }
 
     /// <summary>
@@ -26,9 +27,10 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "proxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
     }
 
     /// <summary>
@@ -39,10 +41,11 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "# this is a comment\nproxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
-        await Assert.That(snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
     }
 
     /// <summary>
@@ -53,9 +56,10 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "\n\nproxy.port=8080\n\n";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
     }
 
     /// <summary>
@@ -66,22 +70,60 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "  proxy.port  =  8080  ";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
     }
 
     /// <summary>
-    ///     Verifies that lines without an equals sign are skipped.
+    ///     Verifies that a line without an equals sign is reported as a malformed line
+    ///     rather than silently discarded.
     /// </summary>
     [Test]
-    public async Task Parse_LineWithoutEquals_IsSkipped()
+    public async Task Parse_LineWithoutEquals_ReportsMalformedLine()
     {
         const string text = "no-equals-here\nproxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.MalformedLines.Count).IsEqualTo(1);
+        await Assert.That(result.MalformedLines[0]).IsEqualTo("no-equals-here");
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that a line whose equals sign is at position zero (empty key) is
+    ///     reported as a malformed line.
+    /// </summary>
+    [Test]
+    public async Task Parse_LineWithEqualsAtStart_ReportsMalformedLine()
+    {
+        const string text = "=valueonly";
+
+        var result = KeyValueConfigurationParser.Parse(text);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.MalformedLines.Count).IsEqualTo(1);
+        await Assert.That(result.MalformedLines[0]).IsEqualTo("=valueonly");
+    }
+
+    /// <summary>
+    ///     Verifies that multiple malformed lines are all reported.
+    /// </summary>
+    [Test]
+    public async Task Parse_MultiplemalformedLines_AllReported()
+    {
+        const string text = "bad-line-one\nproxy.port=8080\nbad-line-two";
+
+        var result = KeyValueConfigurationParser.Parse(text);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.MalformedLines.Count).IsEqualTo(2);
+        await Assert.That(result.MalformedLines[0]).IsEqualTo("bad-line-one");
+        await Assert.That(result.MalformedLines[1]).IsEqualTo("bad-line-two");
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
     }
 
     /// <summary>
@@ -92,12 +134,13 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "a=1\nb=2\nc=3";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(3);
-        await Assert.That(snapshot.Get("a", "missing")).IsEqualTo("1");
-        await Assert.That(snapshot.Get("b", "missing")).IsEqualTo("2");
-        await Assert.That(snapshot.Get("c", "missing")).IsEqualTo("3");
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Count).IsEqualTo(3);
+        await Assert.That(result.Snapshot.Get("a", "missing")).IsEqualTo("1");
+        await Assert.That(result.Snapshot.Get("b", "missing")).IsEqualTo("2");
+        await Assert.That(result.Snapshot.Get("c", "missing")).IsEqualTo("3");
     }
 
     /// <summary>
@@ -108,8 +151,9 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "url=http://example.com/path?key=value";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Get("url", "missing")).IsEqualTo("http://example.com/path?key=value");
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Snapshot.Get("url", "missing")).IsEqualTo("http://example.com/path?key=value");
     }
 }
