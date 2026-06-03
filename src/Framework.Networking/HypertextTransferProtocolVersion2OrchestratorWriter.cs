@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,44 @@ namespace Proxyfan.Framework.Networking;
 public static class HypertextTransferProtocolVersion2OrchestratorWriter
 {
     /// <summary>
+    ///     Serializes <paramref name="frame" /> into a pooled buffer and forwards it to
+    ///     <paramref name="destination" />, returning the buffer to
+    ///     <see cref="ArrayPool{T}.Shared" /> after the write completes. Returns
+    ///     <see langword="false" /> when the peer disposed or aborted the connection.
+    /// </summary>
+    /// <param name="destination">The destination stream.</param>
+    /// <param name="frame">The parsed frame to forward verbatim.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    ///     <see langword="true" /> on success; <see langword="false" /> when an I/O error
+    ///     prevented the write.
+    /// </returns>
+    public static async Task<bool> TryForwardFrameAsync(Stream destination, HypertextTransferProtocolVersion2Frame frame, CancellationToken cancellationToken)
+    {
+        if (frame.Header.Length != frame.Payload.Length)
+        {
+            throw new InvalidOperationException(
+                $"HTTP/2 frame header length ({frame.Header.Length}) does not match payload length ({frame.Payload.Length}); refusing to forward to avoid emitting stale or truncated bytes on the wire.");
+        }
+
+        var payloadLength = frame.Payload.Length;
+        var totalLength = HypertextTransferProtocolVersion2FrameParser.HeaderLength + payloadLength;
+        var buffer = ArrayPool<byte>.Shared.Rent(totalLength);
+        try
+        {
+            var descriptor = HypertextTransferProtocolVersion2OrchestratorHelpers.BuildDescriptor(frame);
+            HypertextTransferProtocolVersion2FrameWriter.WriteFrame(buffer, descriptor, frame.Payload.Span);
+
+            var frameMemory = new ReadOnlyMemory<byte>(buffer, 0, totalLength);
+            return await TryWriteFrameAsync(destination, frameMemory, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+        }
+    }
+
+    /// <summary>
     ///     Writes <paramref name="frameBuffer" /> to <paramref name="destination" /> and
     ///     flushes. Returns <see langword="false" /> when the peer disposed or aborted the
     ///     connection so the caller can break out of its pump loop without throwing.
@@ -25,7 +64,7 @@ public static class HypertextTransferProtocolVersion2OrchestratorWriter
     ///     <see langword="true" /> on success; <see langword="false" /> when an I/O error
     ///     prevented the write.
     /// </returns>
-    public static async Task<bool> TryWriteFrameAsync(Stream destination, byte[] frameBuffer, CancellationToken cancellationToken)
+    public static async Task<bool> TryWriteFrameAsync(Stream destination, ReadOnlyMemory<byte> frameBuffer, CancellationToken cancellationToken)
     {
         try
         {

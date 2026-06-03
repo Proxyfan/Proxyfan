@@ -496,12 +496,7 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
                 }
 
                 ProcessFrame(frame, context);
-                var totalLength = HypertextTransferProtocolVersion2FrameParser.HeaderLength + frame.Header.Length;
-                var buffer = new byte[totalLength];
-                var descriptor = HypertextTransferProtocolVersion2OrchestratorHelpers.BuildDescriptor(frame);
-                HypertextTransferProtocolVersion2FrameWriter.WriteFrame(buffer, descriptor, frame.Payload.Span);
-
-                var hasWriteSucceeded = await HypertextTransferProtocolVersion2OrchestratorWriter.TryWriteFrameAsync(context.WriteStream, buffer, token).ConfigureAwait(false);
+                var hasWriteSucceeded = await HypertextTransferProtocolVersion2OrchestratorWriter.TryForwardFrameAsync(context.WriteStream, frame, token).ConfigureAwait(false);
                 if (!hasWriteSucceeded)
                 {
                     break;
