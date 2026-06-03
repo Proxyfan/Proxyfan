@@ -9,9 +9,14 @@ namespace Proxyfan.Framework.Networking;
 ///     Specialized request-line/header rewriter for HTTP/1.1 <c>Upgrade</c> requests. Unlike
 ///     <see cref="OriginRequestRewriter" />, this rewriter preserves the <c>Connection</c> and
 ///     <c>Upgrade</c> headers (they carry the WebSocket handshake semantics that must reach
-///     the upstream server intact) while still stripping <c>Proxy-Authenticate</c>,
-///     <c>Proxy-Authorization</c>, and <c>Proxy-Connection</c> (security: never leak proxy
-///     credentials to origin) and appending the <c>Via: 1.1 proxyfan</c> token.
+///     the upstream server intact) while still stripping the remaining RFC 7230 §6.1
+///     hop-by-hop fields (<c>Keep-Alive</c>, <c>Proxy-Authenticate</c>,
+///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, <c>TE</c>, <c>Trailer</c>,
+///     <c>Transfer-Encoding</c>) and any headers named by the client's <c>Connection</c>
+///     header value (other than the handshake-required <c>upgrade</c>/<c>close</c>/
+///     <c>keep-alive</c> tokens), so connection-scoped metadata does not leak across the
+///     proxy boundary. Finally, a <c>Via: 1.1 proxyfan</c> token is appended per
+///     RFC 7230 §5.7.1.
 /// </summary>
 public static class UpgradeRequestRewriter
 {
@@ -22,9 +27,13 @@ public static class UpgradeRequestRewriter
     {
         var alwaysStripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "Keep-Alive",
             "Proxy-Authenticate",
             "Proxy-Authorization",
             "Proxy-Connection",
+            "TE",
+            "Trailer",
+            "Transfer-Encoding",
         };
         AlwaysStrippedHeaders = alwaysStripped;
     }
@@ -56,7 +65,8 @@ public static class UpgradeRequestRewriter
         rebuilt.Append(rewrittenRequestLine);
         rebuilt.Append("\r\n");
         var viaInline = HasInlineVia(headerLines);
-        AppendHeaderLines(headerLines, rebuilt);
+        var connectionListedNames = ExtractConnectionListedHeaderNames(headerLines);
+        AppendHeaderLines(headerLines, rebuilt, connectionListedNames);
 
         if (!viaInline)
         {
@@ -69,7 +79,7 @@ public static class UpgradeRequestRewriter
         return Encoding.ASCII.GetBytes(rebuilt.ToString());
     }
 
-    private static void AppendHeaderLines(string[] headerLines, StringBuilder rebuilt)
+    private static void AppendHeaderLines(string[] headerLines, StringBuilder rebuilt, HashSet<string> connectionListedNames)
     {
         foreach (var line in headerLines)
         {
@@ -89,7 +99,7 @@ public static class UpgradeRequestRewriter
 
             var name = line[..colonIndex].Trim();
 
-            if (AlwaysStrippedHeaders.Contains(name))
+            if (AlwaysStrippedHeaders.Contains(name) || connectionListedNames.Contains(name))
             {
                 continue;
             }
@@ -131,6 +141,50 @@ public static class UpgradeRequestRewriter
         }
 
         return string.IsNullOrEmpty(originalPath) ? "/" : originalPath;
+    }
+
+    private static HashSet<string> ExtractConnectionListedHeaderNames(string[] headerLines)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in headerLines)
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            var colonIndex = line.IndexOf(':');
+
+            if (colonIndex <= 0)
+            {
+                continue;
+            }
+
+            var name = line[..colonIndex].Trim();
+
+            if (!string.Equals(name, "Connection", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = line[(colonIndex + 1)..];
+            var tokens = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var token in tokens)
+            {
+                if (string.Equals(token, "close", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "keep-alive", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "upgrade", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                names.Add(token);
+            }
+        }
+
+        return names;
     }
 
     private static bool HasInlineVia(string[] headerLines)
