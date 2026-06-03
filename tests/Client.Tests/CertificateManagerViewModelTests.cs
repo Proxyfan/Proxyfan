@@ -12,12 +12,30 @@ namespace Proxyfan.Client.Tests;
 public sealed class CertificateManagerViewModelTests
 {
     /// <summary>
+    ///     Constructing the view model triggers an initial refresh so the tool opens with current certificate metadata.
+    /// </summary>
+    [Test]
+    public async Task Constructor_FreshAuthority_PerformsInitialRefresh()
+    {
+        var (viewModel, _, _, store) = Create();
+
+        await (viewModel.RefreshCommand.ExecutionTask ?? Task.CompletedTask).ConfigureAwait(false);
+
+        await Assert.That(viewModel.Subject).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.Issuer).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.Thumbprint.Length).IsEqualTo(40);
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(store.IsInstalledCallCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     The RefreshCommand loads metadata from the current authority and reports the trust-store state.
     /// </summary>
     [Test]
     public async Task RefreshCommand_FreshAuthority_PopulatesMetadataAndIsInstalled()
     {
         var (viewModel, _, _, store) = Create();
+        await (viewModel.RefreshCommand.ExecutionTask ?? Task.CompletedTask).ConfigureAwait(false);
 
         await viewModel.RefreshCommand.ExecuteAsync(null).ConfigureAwait(false);
 
@@ -25,7 +43,7 @@ public sealed class CertificateManagerViewModelTests
         await Assert.That(viewModel.Issuer).IsEqualTo("CN=Proxyfan Client Test CA");
         await Assert.That(viewModel.Thumbprint.Length).IsEqualTo(40);
         await Assert.That(viewModel.IsInstalled).IsFalse();
-        await Assert.That(store.IsInstalledCallCount).IsEqualTo(1);
+        await Assert.That(store.IsInstalledCallCount).IsEqualTo(2);
     }
 
     /// <summary>

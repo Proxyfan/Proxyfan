@@ -65,6 +65,10 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         _statusMessage = string.Empty;
         _notBefore = DateTimeOffset.MinValue;
         _notAfter = DateTimeOffset.MinValue;
+        if (RefreshCommand.CanExecute(null))
+        {
+            RefreshCommand.Execute(null);
+        }
     }
 
     /// <inheritdoc />
