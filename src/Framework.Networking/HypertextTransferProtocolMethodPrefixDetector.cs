@@ -5,15 +5,18 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Static helper that detects whether a buffered byte sequence begins with an HTTP/1.x
-///     request-line method token (one or more uppercase ASCII letters, optionally containing
-///     <c>-</c>, followed by a space). Used by the reverse proxy route listener to decide
-///     whether to dispatch the connection to the HTTP-capture handler.
+///     request-line method token (one or more characters drawn from uppercase ASCII or the
+///     <c>-</c> byte, followed by a space). Used by the reverse proxy route listener to
+///     decide whether to dispatch the connection to the HTTP-capture handler.
 ///
-///     The detector accepts any extension method token shape allowed by RFC 7230 §3.1.1
-///     (restricted to uppercase ALPHA plus <c>-</c> to remain robust against unrelated binary
-///     traffic), so WebDAV methods such as <c>PROPFIND</c> / <c>MKCOL</c> and other
-///     application-specific extension methods are no longer rejected before they reach the
-///     request parser.
+///     The accepted grammar intentionally tolerates extension method tokens permitted by
+///     RFC 7230 §3.1.1 (restricted to uppercase ALPHA plus <c>-</c> to remain robust
+///     against unrelated binary traffic), so WebDAV methods such as <c>PROPFIND</c> /
+///     <c>MKCOL</c> and other application-specific extension methods are no longer
+///     rejected before they reach the request parser. Hyphens are not constrained to
+///     interior positions: leading or repeated <c>-</c> bytes are accepted at this
+///     screening layer and the full request-line parser is the final authority on
+///     well-formedness.
 /// </summary>
 public static class HypertextTransferProtocolMethodPrefixDetector
 {
