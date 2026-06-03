@@ -189,6 +189,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
         Flows.CollectionChanged += OnFlowsCollectionChanged;
         _coordinator.HostFilterRequested += OnCoordinatorHostFilterRequested;
+        _coordinator.SetFlowsSnapshotProvider(GetFlowsSnapshot);
 
         _requestReceivedSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
         _responseReceivedSubscription = eventBus.Subscribe<ResponseReceived>(OnResponseReceived);
@@ -200,6 +201,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     {
         Flows.CollectionChanged -= OnFlowsCollectionChanged;
         _coordinator.HostFilterRequested -= OnCoordinatorHostFilterRequested;
+        _coordinator.SetFlowsSnapshotProvider(null);
         _requestReceivedSubscription.Dispose();
         _responseReceivedSubscription.Dispose();
         _flowCompletedSubscription.Dispose();
@@ -364,6 +366,17 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         await _clipboardService.SetTextAsync(url, cancellationToken).ConfigureAwait(false);
     }
 
+    private IReadOnlyList<TrafficFlow> GetFlowsSnapshot()
+    {
+        var snapshot = new List<TrafficFlow>(Flows.Count);
+        foreach (var flow in Flows)
+        {
+            snapshot.Add(flow.Source);
+        }
+
+        return snapshot;
+    }
+
     private bool HasHostFilterMatch(TrafficFlowViewModel flow)
     {
         if (string.IsNullOrWhiteSpace(HostFilter))
@@ -387,6 +400,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
         }
+
+        _coordinator.NotifyFlowsChanged();
     }
 
     private void OnCoordinatorHostFilterRequested(string host)

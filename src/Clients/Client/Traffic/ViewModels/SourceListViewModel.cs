@@ -61,6 +61,7 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _groupsByHost[AllGroupSentinel] = allGroup;
         _selectedSource = allGroup;
 
+        _coordinator.FlowsChanged += OnFlowsChanged;
         _coordinator.FlowsCleared += OnFlowsCleared;
         _requestSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
     }
@@ -68,17 +69,23 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        _coordinator.FlowsChanged -= OnFlowsChanged;
         _coordinator.FlowsCleared -= OnFlowsCleared;
         _requestSubscription.Dispose();
     }
 
     /// <summary>
-    ///     Synchronously rebuilds the source list, leaving only the
-    ///     synthetic "All" group selected.
+    ///     Synchronously rebuilds the source list from the current traffic
+    ///     flow snapshot, leaving the synthetic "All" group selected.
     /// </summary>
     public void Rebuild()
     {
         _userInterfaceScheduler.Post(RebuildOnUiThread);
+    }
+
+    private void OnFlowsChanged()
+    {
+        Rebuild();
     }
 
     private void OnFlowsCleared()
@@ -112,6 +119,20 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _groupsByHost[AllGroupSentinel] = allGroup;
         Sources.Clear();
         Sources.Add(allGroup);
+
+        var flows = _coordinator.GetFlowsSnapshot();
+        foreach (var flow in flows)
+        {
+            var request = flow.Request;
+            if (request is null)
+            {
+                continue;
+            }
+
+            var host = SourceHostExtractor.Extract(request);
+            RegisterHostOnUiThread(host);
+        }
+
         SelectedSource = allGroup;
     }
 

@@ -1,3 +1,6 @@
+using Proxyfan.Domain.Traffic;
+using System.Collections.Generic;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -12,6 +15,13 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed class TrafficListCoordinator
 {
     /// <summary>
+    ///     Raised when the traffic list replaces its flow collection (for
+    ///     example after importing a HAR file), so derived sibling lists can
+    ///     rebuild from the latest snapshot.
+    /// </summary>
+    public event TrafficListFlowsChangedHandler? FlowsChanged;
+
+    /// <summary>
     ///     Raised when the traffic list clears its flow collection. The
     ///     source list rebuilds its host groups in response.
     /// </summary>
@@ -23,6 +33,31 @@ public sealed class TrafficListCoordinator
     ///     empty string clears the filter.
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
+
+    private TrafficListFlowsSnapshotProviderHandler? _flowsSnapshotProvider;
+
+    /// <summary>
+    ///     Returns a snapshot of the current traffic flows.
+    /// </summary>
+    /// <returns>The current traffic-flow snapshot, or an empty list when unavailable.</returns>
+    public IReadOnlyList<TrafficFlow> GetFlowsSnapshot()
+    {
+        TrafficListFlowsSnapshotProviderHandler? snapshotProvider = _flowsSnapshotProvider;
+        if (snapshotProvider is null)
+        {
+            return [];
+        }
+
+        return snapshotProvider();
+    }
+
+    /// <summary>
+    ///     Publishes a flows-changed notification to subscribers.
+    /// </summary>
+    public void NotifyFlowsChanged()
+    {
+        FlowsChanged?.Invoke();
+    }
 
     /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
@@ -43,5 +78,18 @@ public sealed class TrafficListCoordinator
     public void RequestHostFilter(string? host)
     {
         HostFilterRequested?.Invoke(host ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Registers a callback used to retrieve the current traffic-flow
+    ///     snapshot for sibling view models.
+    /// </summary>
+    /// <param name="flowsSnapshotProvider">
+    ///     The callback that returns the current flow snapshot, or
+    ///     <see langword="null" /> to clear any previously-registered callback.
+    /// </param>
+    public void SetFlowsSnapshotProvider(TrafficListFlowsSnapshotProviderHandler? flowsSnapshotProvider)
+    {
+        _flowsSnapshotProvider = flowsSnapshotProvider;
     }
 }
