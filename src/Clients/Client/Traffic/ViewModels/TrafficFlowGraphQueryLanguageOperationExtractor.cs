@@ -1,8 +1,4 @@
 using Proxyfan.Domain.Traffic;
-using Proxyfan.Framework.Serialization;
-using System;
-using System.IO;
-using System.Text;
 
 namespace Proxyfan.Client.Traffic.ViewModels;
 
@@ -20,53 +16,6 @@ public static class TrafficFlowGraphQueryLanguageOperationExtractor
     /// <returns>The operation name or <see langword="null" />.</returns>
     public static string? Extract(HypertextTransferProtocolRequestData? request)
     {
-        if (request is null)
-        {
-            return null;
-        }
-
-        var contentTypeHeader = request.Headers.Get("Content-Type");
-        var path = request.RequestUri.AbsolutePath;
-        if (!GraphQueryLanguageRequestDetector.HasIndicator(path, contentTypeHeader))
-        {
-            return null;
-        }
-
-        try
-        {
-            if (string.Equals(request.Method, "GET", StringComparison.OrdinalIgnoreCase))
-            {
-                var query = request.RequestUri.Query;
-                if (query.StartsWith('?'))
-                {
-                    query = query[1..];
-                }
-
-                var fromUrl = GraphQueryLanguageRequestParser.FromUrlQuery(query);
-                return fromUrl?.OperationName;
-            }
-
-            if (request.Body.IsEmpty)
-            {
-                return null;
-            }
-
-            var bodyText = Encoding.UTF8.GetString(request.Body.Span);
-            if (!string.IsNullOrWhiteSpace(contentTypeHeader)
-                && contentTypeHeader.Contains("application/graphql", StringComparison.OrdinalIgnoreCase)
-                && !contentTypeHeader.Contains("+json", StringComparison.OrdinalIgnoreCase)
-                && !contentTypeHeader.Contains("-response+json", StringComparison.OrdinalIgnoreCase))
-            {
-                var fromRaw = GraphQueryLanguageRequestParser.FromRawQuery(bodyText);
-                return fromRaw.OperationName;
-            }
-
-            var parsed = GraphQueryLanguageRequestParser.FromJson(bodyText);
-            return parsed?.OperationName;
-        }
-        catch (InvalidDataException)
-        {
-            return null;
-        }
+        return GraphQueryLanguageRequestClassifier.GetOperationName(request);
     }
 }
