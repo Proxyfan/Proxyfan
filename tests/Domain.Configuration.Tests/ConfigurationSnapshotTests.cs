@@ -198,4 +198,19 @@ public sealed class ConfigurationSnapshotTests
 
         await Assert.That(count).IsEqualTo(3);
     }
+
+    /// <summary>
+    ///     Verifies that the collection returned by <see cref="ConfigurationSnapshot.Enumerate" />
+    ///     is not the mutable backing dictionary.
+    /// </summary>
+    [Test]
+    public async Task Enumerate_ReturnedCollection_IsNotMutableDictionary()
+    {
+        var data = new Dictionary<string, string> { ["key"] = "value" };
+        var snapshot = new ConfigurationSnapshot(data);
+
+        var result = snapshot.Enumerate();
+
+        await Assert.That(result is Dictionary<string, string>).IsFalse();
+    }
 }
