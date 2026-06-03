@@ -21,7 +21,7 @@ public sealed class DomainNameSystemOverrideMap
     /// <summary>
     ///     Gets the number of entries currently in the map (enabled and disabled).
     /// </summary>
-    public int Count => _snapshot.Length;
+    public int Count => Volatile.Read(ref _snapshot).Length;
 
     /// <summary>
     ///     Gets or sets whether DNS spoofing is currently active. When <see langword="false" />
@@ -65,14 +65,14 @@ public sealed class DomainNameSystemOverrideMap
                 var replaced = new DomainNameSystemOverrideEntry[existing.Length];
                 Array.Copy(existing, replaced, existing.Length);
                 replaced[matchIndex] = entry;
-                _snapshot = replaced;
+                Volatile.Write(ref _snapshot, replaced);
                 return;
             }
 
             var grown = new DomainNameSystemOverrideEntry[existing.Length + 1];
             Array.Copy(existing, grown, existing.Length);
             grown[existing.Length] = entry;
-            _snapshot = grown;
+            Volatile.Write(ref _snapshot, grown);
         }
     }
 
@@ -83,7 +83,7 @@ public sealed class DomainNameSystemOverrideMap
     /// <returns>A snapshot array of every configured entry.</returns>
     public IReadOnlyList<DomainNameSystemOverrideEntry> GetSnapshot()
     {
-        return _snapshot;
+        return Volatile.Read(ref _snapshot);
     }
 
     /// <summary>
@@ -96,7 +96,7 @@ public sealed class DomainNameSystemOverrideMap
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
         var canonical = DomainPatternNormalization.Normalize(hostname);
-        return DomainNameSystemOverrideEntryArrays.IndexOf(_snapshot, canonical) >= 0;
+        return DomainNameSystemOverrideEntryArrays.IndexOf(Volatile.Read(ref _snapshot), canonical) >= 0;
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ public sealed class DomainNameSystemOverrideMap
                 Array.Copy(existing, matchIndex + 1, shrunk, matchIndex, existing.Length - matchIndex - 1);
             }
 
-            _snapshot = shrunk;
+            Volatile.Write(ref _snapshot, shrunk);
             return true;
         }
     }
@@ -180,7 +180,7 @@ public sealed class DomainNameSystemOverrideMap
     /// </summary>
     public void ResetAllMatchCounts()
     {
-        var snapshot = _snapshot;
+        var snapshot = Volatile.Read(ref _snapshot);
         for (var index = 0; index < snapshot.Length; index += 1)
         {
             snapshot[index].ResetMatchCount();
@@ -205,7 +205,7 @@ public sealed class DomainNameSystemOverrideMap
         }
 
         var canonical = DomainPatternNormalization.Normalize(hostname);
-        var snapshot = _snapshot;
+        var snapshot = Volatile.Read(ref _snapshot);
         DomainNameSystemOverrideEntry? bestWildcard = null;
         for (var index = 0; index < snapshot.Length; index += 1)
         {

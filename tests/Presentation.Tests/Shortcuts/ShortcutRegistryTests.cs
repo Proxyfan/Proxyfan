@@ -271,6 +271,63 @@ public sealed class ShortcutRegistryTests
     }
 
     /// <summary>
+    ///     Verifies a lower-case letter key is normalized to upper-case so it matches the
+    ///     canonical default binding via <see cref="KeyboardGesture.Key" />'s init-time
+    ///     normalization.
+    /// </summary>
+    [Test]
+    public async Task GetAction_LowerCaseLetterGesture_MatchesUpperCaseDefault()
+    {
+        var registry = new ShortcutRegistry();
+        var gesture = new KeyboardGesture
+        {
+            Key = "r",
+            Modifiers = KeyboardModifier.Control,
+        };
+
+        await Assert.That(gesture.Key).IsEqualTo("R");
+        var action = registry.GetAction(gesture);
+        await Assert.That(action).IsEqualTo(ShortcutAction.ToggleCapture);
+    }
+
+    /// <summary>
+    ///     Verifies that a seed entry with a lower-case letter key conflicts with a default
+    ///     binding on the upper-case form, exercising the case-insensitive comparison in
+    ///     <see cref="ShortcutRegistry.GetAction" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithSeededLowerCaseConflict_FallsBackToDefault()
+    {
+        var seed = new System.Collections.Generic.Dictionary<ShortcutAction, KeyboardGesture>
+        {
+            [ShortcutAction.Find] = new() { Key = "k", Modifiers = KeyboardModifier.Control },
+        };
+
+        var registry = new ShortcutRegistry(seed);
+
+        var find = registry.GetGesture(ShortcutAction.Find);
+        await Assert.That(find!.Key).IsEqualTo("F");
+        var clearTraffic = registry.GetGesture(ShortcutAction.ClearTraffic);
+        await Assert.That(clearTraffic!.Key).IsEqualTo("K");
+    }
+
+    /// <summary>
+    ///     Verifies multi-character key names such as <c>"Delete"</c> are preserved verbatim
+    ///     and not affected by the single-letter upper-casing normalization.
+    /// </summary>
+    [Test]
+    public async Task KeyboardGesture_MultiCharacterKey_PreservedVerbatim()
+    {
+        var gesture = new KeyboardGesture
+        {
+            Key = "Delete",
+            Modifiers = KeyboardModifier.None,
+        };
+
+        await Assert.That(gesture.Key).IsEqualTo("Delete");
+    }
+
+    /// <summary>
     ///     Verifies the seeded-bindings constructor with an empty dictionary yields the full
     ///     default binding set.
     /// </summary>
