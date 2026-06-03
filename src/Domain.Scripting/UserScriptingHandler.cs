@@ -71,7 +71,7 @@ public sealed class UserScriptingHandler : IScriptingHandler
                 $"Script request projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
 
-        return projection.Value;
+        return Result.Success(projection.Value);
     }
 
     /// <inheritdoc />
@@ -119,7 +119,7 @@ public sealed class UserScriptingHandler : IScriptingHandler
                 $"Script response projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
 
-        return projection.Value;
+        return Result.Success(projection.Value);
     }
 
     private IDictionary<string, object?> GetOrCreateSharedState(string flowId)

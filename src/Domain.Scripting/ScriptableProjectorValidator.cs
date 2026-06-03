@@ -139,8 +139,7 @@ public static class ScriptableProjectorValidator
             return true;
         }
 
-        return character is >= (char)0x20 and <= (char)0x7E
-            || character is >= (char)0x80 and <= (char)0xFF;
+        return character is (>= (char)0x20 and <= (char)0x7E) or (>= (char)0x80 and <= (char)0xFF);
     }
 
     private static bool HasReasonPhraseCharacter(char character)
