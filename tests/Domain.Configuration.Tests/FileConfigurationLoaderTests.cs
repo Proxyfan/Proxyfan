@@ -132,6 +132,32 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     A malformed file is rejected and left unchanged.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLine_ThrowsAndDoesNotRewrite()
+    {
+        var path = CreateTempPath();
+        var backupPath = path + FileConfigurationLoader.BackupExtension;
+        const string text = "version=1.0\nmissing-separator-line\nproxy.port=8080\n";
+
+        try
+        {
+            File.WriteAllText(path, text);
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            await Assert.That(() => loader.Load()).Throws<InvalidDataException>();
+            await Assert.That(File.Exists(backupPath)).IsFalse();
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(text);
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(backupPath);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());

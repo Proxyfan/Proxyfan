@@ -72,16 +72,19 @@ public sealed class KeyValueConfigurationParserTests
     }
 
     /// <summary>
-    ///     Verifies that lines without an equals sign are skipped.
+    ///     Verifies that lines without an equals sign are reported as malformed.
     /// </summary>
     [Test]
-    public async Task Parse_LineWithoutEquals_IsSkipped()
+    public async Task ParseWithDiagnostics_LineWithoutEquals_ReportsMalformedLine()
     {
         const string text = "no-equals-here\nproxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var parseResult = KeyValueConfigurationParser.ParseWithDiagnostics(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(parseResult.IsMalformedLinesPresent).IsTrue();
+        await Assert.That(parseResult.MalformedLines.Count).IsEqualTo(1);
+        await Assert.That(parseResult.MalformedLines[0]).IsEqualTo("no-equals-here");
+        await Assert.That(parseResult.Snapshot.Count).IsEqualTo(1);
     }
 
     /// <summary>

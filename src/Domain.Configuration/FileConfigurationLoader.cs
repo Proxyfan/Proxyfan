@@ -48,7 +48,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var snapshot = ParseOrRejectMalformed(text);
         var sourceValues = new Dictionary<string, string>();
 
         foreach (var pair in snapshot.Enumerate())
@@ -104,5 +104,28 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
         };
+    }
+
+    private string BuildMalformedConfigurationMessage(IReadOnlyList<string> malformedLines)
+    {
+        var message = "Malformed configuration lines were found:";
+        foreach (var line in malformedLines)
+        {
+            message = string.Concat(message, " ", line);
+        }
+
+        return message;
+    }
+
+    private ConfigurationSnapshot ParseOrRejectMalformed(string text)
+    {
+        var parseResult = KeyValueConfigurationParser.ParseWithDiagnostics(text);
+        if (parseResult.IsMalformedLinesPresent)
+        {
+            var message = BuildMalformedConfigurationMessage(parseResult.MalformedLines);
+            throw new InvalidDataException(message);
+        }
+
+        return parseResult.Snapshot;
     }
 }
