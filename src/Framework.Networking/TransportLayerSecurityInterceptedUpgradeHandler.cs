@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
+using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
@@ -13,17 +16,24 @@ namespace Proxyfan.Framework.Networking;
 ///     loop (wss:// upgrades, HTTP/2 upgrade-over-TLS, custom Upgrade). Sends the rewritten
 ///     upgrade request, reads the upstream response (preserving any prefetched bytes the
 ///     <see cref="System.IO.Pipelines.PipeReader" /> consumed past the response headers),
-///     writes the rewritten response back to the client, drains client-side prefetched
-///     bytes (the client may have sent the first WebSocket frame immediately after the
-///     handshake), then runs the <see cref="WebSocketUpgradeTunnel" /> on the underlying
-///     TLS streams with <see cref="PrefixedReadStream" /> wrappers so no prefetched bytes
-///     are lost. The bidirectional tunnel runs until either side closes.
+///     routes the upstream response through the same response-phase pipeline as a normal
+///     intercepted HTTPS response (rule engine, scripting hook, breakpoint), writes the
+///     resulting response back to the client, drains client-side prefetched bytes (the
+///     client may have sent the first WebSocket frame immediately after the handshake),
+///     then runs the <see cref="WebSocketUpgradeTunnel" /> on the underlying TLS streams
+///     with <see cref="PrefixedReadStream" /> wrappers so no prefetched bytes are lost.
+///     The bidirectional tunnel runs until either side closes. Applies to both 101
+///     Switching Protocols responses and non-101 rejected upgrades, so policies behave
+///     identically for TLS upgrades and normal HTTPS responses.
 /// </summary>
 public sealed class TransportLayerSecurityInterceptedUpgradeHandler
 {
     private const int MaxHeaderBytes = 65536;
+    private readonly IBreakpointHandler? _breakpointHandler;
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger _logger;
+    private readonly IRuleEngine? _ruleEngine;
+    private readonly IScriptingHandler? _scriptingHandler;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IWebSocketStore? _webSocketStore;
@@ -31,23 +41,18 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandler
     /// <summary>
     ///     Initializes a new <see cref="TransportLayerSecurityInterceptedUpgradeHandler" />.
     /// </summary>
-    /// <param name="eventBus">The domain event bus used to publish flow events.</param>
-    /// <param name="logger">The logger for diagnostics.</param>
-    /// <param name="timeProvider">The time provider used for WebSocket message timestamps.</param>
-    /// <param name="trafficStore">The traffic store that retains completed flows.</param>
-    /// <param name="webSocketStore">The optional WebSocket store that retains captured WebSocket messages.</param>
+    /// <param name="dependencies">The bundled handler dependencies.</param>
     public TransportLayerSecurityInterceptedUpgradeHandler(
-        IDomainEventBus eventBus,
-        ILogger logger,
-        TimeProvider timeProvider,
-        ITrafficStore trafficStore,
-        IWebSocketStore? webSocketStore)
+        TransportLayerSecurityInterceptedUpgradeHandlerDependencies dependencies)
     {
-        _eventBus = eventBus;
-        _logger = logger;
-        _timeProvider = timeProvider;
-        _trafficStore = trafficStore;
-        _webSocketStore = webSocketStore;
+        _eventBus = dependencies.EventBus;
+        _logger = dependencies.Logger;
+        _timeProvider = dependencies.TimeProvider;
+        _trafficStore = dependencies.TrafficStore;
+        _webSocketStore = dependencies.WebSocketStore;
+        _ruleEngine = dependencies.RuleEngine;
+        _scriptingHandler = dependencies.ScriptingHandler;
+        _breakpointHandler = dependencies.BreakpointHandler;
     }
 
     /// <summary>
@@ -78,7 +83,15 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandler
         }
 
         var serverPrefetched = await PipeReaderDrainer.DrainBufferedBytesAsync(pipes.ServerReader, cancellationToken).ConfigureAwait(false);
-        var rewrittenResponse = UpgradeResponseRewriter.Rewrite(upstreamResponse.Response);
+        var policyResponse = await ApplyResponsePoliciesAsync(request, upstreamResponse.Response, cancellationToken).ConfigureAwait(false);
+
+        if (policyResponse is null)
+        {
+            FailFlow(request.Flow);
+            return;
+        }
+
+        var rewrittenResponse = UpgradeResponseRewriter.Rewrite(policyResponse);
         var clientFacingExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(upstreamResponse, rewrittenResponse);
         request.Flow.SetResponse(rewrittenResponse);
         PublishResponseReceived(request.Flow, rewrittenResponse);
@@ -86,12 +99,76 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandler
 
         if (!WebSocketUpgradeDetector.HasWebSocketUpgradeSuccess(request.EffectiveRequest, rewrittenResponse))
         {
-            request.Flow.Complete();
-            _trafficStore.Add(request.Flow);
-            PublishFlowCompleted(request.Flow);
+            CompleteFlow(request.Flow);
             return;
         }
 
+        await TunnelWebSocketAsync(request, serverPrefetched, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<HypertextTransferProtocolResponseData?> ApplyResponsePoliciesAsync(
+        TransportLayerSecurityInterceptedUpgradeRequest request,
+        HypertextTransferProtocolResponseData upstreamResponse,
+        CancellationToken cancellationToken)
+    {
+        var responseActions = _ruleEngine?.EvaluateResponse(request.EffectiveRequest, upstreamResponse) ?? [];
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(upstreamResponse, responseActions);
+        var scriptingRequest = new TransportLayerSecurityInterceptedScriptingResponseRequest
+        {
+            EffectiveRequest = request.EffectiveRequest,
+            FinalResponse = finalResponse,
+            Flow = request.Flow,
+            Handler = _scriptingHandler,
+            Logger = _logger,
+        };
+        finalResponse = await TransportLayerSecurityInterceptedScripting.ApplyResponseAsync(scriptingRequest, cancellationToken).ConfigureAwait(false);
+        if (_breakpointHandler is null)
+        {
+            return finalResponse;
+        }
+
+        var decision = await _breakpointHandler.ResolveResponseAsync(request.EffectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
+        if (decision.IsAborting)
+        {
+            return null;
+        }
+
+        return decision.ModifiedResponse ?? finalResponse;
+    }
+
+    private void CompleteFlow(TrafficFlow flow)
+    {
+        flow.Complete();
+        _trafficStore.Add(flow);
+        PublishFlowCompleted(flow);
+    }
+
+    private void FailFlow(TrafficFlow flow)
+    {
+        flow.Fail();
+        var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
+        _eventBus.Publish(completedEvent);
+        _logger.LogDebug("TLS-intercepted WebSocket upgrade failed: no upstream response or response aborted by breakpoint.");
+    }
+
+    private void PublishFlowCompleted(TrafficFlow flow)
+    {
+        var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
+        _eventBus.Publish(completedEvent);
+    }
+
+    private void PublishResponseReceived(TrafficFlow flow, HypertextTransferProtocolResponseData response)
+    {
+        var responseReceivedEvent = new ResponseReceived(flow.Id, response, DateTimeOffset.UtcNow);
+        _eventBus.Publish(responseReceivedEvent);
+    }
+
+    private async Task TunnelWebSocketAsync(
+        TransportLayerSecurityInterceptedUpgradeRequest request,
+        byte[] serverPrefetched,
+        CancellationToken cancellationToken)
+    {
+        var pipes = request.Context.Pipes;
         var clientPrefetched = await PipeReaderDrainer.DrainBufferedBytesAsync(pipes.ClientReader, cancellationToken).ConfigureAwait(false);
         await pipes.CompleteAsync(cancellationToken).ConfigureAwait(false);
 
@@ -108,29 +185,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandler
         }
         finally
         {
-            request.Flow.Complete();
-            _trafficStore.Add(request.Flow);
-            PublishFlowCompleted(request.Flow);
+            CompleteFlow(request.Flow);
         }
-    }
-
-    private void FailFlow(TrafficFlow flow)
-    {
-        flow.Fail();
-        var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
-        _eventBus.Publish(completedEvent);
-        _logger.LogDebug("TLS-intercepted WebSocket upgrade failed: no upstream response.");
-    }
-
-    private void PublishFlowCompleted(TrafficFlow flow)
-    {
-        var completedEvent = new TrafficFlowCompleted(flow.Id, flow.Status, DateTimeOffset.UtcNow);
-        _eventBus.Publish(completedEvent);
-    }
-
-    private void PublishResponseReceived(TrafficFlow flow, HypertextTransferProtocolResponseData response)
-    {
-        var responseReceivedEvent = new ResponseReceived(flow.Id, response, DateTimeOffset.UtcNow);
-        _eventBus.Publish(responseReceivedEvent);
     }
 }

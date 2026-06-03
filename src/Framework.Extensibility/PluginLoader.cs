@@ -13,6 +13,9 @@ namespace Proxyfan.Framework.Extensibility;
 ///         <item>Skips any candidate whose id is in the enabled-state store.</item>
 ///         <item>For each enabled valid candidate, calls the
 ///               <see cref="IPluginInstanceFactory" /> to instantiate.</item>
+///         <item>Rejects any instantiated plugin whose runtime
+///               <see cref="PluginMetadata.Id" /> does not match the manifest id, or whose
+///               runtime id appears in the disabled-state store, unloading the load context.</item>
 ///         <item>Hands the resulting plugin to <see cref="PluginRegistry.TryInitialize" />
 ///               for compatibility check and lifecycle <c>Initialize</c>.</item>
 ///         <item>Surfaces invalid candidates (missing manifest, parse failure) as failed
@@ -64,37 +67,53 @@ public sealed class PluginLoader
 
         foreach (var candidate in candidates)
         {
-            if (!candidate.IsValid || candidate.Manifest is null)
-            {
-                var directoryName = Path.GetFileName(candidate.DirectoryPath);
-                var metadata = new PluginMetadata(directoryName, directoryName, "0.0.0", "unknown", "Failed to read manifest.", "0.0");
-                var invalid = new LoadedPlugin(metadata, null, false, candidate.ErrorMessage, candidate.DirectoryPath);
-                results.Add(invalid);
-                _registry.AddFailed(invalid);
-                continue;
-            }
-
-            if (disabledIdentifiers.Contains(candidate.Manifest.Metadata.Id))
-            {
-                var disabled = new LoadedPlugin(candidate.Manifest.Metadata, null, false, "Disabled by user.", candidate.DirectoryPath);
-                results.Add(disabled);
-                _registry.AddFailed(disabled);
-                continue;
-            }
-
-            var instantiation = _instanceFactory.Create(candidate);
-            if (!instantiation.IsSuccess || instantiation.Plugin is null)
-            {
-                var failed = new LoadedPlugin(candidate.Manifest.Metadata, null, false, instantiation.ErrorMessage, candidate.DirectoryPath);
-                results.Add(failed);
-                _registry.AddFailed(failed);
-                continue;
-            }
-
-            var loaded = _registry.TryInitialize(instantiation.Plugin, host, candidate.DirectoryPath);
-            results.Add(loaded);
+            var entry = LoadCandidate(candidate, host, disabledIdentifiers);
+            results.Add(entry);
         }
 
         return results;
+    }
+
+    private LoadedPlugin LoadCandidate(PluginCandidate candidate, IPluginHost host, IReadOnlySet<string> disabledIdentifiers)
+    {
+        if (!candidate.IsValid || candidate.Manifest is null)
+        {
+            var directoryName = Path.GetFileName(candidate.DirectoryPath);
+            var metadata = new PluginMetadata(directoryName, directoryName, "0.0.0", "unknown", "Failed to read manifest.", "0.0");
+            var invalid = new LoadedPlugin(metadata, null, false, candidate.ErrorMessage, candidate.DirectoryPath);
+            return RecordFailed(invalid);
+        }
+
+        if (disabledIdentifiers.Contains(candidate.Manifest.Metadata.Id))
+        {
+            var disabled = new LoadedPlugin(candidate.Manifest.Metadata, null, false, "Disabled by user.", candidate.DirectoryPath);
+            return RecordFailed(disabled);
+        }
+
+        var instantiation = _instanceFactory.Create(candidate);
+        if (!instantiation.IsSuccess || instantiation.Plugin is null)
+        {
+            var failed = new LoadedPlugin(candidate.Manifest.Metadata, null, false, instantiation.ErrorMessage, candidate.DirectoryPath);
+            return RecordFailed(failed);
+        }
+
+        var rejection = PluginRuntimeIdentityChecker.Validate(candidate.Manifest.Metadata, instantiation, disabledIdentifiers, candidate.DirectoryPath);
+        if (rejection is not null)
+        {
+            return RecordFailed(rejection);
+        }
+
+        var loaded = _registry.TryInitialize(instantiation.Plugin, host, candidate.DirectoryPath);
+        if (!loaded.IsLoaded && instantiation.LoadContext is PluginLoadContext pluginContext)
+        {
+            PluginLoadContextUnloader.Unload(pluginContext);
+        }
+        return loaded;
+    }
+
+    private LoadedPlugin RecordFailed(LoadedPlugin failed)
+    {
+        _registry.AddFailed(failed);
+        return failed;
     }
 }
