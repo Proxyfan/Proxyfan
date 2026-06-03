@@ -152,6 +152,11 @@ public sealed class MutableScriptingConfigurationTests
         await Assert.That(configuration.IsEnabled).IsFalse();
         await Assert.That(configuration.ActiveScript).IsNull();
         await Assert.That(raised).IsTrue();
+
+        configuration.SetEnabled(true);
+
+        await Assert.That(configuration.IsEnabled).IsTrue();
+        await Assert.That(configuration.ActiveScript).IsNull();
     }
 
     /// <summary>
