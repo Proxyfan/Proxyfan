@@ -78,6 +78,7 @@ public partial class App : Application
             services.AddSingleton<IDomainEventBus, DomainEventBus>();
             services.AddProxyListener(context.Configuration);
             services.AddSingleton<ProxyServer>();
+            services.AddSingleton<ITrafficListCoordinator, TrafficListCoordinator>();
             services.AddSingleton<TrafficListViewModel>();
             services.AddSingleton<SourceListViewModel>();
             services.AddSingleton<WebSocketInspectorViewModel>();

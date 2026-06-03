@@ -22,6 +22,7 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 {
     private readonly Proxyfan.Presentation.Clipboard.IClipboardService? _clipboardService;
+    private readonly ITrafficListCoordinator _coordinator;
     private readonly TrafficFlowDiffPool? _diffPool;
     private readonly ConcurrentDictionary<Guid, TrafficFlowViewModel> _flowById;
     private readonly IDisposable _flowCompletedSubscription;
@@ -131,11 +132,54 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         IRequestRepeater? requestRepeater,
         TrafficFlowDiffPool? diffPool,
         Proxyfan.Presentation.Clipboard.IClipboardService? clipboardService)
+        : this(eventBus, userInterfaceScheduler, requestRepeater, diffPool, clipboardService, coordinator: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListViewModel" /> with a coordinator used to
+    ///     decouple cross-view-model interactions with
+    ///     <see cref="SourceListViewModel" />. Host-filter mutations on the coordinator are
+    ///     reflected into <see cref="HostFilter" /> (and vice versa), and a flows-reset signal
+    ///     is raised on the coordinator whenever the captured flows collection is wholesale
+    ///     replaced. When <paramref name="coordinator" /> is <see langword="null" /> the view
+    ///     model creates a standalone coordinator (no observer wired up); used by tests that
+    ///     don't exercise the source list slice.
+    /// </summary>
+    /// <param name="eventBus">The domain event bus.</param>
+    /// <param name="userInterfaceScheduler">The UI scheduler.</param>
+    /// <param name="requestRepeater">Optional request repeater.</param>
+    /// <param name="diffPool">Optional shared diff pool.</param>
+    /// <param name="clipboardService">Optional clipboard service used by the copy commands.</param>
+    /// <param name="coordinator">
+    ///     Coordinator that brokers host-filter selections and flows-reset signals with the
+    ///     source list view model.
+    /// </param>
+    public TrafficListViewModel(
+        IDomainEventBus eventBus,
+        IUserInterfaceScheduler userInterfaceScheduler,
+        IRequestRepeater? requestRepeater,
+        TrafficFlowDiffPool? diffPool,
+        Proxyfan.Presentation.Clipboard.IClipboardService? clipboardService,
+        ITrafficListCoordinator? coordinator)
     {
         _userInterfaceScheduler = userInterfaceScheduler;
         _requestRepeater = requestRepeater;
         _diffPool = diffPool;
         _clipboardService = clipboardService;
+
+        ITrafficListCoordinator effectiveCoordinator;
+        if (coordinator is null)
+        {
+            var fallback = new TrafficListCoordinator();
+            effectiveCoordinator = fallback;
+        }
+        else
+        {
+            effectiveCoordinator = coordinator;
+        }
+
+        _coordinator = effectiveCoordinator;
 
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
@@ -147,10 +191,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         VisibleFlows = visibleFlows;
 
         _filterText = string.Empty;
-        _hostFilter = string.Empty;
+        _hostFilter = _coordinator.HostFilter;
         _isCapturing = true;
 
         Flows.CollectionChanged += OnFlowsCollectionChanged;
+        _coordinator.HostFilterChanged += OnCoordinatorHostFilterChanged;
 
         _requestReceivedSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
         _responseReceivedSubscription = eventBus.Subscribe<ResponseReceived>(OnResponseReceived);
@@ -161,6 +206,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         Flows.CollectionChanged -= OnFlowsCollectionChanged;
+        _coordinator.HostFilterChanged -= OnCoordinatorHostFilterChanged;
         _requestReceivedSubscription.Dispose();
         _responseReceivedSubscription.Dispose();
         _flowCompletedSubscription.Dispose();
@@ -283,6 +329,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         Flows.Clear();
         SelectedFlow = null;
         Interlocked.Exchange(ref _nextNumber, 0);
+        _coordinator.NotifyFlowsReset();
     }
 
     [RelayCommand]
@@ -349,6 +396,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void OnCoordinatorHostFilterChanged()
+    {
+        HostFilter = _coordinator.HostFilter;
+    }
+
     partial void OnFilterTextChanged(string value)
     {
         RebuildVisibleFlows();
@@ -371,6 +423,11 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     partial void OnHostFilterChanged(string value)
     {
+        if (!string.Equals(_coordinator.HostFilter, value, StringComparison.Ordinal))
+        {
+            _coordinator.HostFilter = value;
+        }
+
         RebuildVisibleFlows();
     }
 
