@@ -70,6 +70,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<IConnectionHandler, TransportLayerSecurityInterceptorHandler>();
         serviceCollection.AddSingleton<IConnectionHandler, SocksTunnelHandler>();
         serviceCollection.AddSingleton<IProxyListener, SocketProxyListener>();
+        serviceCollection.AddSingleton<IWindowsInternetSettingsRefresher, WindowsInternetSettingsRefresher>();
         serviceCollection.AddSingleton<ISystemProxy, WindowsSystemProxy>();
         serviceCollection.AddSingleton<IConnectionDispatcher, ConnectionDispatcher>();
         serviceCollection.AddSingleton<MutableThrottleProfile>();

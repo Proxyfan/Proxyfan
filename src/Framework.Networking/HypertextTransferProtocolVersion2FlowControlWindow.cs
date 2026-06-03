@@ -51,20 +51,26 @@ public sealed class HypertextTransferProtocolVersion2FlowControlWindow
     ///     the peer shrinks the window while in-flight DATA has not yet been acknowledged.
     /// </summary>
     /// <param name="delta">The signed difference between the new and old initial window sizes.</param>
-    public void ApplyInitialSizeDelta(int delta)
+    /// <returns>
+    ///     <c>true</c> when the delta was applied; <c>false</c> when the adjusted window would
+    ///     fall outside the legal range — for a positive overflow this is a FLOW_CONTROL_ERROR
+    ///     per RFC 7540 § 6.9.2, and for a negative underflow it represents an unrepresentable
+    ///     window that the caller must surface as a connection error. The window is left
+    ///     unchanged when <c>false</c> is returned.
+    /// </returns>
+    public bool HasAppliedInitialSizeDelta(int delta)
     {
         var sum = (long)Available + delta;
         if (sum > MaximumSize)
         {
-            Available = MaximumSize;
-            return;
+            return false;
         }
         if (sum < int.MinValue)
         {
-            Available = int.MinValue;
-            return;
+            return false;
         }
         Available = (int)sum;
+        return true;
     }
 
     /// <summary>

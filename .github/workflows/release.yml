@@ -1,18 +1,18 @@
 name: release
 
-# Automatic last-known-good release pipeline.
+# Manual-only release pipeline.
 #
-# Each push to `main` triggers a build + test gate; on success the workflow
-# computes the next available Automaticks-style calendar version (`YYYY.M.D`
-# with an optional `.N` suffix when multiple releases happen on the same day,
-# e.g. `2026.5.28`, `2026.5.28.1`), builds the portable ZIP + MSI installers,
-# pushes the version tag, and publishes a GitHub release whose assets include
-# both installers. GitHub automatically attaches the matching "Source code
-# (zip)" and "Source code (tar.gz)" archives to every release.
+# Triggered exclusively through the GitHub UI / API `workflow_dispatch` event
+# so releases are an explicit, opt-in act rather than a side effect of every
+# push to `main`. On each manual run the workflow computes the next available
+# Automaticks-style calendar version (`YYYY.M.D` with an optional `.N` suffix
+# when multiple releases happen on the same day, e.g. `2026.5.28`,
+# `2026.5.28.1`), builds the portable ZIP + MSI installers, pushes the
+# version tag, and publishes a GitHub release whose assets include both
+# installers. GitHub automatically attaches the matching "Source code (zip)"
+# and "Source code (tar.gz)" archives to every release.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

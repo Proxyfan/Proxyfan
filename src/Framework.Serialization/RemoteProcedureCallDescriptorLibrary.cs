@@ -9,12 +9,14 @@ namespace Proxyfan.Framework.Serialization;
 ///     an in-memory <see cref="Dictionary{TKey,TValue}" /> keyed by source path. The
 ///     <see cref="Index" /> property returns a snapshot built from the current set of loaded
 ///     descriptor files; it is rebuilt whenever the library mutates (load/remove/clear).
-///     Thread-safe via a single internal lock.
+///     Mutations are serialized via a single internal lock, while <see cref="Index" /> reads
+///     are lock-free and observe published updates via <see cref="Volatile.Read{T}" />.
 /// </summary>
 public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallDescriptorLibrary
 {
     private readonly Dictionary<string, IReadOnlyList<ProtobufFileDescriptor>> _filesBySource;
     private readonly Lock _gate;
+    private ProtobufDescriptorIndex _index;
 
     /// <summary>
     ///     Initializes a new empty library.
@@ -26,7 +28,7 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
         var filesBySource = new Dictionary<string, IReadOnlyList<ProtobufFileDescriptor>>(StringComparer.Ordinal);
         _filesBySource = filesBySource;
         var emptyIndex = new ProtobufDescriptorIndex([]);
-        Index = emptyIndex;
+        _index = emptyIndex;
     }
 
     /// <inheritdoc />
@@ -40,7 +42,7 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
     }
 
     /// <inheritdoc />
-    public ProtobufDescriptorIndex Index { get; private set; }
+    public ProtobufDescriptorIndex Index => Volatile.Read(ref _index);
 
     /// <inheritdoc />
     public void Load(string sourcePath, byte[] payload)
@@ -92,6 +94,6 @@ public sealed class RemoteProcedureCallDescriptorLibrary : IRemoteProcedureCallD
         }
 
         var fresh = new ProtobufDescriptorIndex(combined);
-        Index = fresh;
+        Volatile.Write(ref _index, fresh);
     }
 }

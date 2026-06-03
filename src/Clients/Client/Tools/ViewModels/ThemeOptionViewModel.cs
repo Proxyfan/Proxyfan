@@ -1,16 +1,23 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Proxyfan.Presentation.Theming;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
-///     Lightweight read-only DTO representing one theme option shown in the picker.
+///     Observable view model representing one theme option shown in the picker.
+///     <see cref="DisplayName" /> is refreshed by the owning <see cref="ThemeViewModel" />
+///     when the active locale changes.
 /// </summary>
-public sealed class ThemeOptionViewModel
+public sealed partial class ThemeOptionViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private string _displayName;
+
     /// <summary>
-    ///     Gets the user-visible display name of the theme.
+    ///     Gets the resource key used to resolve <see cref="DisplayName" /> from
+    ///     the active locale.
     /// </summary>
-    public string DisplayName { get; }
+    public string ResourceKey { get; }
 
     /// <summary>
     ///     Gets the theme enum value applied when this option is selected.
@@ -20,11 +27,13 @@ public sealed class ThemeOptionViewModel
     /// <summary>
     ///     Initializes a new <see cref="ThemeOptionViewModel" />.
     /// </summary>
-    /// <param name="displayName">The user-visible name.</param>
+    /// <param name="resourceKey">The resource key that resolves <see cref="DisplayName" />.</param>
+    /// <param name="displayName">The initial localized display name.</param>
     /// <param name="theme">The theme variant this option represents.</param>
-    public ThemeOptionViewModel(string displayName, AppTheme theme)
+    public ThemeOptionViewModel(string resourceKey, string displayName, AppTheme theme)
     {
-        DisplayName = displayName;
+        ResourceKey = resourceKey;
+        _displayName = displayName;
         Theme = theme;
     }
 }
