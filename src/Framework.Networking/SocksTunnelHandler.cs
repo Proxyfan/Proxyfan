@@ -293,7 +293,16 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
         {
             try
             {
-                var effectiveHost = _hostResolver is null ? host : _hostResolver.Resolve(host);
+                var effectiveHost = host;
+                if (_hostResolver is not null)
+                {
+                    var canBeIpLiteral = host.Contains('.', StringComparison.Ordinal) || host.Contains(':', StringComparison.Ordinal);
+                    if (!canBeIpLiteral || !IPAddress.TryParse(host, out _))
+                    {
+                        effectiveHost = _hostResolver.Resolve(host);
+                    }
+                }
+
                 await tunnelClient.ConnectAsync(effectiveHost, port, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
