@@ -48,32 +48,21 @@ public static class QueryStringParser
     }
 
     /// <summary>
-    ///     Parses the raw query string (optionally beginning with <c>?</c>) into individual
-    ///     parameters.
+    ///     Parses already-trimmed <c>application/x-www-form-urlencoded</c> pairs without
+    ///     stripping a leading <c>?</c>. Used by form-body parsing where the question mark
+    ///     is a valid first character of a field name rather than a URI query marker.
     /// </summary>
-    /// <param name="queryString">The raw query string.</param>
+    /// <param name="encodedPairs">The raw encoded name/value pairs joined by <c>&amp;</c>.</param>
     /// <returns>The parsed parameters in the order they appeared.</returns>
-    public static IReadOnlyList<QueryParameter> ParseQueryString(string? queryString)
+    public static IReadOnlyList<QueryParameter> ParseEncodedPairs(string encodedPairs)
     {
-        if (string.IsNullOrEmpty(queryString))
-        {
-            return [];
-        }
-
-        var trimmed = queryString;
-
-        if (trimmed[0] == '?')
-        {
-            trimmed = trimmed[1..];
-        }
-
-        if (trimmed.Length == 0)
+        if (encodedPairs.Length == 0)
         {
             return [];
         }
 
         var parameters = new List<QueryParameter>();
-        var segments = trimmed.Split('&');
+        var segments = encodedPairs.Split('&');
 
         foreach (var segment in segments)
         {
@@ -105,6 +94,29 @@ public static class QueryStringParser
         }
 
         return parameters;
+    }
+
+    /// <summary>
+    ///     Parses the raw query string (optionally beginning with <c>?</c>) into individual
+    ///     parameters.
+    /// </summary>
+    /// <param name="queryString">The raw query string.</param>
+    /// <returns>The parsed parameters in the order they appeared.</returns>
+    public static IReadOnlyList<QueryParameter> ParseQueryString(string? queryString)
+    {
+        if (string.IsNullOrEmpty(queryString))
+        {
+            return [];
+        }
+
+        var trimmed = queryString;
+
+        if (trimmed[0] == '?')
+        {
+            trimmed = trimmed[1..];
+        }
+
+        return ParseEncodedPairs(trimmed);
     }
 
     private static string Decode(string raw)

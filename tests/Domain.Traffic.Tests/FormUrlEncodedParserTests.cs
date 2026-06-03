@@ -59,4 +59,36 @@ public sealed class FormUrlEncodedParserTests
         await Assert.That(result.Count).IsEqualTo(2);
         await Assert.That(result[1].Value).IsEqualTo("2");
     }
+
+    /// <summary>
+    ///     Verifies that a leading <c>?</c> in the first field name is preserved
+    ///     rather than being stripped as a URI query marker.
+    /// </summary>
+    [Test]
+    public async Task Parse_FirstFieldNameStartsWithQuestionMark_PreservesQuestionMark()
+    {
+        var body = Encoding.UTF8.GetBytes("?token=abc&next=home");
+
+        var result = FormUrlEncodedParser.Parse(body);
+
+        await Assert.That(result.Count).IsEqualTo(2);
+        await Assert.That(result[0].Name).IsEqualTo("?token");
+        await Assert.That(result[0].Value).IsEqualTo("abc");
+        await Assert.That(result[1].Name).IsEqualTo("next");
+        await Assert.That(result[1].Value).IsEqualTo("home");
+    }
+
+    /// <summary>
+    ///     Verifies that the string overload preserves a leading <c>?</c> in the
+    ///     first field name.
+    /// </summary>
+    [Test]
+    public async Task Parse_StringInputStartsWithQuestionMark_PreservesQuestionMark()
+    {
+        var result = FormUrlEncodedParser.Parse("?token=abc");
+
+        await Assert.That(result.Count).IsEqualTo(1);
+        await Assert.That(result[0].Name).IsEqualTo("?token");
+        await Assert.That(result[0].Value).IsEqualTo("abc");
+    }
 }
