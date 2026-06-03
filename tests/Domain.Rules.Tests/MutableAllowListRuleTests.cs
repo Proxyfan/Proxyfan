@@ -203,6 +203,27 @@ public sealed class MutableAllowListRuleTests
     }
 
     /// <summary>
+    ///     Adding a pattern whose compilation throws must not mutate the pattern list,
+    ///     not update the matcher snapshot, and not raise Changed.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotPoisonAllowList()
+    {
+        var rule = new MutableAllowListRule(priority: 50, isEnabled: true);
+        rule.AddPattern(new MatchingRule("https://allowed.example.com/*", MatchingRuleKind.Wildcard));
+        var count = 0;
+        rule.Changed += () => count++;
+
+        Assert.Throws<Exception>(() =>
+            rule.AddPattern(new MatchingRule("[invalid", MatchingRuleKind.Regex)));
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(rule.GetPatterns()[0].Pattern).IsEqualTo("https://allowed.example.com/*");
+        await Assert.That(rule.EvaluateRequest(CreateRequest("https://allowed.example.com/path"))).IsNull();
+    }
+
+    /// <summary>
     ///     Priority is exposed via the IRule interface.
     /// </summary>
     [Test]

@@ -236,6 +236,27 @@ public sealed class MutableBlockListRuleTests
         await Assert.That(rule.GetPatterns().Count).IsEqualTo(2);
     }
 
+    /// <summary>
+    ///     Adding a pattern whose compilation throws must not mutate the pattern list,
+    ///     not update the matcher snapshot, and not raise Changed.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotPoisonBlockList()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        rule.AddPattern(new MatchingRule("https://blocked.example.com/*", MatchingRuleKind.Wildcard));
+        var count = 0;
+        rule.Changed += () => count++;
+
+        Assert.Throws<Exception>(() =>
+            rule.AddPattern(new MatchingRule("[invalid", MatchingRuleKind.Regex)));
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(rule.GetPatterns()[0].Pattern).IsEqualTo("https://blocked.example.com/*");
+        await Assert.That(rule.EvaluateRequest(CreateRequest("https://blocked.example.com/path"))).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

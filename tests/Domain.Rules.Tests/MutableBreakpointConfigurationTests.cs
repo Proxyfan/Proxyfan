@@ -1,5 +1,6 @@
 ﻿using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
+using System;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -238,6 +239,28 @@ public sealed class MutableBreakpointConfigurationTests
         configuration.SetPhases(BreakpointPhase.Both);
 
         await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding a pattern whose compilation throws must not mutate the pattern list,
+    ///     not update the matcher snapshot, and not raise Changed.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotPoisonConfiguration()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var good = new MatchingRule("https://example.com/*", MatchingRuleKind.Wildcard);
+        configuration.AddPattern(good);
+        var count = 0;
+        configuration.Changed += () => count++;
+
+        Assert.Throws<Exception>(() =>
+            configuration.AddPattern(new MatchingRule("[invalid", MatchingRuleKind.Regex)));
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(configuration.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(configuration.GetPatterns()[0].Pattern).IsEqualTo("https://example.com/*");
+        await Assert.That(configuration.HasRequestMatch("https://example.com/api")).IsTrue();
     }
 
     /// <summary>
