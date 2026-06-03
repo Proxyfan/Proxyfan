@@ -120,14 +120,20 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
 
     private MigratingConfigurationLoadResult BuildMalformedResult(ConfigurationParseResult parseResult)
     {
-        var emptyValues = new Dictionary<string, string>();
+        var parsedValues = new Dictionary<string, string>();
+
+        foreach (var pair in parseResult.Snapshot.Enumerate())
+        {
+            parsedValues[pair.Key] = pair.Value;
+        }
+
         var pipelineResult = new ConfigurationMigrationPipelineResult
         {
             Actions = [],
             IsMigrated = false,
             SourceVersion = _targetVersion,
             TargetVersion = _targetVersion,
-            Values = emptyValues,
+            Values = parsedValues,
         };
         return new MigratingConfigurationLoadResult
         {
