@@ -228,19 +228,10 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             ClearResponseSections();
         }
 
-        if (selectedFlow.Source is not null)
-        {
-            SummaryText = FlowSummaryFormatter.Format(selectedFlow.Source);
-            TimingText = FlowTimingFormatter.Format(selectedFlow.Source.Timings);
-            UpdateTimingWaterfall(selectedFlow.Source.Timings);
-        }
-        else
-        {
-            SummaryText = string.Empty;
-            TimingText = string.Empty;
-            TotalDurationText = string.Empty;
-            _timingPhases.Clear();
-        }
+        var domainFlow = selectedFlow.GetDomainFlow();
+        SummaryText = FlowSummaryFormatter.Format(domainFlow);
+        TimingText = FlowTimingFormatter.Format(domainFlow.Timings);
+        UpdateTimingWaterfall(domainFlow.Timings);
     }
 
     private void UpdateTimingWaterfall(FlowTimings timings)

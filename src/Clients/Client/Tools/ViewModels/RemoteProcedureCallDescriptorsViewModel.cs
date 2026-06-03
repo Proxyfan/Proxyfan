@@ -19,6 +19,8 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
+    private const int MaxDescriptorFileSizeInBytes = 10 * 1024 * 1024;
+    private const int ReadBufferSizeInBytes = 8192;
     private readonly IFilePickerService _filePickerService;
     private readonly IRemoteProcedureCallDescriptorFileLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
@@ -112,10 +114,15 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             await using (picked.Stream.ConfigureAwait(true))
             {
-                using var memory = new MemoryStream();
-                await picked.Stream.CopyToAsync(memory, cancellationToken).ConfigureAwait(true);
                 var sourcePath = string.IsNullOrEmpty(picked.DisplayName) ? "descriptor.pb" : picked.DisplayName;
-                _library.Load(sourcePath, memory.ToArray());
+                var payload = await TryReadBoundedAsync(picked.Stream, cancellationToken).ConfigureAwait(true);
+                if (payload is null)
+                {
+                    _userInterfaceScheduler.Post(() => StatusText = "Descriptor file exceeds the 10 MB size limit.");
+                    return;
+                }
+
+                _library.Load(sourcePath, payload);
                 _userInterfaceScheduler.Post(() =>
                 {
                     RefreshLoadedFiles();
@@ -131,6 +138,33 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             _userInterfaceScheduler.Post(() => StatusText = "Failed to read descriptor file: " + ex.Message);
         }
+    }
+
+    private async Task<byte[]?> TryReadBoundedAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[ReadBufferSizeInBytes];
+        using var memory = new MemoryStream();
+        var total = 0L;
+        while (true)
+        {
+            var readBuffer = new Memory<byte>(buffer);
+            var bytesRead = await stream.ReadAsync(readBuffer, cancellationToken).ConfigureAwait(true);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            total += bytesRead;
+            if (total > MaxDescriptorFileSizeInBytes)
+            {
+                return null;
+            }
+
+            var writeBuffer = new ReadOnlyMemory<byte>(buffer, 0, bytesRead);
+            await memory.WriteAsync(writeBuffer, cancellationToken).ConfigureAwait(true);
+        }
+
+        return memory.ToArray();
     }
 
     [RelayCommand]
