@@ -69,7 +69,7 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
     [Test]
     public async Task StopAsync_WithInflightCheck_DoesNotDisposeSourceBeforeLoopDrains()
     {
-        var checker = new TokenRegisteringUpdateChecker();
+        using var checker = new TokenRegisteringUpdateChecker();
         var notification = new MutableUpdateNotification();
         var options = new PeriodicUpdateCheckOptions
         {
@@ -83,8 +83,7 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
         await checker.WaitForCheckStartedAsync();
 
         var stopTask = periodic.StopAsync(CancellationToken.None);
-        using var settleDelay = new SemaphoreSlim(0, 1);
-        _ = await settleDelay.WaitAsync(TimeSpan.FromMilliseconds(50));
+        await Task.Yield();
         var stopCompletedBeforeRelease = stopTask.IsCompleted;
         checker.ReleaseGate();
         await stopTask;
@@ -148,7 +147,11 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
 
         public async Task WaitForCheckStartedAsync()
         {
-            await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            var started = await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            if (!started)
+            {
+                throw new TimeoutException("Timed out waiting for BlockingUpdateChecker.CheckAsync to start.");
+            }
         }
 
         public async Task<bool> WaitForCheckStartedWithinAsync(TimeSpan timeout)
@@ -208,7 +211,11 @@ public sealed class PeriodicUpdateCheckerLifecycleTests
 
         public async Task WaitForCheckStartedAsync()
         {
-            await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            var started = await _checkStarted.WaitAsync(WaitTimeoutMilliseconds);
+            if (!started)
+            {
+                throw new TimeoutException("Timed out waiting for TokenRegisteringUpdateChecker.CheckAsync to start.");
+            }
         }
 
         public void ReleaseGate()

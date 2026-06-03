@@ -33,9 +33,9 @@ public sealed class RoslynUserScriptIntegrationTests
         var sourceResponse = BuildResponse(200);
 
         await handler.ApplyRequestAsync("flow-end-to-end", sourceRequest, CancellationToken.None);
-        var result = await handler.ApplyResponseAsync("flow-end-to-end", sourceRequest, sourceResponse, CancellationToken.None);
+        var outcome = await handler.ApplyResponseAsync("flow-end-to-end", sourceRequest, sourceResponse, CancellationToken.None);
 
-        await Assert.That(result.Headers.Get("X-Echoed-Method")).IsEqualTo("POST");
+        await Assert.That(outcome.Value.Headers.Get("X-Echoed-Method")).IsEqualTo("POST");
     }
 
     /// <summary>
@@ -54,10 +54,10 @@ public sealed class RoslynUserScriptIntegrationTests
         var handler = new UserScriptingHandler(configuration);
         var sourceRequest = BuildRequest("GET");
 
-        var result = await handler.ApplyRequestAsync("flow", sourceRequest, CancellationToken.None);
+        var outcome = await handler.ApplyRequestAsync("flow", sourceRequest, CancellationToken.None);
 
-        await Assert.That(result.Method).IsEqualTo("PATCH");
-        await Assert.That(result.Headers.Get("X-By-Script")).IsEqualTo("yes");
+        await Assert.That(outcome.Value.Method).IsEqualTo("PATCH");
+        await Assert.That(outcome.Value.Headers.Get("X-By-Script")).IsEqualTo("yes");
     }
 
     private static HypertextTransferProtocolRequestData BuildRequest(string method)

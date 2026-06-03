@@ -9,6 +9,14 @@ namespace Proxyfan.Domain.Traffic.Diff;
 /// </summary>
 public static class LineDiffer
 {
+    /// <summary>
+    ///     Maximum allowed product of <c>(oldLines + 1) * (newLines + 1)</c> before the
+    ///     full longest-common-subsequence matrix is replaced with a coarse
+    ///     delete-all / insert-all fallback. The cap bounds matrix memory to roughly
+    ///     16&#8239;MB (4&#8239;million <see cref="int" /> cells) and prevents pathological
+    ///     allocations on very large captured text bodies.
+    /// </summary>
+    public const long MaximumLineCountProduct = 4_000_000L;
     private static readonly string[] LineSeparators;
 
     static LineDiffer()
@@ -32,12 +40,21 @@ public static class LineDiffer
     /// <param name="newText">The modified text. <c>null</c> is treated as empty.</param>
     /// <returns>
     ///     An ordered sequence of diff segments describing the transformation from
-    ///     <paramref name="oldText" /> to <paramref name="newText" />.
+    ///     <paramref name="oldText" /> to <paramref name="newText" />. When the product
+    ///     of the two line counts exceeds <see cref="MaximumLineCountProduct" />, the
+    ///     longest-common-subsequence matrix is skipped and a coarse fallback is returned
+    ///     that deletes every old line and inserts every new line, preserving correctness
+    ///     while bounding memory usage.
     /// </returns>
     public static IReadOnlyList<LineDiffSegment> Diff(string? oldText, string? newText)
     {
         var oldLines = SplitLines(oldText ?? string.Empty);
         var newLines = SplitLines(newText ?? string.Empty);
+        if (HasExceededLineCountProduct(oldLines.Length, newLines.Length))
+        {
+            return BuildCoarseFallback(oldLines, newLines);
+        }
+
         var matrix = BuildLongestCommonSubsequenceMatrix(oldLines, newLines);
         var segments = new List<LineDiffSegment>(oldLines.Length + newLines.Length);
         Backtrack(oldLines, newLines, matrix, segments);
@@ -77,6 +94,22 @@ public static class LineDiffer
         {
             segments.Add(reversed[index]);
         }
+    }
+
+    private static List<LineDiffSegment> BuildCoarseFallback(string[] oldLines, string[] newLines)
+    {
+        var segments = new List<LineDiffSegment>(oldLines.Length + newLines.Length);
+        for (var index = 0; index < oldLines.Length; index++)
+        {
+            segments.Add(BuildDeleteSegment(oldLines, index + 1));
+        }
+
+        for (var index = 0; index < newLines.Length; index++)
+        {
+            segments.Add(BuildInsertSegment(newLines, index + 1));
+        }
+
+        return segments;
     }
 
     private static LineDiffSegment BuildDeleteSegment(string[] oldLines, int oldIndex)
@@ -134,6 +167,12 @@ public static class LineDiffer
         }
 
         return matrix;
+    }
+
+    private static bool HasExceededLineCountProduct(int oldLineCount, int newLineCount)
+    {
+        var product = (oldLineCount + 1L) * (newLineCount + 1L);
+        return product > MaximumLineCountProduct;
     }
 
     private static string[] SplitLines(string text)

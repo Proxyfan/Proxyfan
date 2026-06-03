@@ -17,7 +17,8 @@ public static class Socks5ConnectRequestParser
     /// <param name="buffer">The source bytes.</param>
     /// <returns>The parsed request, or null when more bytes are required.</returns>
     /// <exception cref="System.IO.InvalidDataException">
-    ///     Thrown when the version or command byte is invalid, or the address type is unknown.
+    ///     Thrown when the version or command byte is invalid, the reserved byte is non-zero
+    ///     (RFC 1928 § 4 requires 0x00), or the address type is unknown.
     /// </exception>
     public static Socks5ConnectRequest? TryParse(ReadOnlyMemory<byte> buffer)
     {
@@ -36,6 +37,11 @@ public static class Socks5ConnectRequestParser
         if (span[1] != 0x01)
         {
             throw new System.IO.InvalidDataException("Only SOCKS5 CONNECT (0x01) is supported.");
+        }
+
+        if (span[2] != 0x00)
+        {
+            throw new System.IO.InvalidDataException($"SOCKS5 reserved byte must be 0x00 (RFC 1928 § 4); got 0x{span[2]:X2}.");
         }
 
         var addressType = (Socks5AddressType)span[3];

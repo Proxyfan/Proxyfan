@@ -100,10 +100,18 @@ public sealed class PeriodicUpdateChecker : IDisposable
     ///     Stops the background polling loop and waits for it to drain. Cancellation is
     ///     signalled first, then the loop is awaited, and only then is the
     ///     <see cref="CancellationTokenSource" /> disposed, so an in-flight poll that
-    ///     captured the token never observes <see cref="ObjectDisposedException" />.
+    ///     captured the token never observes <see cref="ObjectDisposedException" />. If the
+    ///     caller's <paramref name="cancellationToken" /> fires before the loop drains, the
+    ///     resulting <see cref="OperationCanceledException" /> propagates and the source is
+    ///     intentionally left for finalization rather than disposed while the loop is still
+    ///     running (which would otherwise race the in-flight poll).
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait for the loop to drain.</param>
-    /// <returns>A task that completes once the loop has been signalled to stop.</returns>
+    /// <returns>
+    ///     A task that completes once the loop has drained and the source has been disposed.
+    ///     May complete as cancelled when <paramref name="cancellationToken" /> fires before
+    ///     the loop drains; the source is left undisposed in that case.
+    /// </returns>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         CancellationTokenSource? source;
@@ -118,32 +126,42 @@ public sealed class PeriodicUpdateChecker : IDisposable
 
         if (source is null)
         {
-            if (loop is not null)
-            {
-                await PeriodicUpdateCheckerShutdown
-                    .WaitForLoopAsync(loop, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            return;
+        }
 
+        Task cancelTask;
+        try
+        {
+            cancelTask = source.CancelAsync();
+        }
+        catch (ObjectDisposedException)
+        {
             return;
         }
 
         try
         {
-            await PeriodicUpdateCheckerShutdown
-                .HasCancelSucceededAsync(source, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (loop is not null)
-            {
-                await PeriodicUpdateCheckerShutdown
-                    .WaitForLoopAsync(loop, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            await cancelTask.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        finally
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        if (loop is not null)
+        {
+            await PeriodicUpdateCheckerShutdown
+                .WaitForLoopAsync(loop, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        try
         {
             source.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            _ = source;
         }
     }
 
