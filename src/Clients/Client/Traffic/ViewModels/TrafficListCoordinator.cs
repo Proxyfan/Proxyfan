@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -25,6 +29,12 @@ public sealed class TrafficListCoordinator
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
 
     /// <summary>
+    ///     Raised when the traffic-list host distribution changes and the
+    ///     source list should rebuild from the current flow snapshot.
+    /// </summary>
+    public event TrafficListSourceHostsUpdatedHandler? SourceHostsUpdated;
+
+    /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
     /// </summary>
     public void NotifyFlowsCleared()
@@ -43,5 +53,28 @@ public sealed class TrafficListCoordinator
     public void RequestHostFilter(string? host)
     {
         HostFilterRequested?.Invoke(host ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Publishes a host-count snapshot derived from the supplied flow
+    ///     collection.
+    /// </summary>
+    /// <param name="flows">The current traffic-list flow collection.</param>
+    public void UpdateSourceHosts(ObservableCollection<TrafficFlowViewModel> flows)
+    {
+        var hostCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var flow in flows)
+        {
+            var host = SourceHostExtractor.Extract(flow.Source);
+            if (hostCounts.TryGetValue(host, out var count))
+            {
+                hostCounts[host] = count + 1;
+                continue;
+            }
+
+            hostCounts[host] = 1;
+        }
+
+        SourceHostsUpdated?.Invoke(hostCounts);
     }
 }

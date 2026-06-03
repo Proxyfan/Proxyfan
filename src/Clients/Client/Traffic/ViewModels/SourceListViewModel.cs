@@ -1,6 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Proxyfan.Domain;
-using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
@@ -10,8 +9,7 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
 ///     View model for the source list panel that groups captured traffic
-///     by host. Subscribes to <see cref="RequestReceived" /> events and
-///     publishes a host-filter request via the shared
+///     by host and publishes a host-filter request via the shared
 ///     <see cref="TrafficListCoordinator" /> whenever the selection changes.
 /// </summary>
 public sealed partial class SourceListViewModel : ObservableObject, IDisposable
@@ -19,7 +17,6 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     private const string AllGroupSentinel = "*";
     private readonly TrafficListCoordinator _coordinator;
     private readonly Dictionary<string, SourceGroupViewModel> _groupsByHost;
-    private readonly IDisposable _requestSubscription;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private SourceGroupViewModel? _selectedSource;
@@ -32,9 +29,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
 
     /// <summary>
     ///     Initializes a new <see cref="SourceListViewModel" /> and
-    ///     subscribes to the supplied event bus and traffic-list coordinator.
+    ///     subscribes to traffic-list coordinator notifications.
     /// </summary>
-    /// <param name="eventBus">The domain event bus to subscribe to.</param>
+    /// <param name="eventBus">
+    ///     The domain event bus.
+    /// </param>
     /// <param name="coordinator">
     ///     Shared mediator used to publish host-filter requests and to
     ///     observe flows-cleared notifications from the traffic list.
@@ -47,6 +46,7 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         TrafficListCoordinator coordinator,
         IUserInterfaceScheduler userInterfaceScheduler)
     {
+        _ = eventBus;
         _coordinator = coordinator;
         _userInterfaceScheduler = userInterfaceScheduler;
         var groupsByHost = new Dictionary<string, SourceGroupViewModel>(StringComparer.OrdinalIgnoreCase);
@@ -62,14 +62,14 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _selectedSource = allGroup;
 
         _coordinator.FlowsCleared += OnFlowsCleared;
-        _requestSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
+        _coordinator.SourceHostsUpdated += OnSourceHostsUpdated;
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
         _coordinator.FlowsCleared -= OnFlowsCleared;
-        _requestSubscription.Dispose();
+        _coordinator.SourceHostsUpdated -= OnSourceHostsUpdated;
     }
 
     /// <summary>
@@ -86,12 +86,6 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _userInterfaceScheduler.Post(RebuildOnUiThread);
     }
 
-    private void OnRequestReceived(RequestReceived domainEvent)
-    {
-        var host = SourceHostExtractor.Extract(domainEvent);
-        _userInterfaceScheduler.Post(() => RegisterHostOnUiThread(host));
-    }
-
     partial void OnSelectedSourceChanged(SourceGroupViewModel? value)
     {
         if (value is null || value.IsAllGroup)
@@ -101,6 +95,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         }
 
         _coordinator.RequestHostFilter(value.Host);
+    }
+
+    private void OnSourceHostsUpdated(IReadOnlyDictionary<string, int> hostCounts)
+    {
+        _userInterfaceScheduler.Post(() => RebuildOnUiThread(hostCounts));
     }
 
     private void RebuildOnUiThread()
@@ -115,19 +114,29 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         SelectedSource = allGroup;
     }
 
-    private void RegisterHostOnUiThread(string host)
+    private void RebuildOnUiThread(IReadOnlyDictionary<string, int> hostCounts)
     {
         var allGroup = _groupsByHost[AllGroupSentinel];
-        allGroup.Increment();
+        _groupsByHost.Clear();
+        _groupsByHost[AllGroupSentinel] = allGroup;
+        Sources.Clear();
+        Sources.Add(allGroup);
 
-        if (!_groupsByHost.TryGetValue(host, out var group))
+        var totalFlowCount = 0;
+        foreach (var hostCount in hostCounts)
         {
-            var freshGroup = new SourceGroupViewModel(host, false);
-            _groupsByHost[host] = freshGroup;
-            Sources.Add(freshGroup);
-            group = freshGroup;
+            totalFlowCount += hostCount.Value;
+            var group = new SourceGroupViewModel(hostCount.Key, false)
+            {
+                Count = hostCount.Value,
+            };
+
+            _groupsByHost[hostCount.Key] = group;
+            Sources.Add(group);
         }
 
-        group.Increment();
+        allGroup.Count = totalFlowCount;
+        SelectedSource = allGroup;
     }
+
 }
