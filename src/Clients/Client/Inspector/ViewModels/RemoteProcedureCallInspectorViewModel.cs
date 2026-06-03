@@ -267,13 +267,13 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
         ConnectionStatusText = string.Empty;
 
         var selectedFlow = _trafficListViewModel.SelectedFlow;
-        if (selectedFlow?.Source is null)
+        if (selectedFlow is null)
         {
             IsRemoteProcedureCall = false;
             return;
         }
 
-        var remoteProcedureCallFlow = _store.GetById(selectedFlow.Source.Id);
+        var remoteProcedureCallFlow = _store.GetById(selectedFlow.Id);
         if (remoteProcedureCallFlow is null)
         {
             IsRemoteProcedureCall = false;
