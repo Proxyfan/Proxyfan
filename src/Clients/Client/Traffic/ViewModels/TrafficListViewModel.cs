@@ -411,8 +411,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
-        RebuildVisibleFlowsOnUiThread();
         _coordinator.UpdateSourceHosts(Flows);
+        RebuildVisibleFlowsOnUiThread();
     }
 
     partial void OnHostFilterChanged(string value)
