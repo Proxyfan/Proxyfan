@@ -34,6 +34,8 @@ public sealed class CustomColumnGridSynchronizerTests
         var synchronizer = new CustomColumnGridSynchronizer(dataGrid, registry);
         var viewModel = new TrafficFlowViewModel(CreateRequestEvent(), 1);
 
+        await Assert.That(dataGrid.Columns.Count).IsEqualTo(1);
+
         var column = (DataGridTemplateColumn)dataGrid.Columns[0];
         var cell = column.CellTemplate!.Build(viewModel);
 
