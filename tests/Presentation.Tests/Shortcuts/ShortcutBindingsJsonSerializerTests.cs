@@ -102,8 +102,28 @@ public sealed class ShortcutBindingsJsonSerializerTests
     }
 
     /// <summary>
-    ///     Verifies unknown modifier names are silently skipped while known ones survive.
+    ///     Verifies numeric action tokens are rejected so that out-of-range values cannot
+    ///     introduce invisible bindings.
     /// </summary>
+    [Test]
+    public async Task Deserialize_NumericAction_SkipsEntry()
+    {
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "bindings": [
+                { "action": "999", "key": "X", "modifiers": ["Control"] },
+                { "action": "-1", "key": "Y", "modifiers": ["Control"] },
+                { "action": "Find", "key": "F", "modifiers": ["Control"] }
+              ]
+            }
+            """;
+
+        var result = ShortcutBindingsJsonSerializer.Deserialize(json);
+
+        await Assert.That(result.Count).IsEqualTo(1);
+        await Assert.That(result.ContainsKey(ShortcutAction.Find)).IsTrue();
+    }
     [Test]
     public async Task Deserialize_UnknownModifier_SkipsModifierKeepsKnown()
     {
