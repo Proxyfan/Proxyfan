@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Configuration.Migration;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace Proxyfan.Domain.Configuration;
 
@@ -108,13 +109,15 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
 
     private string BuildMalformedConfigurationMessage(IReadOnlyList<string> malformedLines)
     {
-        var message = "Malformed configuration lines were found:";
+        var builder = new StringBuilder("Malformed configuration lines were found:");
         foreach (var line in malformedLines)
         {
-            message = string.Concat(message, " ", line);
+            builder.AppendLine();
+            builder.Append("- ");
+            builder.Append(line);
         }
 
-        return message;
+        return builder.ToString();
     }
 
     private ConfigurationSnapshot ParseOrRejectMalformed(string text)

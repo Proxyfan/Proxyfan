@@ -59,7 +59,7 @@ public static class KeyValueConfigurationParser
         var snapshot = new ConfigurationSnapshot(values);
         return new ConfigurationParseResult
         {
-            MalformedLines = malformedLines,
+            MalformedLines = malformedLines.AsReadOnly(),
             Snapshot = snapshot,
         };
     }
