@@ -51,6 +51,13 @@ public sealed class ServerSentEventsRelay
             var bytesRead = await source.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
             if (bytesRead == 0)
             {
+                _parser.Complete(_timeProvider.GetUtcNow());
+                var finalDrained = _parser.DrainCompletedEvents();
+                for (var index = 0; index < finalDrained.Count; index++)
+                {
+                    _onEvent(finalDrained[index]);
+                    capturedEvents++;
+                }
                 break;
             }
 

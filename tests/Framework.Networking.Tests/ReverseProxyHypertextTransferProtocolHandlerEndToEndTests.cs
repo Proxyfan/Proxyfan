@@ -231,6 +231,12 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
             var completedEvent = await PollForCompletedAsync(eventBus, TimeSpan.FromSeconds(5));
             await Assert.That(completedEvent).IsNotNull();
             await Assert.That(completedEvent!.Status).IsEqualTo(TrafficFlowStatus.Failed);
+
+            var storedFlows = trafficStore.GetAll();
+            await Assert.That(storedFlows.Count).IsGreaterThan(0);
+            var storedFlow = storedFlows[0];
+            await Assert.That(storedFlow.Status).IsEqualTo(TrafficFlowStatus.Failed);
+            await Assert.That(storedFlow.Id).IsEqualTo(completedEvent.TrafficFlowId);
         }
         finally
         {

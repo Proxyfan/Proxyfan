@@ -120,6 +120,52 @@ public sealed class UpgradeResponseRewriterTests
         await Assert.That(rewritten).IsNotSameReferenceAs(response);
     }
 
+    /// <summary>Verifies that headers listed in the Connection header (other than Upgrade) are stripped.</summary>
+    [Test]
+    public async Task Rewrite_ConnectionListedHeader_IsStripped()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "upgrade, X-Upstream-Hop")
+            .Add("Upgrade", "websocket")
+            .Add("X-Upstream-Hop", "secret");
+        var response = CreateResponse(headers);
+
+        var rewritten = UpgradeResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("X-Upstream-Hop")).IsFalse();
+        await Assert.That(rewritten.Headers.Get("Connection")).IsEqualTo("upgrade");
+        await Assert.That(rewritten.Headers.Get("Upgrade")).IsEqualTo("websocket");
+    }
+
+    /// <summary>Verifies that the Upgrade header is preserved even when listed in Connection.</summary>
+    [Test]
+    public async Task Rewrite_UpgradeListedInConnection_IsPreserved()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "Upgrade")
+            .Add("Upgrade", "websocket");
+        var response = CreateResponse(headers);
+
+        var rewritten = UpgradeResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.Get("Upgrade")).IsEqualTo("websocket");
+    }
+
+    /// <summary>Verifies that connection-listed header matching is case-insensitive.</summary>
+    [Test]
+    public async Task Rewrite_ConnectionListedHeaderCaseInsensitive_IsStripped()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "upgrade, x-trailer-only")
+            .Add("Upgrade", "websocket")
+            .Add("X-Trailer-Only", "value");
+        var response = CreateResponse(headers);
+
+        var rewritten = UpgradeResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("X-Trailer-Only")).IsFalse();
+    }
+
     private static HypertextTransferProtocolResponseData CreateResponse(HeaderCollection headers)
     {
         var parameters = new HypertextTransferProtocolResponseDataParameters

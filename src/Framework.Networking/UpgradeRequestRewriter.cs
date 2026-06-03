@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace Proxyfan.Framework.Networking;
@@ -10,8 +11,14 @@ namespace Proxyfan.Framework.Networking;
 ///     <see cref="OriginRequestRewriter" />, this rewriter preserves the <c>Connection</c> and
 ///     <c>Upgrade</c> headers (they carry the WebSocket handshake semantics that must reach
 ///     the upstream server intact) while still stripping <c>Proxy-Authenticate</c>,
-///     <c>Proxy-Authorization</c>, and <c>Proxy-Connection</c> (security: never leak proxy
-///     credentials to origin) and appending the <c>Via: 1.1 proxyfan</c> token.
+///     <c>Proxy-Authorization</c>, <c>Proxy-Connection</c>, and other standard hop-by-hop
+///     headers (<c>Keep-Alive</c>, <c>TE</c>, <c>Trailer</c>, <c>Transfer-Encoding</c>) plus
+///     any header names listed in the client's <c>Connection</c> header value (other than the
+///     <c>upgrade</c>/<c>close</c>/<c>keep-alive</c> tokens), so connection-scoped controls
+///     never leak to the origin. Body framing is normalized: <c>Content-Length</c> is stripped
+///     from the inbound headers and, when the request carries a decoded body, a fresh
+///     <c>Content-Length</c> matching the body length is injected. The <c>Via: 1.1 proxyfan</c>
+///     token is appended per RFC 7230.
 /// </summary>
 public static class UpgradeRequestRewriter
 {
@@ -22,9 +29,14 @@ public static class UpgradeRequestRewriter
     {
         var alwaysStripped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "Content-Length",
+            "Keep-Alive",
             "Proxy-Authenticate",
             "Proxy-Authorization",
             "Proxy-Connection",
+            "TE",
+            "Trailer",
+            "Transfer-Encoding",
         };
         AlwaysStrippedHeaders = alwaysStripped;
     }
@@ -51,12 +63,13 @@ public static class UpgradeRequestRewriter
         var rewrittenRequestLine = $"{request.Method} {originForm} {request.Version}";
         var headerSection = text[(firstLineEnd + 2)..];
         var headerLines = headerSection.Split("\r\n", StringSplitOptions.None);
+        var connectionListedNames = ExtractConnectionListedHeaderNames(headerLines);
 
         var rebuilt = new StringBuilder(text.Length + ViaToken.Length + 16);
         rebuilt.Append(rewrittenRequestLine);
         rebuilt.Append("\r\n");
         var viaInline = HasInlineVia(headerLines);
-        AppendHeaderLines(headerLines, rebuilt);
+        AppendHeaderLines(headerLines, connectionListedNames, rebuilt);
 
         if (!viaInline)
         {
@@ -65,11 +78,18 @@ public static class UpgradeRequestRewriter
             rebuilt.Append("\r\n");
         }
 
+        if (request.Body.Length > 0)
+        {
+            rebuilt.Append("Content-Length: ");
+            rebuilt.Append(request.Body.Length.ToString(CultureInfo.InvariantCulture));
+            rebuilt.Append("\r\n");
+        }
+
         rebuilt.Append("\r\n");
         return Encoding.ASCII.GetBytes(rebuilt.ToString());
     }
 
-    private static void AppendHeaderLines(string[] headerLines, StringBuilder rebuilt)
+    private static void AppendHeaderLines(string[] headerLines, HashSet<string> connectionListedNames, StringBuilder rebuilt)
     {
         foreach (var line in headerLines)
         {
@@ -89,7 +109,7 @@ public static class UpgradeRequestRewriter
 
             var name = line[..colonIndex].Trim();
 
-            if (AlwaysStrippedHeaders.Contains(name))
+            if (AlwaysStrippedHeaders.Contains(name) || connectionListedNames.Contains(name))
             {
                 continue;
             }
@@ -131,6 +151,45 @@ public static class UpgradeRequestRewriter
         }
 
         return string.IsNullOrEmpty(originalPath) ? "/" : originalPath;
+    }
+
+    private static HashSet<string> ExtractConnectionListedHeaderNames(string[] headerLines)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in headerLines)
+        {
+            var colonIndex = line.IndexOf(':');
+
+            if (colonIndex <= 0)
+            {
+                continue;
+            }
+
+            var name = line[..colonIndex].Trim();
+
+            if (!string.Equals(name, "Connection", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = line[(colonIndex + 1)..].Trim();
+            var tokens = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var token in tokens)
+            {
+                if (string.Equals(token, "close", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "keep-alive", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(token, "upgrade", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                names.Add(token);
+            }
+        }
+
+        return names;
     }
 
     private static bool HasInlineVia(string[] headerLines)

@@ -187,3 +187,10 @@ indent_size = 2
 
 [*.{appxmanifest,asax,ascx,aspx,axaml,blockshader,c,c++,c++m,cc,ccm,cginc,compute,cp,cpp,cppm,cs,cshtml,cu,cuh,cxx,cxxm,dtd,fs,fsi,fsscript,fsx,fx,fxh,h,h++,hh,hlsl,hlsli,hlslinc,hp,hpp,hxx,icc,inc,inl,ino,ipp,ixx,master,ml,mli,mpp,mq4,mq5,mqh,mxx,nuspec,paml,pssl,pssli,razor,resw,resx,shader,shaderFoundry,skin,tcc,tpp,urtshader,usf,ush,uxml,vb,xaml,xamlx,xoml,xsd}]
 tab_width = 4
+
+# RFC 6455 §4.2.2 mandates SHA-1 for the WebSocket handshake accept value; the
+# hash is used purely as a protocol-defined handshake integrity check, not for
+# cryptographic secrecy.
+[src/Framework.Networking/WebSocketUpgradeDetector.cs]
+dotnet_diagnostic.ca5350.severity = none # RFC 6455 §4.2.2 requires SHA-1 for Sec-WebSocket-Accept
+dotnet_diagnostic.s4790.severity = none # RFC 6455 §4.2.2 requires SHA-1 for Sec-WebSocket-Accept
