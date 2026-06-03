@@ -1,4 +1,5 @@
-﻿using Proxyfan.Client.Tools.ViewModels;
+﻿using Proxyfan.Client.Tests.Stubs;
+using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
 using System;
@@ -259,7 +260,7 @@ public sealed class PluginManagerViewModelTests
 
         public PluginManagerViewModel CreateViewModel()
         {
-            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher);
+            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher, InlineUserInterfaceScheduler.Instance);
             return viewModel;
         }
 
