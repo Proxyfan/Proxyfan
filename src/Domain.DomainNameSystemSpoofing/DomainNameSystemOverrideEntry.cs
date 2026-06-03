@@ -136,13 +136,28 @@ public sealed class DomainNameSystemOverrideEntry
     }
 
     /// <summary>
-    ///     Increments the entry's match counter by one. Returns the new value so callers
-    ///     can publish it without re-reading the field.
+    ///     Increments the entry's match counter by one, saturating at
+    ///     <see cref="int.MaxValue" /> so a long-running hot entry never wraps to a
+    ///     negative value. Returns the new (possibly saturated) value so callers can
+    ///     publish it without re-reading the field.
     /// </summary>
     /// <returns>The new match count after the increment.</returns>
     public int RecordMatch()
     {
-        return Interlocked.Increment(ref _matchCount);
+        while (true)
+        {
+            var current = Volatile.Read(ref _matchCount);
+            if (current == int.MaxValue)
+            {
+                return int.MaxValue;
+            }
+
+            var next = current + 1;
+            if (Interlocked.CompareExchange(ref _matchCount, next, current) == current)
+            {
+                return next;
+            }
+        }
     }
 
     /// <summary>
