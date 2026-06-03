@@ -25,6 +25,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     private readonly ICertificateStore _certificateStore;
     private readonly IFilePickerService _filePickerService;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
+    private bool _isActivated;
     [ObservableProperty]
     private bool _isBusy;
     [ObservableProperty]
@@ -65,6 +66,20 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         _statusMessage = string.Empty;
         _notBefore = DateTimeOffset.MinValue;
         _notAfter = DateTimeOffset.MinValue;
+    }
+
+    /// <summary>
+    ///     Runs one-time activation logic when the tool window is opened.
+    /// </summary>
+    public void Activate()
+    {
+        if (_isActivated)
+        {
+            return;
+        }
+
+        _isActivated = true;
+        RefreshCommand.Execute(null);
     }
 
     /// <inheritdoc />
