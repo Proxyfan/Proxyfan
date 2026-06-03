@@ -53,7 +53,8 @@ public sealed class ConfigurationMigrationPipeline
     /// <returns>The migration result.</returns>
     /// <exception cref="InvalidOperationException">
     ///     A migrator was needed to transition from the current version to the target but
-    ///     none was registered, leaving the pipeline unable to make progress.
+    ///     none was registered, leaving the pipeline unable to make progress; or a registered
+    ///     migrator does not advance toward the target version.
     /// </exception>
     public ConfigurationMigrationPipelineResult Migrate(
         IReadOnlyDictionary<string, string> source,
@@ -62,44 +63,109 @@ public sealed class ConfigurationMigrationPipeline
         var sourceVersion = ConfigurationMigrationPipelineHelpers.ReadVersion(source);
         if (!sourceVersion.HasLowerOrderThan(targetVersion))
         {
-            var unchangedValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
-            unchangedValues[ConfigurationMigrationConstants.VersionKey] = targetVersion.ToString();
-            var noopResult = new ConfigurationMigrationPipelineResult
-            {
-                Actions = [],
-                IsMigrated = false,
-                SourceVersion = sourceVersion,
-                TargetVersion = targetVersion,
-                Values = unchangedValues,
-            };
+            var noopResult = BuildNoopResult(source, sourceVersion, targetVersion);
             return noopResult;
         }
 
+        var migrationState = RunMigrationSteps(source, sourceVersion, targetVersion);
+
+        var result = new ConfigurationMigrationPipelineResult
+        {
+            Actions = migrationState.Actions,
+            IsMigrated = true,
+            SourceVersion = sourceVersion,
+            TargetVersion = migrationState.Version,
+            Values = migrationState.Values,
+        };
+        return result;
+    }
+
+    private ConfigurationMigrationPipelineResult BuildNoopResult(
+        IReadOnlyDictionary<string, string> source,
+        ConfigurationVersion sourceVersion,
+        ConfigurationVersion targetVersion)
+    {
+        var unchangedValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
+        unchangedValues[ConfigurationMigrationConstants.VersionKey] = targetVersion.ToString();
+        var noopResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = sourceVersion,
+            TargetVersion = targetVersion,
+            Values = unchangedValues,
+        };
+        return noopResult;
+    }
+
+    private void EnsureTransitionAdvancesTowardsTarget(
+        ConfigurationVersion currentVersion,
+        IConfigurationMigrator migrator,
+        ConfigurationVersion targetVersion)
+    {
+        if (migrator.To <= currentVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator from {migrator.From} to {migrator.To} does not advance beyond current version {currentVersion}.");
+        }
+
+        if (migrator.To > targetVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator from {migrator.From} to {migrator.To} overshoots target version {targetVersion}.");
+        }
+    }
+
+    private MigrationState RunMigrationSteps(
+        IReadOnlyDictionary<string, string> source,
+        ConfigurationVersion sourceVersion,
+        ConfigurationVersion targetVersion)
+    {
         IReadOnlyDictionary<string, string> currentValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
         var aggregateActions = new List<ConfigurationMigrationAction>();
         var currentVersion = sourceVersion;
+        var visitedVersions = new HashSet<ConfigurationVersion>();
         while (currentVersion.HasLowerOrderThan(targetVersion))
         {
+            if (!visitedVersions.Add(currentVersion))
+            {
+                throw new InvalidOperationException(
+                    $"Configuration migration pipeline detected a cycle at version {currentVersion}.");
+            }
+
             if (!_migratorsByFrom.TryGetValue(currentVersion, out var migrator))
             {
                 throw new InvalidOperationException(
                     $"No configuration migrator registered for source version {currentVersion}.");
             }
 
+            EnsureTransitionAdvancesTowardsTarget(currentVersion, migrator, targetVersion);
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
             aggregateActions.AddRange(stepResult.Actions);
             currentVersion = migrator.To;
         }
 
-        var result = new ConfigurationMigrationPipelineResult
+        var state = new MigrationState(aggregateActions, currentValues, currentVersion);
+        return state;
+    }
+
+    private sealed class MigrationState
+    {
+        public List<ConfigurationMigrationAction> Actions { get; }
+
+        public IReadOnlyDictionary<string, string> Values { get; }
+
+        public ConfigurationVersion Version { get; }
+
+        public MigrationState(
+            List<ConfigurationMigrationAction> actions,
+            IReadOnlyDictionary<string, string> values,
+            ConfigurationVersion version)
         {
-            Actions = aggregateActions,
-            IsMigrated = true,
-            SourceVersion = sourceVersion,
-            TargetVersion = currentVersion,
-            Values = currentValues,
-        };
-        return result;
+            Actions = actions;
+            Values = values;
+            Version = version;
+        }
     }
 }
