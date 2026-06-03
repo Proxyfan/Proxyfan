@@ -53,7 +53,11 @@ public sealed class ConfigurationMigrationPipeline
     /// <returns>The migration result.</returns>
     /// <exception cref="InvalidOperationException">
     ///     A migrator was needed to transition from the current version to the target but
-    ///     none was registered, leaving the pipeline unable to make progress.
+    ///     none was registered, leaving the pipeline unable to make progress;
+    ///     or a registered migrator's <see cref="IConfigurationMigrator.To" /> version does
+    ///     not strictly exceed its <see cref="IConfigurationMigrator.From" /> version (no
+    ///     forward progress); or a registered migrator's <see cref="IConfigurationMigrator.To" />
+    ///     version exceeds <paramref name="targetVersion" /> (overshoot).
     /// </exception>
     public ConfigurationMigrationPipelineResult Migrate(
         IReadOnlyDictionary<string, string> source,
@@ -85,6 +89,8 @@ public sealed class ConfigurationMigrationPipeline
                 throw new InvalidOperationException(
                     $"No configuration migrator registered for source version {currentVersion}.");
             }
+
+            ConfigurationMigrationPipelineHelpers.ValidateMigratorTransition(migrator, currentVersion, targetVersion);
 
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
