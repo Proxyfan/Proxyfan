@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Traffic.Columns;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace Proxyfan.Client.Traffic.Views;
 
@@ -68,7 +69,28 @@ public sealed class CustomColumnGridSynchronizer
                 return textBlock;
             }
 
-            textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
+            void RefreshText()
+            {
+                textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
+            }
+
+            void OnDetachedFromVisualTree(object? sender, Avalonia.VisualTreeAttachmentEventArgs eventArgs)
+            {
+                flow.PropertyChanged -= OnFlowPropertyChanged;
+                textBlock.DetachedFromVisualTree -= OnDetachedFromVisualTree;
+            }
+
+            void OnFlowPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
+            {
+                if (eventArgs.PropertyName == nameof(TrafficFlowViewModel.Response))
+                {
+                    RefreshText();
+                }
+            }
+
+            RefreshText();
+            flow.PropertyChanged += OnFlowPropertyChanged;
+            textBlock.DetachedFromVisualTree += OnDetachedFromVisualTree;
             return textBlock;
         });
         var width = new DataGridLength(120);
