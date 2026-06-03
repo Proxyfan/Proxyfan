@@ -440,7 +440,49 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _userInterfaceScheduler.Post(() => viewModel.UpdateResponse(domainEvent));
+        _userInterfaceScheduler.Post(() => OnResponseReceivedOnUiThread(viewModel, domainEvent));
+    }
+
+    private void OnResponseReceivedOnUiThread(TrafficFlowViewModel viewModel, ResponseReceived domainEvent)
+    {
+        viewModel.UpdateResponse(domainEvent);
+
+        var hasFilterMatch = HasFilterMatch(viewModel);
+        var visibleIndex = VisibleFlows.IndexOf(viewModel);
+        if (hasFilterMatch)
+        {
+            if (visibleIndex < 0)
+            {
+                var insertionIndex = OnResponseReceivedVisibleFlowInsertionIndex(viewModel);
+                VisibleFlows.Insert(insertionIndex, viewModel);
+            }
+
+            return;
+        }
+
+        if (visibleIndex >= 0)
+        {
+            VisibleFlows.RemoveAt(visibleIndex);
+        }
+    }
+
+    private int OnResponseReceivedVisibleFlowInsertionIndex(TrafficFlowViewModel viewModel)
+    {
+        var insertionIndex = 0;
+        foreach (var flow in Flows)
+        {
+            if (ReferenceEquals(flow, viewModel))
+            {
+                return insertionIndex;
+            }
+
+            if (VisibleFlows.Contains(flow))
+            {
+                insertionIndex++;
+            }
+        }
+
+        return insertionIndex;
     }
 
     private void RebuildVisibleFlowsOnUiThread()
