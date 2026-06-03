@@ -132,6 +132,50 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     Malformed configuration text is rejected, reported via diagnostics, and not rewritten.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedConfiguration_RejectsWithoutRewriteOrBackup()
+    {
+        var path = CreateTempPath();
+        var backupPath = path + FileConfigurationLoader.BackupExtension;
+
+        try
+        {
+            const string malformedText = "version=1.0\nmalformed line\nold.key=value\n";
+            File.WriteAllText(path, malformedText);
+            var operation = new ConfigurationRenameKeyOperation
+            {
+                NewKey = "new.key",
+                OldKey = "old.key",
+            };
+            var migrator = new ConfigurationMigrator
+            {
+                From = new ConfigurationVersion(1, 0),
+                Operations = [operation],
+                To = new ConfigurationVersion(1, 1),
+            };
+            var pipeline = new ConfigurationMigrationPipeline([migrator]);
+            var loader = new FileConfigurationLoader(path, pipeline, new ConfigurationVersion(1, 1));
+
+            var result = loader.Load();
+            var fileAfterLoad = File.ReadAllText(path);
+
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.ParseDiagnostics.Count).IsEqualTo(1);
+            await Assert.That(result.ParseDiagnostics[0].LineNumber).IsEqualTo(2);
+            await Assert.That(fileAfterLoad).IsEqualTo(malformedText);
+            await Assert.That(File.Exists(backupPath)).IsFalse();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(backupPath);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());

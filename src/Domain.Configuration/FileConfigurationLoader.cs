@@ -48,10 +48,15 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var parseResult = KeyValueConfigurationParser.ParseWithDiagnostics(text);
+        if (parseResult.Diagnostics.Count > 0)
+        {
+            return BuildMalformedResult(parseResult.Diagnostics);
+        }
+
         var sourceValues = new Dictionary<string, string>();
 
-        foreach (var pair in snapshot.Enumerate())
+        foreach (var pair in parseResult.Snapshot.Enumerate())
         {
             sourceValues[pair.Key] = pair.Value;
         }
@@ -65,6 +70,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             {
                 BackupPath = null,
                 PipelineResult = pipelineResult,
+                ParseDiagnostics = [],
                 Snapshot = unchanged,
             };
         }
@@ -79,6 +85,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         {
             BackupPath = backupPath,
             PipelineResult = pipelineResult,
+            ParseDiagnostics = [],
             Snapshot = migrated,
         };
     }
@@ -102,6 +109,32 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         {
             BackupPath = null,
             PipelineResult = pipelineResult,
+            ParseDiagnostics = [],
+            Snapshot = snapshot,
+        };
+    }
+
+    private MigratingConfigurationLoadResult BuildMalformedResult(
+        IReadOnlyList<KeyValueConfigurationParseDiagnostic> parseDiagnostics)
+    {
+        var emptyValues = new Dictionary<string, string>
+        {
+            [ConfigurationMigrationConstants.VersionKey] = _targetVersion.ToString(),
+        };
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = emptyValues,
+        };
+        var snapshot = new ConfigurationSnapshot(emptyValues);
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            PipelineResult = pipelineResult,
+            ParseDiagnostics = parseDiagnostics,
             Snapshot = snapshot,
         };
     }

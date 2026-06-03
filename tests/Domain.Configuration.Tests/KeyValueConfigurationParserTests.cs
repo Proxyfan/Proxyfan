@@ -85,6 +85,22 @@ public sealed class KeyValueConfigurationParserTests
     }
 
     /// <summary>
+    ///     Verifies that malformed non-empty lines are surfaced as diagnostics.
+    /// </summary>
+    [Test]
+    public async Task ParseWithDiagnostics_LineWithoutEquals_ReturnsDiagnostic()
+    {
+        const string text = "no-equals-here\nproxy.port=8080";
+
+        var result = KeyValueConfigurationParser.ParseWithDiagnostics(text);
+
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.Diagnostics.Count).IsEqualTo(1);
+        await Assert.That(result.Diagnostics[0].LineNumber).IsEqualTo(1);
+        await Assert.That(result.Diagnostics[0].Line).IsEqualTo("no-equals-here");
+    }
+
+    /// <summary>
     ///     Verifies that multiple keys are parsed.
     /// </summary>
     [Test]

@@ -84,6 +84,7 @@ public static class AppStartupConfigurationMigrationRunner
         {
             BackupPath = null,
             PipelineResult = pipelineResult,
+            ParseDiagnostics = [],
             Snapshot = snapshot,
         };
         return result;

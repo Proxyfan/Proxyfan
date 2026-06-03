@@ -18,11 +18,25 @@ public static class KeyValueConfigurationParser
     /// <returns>The parsed snapshot.</returns>
     public static ConfigurationSnapshot Parse(string text)
     {
+        var result = ParseWithDiagnostics(text);
+        return result.Snapshot;
+    }
+
+    /// <summary>
+    ///     Parses the supplied configuration text into a snapshot and diagnostics.
+    /// </summary>
+    /// <param name="text">The configuration text.</param>
+    /// <returns>The parsed snapshot and malformed-line diagnostics.</returns>
+    public static KeyValueConfigurationParseResult ParseWithDiagnostics(string text)
+    {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var diagnostics = new List<KeyValueConfigurationParseDiagnostic>();
         using var reader = new StringReader(text);
+        var lineNumber = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
+            lineNumber++;
             var trimmed = line.Trim();
             if (trimmed.Length == 0 || trimmed.StartsWith('#'))
             {
@@ -32,6 +46,11 @@ public static class KeyValueConfigurationParser
             var separatorIndex = trimmed.IndexOf('=', StringComparison.Ordinal);
             if (separatorIndex <= 0)
             {
+                var diagnostic = new KeyValueConfigurationParseDiagnostic(
+                    lineNumber,
+                    line,
+                    "Configuration line must be in key=value format.");
+                diagnostics.Add(diagnostic);
                 continue;
             }
 
@@ -44,6 +63,11 @@ public static class KeyValueConfigurationParser
         }
 
         var snapshot = new ConfigurationSnapshot(values);
-        return snapshot;
+        var result = new KeyValueConfigurationParseResult
+        {
+            Diagnostics = diagnostics,
+            Snapshot = snapshot,
+        };
+        return result;
     }
 }
