@@ -236,6 +236,69 @@ public sealed class MutableBlockListRuleTests
         await Assert.That(rule.GetPatterns().Count).IsEqualTo(2);
     }
 
+    /// <summary>
+    ///     Adding a malformed regex pattern does not add it to the pattern list.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotMutatePatterns()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        rule.AddPattern(new MatchingRule("https://valid.example.com/*", MatchingRuleKind.Wildcard));
+        var malformed = new MatchingRule("[invalid-regex", MatchingRuleKind.Regex);
+
+        await Assert.That(() => rule.AddPattern(malformed)).Throws<ArgumentException>();
+
+        var patterns = rule.GetPatterns();
+        await Assert.That(patterns.Count).IsEqualTo(1);
+        await Assert.That(patterns[0].Pattern).IsEqualTo("https://valid.example.com/*");
+    }
+
+    /// <summary>
+    ///     Adding a malformed regex pattern does not raise <see cref="MutableBlockListRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_DoesNotRaiseChanged()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        var count = 0;
+        rule.Changed += () => count++;
+
+        await Assert.That(() => rule.AddPattern(new MatchingRule("[invalid-regex", MatchingRuleKind.Regex))).Throws<ArgumentException>();
+
+        await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     After a failed add due to a malformed pattern, a subsequent valid add still works.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegexThenValidPattern_ValidPatternIsAdded()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        await Assert.That(() => rule.AddPattern(new MatchingRule("[invalid-regex", MatchingRuleKind.Regex))).Throws<ArgumentException>();
+
+        rule.AddPattern(new MatchingRule("https://valid.example.com/*", MatchingRuleKind.Wildcard));
+
+        var patterns = rule.GetPatterns();
+        await Assert.That(patterns.Count).IsEqualTo(1);
+        await Assert.That(patterns[0].Pattern).IsEqualTo("https://valid.example.com/*");
+    }
+
+    /// <summary>
+    ///     After a failed add, EvaluateRequest continues to match previously registered patterns.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_MalformedRegex_ExistingMatchersStillWork()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        rule.AddPattern(new MatchingRule("https://blocked.example.com/*", MatchingRuleKind.Wildcard));
+        await Assert.That(() => rule.AddPattern(new MatchingRule("[invalid-regex", MatchingRuleKind.Regex))).Throws<ArgumentException>();
+
+        var action = rule.EvaluateRequest(CreateRequest("https://blocked.example.com/path"));
+
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
