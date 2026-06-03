@@ -54,25 +54,63 @@ public sealed class LeafCertificateCacheTests
     }
 
     /// <summary>
-    ///     Verifies that concurrent access for the same host name creates only one certificate instance.
+    ///     Verifies that concurrent access for the same host name returns a single cached certificate instance.
     /// </summary>
     [Test]
-    public async Task GetOrAdd_WhenAccessedConcurrently_CreatesSingleCertificate()
+    public async Task GetOrAdd_WhenAccessedConcurrently_ReturnsSingleCachedCertificate()
     {
         var cache = new LeafCertificateCache(8);
-        var factoryCallCount = 0;
         var tasks = new List<Task<X509Certificate2>>();
 
         for (var index = 0; index < 16; index++)
         {
-            tasks.Add(Task.Run(() => cache.GetOrAdd("shared.example", hostName => CreateTrackedCertificate(hostName, ref factoryCallCount))));
+            tasks.Add(Task.Run(() => cache.GetOrAdd("shared.example", hostName => CreateCertificate(hostName))));
         }
 
         var results = await Task.WhenAll(tasks);
 
-        await Assert.That(factoryCallCount).IsEqualTo(1);
         await Assert.That(cache.Count).IsEqualTo(1);
-        await Assert.That(results[0]).IsSameReferenceAs(results[^1]);
+        foreach (var certificate in results)
+        {
+            await Assert.That(certificate).IsSameReferenceAs(results[0]);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that cache misses for different host names do not block each other while generating certificates.
+    /// </summary>
+    [Test]
+    public async Task GetOrAdd_WhenDifferentHostsMissConcurrently_DoesNotBlockOnInFlightGeneration()
+    {
+        var cache = new LeafCertificateCache(8);
+        using var slowFactoryStarted = new ManualResetEventSlim(false);
+        using var releaseSlowFactory = new ManualResetEventSlim(false);
+        using var fastFactoryStarted = new ManualResetEventSlim(false);
+        Task<X509Certificate2> slowTask = Task.Run(() =>
+            cache.GetOrAdd(
+                "slow.example",
+                _ =>
+                {
+                    slowFactoryStarted.Set();
+                    releaseSlowFactory.Wait();
+                    return CreateCertificate("slow.example");
+                }));
+        await Assert.That(slowFactoryStarted.Wait(TimeSpan.FromSeconds(5))).IsTrue();
+
+        Task<X509Certificate2> fastTask = Task.Run(() =>
+            cache.GetOrAdd(
+                "fast.example",
+                _ =>
+                {
+                    fastFactoryStarted.Set();
+                    return CreateCertificate("fast.example");
+                }));
+
+        await Assert.That(fastFactoryStarted.Wait(TimeSpan.FromSeconds(5))).IsTrue();
+        await Assert.That(fastTask.Wait(TimeSpan.FromSeconds(5))).IsTrue();
+
+        releaseSlowFactory.Set();
+        await slowTask;
     }
 
     private static X509Certificate2 CreateCertificate(string hostname)
@@ -88,9 +126,4 @@ public sealed class LeafCertificateCacheTests
         return cachedCertificate;
     }
 
-    private static X509Certificate2 CreateTrackedCertificate(string hostname, ref int factoryCallCount)
-    {
-        Interlocked.Increment(ref factoryCallCount);
-        return CreateCertificate(hostname);
-    }
 }
