@@ -40,7 +40,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
             + "\r\n";
         await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
         await serverIngressWriter.CompleteAsync();
@@ -146,7 +146,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
             + "\r\n";
         await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
         await serverIngressWriter.CompleteAsync();
@@ -184,7 +184,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
             + "Cache-Control: max-age=600\r\n"
             + "\r\n";
         await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
@@ -277,7 +277,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
             + "\r\n";
         await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
         await serverIngressWriter.CompleteAsync();
@@ -324,7 +324,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var upstreamResponse = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Accept: dGVzdA==\r\n"
+            + "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
             + "\r\n";
         await serverIngressWriter.WriteAsync(Encoding.ASCII.GetBytes(upstreamResponse), CancellationToken.None);
         await serverIngressWriter.CompleteAsync();
@@ -506,7 +506,9 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var headers = HeaderCollection.Empty
             .Add("Host", "example.com")
             .Add("Upgrade", "websocket")
-            .Add("Connection", "Upgrade");
+            .Add("Connection", "Upgrade")
+            .Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .Add("Sec-WebSocket-Version", "13");
         var requestParameters = new HypertextTransferProtocolRequestDataParameters
         {
             Body = ReadOnlyMemory<byte>.Empty,
@@ -519,7 +521,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var requestExchange = new HypertextTransferProtocolProxyRequestExchange(
             ReadOnlyMemory<byte>.Empty,
             Encoding.ASCII.GetBytes(
-                "GET /chat HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"),
+                "GET /chat HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"),
             requestData);
         var loopContext = new TransportLayerSecurityInterceptedLoopContext
         {
