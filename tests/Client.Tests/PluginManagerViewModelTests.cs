@@ -1,6 +1,8 @@
 ﻿using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -187,6 +189,34 @@ public sealed class PluginManagerViewModelTests
     }
 
     [Test]
+    public async Task DirectoryWatcher_FireChange_PostsViaUserInterfaceScheduler()
+    {
+        var scheduler = new RecordingUserInterfaceScheduler(runImmediately: true);
+        using var harness = new ActivationHarness(scheduler);
+        var viewModel = harness.CreateViewModel();
+
+        harness.DirectoryWatcher.FireChange();
+
+        await Assert.That(scheduler.PostCallCount).IsEqualTo(1);
+        await Assert.That(viewModel.IsRestartRequired).IsTrue();
+    }
+
+    [Test]
+    public async Task DirectoryWatcher_FireChange_DisposedBeforePostedAction_NoUpdate()
+    {
+        var scheduler = new RecordingUserInterfaceScheduler(runImmediately: false);
+        using var harness = new ActivationHarness(scheduler);
+        var viewModel = harness.CreateViewModel();
+
+        harness.DirectoryWatcher.FireChange();
+        viewModel.Dispose();
+        scheduler.RunPending();
+
+        await Assert.That(viewModel.IsRestartRequired).IsFalse();
+        await Assert.That(viewModel.UpdateCheckStatus).IsEqualTo(string.Empty);
+    }
+
+    [Test]
     public async Task Construct_OnCreation_StartsDirectoryWatcher()
     {
         using var harness = new ActivationHarness();
@@ -240,7 +270,7 @@ public sealed class PluginManagerViewModelTests
 
         public StubUpdateFeed UpdateFeed { get; }
 
-        public ActivationHarness()
+        public ActivationHarness(IUserInterfaceScheduler? userInterfaceScheduler = null)
         {
             Registry = new PluginRegistry();
             Host = new RecordingPluginHost("1.0.0");
@@ -248,6 +278,7 @@ public sealed class PluginManagerViewModelTests
             Opener = new RecordingOpener();
             UpdateFeed = new StubUpdateFeed();
             DirectoryWatcher = new StubDirectoryWatcher();
+            UserInterfaceScheduler = userInterfaceScheduler ?? InlineUserInterfaceScheduler.Instance;
             _rootDirectory = Path.Combine(Path.GetTempPath(), "proxyfan-pmvm-" + Path.GetRandomFileName());
             Directory.CreateDirectory(_rootDirectory);
             var rootProvider = new PluginRootDirectoryProvider(_rootDirectory);
@@ -257,9 +288,11 @@ public sealed class PluginManagerViewModelTests
             ActivationService = new PluginActivationService(loader, Host, rootProvider, Registry);
         }
 
+        public IUserInterfaceScheduler UserInterfaceScheduler { get; }
+
         public PluginManagerViewModel CreateViewModel()
         {
-            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher);
+            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher, UserInterfaceScheduler);
             return viewModel;
         }
 
@@ -354,6 +387,48 @@ public sealed class PluginManagerViewModelTests
         public void Start()
         {
             IsStarted = true;
+        }
+    }
+
+    private sealed class RecordingUserInterfaceScheduler : IUserInterfaceScheduler
+    {
+        private readonly bool _runImmediately;
+        private UserInterfaceWorkItem? _pending;
+
+        public RecordingUserInterfaceScheduler(bool runImmediately)
+        {
+            _runImmediately = runImmediately;
+        }
+
+        public int PostCallCount { get; private set; }
+
+        public bool HasAccess()
+        {
+            return false;
+        }
+
+        public void Post(UserInterfaceWorkItem action)
+        {
+            PostCallCount++;
+            if (_runImmediately)
+            {
+                action();
+                return;
+            }
+
+            _pending = action;
+        }
+
+        public void RunPending()
+        {
+            if (_pending is null)
+            {
+                return;
+            }
+
+            var action = _pending;
+            _pending = null;
+            action();
         }
     }
 }
