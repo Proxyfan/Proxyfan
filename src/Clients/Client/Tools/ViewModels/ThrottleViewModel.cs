@@ -91,14 +91,7 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (preset.Profile is null)
-        {
-            _throttleProfileCoordinator.Apply(profile: null);
-        }
-        else
-        {
-            _throttleProfileCoordinator.Apply(preset.Profile);
-        }
+        _throttleProfileCoordinator.Apply(preset.Profile);
     }
 
     private ThrottleProfilePresetViewModel? FindMatchingPreset(ThrottleProfile? profile)
