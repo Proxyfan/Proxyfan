@@ -65,4 +65,19 @@ public sealed class HypertextTransferProtocolResponseParserTests
 
         await Assert.That(response).IsNull();
     }
+
+    /// <summary>
+    ///     Verifies that a response status line with an empty reason phrase (trailing space after status code) is parsed.
+    /// </summary>
+    [Test]
+    public async Task ParseHeaders_EmptyReasonPhrase_ReturnsResponseData()
+    {
+        var headerBytes = Encoding.ASCII.GetBytes("HTTP/1.1 204 \r\nServer: proxyfan\r\n\r\n");
+
+        var response = HypertextTransferProtocolResponseParser.ParseHeaders(headerBytes);
+
+        await Assert.That(response).IsNotNull();
+        await Assert.That(response!.StatusCode).IsEqualTo(204);
+        await Assert.That(response.ReasonPhrase).IsEqualTo(string.Empty);
+    }
 }

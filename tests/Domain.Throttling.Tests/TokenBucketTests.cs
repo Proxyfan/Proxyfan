@@ -128,6 +128,24 @@ public sealed class TokenBucketTests
     }
 
     /// <summary>
+    ///     Verifies that very large elapsed times with high refill rates saturate at capacity
+    ///     instead of overflowing into a negative balance.
+    /// </summary>
+    [Test]
+    public async Task GetAvailableTokens_AfterExtremeElapsedTime_SaturatesWithoutOverflow()
+    {
+        var fakeTimeProvider = new FakeTimeProvider();
+        var bucket = new TokenBucket(long.MaxValue, long.MaxValue, fakeTimeProvider);
+        bucket.CanConsume(1);
+        // Now (long.MaxValue - 1) tokens; any further refill should saturate at Capacity.
+
+        fakeTimeProvider.AdvanceBy(TimeSpan.FromDays(365));
+        var available = bucket.GetAvailableTokens();
+
+        await Assert.That(available).IsEqualTo(long.MaxValue);
+    }
+
+    /// <summary>
     ///     A fake <see cref="TimeProvider" /> that returns deterministic timestamps under test control.
     /// </summary>
     private sealed class FakeTimeProvider : TimeProvider

@@ -49,12 +49,36 @@ public sealed class SemanticVersionComparerTests
     }
 
     /// <summary>
+    ///     Verifies build metadata containing a hyphen is ignored (not misparsed as pre-release).
+    /// </summary>
+    [Test]
+    public async Task IsNewer_BuildMetadataWithHyphen_IgnoresMetadata()
+    {
+        var result = SemanticVersionComparer.HasNewerVersion("1.0.0", "1.2.3+build-4");
+
+        await Assert.That(result).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies pre-release combined with build metadata is fully stripped.
+    /// </summary>
+    [Test]
+    public async Task IsNewer_PreReleaseAndBuildMetadata_IgnoresMetadata()
+    {
+        var result = SemanticVersionComparer.HasNewerVersion("1.0.0", "1.0.0-alpha+build.7");
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
     ///     Verifies invalid versions throw.
     /// </summary>
     [Test]
     [Arguments("1.0", "1.0.1")]
     [Arguments("1.0.0", "not-a-version")]
     [Arguments("abc.def.ghi", "1.0.0")]
+    [Arguments("1.0.0", "1.2.3.4")]
+    [Arguments("1.2.3.4", "1.0.0")]
     public async Task IsNewer_InvalidVersion_Throws(string current, string candidate)
     {
         await Assert.That(() => SemanticVersionComparer.HasNewerVersion(current, candidate)).Throws<ArgumentException>();

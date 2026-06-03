@@ -243,4 +243,78 @@ public sealed class ServerSentEventsParserTests
         await Assert.That(events.Count).IsEqualTo(1);
         await Assert.That(events[0].Data).IsEqualTo("payload");
     }
+
+    /// <summary>
+    ///     Verifies that an id-only block (no data) does not dispatch a spurious empty
+    ///     event, but the id is preserved and attached to the next real event per the
+    ///     SSE last-event-id semantics.
+    /// </summary>
+    [Test]
+    public async Task Append_IdOnlyBlock_DoesNotDispatchAndPreservesId()
+    {
+        var parser = new ServerSentEventsParser();
+        var bytes = Encoding.UTF8.GetBytes("id: 7\n\ndata: hello\n\n");
+
+        parser.Append(bytes, DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].Data).IsEqualTo("hello");
+        await Assert.That(events[0].Id).IsEqualTo("7");
+    }
+
+    /// <summary>
+    ///     Verifies that a retry-only block does not dispatch a spurious empty event and
+    ///     does not carry the retry value forward to a subsequent event.
+    /// </summary>
+    [Test]
+    public async Task Append_RetryOnlyBlock_DoesNotDispatch()
+    {
+        var parser = new ServerSentEventsParser();
+        var bytes = Encoding.UTF8.GetBytes("retry: 1500\n\ndata: hello\n\n");
+
+        parser.Append(bytes, DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].Data).IsEqualTo("hello");
+        await Assert.That(events[0].RetryMilliseconds).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that an event-only block (no data) does not dispatch a spurious empty
+    ///     event and that the event-type buffer is reset so it does not bleed into the
+    ///     next dispatched event.
+    /// </summary>
+    [Test]
+    public async Task Append_EventOnlyBlock_DoesNotDispatchAndResetsType()
+    {
+        var parser = new ServerSentEventsParser();
+        var bytes = Encoding.UTF8.GetBytes("event: ping\n\ndata: hello\n\n");
+
+        parser.Append(bytes, DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(1);
+        await Assert.That(events[0].Data).IsEqualTo("hello");
+        await Assert.That(events[0].EventType).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that the last-event-id state persists across dispatched events even
+    ///     when subsequent events omit the id field, per the SSE spec.
+    /// </summary>
+    [Test]
+    public async Task Append_OmittedId_InheritsPreviousId()
+    {
+        var parser = new ServerSentEventsParser();
+        var bytes = Encoding.UTF8.GetBytes("id: 42\ndata: first\n\ndata: second\n\n");
+
+        parser.Append(bytes, DateTimeOffset.UtcNow);
+        var events = parser.DrainCompletedEvents();
+
+        await Assert.That(events.Count).IsEqualTo(2);
+        await Assert.That(events[0].Id).IsEqualTo("42");
+        await Assert.That(events[1].Id).IsEqualTo("42");
+    }
 }

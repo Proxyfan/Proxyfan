@@ -1,9 +1,13 @@
 name: ci
 
+# Post-merge gate for `main`. Runs the full build AND the test suite so that
+# regressions introduced by a merged pull request are caught before they ride
+# into the next release. Pull-request validation (build only) lives in
+# `pr.yml` to keep PR feedback fast and the gate cost asymmetric: tests pay
+# their full cost once per merge instead of on every PR push.
+
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -26,5 +30,8 @@ jobs:
 
       - name: Build
         shell: pwsh
-        run: |
-          ./.tools/Invoke-Build.ps1 -Configuration Debug
+        run: ./.tools/Invoke-Build.ps1 -Configuration Debug
+
+      - name: Test
+        shell: pwsh
+        run: ./.tools/Run-Tests.ps1 -Configuration Debug -NoBuild
