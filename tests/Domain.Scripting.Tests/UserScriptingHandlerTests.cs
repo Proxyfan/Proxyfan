@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Scripting.Tests.Stubs;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,9 +24,9 @@ public sealed class UserScriptingHandlerTests
         var handler = new UserScriptingHandler(configuration);
         var source = BuildRequest("GET");
 
-        var result = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
+        var outcome = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
 
-        await Assert.That(result.Method).IsEqualTo("GET");
+        await Assert.That(outcome.Value.Method).IsEqualTo("GET");
     }
 
     /// <summary>
@@ -38,9 +39,9 @@ public sealed class UserScriptingHandlerTests
         var handler = new UserScriptingHandler(configuration);
         var source = BuildRequest("GET");
 
-        var result = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
+        var outcome = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
 
-        await Assert.That(result.Method).IsEqualTo("GET");
+        await Assert.That(outcome.Value.Method).IsEqualTo("GET");
     }
 
     /// <summary>
@@ -56,9 +57,9 @@ public sealed class UserScriptingHandlerTests
         var handler = new UserScriptingHandler(configuration);
         var source = BuildRequest("GET");
 
-        var result = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
+        var outcome = await handler.ApplyRequestAsync("flow", source, CancellationToken.None);
 
-        await Assert.That(result.Method).IsEqualTo("GET");
+        await Assert.That(outcome.Value.Method).IsEqualTo("GET");
     }
 
     /// <summary>
@@ -78,10 +79,10 @@ public sealed class UserScriptingHandlerTests
         var handler = new UserScriptingHandler(configuration);
         var source = BuildRequest("GET");
 
-        var result = await handler.ApplyRequestAsync("flow-1", source, CancellationToken.None);
+        var outcome = await handler.ApplyRequestAsync("flow-1", source, CancellationToken.None);
 
-        await Assert.That(result.Method).IsEqualTo("PATCH");
-        await Assert.That(result.Headers.Get("X-Trace")).IsEqualTo("true");
+        await Assert.That(outcome.Value.Method).IsEqualTo("PATCH");
+        await Assert.That(outcome.Value.Headers.Get("X-Trace")).IsEqualTo("true");
     }
 
     /// <summary>
@@ -98,9 +99,9 @@ public sealed class UserScriptingHandlerTests
         var sourceRequest = BuildRequest("GET");
         var sourceResponse = BuildResponse(200);
 
-        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
+        var outcome = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
 
-        await Assert.That(result.StatusCode).IsEqualTo(200);
+        await Assert.That(outcome.Value.StatusCode).IsEqualTo(200);
     }
 
     /// <summary>
@@ -114,9 +115,9 @@ public sealed class UserScriptingHandlerTests
         var sourceRequest = BuildRequest("GET");
         var sourceResponse = BuildResponse(200);
 
-        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
+        var outcome = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
 
-        await Assert.That(result.StatusCode).IsEqualTo(200);
+        await Assert.That(outcome.Value.StatusCode).IsEqualTo(200);
     }
 
     /// <summary>
@@ -134,9 +135,9 @@ public sealed class UserScriptingHandlerTests
         var sourceRequest = BuildRequest("GET");
         var sourceResponse = BuildResponse(200);
 
-        var result = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
+        var outcome = await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None);
 
-        await Assert.That(result.StatusCode).IsEqualTo(200);
+        await Assert.That(outcome.Value.StatusCode).IsEqualTo(200);
     }
 
     /// <summary>
@@ -156,9 +157,9 @@ public sealed class UserScriptingHandlerTests
         var sourceResponse = BuildResponse(200);
 
         await handler.ApplyRequestAsync("flow-1", sourceRequest, CancellationToken.None);
-        var result = await handler.ApplyResponseAsync("flow-1", sourceRequest, sourceResponse, CancellationToken.None);
+        var outcome = await handler.ApplyResponseAsync("flow-1", sourceRequest, sourceResponse, CancellationToken.None);
 
-        await Assert.That(result.Headers.Get("X-Correlation")).IsEqualTo("abc");
+        await Assert.That(outcome.Value.Headers.Get("X-Correlation")).IsEqualTo("abc");
     }
 
     /// <summary>
@@ -179,10 +180,154 @@ public sealed class UserScriptingHandlerTests
         var sourceRequest = BuildRequest("POST");
         var sourceResponse = BuildResponse(200);
 
-        var result = await handler.ApplyResponseAsync("flow-2", sourceRequest, sourceResponse, CancellationToken.None);
+        var outcome = await handler.ApplyResponseAsync("flow-2", sourceRequest, sourceResponse, CancellationToken.None);
 
-        await Assert.That(result.StatusCode).IsEqualTo(201);
-        await Assert.That(result.Headers.Get("X-Override")).IsEqualTo("yes");
+        await Assert.That(outcome.Value.StatusCode).IsEqualTo(201);
+        await Assert.That(outcome.Value.Headers.Get("X-Override")).IsEqualTo("yes");
+    }
+
+    /// <summary>
+    ///     Verifies that a request-phase script that throws is surfaced as a
+    ///     <see cref="ScriptError" /> failure result rather than escaping as a raw exception.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_ScriptThrows_ReturnsScriptErrorFailure()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new ThrowingUserScript("boom-request", throwOnRequest: true));
+        var handler = new UserScriptingHandler(configuration);
+        var source = BuildRequest("GET");
+
+        var outcome = await handler.ApplyRequestAsync("flow-throw", source, CancellationToken.None);
+
+        await Assert.That(outcome.IsSuccess).IsFalse();
+        await Assert.That(outcome.Error).IsTypeOf<ScriptError>();
+        await Assert.That(outcome.Error!.Code).IsEqualTo("SCRIPT_REQUEST_FAILED");
+        await Assert.That(outcome.Error.Message).IsEqualTo("boom-request");
+    }
+
+    /// <summary>
+    ///     Verifies that a response-phase script that throws is surfaced as a
+    ///     <see cref="ScriptError" /> failure result rather than escaping as a raw exception.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_ScriptThrows_ReturnsScriptErrorFailure()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new ThrowingUserScript("boom-response", throwOnResponse: true));
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        var outcome = await handler.ApplyResponseAsync("flow-throw", sourceRequest, sourceResponse, CancellationToken.None);
+
+        await Assert.That(outcome.IsSuccess).IsFalse();
+        await Assert.That(outcome.Error).IsTypeOf<ScriptError>();
+        await Assert.That(outcome.Error!.Code).IsEqualTo("SCRIPT_RESPONSE_FAILED");
+        await Assert.That(outcome.Error.Message).IsEqualTo("boom-response");
+    }
+
+    /// <summary>
+    ///     Verifies that a script-phase <see cref="OperationCanceledException" /> is still
+    ///     propagated to the caller because cancellation is not a script failure.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_ScriptCancels_PropagatesCancellation()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new ThrowingUserScript("cancel", throwOnRequest: true, exceptionFactory: () => new OperationCanceledException("cancelled")));
+        var handler = new UserScriptingHandler(configuration);
+        var source = BuildRequest("GET");
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await handler.ApplyRequestAsync("flow-cancel", source, CancellationToken.None);
+        });
+    }
+
+    private sealed class ThrowingUserScript : IUserScript
+    {
+        private readonly Func<Exception> _exceptionFactory;
+        private readonly bool _throwOnRequest;
+        private readonly bool _throwOnResponse;
+
+        public ThrowingUserScript(
+            string displayName,
+            bool throwOnRequest = false,
+            bool throwOnResponse = false,
+            Func<Exception>? exceptionFactory = null)
+        {
+            DisplayName = displayName;
+            _throwOnRequest = throwOnRequest;
+            _throwOnResponse = throwOnResponse;
+            _exceptionFactory = exceptionFactory ?? (() => new InvalidOperationException(displayName));
+            IsRequestPhaseEnabled = throwOnRequest;
+            IsResponsePhaseEnabled = throwOnResponse;
+        }
+
+        public string DisplayName { get; }
+
+        public bool IsRequestPhaseEnabled { get; }
+
+        public bool IsResponsePhaseEnabled { get; }
+
+        public Task OnRequestAsync(ScriptableRequest request, IDictionary<string, object?> sharedState, CancellationToken cancellationToken)
+        {
+            if (_throwOnRequest)
+            {
+                throw _exceptionFactory();
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task OnResponseAsync(ScriptableRequest request, ScriptableResponse response, IDictionary<string, object?> sharedState, CancellationToken cancellationToken)
+        {
+            if (_throwOnResponse)
+            {
+                throw _exceptionFactory();
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that when the script sets an invalid request URL the handler throws so the
+    ///     scripting wrappers can log the failure rather than silently producing malformed HTTP.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_InvalidScriptUrl_Throws()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "bad-url",
+            onRequest: (request, state) => request.Url = "not a url"));
+        var handler = new UserScriptingHandler(configuration);
+        var source = BuildRequest("GET");
+
+        await Assert.That(async () => await handler.ApplyRequestAsync("flow", source, CancellationToken.None))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     Verifies that when the script sets an out-of-range status code the handler throws so
+    ///     the scripting wrappers can log the failure rather than silently producing malformed
+    ///     HTTP.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_InvalidScriptStatusCode_Throws()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "bad-status",
+            onResponse: (req, resp, state) => resp.StatusCode = 99999));
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        await Assert.That(async () => await handler.ApplyResponseAsync("flow", sourceRequest, sourceResponse, CancellationToken.None))
+            .Throws<InvalidOperationException>();
     }
 
     private static HypertextTransferProtocolRequestData BuildRequest(string method)

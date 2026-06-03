@@ -2,7 +2,6 @@
 
 > **An open-source HTTP debugging proxy for Windows — a free alternative to Charles, Fiddler, and Burp Suite.**
 
-[![CI](https://github.com/Proxyfan/Proxyfan/actions/workflows/ci.yml/badge.svg)](https://github.com/Proxyfan/Proxyfan/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dot.net)
 

@@ -97,6 +97,15 @@ public sealed class TrafficWorkspaceTabTests
     }
 
     [Test]
+    public async Task SetFilterQuery_Whitespace_NormalisesToEmpty()
+    {
+        var tab = new TrafficWorkspaceTab("Tab");
+        tab.SetFilterQuery("filter");
+        tab.SetFilterQuery("   ");
+        await Assert.That(tab.FilterQuery).IsEqualTo(string.Empty);
+    }
+
+    [Test]
     public async Task SetSelectedFlowId_NewValue_RaisesChangedAndUpdatesSelection()
     {
         var tab = new TrafficWorkspaceTab("Tab");

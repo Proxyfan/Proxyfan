@@ -2,6 +2,7 @@
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
@@ -85,6 +86,41 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
     }
 
     /// <summary>
+    ///     Verifies that a Map Local short-circuit skips the request-phase scripting hook so
+    ///     user scripts cannot mutate or observe a request that is not forwarded.
+    /// </summary>
+    [Test]
+    public async Task HandleAsync_MapLocalMatch_DoesNotInvokeRequestScriptingHook()
+    {
+        var matching = new MatchingRule("*", MatchingRuleKind.Wildcard);
+        var parameters = new MapLocalRuleParameters
+        {
+            Body = Encoding.UTF8.GetBytes("hello local"),
+            Headers = new[] { new KeyValuePair<string, string>("Content-Type", "text/plain"), new KeyValuePair<string, string>("Content-Length", "11") },
+            IsEnabled = true,
+            Priority = 0,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+        var mapLocal = new MapLocalRule(matching, parameters);
+        var ruleEngine = new RuleEngine(new IRequestPhaseRule[] { mapLocal }, Array.Empty<IResponsePhaseRule>());
+        var scripting = new StubScriptingHandler();
+        var handler = CreateHandler(ruleEngine, out var trafficStore, scripting);
+        var connection = new StubFullDuplexProxyConnection();
+
+        var requestBytes = Encoding.ASCII.GetBytes("GET http://anything.example/ HTTP/1.1\r\nHost: anything.example\r\n\r\n");
+        await connection.InputWriter.WriteAsync(requestBytes);
+        await connection.InputWriter.CompleteAsync();
+
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await handler.HandleAsync(connection, cancellationSource.Token);
+        await connection.Transport.Output.CompleteAsync();
+
+        await Assert.That(scripting.RequestInvocationCount).IsEqualTo(0);
+        await Assert.That(trafficStore.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Verifies that an AllowList that does not match the request also writes a 403 response.
     /// </summary>
     [Test]
@@ -148,7 +184,7 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
         await Assert.That(trafficStore.Count).IsEqualTo(1);
     }
 
-    private static HypertextTransferProtocolProxyHandler CreateHandler(IRuleEngine ruleEngine, out StubTrafficStore trafficStore)
+    private static HypertextTransferProtocolProxyHandler CreateHandler(IRuleEngine ruleEngine, out StubTrafficStore trafficStore, IScriptingHandler? scriptingHandler = null)
     {
         var newStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
@@ -158,6 +194,7 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
             EventBus = eventBus,
             RuleEngine = ruleEngine,
             Logger = NullLogger<HypertextTransferProtocolProxyHandler>.Instance,
+            ScriptingHandler = scriptingHandler,
         });
         trafficStore = newStore;
         return handler;
