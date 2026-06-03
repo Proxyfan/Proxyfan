@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace Proxyfan.Domain.Session.Har;
 
@@ -40,13 +41,14 @@ public static class HarDocumentWriter
     /// </summary>
     /// <param name="writer">The destination writer.</param>
     /// <param name="flows">The traffic flows to serialize as entries.</param>
-    public static void WriteLog(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows)
+    /// <param name="cancellationToken">Token observed between entries and before expensive body serialization.</param>
+    public static void WriteLog(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows, CancellationToken cancellationToken)
     {
         writer.WriteStartObject();
         writer.WriteStartObject("log");
         writer.WriteString("version", HarVersion);
         WriteCreator(writer);
-        WriteEntries(writer, flows);
+        WriteEntries(writer, flows, cancellationToken);
         writer.WriteEndObject();
         writer.WriteEndObject();
     }
@@ -57,7 +59,7 @@ public static class HarDocumentWriter
         writer.WriteEndObject();
     }
 
-    private static void WriteContent(Utf8JsonWriter writer, HypertextTransferProtocolResponseData response)
+    private static void WriteContent(Utf8JsonWriter writer, HypertextTransferProtocolResponseData response, CancellationToken cancellationToken)
     {
         writer.WriteStartObject("content");
         writer.WriteNumber("size", response.Body.Length);
@@ -66,6 +68,7 @@ public static class HarDocumentWriter
 
         if (response.Body.Length > 0 && HasTextLikeMimeType(mimeType))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             writer.WriteString("text", Encoding.UTF8.GetString(response.Body.Span));
         }
 
@@ -147,19 +150,20 @@ public static class HarDocumentWriter
         writer.WriteEndObject();
     }
 
-    private static void WriteEntries(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows)
+    private static void WriteEntries(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows, CancellationToken cancellationToken)
     {
         writer.WriteStartArray("entries");
 
         foreach (var flow in flows)
         {
-            WriteEntry(writer, flow);
+            cancellationToken.ThrowIfCancellationRequested();
+            WriteEntry(writer, flow, cancellationToken);
         }
 
         writer.WriteEndArray();
     }
 
-    private static void WriteEntry(Utf8JsonWriter writer, TrafficFlow flow)
+    private static void WriteEntry(Utf8JsonWriter writer, TrafficFlow flow, CancellationToken cancellationToken)
     {
         writer.WriteStartObject();
         writer.WriteString("startedDateTime", flow.StartedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
@@ -177,7 +181,7 @@ public static class HarDocumentWriter
 
         if (flow.Response is not null)
         {
-            WriteResponse(writer, flow.Response);
+            WriteResponse(writer, flow.Response, cancellationToken);
         }
         else
         {
@@ -264,7 +268,7 @@ public static class HarDocumentWriter
         writer.WriteEndObject();
     }
 
-    private static void WriteResponse(Utf8JsonWriter writer, HypertextTransferProtocolResponseData response)
+    private static void WriteResponse(Utf8JsonWriter writer, HypertextTransferProtocolResponseData response, CancellationToken cancellationToken)
     {
         writer.WriteStartObject("response");
         writer.WriteNumber("status", response.StatusCode);
@@ -272,7 +276,7 @@ public static class HarDocumentWriter
         writer.WriteString("httpVersion", response.Version);
         WriteCookies(writer, response.Headers);
         WriteHeaders(writer, response.Headers);
-        WriteContent(writer, response);
+        WriteContent(writer, response, cancellationToken);
         writer.WriteString("redirectURL", response.Headers.Get("Location") ?? string.Empty);
         writer.WriteNumber("headersSize", -1);
         writer.WriteNumber("bodySize", response.Body.Length);

@@ -346,6 +346,23 @@ public sealed class HarExporterTests
         await Assert.That(cookies.GetArrayLength()).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies that a token cancelled before export throws OperationCanceledException
+    ///     promptly without serializing all entries.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_CancelledToken_ThrowsOperationCanceledException()
+    {
+        var exporter = new HarExporter();
+        var flows = new List<TrafficFlow> { CreateCompletedFlow(), CreateCompletedFlow() };
+        using var output = new MemoryStream();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.That(async () => await exporter.ExportAsync(flows, output, cts.Token))
+            .Throws<OperationCanceledException>();
+    }
+
     private static TrafficFlow CreateCompletedFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9000", DateTimeOffset.UtcNow);
