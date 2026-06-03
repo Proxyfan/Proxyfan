@@ -90,7 +90,19 @@ public sealed class FormattingService : INotifyPropertyChanged, IDisposable
     public string FormatDuration(TimeSpan value)
     {
         var sign = value.Ticks < 0 ? "-" : string.Empty;
-        var magnitude = value.Ticks < 0 ? value.Negate() : value;
+        TimeSpan magnitude;
+        if (value == TimeSpan.MinValue)
+        {
+            magnitude = TimeSpan.MaxValue;
+        }
+        else if (value.Ticks < 0)
+        {
+            magnitude = value.Negate();
+        }
+        else
+        {
+            magnitude = value;
+        }
         if (magnitude.TotalMilliseconds < 1.0)
         {
             return sign + magnitude.TotalMilliseconds.ToString("F2", CurrentCulture) + " ms";
