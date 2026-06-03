@@ -78,6 +78,31 @@ public sealed class TrafficFlowViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that updating the response raises <see cref="Client.Traffic.ViewModels.TrafficFlowViewModel.Response" />
+    ///     property-changed notifications so response-driven UI cells can refresh.
+    /// </summary>
+    [Test]
+    public async Task UpdateResponse_WithResponseEvent_RaisesResponsePropertyChanged()
+    {
+        var requestEvent = CreateRequestEvent();
+        var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
+        var responseEvent = CreateResponseEvent(requestEvent.TrafficFlowId);
+        var raised = false;
+
+        viewModel.PropertyChanged += (_, propertyChangedEventArgs) =>
+        {
+            if (propertyChangedEventArgs.PropertyName == nameof(Client.Traffic.ViewModels.TrafficFlowViewModel.Response))
+            {
+                raised = true;
+            }
+        };
+
+        viewModel.UpdateResponse(responseEvent);
+
+        await Assert.That(raised).IsTrue();
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="Client.Traffic.ViewModels.TrafficFlowViewModel.UpdateStatus" /> sets the terminal status and duration.
     /// </summary>
     [Test]

@@ -68,7 +68,22 @@ public sealed class CustomColumnGridSynchronizer
                 return textBlock;
             }
 
-            textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
+            void UpdateText()
+            {
+                textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
+            }
+
+            void OnFlowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs propertyChangedEventArgs)
+            {
+                if (propertyChangedEventArgs.PropertyName == nameof(TrafficFlowViewModel.Response))
+                {
+                    UpdateText();
+                }
+            }
+
+            UpdateText();
+            flow.PropertyChanged += OnFlowPropertyChanged;
+            textBlock.DetachedFromVisualTree += (_, _) => flow.PropertyChanged -= OnFlowPropertyChanged;
             return textBlock;
         });
         var width = new DataGridLength(120);
