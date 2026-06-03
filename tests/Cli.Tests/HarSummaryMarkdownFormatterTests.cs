@@ -105,6 +105,35 @@ public sealed class HarSummaryMarkdownFormatterTests
         await Assert.That(result.Contains("| - |", StringComparison.Ordinal)).IsTrue();
     }
 
+    /// <summary>
+    ///     Verifies a method containing a pipe character is escaped so the
+    ///     surrounding Markdown table row is not split into extra columns.
+    /// </summary>
+    [Test]
+    public async Task Format_MethodWithPipe_EscapesPipe()
+    {
+        var flow = BuildFlow("GET|EVIL", "https://example.com/", 200);
+        var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
+
+        await Assert.That(result.Contains("GET\\|EVIL", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Contains("GET|EVIL", StringComparison.Ordinal)).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies a method containing newline characters is normalised to a
+    ///     single line so the row is not broken across multiple table lines.
+    /// </summary>
+    [Test]
+    public async Task Format_MethodWithNewlines_NormalisesToSingleLine()
+    {
+        var flow = BuildFlow("GET\r\nINJECT", "https://example.com/", 200);
+        var result = HarSummaryMarkdownFormatter.Format(new[] { flow });
+
+        await Assert.That(result.Contains("GET INJECT", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Contains("GET\r\nINJECT", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(result.Contains("GET\nINJECT", StringComparison.Ordinal)).IsFalse();
+    }
+
     private static TrafficFlow BuildFlow(string method, string url, int status)
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);

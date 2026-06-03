@@ -40,11 +40,11 @@ public static class HarSummaryMarkdownFormatter
         builder.Append("| ");
         builder.Append(sequenceNumber.ToString(CultureInfo.InvariantCulture));
         builder.Append(" | ");
-        builder.Append(status);
+        builder.Append(EscapeTableCell(status));
         builder.Append(" | ");
-        builder.Append(method);
+        builder.Append(EscapeTableCell(method));
         builder.Append(" | `");
-        builder.Append(EscapeBackticks(url));
+        builder.Append(EscapeTableCell(EscapeBackticks(url)));
         builder.AppendLine("` |");
     }
 
@@ -53,6 +53,25 @@ public static class HarSummaryMarkdownFormatter
         if (value.Contains('`', System.StringComparison.Ordinal))
         {
             return value.Replace("`", "\\`", System.StringComparison.Ordinal);
+        }
+
+        return value;
+    }
+
+    private static string EscapeTableCell(string value)
+    {
+        if (value.Contains('\r', System.StringComparison.Ordinal)
+            || value.Contains('\n', System.StringComparison.Ordinal))
+        {
+            value = value
+                .Replace("\r\n", " ", System.StringComparison.Ordinal)
+                .Replace("\r", " ", System.StringComparison.Ordinal)
+                .Replace("\n", " ", System.StringComparison.Ordinal);
+        }
+
+        if (value.Contains('|', System.StringComparison.Ordinal))
+        {
+            value = value.Replace("|", "\\|", System.StringComparison.Ordinal);
         }
 
         return value;
