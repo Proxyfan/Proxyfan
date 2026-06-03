@@ -116,25 +116,16 @@ public sealed class HypertextTransferProtocolVersion2ResponseTranslationTests
         var response = BuildResponse(200, "OK", headers, ReadOnlyMemory<byte>.Empty);
 
         var result = HypertextTransferProtocolVersion2ResponseTranslation.Translate(response);
-
+        var names = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < result.Headers.Count; index++)
         {
-            var name = result.Headers[index].Name;
-            await Assert.That(string.Equals(name, "x-internal", StringComparison.OrdinalIgnoreCase)).IsFalse();
-            await Assert.That(string.Equals(name, "x-trace", StringComparison.OrdinalIgnoreCase)).IsFalse();
-            await Assert.That(string.Equals(name, "x-another", StringComparison.OrdinalIgnoreCase)).IsFalse();
+            names.Add(result.Headers[index].Name);
         }
 
-        var hasContentType = false;
-        for (var index = 0; index < result.Headers.Count; index++)
-        {
-            if (string.Equals(result.Headers[index].Name, "content-type", StringComparison.Ordinal))
-            {
-                hasContentType = true;
-                break;
-            }
-        }
-        await Assert.That(hasContentType).IsTrue();
+        await Assert.That(names.Contains("x-internal")).IsFalse();
+        await Assert.That(names.Contains("x-trace")).IsFalse();
+        await Assert.That(names.Contains("x-another")).IsFalse();
+        await Assert.That(names.Contains("content-type")).IsTrue();
     }
 
     /// <summary>
