@@ -2,6 +2,7 @@
 using Proxyfan.Framework.Platform;
 using System;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -97,6 +98,48 @@ public sealed class CertificateAuthorityTests
         var secondLeaf = authority.Sign("repeated.example.com");
 
         await Assert.That(firstLeaf).IsNotSameReferenceAs(secondLeaf);
+    }
+
+    /// <summary>
+    ///     Verifies that a leaf certificate generated for an IPv4 address literal carries an
+    ///     iPAddress Subject Alternative Name entry rather than a DNS name entry.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIPv4Address_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        var leaf = authority.Sign("192.168.1.1");
+
+        var san = leaf.Extensions
+            .OfType<X509SubjectAlternativeNameExtension>()
+            .FirstOrDefault();
+        await Assert.That(san).IsNotNull();
+        var ipAddresses = san!.EnumerateIPAddresses().ToList();
+        await Assert.That(ipAddresses).Contains(IPAddress.Parse("192.168.1.1"));
+        var dnsNames = san.EnumerateDnsNames().ToList();
+        await Assert.That(dnsNames).IsEmpty();
+    }
+
+    /// <summary>
+    ///     Verifies that a leaf certificate generated for an IPv6 address literal carries an
+    ///     iPAddress Subject Alternative Name entry rather than a DNS name entry.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIPv6Address_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        var leaf = authority.Sign("::1");
+
+        var san = leaf.Extensions
+            .OfType<X509SubjectAlternativeNameExtension>()
+            .FirstOrDefault();
+        await Assert.That(san).IsNotNull();
+        var ipAddresses = san!.EnumerateIPAddresses().ToList();
+        await Assert.That(ipAddresses).Contains(IPAddress.Parse("::1"));
+        var dnsNames = san.EnumerateDnsNames().ToList();
+        await Assert.That(dnsNames).IsEmpty();
     }
 
     private static async Task<CertificateAuthority> CreateAuthorityAsync(CancellationToken cancellationToken)
