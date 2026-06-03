@@ -47,4 +47,18 @@ public sealed class HeaderCollectionAdditionalTests
 
         await Assert.That(count).IsEqualTo(2);
     }
+
+    /// <summary>
+    ///     Verifies that returned arrays from <see cref="HeaderCollection.GetAll" /> are defensive copies.
+    /// </summary>
+    [Test]
+    public async Task GetAll_WhenReturnedArrayMutated_DoesNotChangeStoredHeader()
+    {
+        var headers = HeaderCollection.Empty.Add("Accept", "application/json");
+        var values = headers.GetAll("Accept");
+
+        values[0] = "text/plain";
+
+        await Assert.That(headers.Get("Accept")).IsEqualTo("application/json");
+    }
 }

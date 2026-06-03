@@ -26,28 +26,28 @@ public static class HypertextTransferProtocolHeaderParser
         }
 
         var headerLines = headerSection.Split(["\r\n"], StringSplitOptions.None);
-        var currentHeaders = HeaderCollection.Empty;
+        var builder = new HeaderCollection.Builder();
 
         foreach (var headerLine in headerLines)
         {
-            currentHeaders = AddHeaderIfValid(currentHeaders, headerLine);
+            AddHeaderIfValid(builder, headerLine);
         }
 
-        return currentHeaders;
+        return builder.Build();
     }
 
-    private static HeaderCollection AddHeaderIfValid(HeaderCollection headers, string headerLine)
+    private static void AddHeaderIfValid(HeaderCollection.Builder headers, string headerLine)
     {
         if (string.IsNullOrEmpty(headerLine))
         {
-            return headers;
+            return;
         }
 
         var separatorIndex = headerLine.IndexOf(':', StringComparison.Ordinal);
 
         if (separatorIndex <= 0)
         {
-            return headers;
+            return;
         }
 
         var name = headerLine[..separatorIndex].Trim();
@@ -55,9 +55,9 @@ public static class HypertextTransferProtocolHeaderParser
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            return headers;
+            return;
         }
 
-        return headers.Add(name, value);
+        headers.Add(name, value);
     }
 }

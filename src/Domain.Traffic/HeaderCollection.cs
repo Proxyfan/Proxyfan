@@ -24,13 +24,18 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
     static HeaderCollection()
     {
         var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-        var empty = new HeaderCollection(headers);
+        var empty = new HeaderCollection(headers, hasOwnedHeaders: true);
         Empty = empty;
     }
 
     private HeaderCollection(Dictionary<string, string[]> headers)
+        : this(headers, hasOwnedHeaders: false)
     {
-        _headers = CloneHeaders(headers);
+    }
+
+    private HeaderCollection(Dictionary<string, string[]> headers, bool hasOwnedHeaders)
+    {
+        _headers = hasOwnedHeaders ? headers : CloneHeaders(headers);
     }
 
     /// <summary>
@@ -89,7 +94,7 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
             headers.Add(name, values);
         }
 
-        var headerCollection = new HeaderCollection(headers);
+        var headerCollection = new HeaderCollection(headers, hasOwnedHeaders: true);
         return headerCollection;
     }
 
@@ -129,6 +134,21 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         }
 
         return [];
+    }
+
+    /// <summary>
+    ///     Returns a read-only view over the stored header values without cloning arrays, intended
+    ///     for high-throughput read-only processing paths.
+    /// </summary>
+    /// <returns>
+    ///     An enumerable of header names and read-only value lists.
+    /// </returns>
+    public IEnumerable<KeyValuePair<string, IReadOnlyList<string>>> GetReadOnlyEntries()
+    {
+        foreach (KeyValuePair<string, string[]> header in _headers)
+        {
+            yield return new KeyValuePair<string, IReadOnlyList<string>>(header.Key, header.Value);
+        }
     }
 
     /// <summary>

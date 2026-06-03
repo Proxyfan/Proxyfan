@@ -54,11 +54,11 @@ public static class ForwardedResponseRewriter
             connectionListedHeaders.Add(token);
         }
 
-        var sanitized = HeaderCollection.Empty;
+        var sanitized = new HeaderCollection.Builder();
         var hasExistingVia = false;
         string existingViaChain = string.Empty;
 
-        foreach (var header in response.Headers)
+        foreach (var header in response.Headers.GetReadOnlyEntries())
         {
             if (AlwaysStrippedHeaders.Contains(header.Key))
             {
@@ -79,18 +79,18 @@ public static class ForwardedResponseRewriter
 
             foreach (var value in header.Value)
             {
-                sanitized = sanitized.Add(header.Key, value);
+                sanitized.Add(header.Key, value);
             }
         }
 
-        sanitized = sanitized.Add("Content-Length", response.Body.Length.ToString(CultureInfo.InvariantCulture));
+        sanitized.Add("Content-Length", response.Body.Length.ToString(CultureInfo.InvariantCulture));
         var viaValue = hasExistingVia ? existingViaChain + ", " + ProxyViaIdentity : ProxyViaIdentity;
-        sanitized = sanitized.Add("Via", viaValue);
+        sanitized.Add("Via", viaValue);
 
         var parameters = new HypertextTransferProtocolResponseDataParameters
         {
             Body = response.Body,
-            Headers = sanitized,
+            Headers = sanitized.Build(),
             ReasonPhrase = response.ReasonPhrase,
             StatusCode = response.StatusCode,
             Version = response.Version,

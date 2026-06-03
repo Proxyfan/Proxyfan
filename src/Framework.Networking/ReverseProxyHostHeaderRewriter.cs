@@ -34,16 +34,16 @@ public static class ReverseProxyHostHeaderRewriter
         int backendPort)
     {
         var hostValue = BuildHostValue(backendHost, backendPort);
-        var rewritten = HeaderCollection.Empty;
+        var rewritten = new HeaderCollection.Builder();
         var hostReplaced = false;
 
-        foreach (var header in request.Headers)
+        foreach (var header in request.Headers.GetReadOnlyEntries())
         {
             if (string.Equals(header.Key, HostHeaderName, StringComparison.OrdinalIgnoreCase))
             {
                 if (!hostReplaced)
                 {
-                    rewritten = rewritten.Add(HostHeaderName, hostValue);
+                    rewritten.Add(HostHeaderName, hostValue);
                     hostReplaced = true;
                 }
 
@@ -52,19 +52,19 @@ public static class ReverseProxyHostHeaderRewriter
 
             foreach (var value in header.Value)
             {
-                rewritten = rewritten.Add(header.Key, value);
+                rewritten.Add(header.Key, value);
             }
         }
 
         if (!hostReplaced)
         {
-            rewritten = rewritten.Add(HostHeaderName, hostValue);
+            rewritten.Add(HostHeaderName, hostValue);
         }
 
         var parameters = new HypertextTransferProtocolRequestDataParameters
         {
             Body = request.Body,
-            Headers = rewritten,
+            Headers = rewritten.Build(),
             Method = request.Method,
             RequestUri = request.RequestUri,
             Version = request.Version,

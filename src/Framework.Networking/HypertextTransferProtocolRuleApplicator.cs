@@ -198,7 +198,7 @@ public static class HypertextTransferProtocolRuleApplicator
         var builder = new StringBuilder();
         builder.Append(request.Method).Append(' ').Append(request.RequestUri).Append(' ').Append(request.Version).Append("\r\n");
 
-        foreach (var header in request.Headers)
+        foreach (var header in request.Headers.GetReadOnlyEntries())
         {
             foreach (var value in header.Value)
             {
@@ -215,7 +215,7 @@ public static class HypertextTransferProtocolRuleApplicator
         var builder = new StringBuilder();
         builder.Append(response.Version).Append(' ').Append(response.StatusCode).Append(' ').Append(response.ReasonPhrase).Append("\r\n");
 
-        foreach (var header in response.Headers)
+        foreach (var header in response.Headers.GetReadOnlyEntries())
         {
             foreach (var value in header.Value)
             {
