@@ -11,11 +11,14 @@ namespace Proxyfan.Client.Inspector;
 ///     for the gRPC inspector tab. Uncompressed payloads are rendered as a schema-less
 ///     protobuf field tree (via <see cref="ProtobufPrettyPrinter" />) followed by a hex+ASCII
 ///     dump for verification; compressed payloads are shown as hex only (Proxyfan does not
-///     decompress gRPC frames by default).
+///     decompress gRPC frames by default). Payloads larger than
+///     <c>DetailPayloadByteLimit</c> bytes have their decoded tree skipped and their hex
+///     dump truncated so the inspector remains responsive on large messages.
 /// </summary>
 public static class RemoteProcedureCallPayloadFormatter
 {
     private const int BytesPerHexLine = 16;
+    private const int DetailPayloadByteLimit = 64 * 1024;
     private const int PreviewByteLimit = 24;
 
     /// <summary>
@@ -120,6 +123,14 @@ public static class RemoteProcedureCallPayloadFormatter
             return;
         }
 
+        if (capturedMessage.Payload.Length > DetailPayloadByteLimit)
+        {
+            builder.AppendLine("Decoded protobuf: (skipped; payload exceeds preview limit)");
+            builder.AppendLine();
+            builder.AppendLine("Raw bytes:");
+            return;
+        }
+
         string prettyPrinted;
         string heading;
         if (schema is not null && index is not null)
@@ -152,9 +163,10 @@ public static class RemoteProcedureCallPayloadFormatter
             return;
         }
 
-        for (var offset = 0; offset < payload.Length; offset += BytesPerHexLine)
+        var dumpLength = Math.Min(payload.Length, DetailPayloadByteLimit);
+        for (var offset = 0; offset < dumpLength; offset += BytesPerHexLine)
         {
-            var lineLength = Math.Min(BytesPerHexLine, payload.Length - offset);
+            var lineLength = Math.Min(BytesPerHexLine, dumpLength - offset);
             builder.Append(offset.ToString("X8", CultureInfo.InvariantCulture));
             builder.Append("  ");
 
@@ -180,6 +192,13 @@ public static class RemoteProcedureCallPayloadFormatter
             }
 
             builder.AppendLine();
+        }
+
+        if (payload.Length > dumpLength)
+        {
+            builder.Append("… (");
+            builder.Append((payload.Length - dumpLength).ToString(CultureInfo.InvariantCulture));
+            builder.AppendLine(" more bytes truncated)");
         }
     }
 

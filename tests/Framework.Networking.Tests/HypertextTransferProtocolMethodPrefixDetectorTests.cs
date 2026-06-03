@@ -12,7 +12,9 @@ namespace Proxyfan.Framework.Networking.Tests;
 public sealed class HypertextTransferProtocolMethodPrefixDetectorTests
 {
     /// <summary>
-    ///     Every standard HTTP/1.1 method token followed by a space is detected.
+    ///     Every standard HTTP/1.1 method token followed by a space is detected, along with
+    ///     RFC 7230 extension method tokens such as the WebDAV methods <c>PROPFIND</c> /
+    ///     <c>MKCOL</c> and the SSDP-style <c>M-SEARCH</c>.
     /// </summary>
     [Test]
     [Arguments("GET / HTTP/1.1\r\n")]
@@ -23,7 +25,13 @@ public sealed class HypertextTransferProtocolMethodPrefixDetectorTests
     [Arguments("OPTIONS * HTTP/1.1\r\n")]
     [Arguments("PATCH /api HTTP/1.1\r\n")]
     [Arguments("TRACE /diag HTTP/1.1\r\n")]
-    public async Task HasMethodPrefix_StandardMethodToken_ReturnsTrue(string line)
+    [Arguments("CONNECT example.com:443 HTTP/1.1\r\n")]
+    [Arguments("PROPFIND /dav HTTP/1.1\r\n")]
+    [Arguments("MKCOL /dav/new HTTP/1.1\r\n")]
+    [Arguments("PROPPATCH /dav HTTP/1.1\r\n")]
+    [Arguments("M-SEARCH * HTTP/1.1\r\n")]
+    [Arguments("FOOBAR / HTTP/1.1\r\n")]
+    public async Task HasMethodPrefix_MethodTokenFollowedBySpace_ReturnsTrue(string line)
     {
         var bytes = Encoding.ASCII.GetBytes(line);
         var sequence = new ReadOnlySequence<byte>(bytes);
@@ -34,13 +42,14 @@ public sealed class HypertextTransferProtocolMethodPrefixDetectorTests
     }
 
     /// <summary>
-    ///     Bytes that do not look like an HTTP method token are rejected.
+    ///     Bytes that cannot start an HTTP request line — non-token leading characters such as
+    ///     TLS handshake bytes or lowercase ASCII — are rejected.
     /// </summary>
     [Test]
     [Arguments("hello world")]
     [Arguments("\x16\x03\x01")]
-    [Arguments("FOOBAR / HTTP/1.1\r\n")]
-    [Arguments("CONNECT example.com:443 HTTP/1.1\r\n")]
+    [Arguments("\0\0\0\0")]
+    [Arguments("/ HTTP/1.1\r\n")]
     public async Task HasMethodPrefix_NonHttpBytes_ReturnsFalse(string line)
     {
         var bytes = Encoding.ASCII.GetBytes(line);
@@ -87,6 +96,22 @@ public sealed class HypertextTransferProtocolMethodPrefixDetectorTests
     public async Task HasMethodPrefix_LowerCaseMethod_ReturnsFalse()
     {
         var bytes = Encoding.ASCII.GetBytes("get / HTTP/1.1\r\n");
+        var sequence = new ReadOnlySequence<byte>(bytes);
+
+        var result = HypertextTransferProtocolMethodPrefixDetector.HasMethodPrefix(sequence);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    ///     A long stream of token-shaped bytes with no terminating space within the bounded
+    ///     peek window is rejected so the detector does not run away over an arbitrary binary
+    ///     payload that happens to start with uppercase ASCII.
+    /// </summary>
+    [Test]
+    public async Task HasMethodPrefix_TokenLongerThanPeekWindow_ReturnsFalse()
+    {
+        var bytes = Encoding.ASCII.GetBytes(new string('A', 64));
         var sequence = new ReadOnlySequence<byte>(bytes);
 
         var result = HypertextTransferProtocolMethodPrefixDetector.HasMethodPrefix(sequence);

@@ -157,36 +157,137 @@ public sealed class HypertextTransferProtocolVersion2RequestTranslationTests
     }
 
     /// <summary>
-    ///     When the HEADERS block omits <c>:scheme</c>, the translator defaults to <c>https</c>
-    ///     since the proxy operates over TLS-intercepted connections.
+    ///     When the HEADERS block omits <c>:scheme</c>, the translator rejects the request as
+    ///     malformed rather than fabricating a default that may not match what the peer sent.
     /// </summary>
     [Test]
-    public async Task Translate_MissingSchemePseudoHeader_DefaultsToHttps()
+    public async Task Translate_MissingSchemePseudoHeader_Throws()
     {
         var headers = BuildHeaderList(
             (":method", "GET"),
             (":authority", "example.com"),
             (":path", "/"));
 
-        var request = HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty);
-
-        await Assert.That(request.RequestUri.Scheme).IsEqualTo("https");
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
     }
 
     /// <summary>
-    ///     When the HEADERS block omits <c>:path</c>, the translator falls back to <c>/</c>.
+    ///     When the HEADERS block omits <c>:path</c>, the translator rejects the request as
+    ///     malformed rather than silently substituting <c>/</c>.
     /// </summary>
     [Test]
-    public async Task Translate_MissingPathPseudoHeader_DefaultsToRootPath()
+    public async Task Translate_MissingPathPseudoHeader_Throws()
     {
         var headers = BuildHeaderList(
             (":method", "GET"),
             (":scheme", "https"),
             (":authority", "example.com"));
 
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
+    }
+
+    /// <summary>
+    ///     RFC 7540 § 8.1.2.1 forbids duplicate pseudo-headers — the translator must reject
+    ///     such header lists rather than silently overwriting the earlier value.
+    /// </summary>
+    [Test]
+    public async Task Translate_DuplicatePseudoHeader_Throws()
+    {
+        var headers = BuildHeaderList(
+            (":method", "GET"),
+            (":method", "POST"),
+            (":scheme", "https"),
+            (":authority", "example.com"),
+            (":path", "/"));
+
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
+    }
+
+    /// <summary>
+    ///     RFC 7540 § 8.1.2.1 requires pseudo-headers to precede regular headers — the
+    ///     translator must reject any pseudo-header that appears after a regular header.
+    /// </summary>
+    [Test]
+    public async Task Translate_PseudoHeaderAfterRegularHeader_Throws()
+    {
+        var headers = BuildHeaderList(
+            (":method", "GET"),
+            (":scheme", "https"),
+            (":authority", "example.com"),
+            ("accept", "application/json"),
+            (":path", "/"));
+
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
+    }
+
+    /// <summary>
+    ///     RFC 7540 § 8.1.2.1 reserves pseudo-headers; an unknown <c>:</c>-prefixed name is
+    ///     malformed and must be rejected.
+    /// </summary>
+    [Test]
+    public async Task Translate_UnknownPseudoHeader_Throws()
+    {
+        var headers = BuildHeaderList(
+            (":method", "GET"),
+            (":scheme", "https"),
+            (":authority", "example.com"),
+            (":path", "/"),
+            (":protocol", "websocket"));
+
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
+    }
+
+    /// <summary>
+    ///     RFC 7540 § 8.3: a CONNECT request carries only <c>:method</c> and <c>:authority</c>
+    ///     pseudo-headers; the translator accepts that shape and reconstructs an absolute URI
+    ///     from the authority alone.
+    /// </summary>
+    [Test]
+    public async Task Translate_ConnectWithMethodAndAuthorityOnly_ReconstructsAuthorityUri()
+    {
+        var headers = BuildHeaderList(
+            (":method", "CONNECT"),
+            (":authority", "example.com:443"));
+
         var request = HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty);
 
-        await Assert.That(request.RequestUri.AbsolutePath).IsEqualTo("/");
+        await Assert.That(request.Method).IsEqualTo("CONNECT");
+        await Assert.That(request.RequestUri.Host).IsEqualTo("example.com");
+    }
+
+    /// <summary>
+    ///     RFC 7540 § 8.3 forbids <c>:scheme</c> on CONNECT — the translator must reject it.
+    /// </summary>
+    [Test]
+    public async Task Translate_ConnectWithSchemePseudoHeader_Throws()
+    {
+        var headers = BuildHeaderList(
+            (":method", "CONNECT"),
+            (":scheme", "https"),
+            (":authority", "example.com:443"));
+
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
+    }
+
+    /// <summary>
+    ///     RFC 7540 § 8.3 forbids <c>:path</c> on CONNECT — the translator must reject it.
+    /// </summary>
+    [Test]
+    public async Task Translate_ConnectWithPathPseudoHeader_Throws()
+    {
+        var headers = BuildHeaderList(
+            (":method", "CONNECT"),
+            (":authority", "example.com:443"),
+            (":path", "/"));
+
+        await Assert.That(() => HypertextTransferProtocolVersion2RequestTranslation.Translate(headers, ReadOnlyMemory<byte>.Empty))
+            .Throws<FormatException>();
     }
 
     private static List<HypertextTransferProtocolVersion2HpackHeaderField> BuildHeaderList(

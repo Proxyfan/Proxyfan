@@ -234,6 +234,81 @@ public sealed class ForwardedResponseRewriterTests
         await Assert.That(rewritten.Headers.Get("Content-Length")).IsEqualTo("0");
     }
 
+    [Test]
+    public async Task Rewrite_TeHeader_IsStripped()
+    {
+        var headers = HeaderCollection.Empty.Add("TE", "trailers");
+        var response = CreateResponse(headers);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("TE")).IsFalse();
+    }
+
+    [Test]
+    public async Task Rewrite_TrailerHeader_IsStripped()
+    {
+        var headers = HeaderCollection.Empty.Add("Trailer", "Expires");
+        var response = CreateResponse(headers);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("Trailer")).IsFalse();
+    }
+
+    [Test]
+    public async Task Rewrite_UpgradeHeader_IsStripped()
+    {
+        var headers = HeaderCollection.Empty.Add("Upgrade", "websocket");
+        var response = CreateResponse(headers);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("Upgrade")).IsFalse();
+    }
+
+    [Test]
+    public async Task Rewrite_TeHeaderListedInConnection_IsStripped()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "TE")
+            .Add("TE", "trailers");
+        var response = CreateResponse(headers);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("TE")).IsFalse();
+        await Assert.That(rewritten.Headers.HasHeader("Connection")).IsFalse();
+    }
+
+    [Test]
+    public async Task Rewrite_TrailerHeaderListedInConnection_IsStripped()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "Trailer")
+            .Add("Trailer", "Expires");
+        var response = CreateResponse(headers);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("Trailer")).IsFalse();
+        await Assert.That(rewritten.Headers.HasHeader("Connection")).IsFalse();
+    }
+
+    [Test]
+    public async Task Rewrite_UpgradeHeaderListedInConnection_IsStripped()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "Upgrade")
+            .Add("Upgrade", "websocket");
+        var response = CreateResponse(headers);
+
+        var rewritten = ForwardedResponseRewriter.Rewrite(response);
+
+        await Assert.That(rewritten.Headers.HasHeader("Upgrade")).IsFalse();
+        await Assert.That(rewritten.Headers.HasHeader("Connection")).IsFalse();
+    }
+
     private static HypertextTransferProtocolResponseData CreateResponse(HeaderCollection headers)
     {
         var parameters = new HypertextTransferProtocolResponseDataParameters
