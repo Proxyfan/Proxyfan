@@ -94,10 +94,10 @@ public sealed class TrafficFlowViewModelTests
     }
 
     /// <summary>
-    ///     A failed status propagates Fail() on the underlying TrafficFlow source.
+    ///     A failed status updates the view model's observable status without touching the domain source.
     /// </summary>
     [Test]
-    public async Task UpdateStatus_WithFailedEvent_TransitionsSourceToFailed()
+    public async Task UpdateStatus_WithFailedEvent_SetsFlowStatusFailed()
     {
         var requestEvent = CreateRequestEvent();
         var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
@@ -106,14 +106,13 @@ public sealed class TrafficFlowViewModelTests
         viewModel.UpdateStatus(failedEvent);
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Failed);
-        await Assert.That(viewModel.Source.Status).IsEqualTo(TrafficFlowStatus.Failed);
     }
 
     /// <summary>
-    ///     An aborted status propagates Abort() on the underlying TrafficFlow source.
+    ///     An aborted status updates the view model's observable status without touching the domain source.
     /// </summary>
     [Test]
-    public async Task UpdateStatus_WithAbortedEvent_TransitionsSourceToAborted()
+    public async Task UpdateStatus_WithAbortedEvent_SetsFlowStatusAborted()
     {
         var requestEvent = CreateRequestEvent();
         var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
@@ -122,25 +121,22 @@ public sealed class TrafficFlowViewModelTests
         viewModel.UpdateStatus(abortedEvent);
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Aborted);
-        await Assert.That(viewModel.Source.Status).IsEqualTo(TrafficFlowStatus.Aborted);
     }
 
     /// <summary>
-    ///     A Complete status applied when the source is already in a terminal state does not
-    ///     attempt to re-complete the source (no exception thrown).
+    ///     Calling UpdateStatus twice with Complete does not throw.
     /// </summary>
     [Test]
-    public async Task UpdateStatus_CompleteWhenSourceAlreadyComplete_DoesNotReCompleteSource()
+    public async Task UpdateStatus_CompleteCalledTwice_DoesNotThrow()
     {
         var requestEvent = CreateRequestEvent();
         var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
         var completedEvent = new TrafficFlowCompleted(requestEvent.TrafficFlowId, TrafficFlowStatus.Complete, requestEvent.Timestamp.AddSeconds(1));
         viewModel.UpdateStatus(completedEvent);
 
-        viewModel.UpdateStatus(completedEvent);
+        await Assert.That(() => viewModel.UpdateStatus(completedEvent)).ThrowsNothing();
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Complete);
-        await Assert.That(viewModel.Source.Status).IsEqualTo(TrafficFlowStatus.Complete);
     }
 
     private RequestReceived CreateRequestEvent()

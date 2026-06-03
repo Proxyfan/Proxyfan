@@ -102,6 +102,58 @@ public sealed class TrafficListViewModelBehaviorTests
     }
 
     /// <summary>
+    ///     When a <see cref="TrafficFlowCompleted" /> event carries <see cref="TrafficFlowStatus.Failed" />,
+    ///     the underlying domain source must be transitioned to Failed.
+    /// </summary>
+    [Test]
+    public async Task OnFlowCompleted_FailedStatus_TransitionsSourceToFailed()
+    {
+        var bus = new RecordingDomainEventBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId));
+
+        bus.PublishFlowCompleted(new TrafficFlowCompleted(flowId, TrafficFlowStatus.Failed, DateTimeOffset.UtcNow));
+
+        await Assert.That(viewModel.Flows[0].Source.Status).IsEqualTo(TrafficFlowStatus.Failed);
+    }
+
+    /// <summary>
+    ///     When a <see cref="TrafficFlowCompleted" /> event carries <see cref="TrafficFlowStatus.Aborted" />,
+    ///     the underlying domain source must be transitioned to Aborted.
+    /// </summary>
+    [Test]
+    public async Task OnFlowCompleted_AbortedStatus_TransitionsSourceToAborted()
+    {
+        var bus = new RecordingDomainEventBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId));
+
+        bus.PublishFlowCompleted(new TrafficFlowCompleted(flowId, TrafficFlowStatus.Aborted, DateTimeOffset.UtcNow));
+
+        await Assert.That(viewModel.Flows[0].Source.Status).IsEqualTo(TrafficFlowStatus.Aborted);
+    }
+
+    /// <summary>
+    ///     When a <see cref="ResponseReceived" /> event is published for a known flow, the
+    ///     underlying domain source must have its response captured.
+    /// </summary>
+    [Test]
+    public async Task OnResponseReceived_KnownFlow_UpdatesDomainSource()
+    {
+        var bus = new RecordingDomainEventBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var flowId = Guid.NewGuid();
+        bus.PublishRequestReceived(CreateRequestEvent(flowId));
+
+        bus.PublishResponseReceived(CreateResponseEvent(flowId, 200));
+
+        await Assert.That(viewModel.Flows[0].Source.Response).IsNotNull();
+        await Assert.That(viewModel.Flows[0].Source.Response!.StatusCode).IsEqualTo(200);
+    }
+
+    /// <summary>
     ///     When a <see cref="TrafficFlowCompleted" /> event is published for an unknown flow,
     ///     the handler must safely do nothing.
     /// </summary>

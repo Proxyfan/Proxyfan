@@ -67,7 +67,10 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     public HypertextTransferProtocolRequestData? Request { get; }
 
     /// <summary>
-    ///     Gets the underlying domain flow snapshot used for summary and timing display.
+    ///     Gets the underlying domain flow. Exposed for read-access by sibling view-models
+    ///     (inspector, session-save) and the owning <see cref="TrafficListViewModel" />, which is
+    ///     the sole site responsible for mutating it. The view-model itself does not mutate
+    ///     this object; all observable state is projected through the view-model's own properties.
     /// </summary>
     public TrafficFlow Source { get; }
 
@@ -140,29 +143,30 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     }
 
     /// <summary>
-    ///     Assigns the given color tag to this flow and propagates it to the
-    ///     underlying domain source.
+    ///     Assigns the given color tag to the view model's observable state.
+    ///     The caller is responsible for propagating the change to the underlying
+    ///     domain source.
     /// </summary>
     /// <param name="colorTag">The color to assign; use <see cref="TrafficFlowColorTag.None" /> to clear.</param>
     public void ApplyColorTag(TrafficFlowColorTag colorTag)
     {
         ColorTag = colorTag;
-        Source.SetColorTag(colorTag);
     }
 
     /// <summary>
-    ///     Assigns the given comment to this flow and propagates it to the
-    ///     underlying domain source.
+    ///     Assigns the given comment to the view model's observable state.
+    ///     The caller is responsible for propagating the change to the underlying
+    ///     domain source.
     /// </summary>
     /// <param name="comment">The comment text; <see langword="null" /> or whitespace clears it.</param>
     public void ApplyComment(string? comment)
     {
         Comment = comment;
-        Source.SetComment(comment);
     }
 
     /// <summary>
     ///     Updates the view model with response data from a <see cref="ResponseReceived" /> event.
+    ///     The caller is responsible for propagating the response to the underlying domain source.
     /// </summary>
     /// <param name="responseEvent">
     ///     The response-received domain event carrying response data.
@@ -172,15 +176,11 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         BodySize = responseEvent.Response.Body.Length;
         Response = responseEvent.Response;
         StatusCode = responseEvent.Response.StatusCode;
-
-        if (Source.Status == TrafficFlowStatus.Active)
-        {
-            Source.SetResponse(responseEvent.Response);
-        }
     }
 
     /// <summary>
     ///     Updates the terminal status and duration from a <see cref="TrafficFlowCompleted" /> event.
+    ///     The caller is responsible for propagating the terminal status to the underlying domain source.
     /// </summary>
     /// <param name="completedEvent">
     ///     The flow-completed domain event carrying the terminal status.
@@ -189,27 +189,5 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     {
         Duration = completedEvent.Timestamp - StartedAt;
         FlowStatus = completedEvent.Status;
-
-        SynchronizeSourceStatus(completedEvent.Status);
-    }
-
-    private void SynchronizeSourceStatus(TrafficFlowStatus status)
-    {
-        if (status == TrafficFlowStatus.Complete && Source.Status == TrafficFlowStatus.Active)
-        {
-            Source.Complete();
-            return;
-        }
-
-        if (status == TrafficFlowStatus.Failed)
-        {
-            Source.Fail();
-            return;
-        }
-
-        if (status == TrafficFlowStatus.Aborted)
-        {
-            Source.Abort();
-        }
     }
 }
