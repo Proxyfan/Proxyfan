@@ -92,7 +92,7 @@ public sealed class LeafCertificateCache : ICertificateCache
             throw new ArgumentException("Host name must be provided.", nameof(hostname));
         }
 
-        var pendingEntry = GetOrCreatePendingEntry(hostname, factory, out X509Certificate2? existingCertificate);
+        var pendingEntry = GetOrCreatePendingCertificate(hostname, factory, out X509Certificate2? existingCertificate);
 
         if (existingCertificate is not null)
         {
@@ -102,7 +102,7 @@ public sealed class LeafCertificateCache : ICertificateCache
         return ResolvePendingEntry(hostname, pendingEntry!);
     }
 
-    private Lazy<X509Certificate2>? GetOrCreatePendingEntry(string hostname, CertificateFactory factory, out X509Certificate2? existingCertificate)
+    private Lazy<X509Certificate2>? GetOrCreatePendingCertificate(string hostname, CertificateFactory factory, out X509Certificate2? existingCertificate)
     {
         lock (_syncRoot)
         {

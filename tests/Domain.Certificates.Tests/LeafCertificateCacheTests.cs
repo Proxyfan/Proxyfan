@@ -98,7 +98,9 @@ public sealed class LeafCertificateCacheTests
         await Assert.That(factoryEntered.Wait(TimeSpan.FromSeconds(5))).IsTrue();
 
         var stopwatch = Stopwatch.StartNew();
-        var cachedHitTask = Task.Run(() => cache.GetOrAdd("cached.example", _ => throw new InvalidOperationException("Factory should not be used for cached entries.")));
+        var cachedHitTask = Task.Run(() => cache.GetOrAdd(
+            "cached.example",
+            _ => throw new InvalidOperationException("Factory should not be used for cached entries.")));
         var cachedHitCompleted = cachedHitTask.Wait(TimeSpan.FromSeconds(1));
         stopwatch.Stop();
 
