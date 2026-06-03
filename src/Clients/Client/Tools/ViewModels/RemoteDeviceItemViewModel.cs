@@ -5,7 +5,7 @@ using System;
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
-///     View model wrapper around a single <see cref="RemoteDeviceInfo" /> for display in
+///     View model wrapper around a single <see cref="RemoteDeviceSnapshot" /> for display in
 ///     the Remote Devices tool window. Properties mirror the underlying model and are
 ///     refreshed by the parent <see cref="RemoteDevicesViewModel" /> when the tracker
 ///     reports changes.
@@ -33,10 +33,10 @@ public sealed partial class RemoteDeviceItemViewModel : ObservableObject
     public string Address { get; }
 
     /// <summary>
-    ///     Initializes a new <see cref="RemoteDeviceItemViewModel" /> from a domain device record.
+    ///     Initializes a new <see cref="RemoteDeviceItemViewModel" /> from a domain device snapshot.
     /// </summary>
-    /// <param name="device">The underlying device record.</param>
-    public RemoteDeviceItemViewModel(RemoteDeviceInfo device)
+    /// <param name="device">The underlying device snapshot.</param>
+    public RemoteDeviceItemViewModel(RemoteDeviceSnapshot device)
     {
         Address = device.Address;
         _firstSeen = device.FirstSeen;
@@ -49,11 +49,11 @@ public sealed partial class RemoteDeviceItemViewModel : ObservableObject
     }
 
     /// <summary>
-    ///     Refreshes the observable properties from the supplied device record so existing
+    ///     Refreshes the observable properties from the supplied device snapshot so existing
     ///     bindings observe the change without rebuilding the row.
     /// </summary>
-    /// <param name="device">The updated device record.</param>
-    public void UpdateFrom(RemoteDeviceInfo device)
+    /// <param name="device">The updated device snapshot.</param>
+    public void UpdateFrom(RemoteDeviceSnapshot device)
     {
         Kind = device.Kind;
         LastSeen = device.LastSeen;

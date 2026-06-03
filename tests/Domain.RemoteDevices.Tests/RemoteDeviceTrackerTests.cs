@@ -205,6 +205,29 @@ public sealed class RemoteDeviceTrackerTests
         await Assert.That(tracker.Snapshot().Count).IsEqualTo(1);
     }
 
+    [Test]
+    public async Task Snapshot_AfterLaterMutation_IsStableAndDecoupled()
+    {
+        var tracker = new RemoteDeviceTracker();
+        tracker.RecordRequest("10.0.0.100", "curl/8.0");
+        var beforeRename = tracker.Snapshot();
+
+        tracker.Rename("10.0.0.100", "Renamed");
+        tracker.RecordRequest("10.0.0.100", "iOS");
+        tracker.Disconnect("10.0.0.100");
+
+        await Assert.That(beforeRename[0].Name).IsEqualTo("10.0.0.100");
+        await Assert.That(beforeRename[0].UserAgent).IsEqualTo("curl/8.0");
+        await Assert.That(beforeRename[0].RequestCount).IsEqualTo(0L);
+        await Assert.That(beforeRename[0].Status).IsEqualTo(RemoteDeviceStatus.Active);
+
+        var after = tracker.Snapshot();
+        await Assert.That(after[0].Name).IsEqualTo("Renamed");
+        await Assert.That(after[0].UserAgent).IsEqualTo("iOS");
+        await Assert.That(after[0].RequestCount).IsEqualTo(1L);
+        await Assert.That(after[0].Status).IsEqualTo(RemoteDeviceStatus.Disconnected);
+    }
+
     private sealed class FakeTimeProvider : TimeProvider
     {
         private DateTimeOffset _now;

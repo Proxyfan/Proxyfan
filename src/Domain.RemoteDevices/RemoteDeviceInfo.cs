@@ -127,4 +127,23 @@ public sealed class RemoteDeviceInfo
 
         Name = name;
     }
+
+    /// <summary>
+    ///     Returns an immutable point-in-time copy of this device's current state.
+    /// </summary>
+    /// <returns>A new <see cref="RemoteDeviceSnapshot" /> capturing the current values.</returns>
+    public RemoteDeviceSnapshot ToSnapshot()
+    {
+        return new RemoteDeviceSnapshot
+        {
+            Address = Address,
+            FirstSeen = FirstSeen,
+            Kind = Kind,
+            LastSeen = LastSeen,
+            Name = Name,
+            RequestCount = RequestCount,
+            Status = Status,
+            UserAgent = UserAgent,
+        };
+    }
 }
