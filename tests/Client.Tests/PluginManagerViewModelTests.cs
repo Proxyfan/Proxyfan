@@ -397,7 +397,7 @@ public sealed class PluginManagerViewModelTests
 
     private sealed class DeferredUserInterfaceScheduler : IUserInterfaceScheduler
     {
-        private readonly Queue<UserInterfaceWorkItem> _workItems = [];
+        private readonly Queue<UserInterfaceWorkItem> _workItems = new Queue<UserInterfaceWorkItem>();
 
         public bool HasAccess()
         {
