@@ -255,4 +255,24 @@ public sealed class MutableBreakpointConfigurationTests
         await Assert.That(snapshot.Count).IsEqualTo(1);
         await Assert.That(configuration.GetPatterns().Count).IsEqualTo(2);
     }
+
+    /// <summary>
+    ///     A malformed pattern whose compilation throws must not be added to the pattern
+    ///     list, must leave existing matchers intact, and must not raise Changed.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_CompilationThrows_DoesNotPoisonConfiguration()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.AddPattern(new MatchingRule("https://example.com/*", MatchingRuleKind.Wildcard));
+        var changedCount = 0;
+        configuration.Changed += () => changedCount++;
+
+        await Assert.That(() => configuration.AddPattern(new MatchingRule("([unclosed", MatchingRuleKind.Regex)))
+            .Throws<System.Text.RegularExpressions.RegexParseException>();
+
+        await Assert.That(configuration.GetPatterns().Count).IsEqualTo(1);
+        await Assert.That(configuration.HasRequestMatch("https://example.com/api")).IsTrue();
+        await Assert.That(changedCount).IsEqualTo(0);
+    }
 }
