@@ -1,0 +1,41 @@
+name: pr
+
+# Pull-request validation for changes targeting `main`. Runs the build only —
+# the full test suite is intentionally excluded here so PR feedback stays fast
+# (cold restores already cost ~4 minutes on `windows-latest`). The test gate
+# runs once per merge in `ci.yml` instead.
+#
+# If a future change needs the test suite to gate a PR (e.g. a high-risk
+# refactor), trigger `ci` manually via `workflow_dispatch` on the PR branch.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Cancel in-flight runs for the same PR when a new commit lands.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        shell: pwsh
+        run: ./.tools/Invoke-Build.ps1 -Configuration Debug
