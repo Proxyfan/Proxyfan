@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 
 namespace Proxyfan.Domain.Proxy.Events;
@@ -6,13 +6,18 @@ namespace Proxyfan.Domain.Proxy.Events;
 /// <summary>
 ///     Published when a connection handler throws an unhandled exception while processing
 ///     an accepted connection. The connection is closed after this event is published.
+///     The event carries a typed, redacted <see cref="ProxyError" /> rather than the raw
+///     exception so that exception messages and stack traces (which may contain hostnames,
+///     request targets, local paths, or other diagnostic details) do not leak across the
+///     domain event bus. The raw exception is kept only on the local logging path where
+///     redaction policy is enforced.
 /// </summary>
 public sealed record ConnectionErrorOccurred : IDomainEvent
 {
     /// <summary>
-    ///     Gets the exception that caused the connection to fail.
+    ///     Gets the typed, redacted domain error describing the failure.
     /// </summary>
-    public Exception Exception { get; init; }
+    public ProxyError Error { get; init; }
 
     /// <summary>
     ///     Gets the remote endpoint of the client whose connection failed.
@@ -28,12 +33,12 @@ public sealed record ConnectionErrorOccurred : IDomainEvent
     ///     Initializes a new <see cref="ConnectionErrorOccurred" /> event.
     /// </summary>
     /// <param name="remoteEndPoint">The remote endpoint of the client whose connection failed.</param>
-    /// <param name="exception">The exception that caused the connection to fail.</param>
+    /// <param name="error">The typed, redacted domain error describing the failure.</param>
     /// <param name="timestamp">The UTC instant at which the error occurred.</param>
-    public ConnectionErrorOccurred(EndPoint remoteEndPoint, Exception exception, DateTimeOffset timestamp)
+    public ConnectionErrorOccurred(EndPoint remoteEndPoint, ProxyError error, DateTimeOffset timestamp)
     {
         RemoteEndPoint = remoteEndPoint;
-        Exception = exception;
+        Error = error;
         Timestamp = timestamp;
     }
 }

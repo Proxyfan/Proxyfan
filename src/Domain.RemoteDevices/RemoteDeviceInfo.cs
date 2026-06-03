@@ -50,7 +50,9 @@ public sealed class RemoteDeviceInfo
     public string? UserAgent { get; private set; }
 
     /// <summary>
-    ///     Initializes a new <see cref="RemoteDeviceInfo" />.
+    ///     Initializes a new <see cref="RemoteDeviceInfo" /> from its first observed request.
+    ///     <see cref="RequestCount" /> starts at 1 to account for the request that surfaced the device.
+    ///     Subsequent requests must be reported via <see cref="RecordRequest" />.
     /// </summary>
     /// <param name="address">The network address of the device. Must be non-empty.</param>
     /// <param name="firstSeen">The timestamp the device first issued a request.</param>
@@ -71,7 +73,7 @@ public sealed class RemoteDeviceInfo
         Name = address;
         UserAgent = userAgent;
         Kind = RemoteDeviceUserAgentClassifier.Classify(userAgent);
-        RequestCount = 0;
+        RequestCount = 1;
         Status = RemoteDeviceStatus.Active;
     }
 
@@ -126,5 +128,24 @@ public sealed class RemoteDeviceInfo
         }
 
         Name = name;
+    }
+
+    /// <summary>
+    ///     Returns an immutable point-in-time copy of this device's current state.
+    /// </summary>
+    /// <returns>A new <see cref="RemoteDeviceSnapshot" /> capturing the current values.</returns>
+    public RemoteDeviceSnapshot ToSnapshot()
+    {
+        return new RemoteDeviceSnapshot
+        {
+            Address = Address,
+            FirstSeen = FirstSeen,
+            Kind = Kind,
+            LastSeen = LastSeen,
+            Name = Name,
+            RequestCount = RequestCount,
+            Status = Status,
+            UserAgent = UserAgent,
+        };
     }
 }

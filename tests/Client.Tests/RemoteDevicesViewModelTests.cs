@@ -59,7 +59,7 @@ public sealed class RemoteDevicesViewModelTests
 
         await Assert.That(viewModel.Devices.Count).IsEqualTo(1);
         await Assert.That(viewModel.Devices[0]).IsSameReferenceAs(originalRow);
-        await Assert.That(viewModel.Devices[0].RequestCount).IsEqualTo(1L);
+        await Assert.That(viewModel.Devices[0].RequestCount).IsEqualTo(2L);
         viewModel.Dispose();
     }
 
@@ -230,15 +230,18 @@ public sealed class RemoteDevicesViewModelTests
     [Test]
     public async Task ItemViewModel_UpdateFrom_RefreshesObservableProperties()
     {
-        var initial = new RemoteDeviceInfo("10.0.0.1", DateTimeOffset.UnixEpoch, "Mozilla/5.0");
+        var tracker = new RemoteDeviceTracker();
+        tracker.RecordRequest("10.0.0.1", "Mozilla/5.0");
+        var initial = tracker.Snapshot()[0];
         var item = new RemoteDeviceItemViewModel(initial);
 
-        initial.RecordRequest(DateTimeOffset.UnixEpoch.AddSeconds(5), "iOS");
-        initial.Rename("My Phone");
-        item.UpdateFrom(initial);
+        tracker.RecordRequest("10.0.0.1", "iOS");
+        tracker.Rename("10.0.0.1", "My Phone");
+        var updated = tracker.Snapshot()[0];
+        item.UpdateFrom(updated);
 
         await Assert.That(item.Name).IsEqualTo("My Phone");
-        await Assert.That(item.RequestCount).IsEqualTo(1L);
+        await Assert.That(item.RequestCount).IsEqualTo(2L);
         await Assert.That(item.UserAgent).IsEqualTo("iOS");
     }
 }

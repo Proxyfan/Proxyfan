@@ -1,6 +1,5 @@
 ﻿using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Domain.RemoteDevices;
-using System;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -16,7 +15,9 @@ public sealed class RemoteDeviceItemViewModelTests
     [Test]
     public async Task Constructor_FromDevice_CopiesAllProperties()
     {
-        var device = new RemoteDeviceInfo("10.0.0.5", DateTimeOffset.UtcNow, "Mozilla/5.0");
+        var tracker = new RemoteDeviceTracker();
+        tracker.RecordRequest("10.0.0.5", "Mozilla/5.0");
+        var device = tracker.Snapshot()[0];
 
         var viewModel = new RemoteDeviceItemViewModel(device);
 
@@ -24,21 +25,22 @@ public sealed class RemoteDeviceItemViewModelTests
         await Assert.That(viewModel.Name).IsEqualTo("10.0.0.5");
         await Assert.That(viewModel.UserAgent).IsEqualTo("Mozilla/5.0");
         await Assert.That(viewModel.Status).IsEqualTo(RemoteDeviceStatus.Active);
-        await Assert.That(viewModel.RequestCount).IsEqualTo(0L);
+        await Assert.That(viewModel.RequestCount).IsEqualTo(1L);
     }
 
     [Test]
     public async Task UpdateFrom_DeviceWithNewState_RefreshesObservableProperties()
     {
-        var device = new RemoteDeviceInfo("10.0.0.5", DateTimeOffset.UtcNow, null);
-        var viewModel = new RemoteDeviceItemViewModel(device);
-        device.RecordRequest(DateTimeOffset.UtcNow.AddSeconds(5), "curl/8.0");
-        device.RecordRequest(DateTimeOffset.UtcNow.AddSeconds(10), "curl/8.0");
-        device.Rename("My Laptop");
+        var tracker = new RemoteDeviceTracker();
+        tracker.RecordRequest("10.0.0.5", null);
+        var viewModel = new RemoteDeviceItemViewModel(tracker.Snapshot()[0]);
+        tracker.RecordRequest("10.0.0.5", "curl/8.0");
+        tracker.RecordRequest("10.0.0.5", "curl/8.0");
+        tracker.Rename("10.0.0.5", "My Laptop");
 
-        viewModel.UpdateFrom(device);
+        viewModel.UpdateFrom(tracker.Snapshot()[0]);
 
-        await Assert.That(viewModel.RequestCount).IsEqualTo(2L);
+        await Assert.That(viewModel.RequestCount).IsEqualTo(3L);
         await Assert.That(viewModel.UserAgent).IsEqualTo("curl/8.0");
         await Assert.That(viewModel.Name).IsEqualTo("My Laptop");
         await Assert.That(viewModel.Status).IsEqualTo(RemoteDeviceStatus.Active);
@@ -47,11 +49,12 @@ public sealed class RemoteDeviceItemViewModelTests
     [Test]
     public async Task UpdateFrom_DisconnectedDevice_ReflectsStatusChange()
     {
-        var device = new RemoteDeviceInfo("10.0.0.5", DateTimeOffset.UtcNow, null);
-        var viewModel = new RemoteDeviceItemViewModel(device);
-        device.MarkDisconnected();
+        var tracker = new RemoteDeviceTracker();
+        tracker.RecordRequest("10.0.0.5", null);
+        var viewModel = new RemoteDeviceItemViewModel(tracker.Snapshot()[0]);
+        tracker.Disconnect("10.0.0.5");
 
-        viewModel.UpdateFrom(device);
+        viewModel.UpdateFrom(tracker.Snapshot()[0]);
 
         await Assert.That(viewModel.Status).IsEqualTo(RemoteDeviceStatus.Disconnected);
     }
