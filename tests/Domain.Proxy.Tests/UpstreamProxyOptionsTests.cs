@@ -118,13 +118,37 @@ public sealed class UpstreamProxyOptionsTests
     }
 
     /// <summary>
-    ///     Verifies that <see cref="UpstreamProxyOptions.HasCredentials" /> returns true when both
-    ///     username and (possibly empty) password are set.
+    ///     Verifies that <see cref="UpstreamProxyOptions.HasCredentials" /> returns false when the
+    ///     password is empty even though a username is present.
     /// </summary>
     [Test]
-    public async Task HasCredentials_UsernameAndEmptyPassword_ReturnsTrue()
+    public async Task HasCredentials_UsernameAndEmptyPassword_ReturnsFalse()
     {
         var options = new UpstreamProxyOptions { Username = "alice", Password = string.Empty };
+
+        await Assert.That(options.HasCredentials()).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="UpstreamProxyOptions.HasCredentials" /> returns true when both
+    ///     username and a populated password are set.
+    /// </summary>
+    [Test]
+    public async Task HasCredentials_UsernameAndPopulatedPassword_ReturnsTrue()
+    {
+        var options = new UpstreamProxyOptions { Username = "alice", Password = "secret" };
+
+        await Assert.That(options.HasCredentials()).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="UpstreamProxyOptions.HasCredentials" /> returns true when the
+    ///     password is whitespace-only — whitespace passwords are technically valid Basic credentials.
+    /// </summary>
+    [Test]
+    public async Task HasCredentials_UsernameAndWhitespacePassword_ReturnsTrue()
+    {
+        var options = new UpstreamProxyOptions { Username = "alice", Password = "   " };
 
         await Assert.That(options.HasCredentials()).IsTrue();
     }

@@ -1,4 +1,7 @@
+using System;
+using System.Buffers;
 using System.Globalization;
+using System.Text;
 
 namespace Proxyfan.Framework.Serialization;
 
@@ -27,7 +30,8 @@ public static class RemoteProcedureCallStatusParser
         }
 
         var typedCode = ConvertRawCode(rawCode);
-        var status = new RemoteProcedureCallStatus(rawCode, typedCode, string.IsNullOrWhiteSpace(messageHeaderValue) ? null : messageHeaderValue);
+        var decodedMessage = DecodeMessage(messageHeaderValue);
+        var status = new RemoteProcedureCallStatus(rawCode, typedCode, decodedMessage);
         return status;
     }
 
@@ -39,5 +43,97 @@ public static class RemoteProcedureCallStatusParser
         }
 
         return RemoteProcedureCallStatusCode.Unknown;
+    }
+
+    /// <summary>
+    ///     Decodes a grpc-message trailer value per the gRPC percent-encoding rules.
+    ///     Bytes outside the unreserved set (0x20-0x7E except '%') are encoded as %XX
+    ///     over the UTF-8 representation. Malformed escapes are passed through verbatim.
+    /// </summary>
+    private static string? DecodeMessage(string? messageHeaderValue)
+    {
+        if (string.IsNullOrWhiteSpace(messageHeaderValue))
+        {
+            return null;
+        }
+
+        if (messageHeaderValue.IndexOf('%') < 0)
+        {
+            return messageHeaderValue;
+        }
+
+        var length = messageHeaderValue.Length;
+        var byteBuffer = ArrayPool<byte>.Shared.Rent(length);
+        try
+        {
+            var byteCount = 0;
+            var index = 0;
+            while (index < length)
+            {
+                var current = messageHeaderValue[index];
+                if (current == '%' && index + 2 < length)
+                {
+                    var decodedByte = TryDecodeHexByte(messageHeaderValue[index + 1], messageHeaderValue[index + 2]);
+                    if (decodedByte is not null)
+                    {
+                        byteBuffer[byteCount] = decodedByte.Value;
+                        byteCount++;
+                        index += 3;
+                        continue;
+                    }
+                }
+
+                if (current <= 0x7F)
+                {
+                    byteBuffer[byteCount] = (byte)current;
+                    byteCount++;
+                }
+                else
+                {
+                    var charSlice = messageHeaderValue.AsSpan(index, 1);
+                    byteCount += Encoding.UTF8.GetBytes(charSlice, byteBuffer.AsSpan(byteCount));
+                }
+
+                index++;
+            }
+
+            return Encoding.UTF8.GetString(byteBuffer, 0, byteCount);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(byteBuffer);
+        }
+    }
+
+    private static byte? TryDecodeHexByte(char high, char low)
+    {
+        var highNibble = TryDecodeHexDigit(high);
+        var lowNibble = TryDecodeHexDigit(low);
+        if (highNibble is null || lowNibble is null)
+        {
+            return null;
+        }
+
+        return (byte)((highNibble.Value << 4) | lowNibble.Value);
+    }
+
+    private static int? TryDecodeHexDigit(char character)
+    {
+        if (character is >= '0' and <= '9')
+        {
+            return character - '0';
+        }
+
+        if (character is >= 'a' and <= 'f')
+        {
+            return 10 + (character - 'a');
+        }
+
+        if (character is >= 'A' and <= 'F')
+        {
+            return 10 + (character - 'A');
+        }
+
+        return null;
     }
 }

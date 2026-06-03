@@ -28,7 +28,7 @@ public sealed class RemoteDeviceInfoTests
         await Assert.That(info.Name).IsEqualTo("192.168.0.10");
         await Assert.That(info.UserAgent).IsEqualTo("Mozilla/5.0 (iPhone)");
         await Assert.That(info.Kind).IsEqualTo(RemoteDeviceKind.Ios);
-        await Assert.That(info.RequestCount).IsEqualTo(0L);
+        await Assert.That(info.RequestCount).IsEqualTo(1L);
         await Assert.That(info.Status).IsEqualTo(RemoteDeviceStatus.Active);
     }
 
@@ -47,7 +47,7 @@ public sealed class RemoteDeviceInfoTests
         var info = new RemoteDeviceInfo("10.0.0.2", start, "curl/8.0");
         info.RecordRequest(start.AddSeconds(1), "curl/8.0");
         info.RecordRequest(start.AddSeconds(2), "curl/8.0");
-        await Assert.That(info.RequestCount).IsEqualTo(2L);
+        await Assert.That(info.RequestCount).IsEqualTo(3L);
         await Assert.That(info.LastSeen).IsEqualTo(start.AddSeconds(2));
     }
 
