@@ -11,7 +11,7 @@ public static class PluginApiVersionParser
 {
     /// <summary>
     ///     Parses "major.minor[.patch]" into a <see cref="PluginApiVersion" />, or returns null
-    ///     when either component is missing or non-numeric.
+    ///     when either component is missing, non-numeric, or negative.
     /// </summary>
     /// <param name="version">The version string.</param>
     /// <returns>The parsed version, or null.</returns>
@@ -31,6 +31,11 @@ public static class PluginApiVersionParser
         }
 
         if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minor))
+        {
+            return null;
+        }
+
+        if (major < 0 || minor < 0)
         {
             return null;
         }

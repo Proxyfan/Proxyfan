@@ -37,7 +37,10 @@ public static class HypertextTransferProtocolBodyFramingClassifier
     /// <summary>
     ///     Classifies a response body. Status-codes that forbid a body (1xx, 204, 304) and the
     ///     HEAD method always produce <see cref="HypertextTransferProtocolBodyFraming.None" />
-    ///     regardless of headers (RFC 7230 § 3.3.3 step 1).
+    ///     regardless of headers (RFC 7230 § 3.3.3 step 1). A present-but-invalid
+    ///     <c>Content-Length</c> header maps to <see cref="HypertextTransferProtocolBodyFraming.Invalid" />
+    ///     rather than <see cref="HypertextTransferProtocolBodyFraming.UntilClose" /> so the
+    ///     caller can reject the response instead of silently waiting for connection close.
     /// </summary>
     /// <param name="response">The parsed response data.</param>
     /// <param name="requestMethod">The method of the request that produced this response.</param>
@@ -56,16 +59,21 @@ public static class HypertextTransferProtocolBodyFramingClassifier
             return HypertextTransferProtocolBodyFraming.Chunked;
         }
 
-        var contentLength = response.Headers.Get("Content-Length");
+        var contentLengthValues = response.Headers.GetAll("Content-Length");
 
-        if (long.TryParse(contentLength, out var parsed) && parsed >= 0)
+        if (contentLengthValues.Length == 0)
         {
-            return parsed == 0
-                ? HypertextTransferProtocolBodyFraming.None
-                : HypertextTransferProtocolBodyFraming.ContentLength;
+            return HypertextTransferProtocolBodyFraming.UntilClose;
         }
 
-        return HypertextTransferProtocolBodyFraming.UntilClose;
+        if (!ContentLengthParser.HasValidContentLength(contentLengthValues, out var parsed))
+        {
+            return HypertextTransferProtocolBodyFraming.Invalid;
+        }
+
+        return parsed == 0
+            ? HypertextTransferProtocolBodyFraming.None
+            : HypertextTransferProtocolBodyFraming.ContentLength;
     }
 
     private static bool HasChunkedTransferEncoding(HeaderCollection headers)

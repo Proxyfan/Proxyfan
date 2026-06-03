@@ -21,6 +21,9 @@ public sealed class DomainPatternValidatorTests
     [Arguments("*.deep.example.com")]
     [Arguments("a.b")]
     [Arguments("single")]
+    [Arguments("api.example.com.")]
+    [Arguments("example.com.")]
+    [Arguments("*.example.com.")]
     public async Task HasValidPattern_ValidPattern_ReturnsTrue(string pattern)
     {
         await Assert.That(DomainPatternValidator.HasValidPattern(pattern)).IsTrue();
@@ -46,6 +49,9 @@ public sealed class DomainPatternValidatorTests
     [Arguments("http://example.com")]
     [Arguments("example.com/path")]
     [Arguments("example.com:8080")]
+    [Arguments(".")]
+    [Arguments("example..")]
+    [Arguments("*..")]
     public async Task HasValidPattern_InvalidPattern_ReturnsFalse(string? pattern)
     {
         await Assert.That(DomainPatternValidator.HasValidPattern(pattern)).IsFalse();
