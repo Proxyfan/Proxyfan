@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace Proxyfan.Domain.Session.Har;
 
@@ -40,13 +41,14 @@ public static class HarDocumentWriter
     /// </summary>
     /// <param name="writer">The destination writer.</param>
     /// <param name="flows">The traffic flows to serialize as entries.</param>
-    public static void WriteLog(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows)
+    /// <param name="cancellationToken">Token observed between entries to allow prompt cancellation of large exports.</param>
+    public static void WriteLog(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows, CancellationToken cancellationToken)
     {
         writer.WriteStartObject();
         writer.WriteStartObject("log");
         writer.WriteString("version", HarVersion);
         WriteCreator(writer);
-        WriteEntries(writer, flows);
+        WriteEntries(writer, flows, cancellationToken);
         writer.WriteEndObject();
         writer.WriteEndObject();
     }
@@ -147,19 +149,20 @@ public static class HarDocumentWriter
         writer.WriteEndObject();
     }
 
-    private static void WriteEntries(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows)
+    private static void WriteEntries(Utf8JsonWriter writer, IReadOnlyList<TrafficFlow> flows, CancellationToken cancellationToken)
     {
         writer.WriteStartArray("entries");
 
         foreach (var flow in flows)
         {
-            WriteEntry(writer, flow);
+            cancellationToken.ThrowIfCancellationRequested();
+            WriteEntry(writer, flow, cancellationToken);
         }
 
         writer.WriteEndArray();
     }
 
-    private static void WriteEntry(Utf8JsonWriter writer, TrafficFlow flow)
+    private static void WriteEntry(Utf8JsonWriter writer, TrafficFlow flow, CancellationToken cancellationToken)
     {
         writer.WriteStartObject();
         writer.WriteString("startedDateTime", flow.StartedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
@@ -177,6 +180,7 @@ public static class HarDocumentWriter
 
         if (flow.Response is not null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             WriteResponse(writer, flow.Response);
         }
         else
