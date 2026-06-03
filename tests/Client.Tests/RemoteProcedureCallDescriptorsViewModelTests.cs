@@ -3,6 +3,7 @@ using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Threading;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ namespace Proxyfan.Client.Tests;
 /// </summary>
 public sealed class RemoteProcedureCallDescriptorsViewModelTests
 {
+    private const int OversizedDescriptorFileSizeInBytes = (10 * 1024 * 1024) + 1;
+
     /// <summary>
     ///     A freshly-constructed view model exposes an empty file list.
     /// </summary>
@@ -85,6 +88,27 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
 
         await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
         await Assert.That(viewModel.StatusText).Contains("Failed to parse");
+    }
+
+    /// <summary>
+    ///     A descriptor file that exceeds the maximum size is rejected.
+    /// </summary>
+    [Test]
+    public async Task LoadFromFile_OversizedPayload_ReportsSizeLimitExceeded()
+    {
+        var library = new StubDescriptorLibrary();
+        var picker = new StubPickerService
+        {
+            Stream = new OversizeStream(OversizedDescriptorFileSizeInBytes),
+            DisplayName = "huge.pb",
+        };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.LoadFromFileCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
+        await Assert.That(viewModel.StatusText).Contains("size limit");
+        await Assert.That(library.LoadCalls).IsEqualTo(0);
     }
 
     /// <summary>
@@ -205,6 +229,92 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         public Task<Stream?> OpenForWriteAsync(FilePickerSaveRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult<Stream?>(null);
+        }
+    }
+
+    private sealed class StubDescriptorLibrary : IRemoteProcedureCallDescriptorLibrary
+    {
+        public int LoadCalls { get; private set; }
+
+        public ProtobufDescriptorIndex Index { get; } = new([]);
+
+        public IReadOnlyList<string> LoadedFilePaths => [];
+
+        public void Clear()
+        {
+        }
+
+        public void Load(string sourcePath, byte[] payload)
+        {
+            LoadCalls++;
+        }
+
+        public void Unload(string sourcePath)
+        {
+        }
+    }
+
+    private sealed class OversizeStream : Stream
+    {
+        private long _remaining;
+
+        public OversizeStream(long totalBytes)
+        {
+            _remaining = totalBytes;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_remaining <= 0)
+            {
+                return 0;
+            }
+
+            var toReturn = (int)Math.Min(_remaining, count);
+            _remaining -= toReturn;
+            return toReturn;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_remaining <= 0)
+            {
+                return ValueTask.FromResult(0);
+            }
+
+            var toReturn = (int)Math.Min(_remaining, buffer.Length);
+            _remaining -= toReturn;
+            return ValueTask.FromResult(toReturn);
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
         }
     }
 }
