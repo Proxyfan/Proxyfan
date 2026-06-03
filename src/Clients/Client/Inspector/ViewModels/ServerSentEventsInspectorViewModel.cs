@@ -201,13 +201,13 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
         ConnectionStatusText = string.Empty;
 
         var selectedFlow = _trafficListViewModel.SelectedFlow;
-        if (selectedFlow?.Source is null)
+        if (selectedFlow is null)
         {
             IsServerSentEvents = false;
             return;
         }
 
-        var sseFlow = _store.GetById(selectedFlow.Source.Id);
+        var sseFlow = _store.GetById(selectedFlow.Id);
         if (sseFlow is null)
         {
             IsServerSentEvents = false;

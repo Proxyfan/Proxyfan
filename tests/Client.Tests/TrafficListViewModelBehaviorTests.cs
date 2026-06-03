@@ -67,6 +67,7 @@ public sealed class TrafficListViewModelBehaviorTests
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(1);
         await Assert.That(viewModel.Flows[0].StatusCode).IsEqualTo(200);
+        await Assert.That(viewModel.Flows[0].GetDomainFlow().Response).IsNotNull();
     }
 
     /// <summary>
@@ -99,6 +100,8 @@ public sealed class TrafficListViewModelBehaviorTests
         bus.PublishFlowCompleted(new TrafficFlowCompleted(flowId, TrafficFlowStatus.Complete, DateTimeOffset.UtcNow));
 
         await Assert.That(viewModel.Flows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.Flows[0].FlowStatus).IsEqualTo(TrafficFlowStatus.Complete);
+        await Assert.That(viewModel.Flows[0].GetDomainFlow().Status).IsEqualTo(TrafficFlowStatus.Complete);
     }
 
     /// <summary>
