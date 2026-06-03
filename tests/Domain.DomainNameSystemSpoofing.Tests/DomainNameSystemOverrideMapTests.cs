@@ -315,4 +315,89 @@ public sealed class DomainNameSystemOverrideMapTests
 
         await Assert.That(map.HasOverride("API.Example.COM.")).IsTrue();
     }
+
+    /// <summary>
+    ///     Verifies HasSetEnabled flips the underlying entry and reports success.
+    /// </summary>
+    [Test]
+    public async Task HasSetEnabled_WithMatchingEntry_UpdatesEntryAndReturnsTrue()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback));
+
+        var result = map.HasSetEnabled("api.example.com", isEnabled: false);
+
+        await Assert.That(result).IsTrue();
+        await Assert.That(map.GetSnapshot()[0].IsEnabled).IsFalse();
+        await Assert.That(map.Resolve("api.example.com")).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies HasSetEnabled returns false when no entry matches.
+    /// </summary>
+    [Test]
+    public async Task HasSetEnabled_WithUnknownHostname_ReturnsFalse()
+    {
+        var map = new DomainNameSystemOverrideMap();
+
+        var result = map.HasSetEnabled("missing.example.com", isEnabled: false);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies HasResetMatchCount zeroes the entry's counter and reports success.
+    /// </summary>
+    [Test]
+    public async Task HasResetMatchCount_WithMatchingEntry_ZeroesCounterAndReturnsTrue()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback));
+        map.Resolve("api.example.com");
+        map.Resolve("api.example.com");
+
+        var result = map.HasResetMatchCount("api.example.com");
+
+        await Assert.That(result).IsTrue();
+        await Assert.That(map.GetSnapshot()[0].MatchCount).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies HasResetMatchCount returns false when no entry matches.
+    /// </summary>
+    [Test]
+    public async Task HasResetMatchCount_WithUnknownHostname_ReturnsFalse()
+    {
+        var map = new DomainNameSystemOverrideMap();
+
+        var result = map.HasResetMatchCount("missing.example.com");
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies GetMatchCount reads the entry's current counter.
+    /// </summary>
+    [Test]
+    public async Task GetMatchCount_AfterResolves_ReturnsCurrentCount()
+    {
+        var map = new DomainNameSystemOverrideMap();
+        map.Add(new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback));
+        map.Resolve("api.example.com");
+        map.Resolve("api.example.com");
+        map.Resolve("api.example.com");
+
+        await Assert.That(map.GetMatchCount("api.example.com")).IsEqualTo(3);
+    }
+
+    /// <summary>
+    ///     Verifies GetMatchCount returns null when no entry matches.
+    /// </summary>
+    [Test]
+    public async Task GetMatchCount_WithUnknownHostname_ReturnsNull()
+    {
+        var map = new DomainNameSystemOverrideMap();
+
+        await Assert.That(map.GetMatchCount("missing.example.com")).IsNull();
+    }
 }

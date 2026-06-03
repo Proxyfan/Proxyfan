@@ -75,9 +75,7 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
         Entries = [];
         foreach (var entry in map.GetSnapshot())
         {
-            var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
-            viewModel.PropertyChanged += OnEntryPropertyChanged;
-            Entries.Add(viewModel);
+            Entries.Add(CreateEntryViewModel(entry));
         }
     }
 
@@ -106,13 +104,21 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
 
         var entry = new DomainNameSystemOverrideEntry(rawHostname, address);
         _map.Add(entry);
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
-        viewModel.PropertyChanged += OnEntryPropertyChanged;
-        Entries.Add(viewModel);
+        Entries.Add(CreateEntryViewModel(entry));
         NewHostname = string.Empty;
         NewOverrideAddress = string.Empty;
         ValidationMessage = null;
         OnPropertyChanged(nameof(StatusDisplay));
+    }
+
+    private DomainNameSystemSpoofingEntryViewModel CreateEntryViewModel(DomainNameSystemOverrideEntry entry)
+    {
+        var canonicalPattern = entry.CanonicalPattern;
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(
+            entry,
+            isEnabled => _map.HasSetEnabled(canonicalPattern, isEnabled));
+        viewModel.PropertyChanged += OnEntryPropertyChanged;
+        return viewModel;
     }
 
     [RelayCommand]
@@ -156,7 +162,12 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
     {
         for (var index = 0; index < Entries.Count; index += 1)
         {
-            Entries[index].RefreshMatchCount();
+            var viewModel = Entries[index];
+            var count = _map.GetMatchCount(viewModel.CanonicalPattern);
+            if (count.HasValue)
+            {
+                viewModel.UpdateMatchCount(count.Value);
+            }
         }
     }
 
@@ -169,7 +180,7 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
         }
 
         viewModel.PropertyChanged -= OnEntryPropertyChanged;
-        _map.HasRemoved(viewModel.Entry.CanonicalPattern);
+        _map.HasRemoved(viewModel.CanonicalPattern);
         Entries.Remove(viewModel);
         ValidationMessage = null;
         OnPropertyChanged(nameof(StatusDisplay));
@@ -180,8 +191,9 @@ public sealed partial class DomainNameSystemSpoofingViewModel : ObservableObject
     {
         for (var index = 0; index < Entries.Count; index += 1)
         {
-            Entries[index].Entry.ResetMatchCount();
-            Entries[index].RefreshMatchCount();
+            var viewModel = Entries[index];
+            _map.HasResetMatchCount(viewModel.CanonicalPattern);
+            viewModel.UpdateMatchCount(0);
         }
     }
 }

@@ -18,9 +18,9 @@ public sealed class DomainNameSystemSpoofingEntryViewModelTests
     {
         var entry = new DomainNameSystemOverrideEntry("example.test", IPAddress.Parse("10.0.0.1"));
 
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, _ => { });
 
-        await Assert.That(viewModel.Entry).IsSameReferenceAs(entry);
+        await Assert.That(viewModel.CanonicalPattern).IsEqualTo(entry.CanonicalPattern);
         await Assert.That(viewModel.Hostname).IsEqualTo("example.test");
         await Assert.That(viewModel.OverrideAddress).IsEqualTo("10.0.0.1");
     }
@@ -30,7 +30,7 @@ public sealed class DomainNameSystemSpoofingEntryViewModelTests
     {
         var entry = new DomainNameSystemOverrideEntry("ipv6.example", IPAddress.IPv6Loopback);
 
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, _ => { });
 
         await Assert.That(viewModel.OverrideAddress).IsEqualTo("::1");
     }
@@ -43,7 +43,7 @@ public sealed class DomainNameSystemSpoofingEntryViewModelTests
     {
         var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
 
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, _ => { });
 
         await Assert.That(viewModel.KindDisplay).IsEqualTo("Exact");
     }
@@ -56,38 +56,38 @@ public sealed class DomainNameSystemSpoofingEntryViewModelTests
     {
         var entry = new DomainNameSystemOverrideEntry("*.example.com", IPAddress.Loopback);
 
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, _ => { });
 
         await Assert.That(viewModel.KindDisplay).IsEqualTo("Wildcard");
     }
 
     /// <summary>
-    ///     Verifies that toggling IsEnabled on the view model writes through to the underlying entry.
+    ///     Verifies that toggling IsEnabled raises the supplied callback rather than
+    ///     mutating the underlying entry directly.
     /// </summary>
     [Test]
-    public async Task IsEnabled_SetFalse_WritesThroughToEntry()
+    public async Task IsEnabled_SetFalse_InvokesCallbackAndDoesNotTouchEntry()
     {
         var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
+        bool? callbackValue = null;
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, value => callbackValue = value);
 
         viewModel.IsEnabled = false;
 
-        await Assert.That(entry.IsEnabled).IsFalse();
+        await Assert.That(callbackValue).IsEqualTo(false);
+        await Assert.That(entry.IsEnabled).IsTrue();
     }
 
     /// <summary>
-    ///     Verifies RefreshMatchCount pulls the latest counter value from the entry.
+    ///     Verifies UpdateMatchCount surfaces the supplied value on the view model.
     /// </summary>
     [Test]
-    public async Task RefreshMatchCount_AfterEntryRecordsMatches_SurfacesUpdatedCount()
+    public async Task UpdateMatchCount_WithNewValue_SurfacesUpdatedCount()
     {
         var entry = new DomainNameSystemOverrideEntry("api.example.com", IPAddress.Loopback);
-        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry);
-        entry.RecordMatch();
-        entry.RecordMatch();
-        entry.RecordMatch();
+        var viewModel = new DomainNameSystemSpoofingEntryViewModel(entry, _ => { });
 
-        viewModel.RefreshMatchCount();
+        viewModel.UpdateMatchCount(3);
 
         await Assert.That(viewModel.MatchCount).IsEqualTo(3);
     }

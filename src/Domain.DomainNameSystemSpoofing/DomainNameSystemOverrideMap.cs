@@ -77,6 +77,27 @@ public sealed class DomainNameSystemOverrideMap
     }
 
     /// <summary>
+    ///     Returns the current match count for the entry whose canonical pattern matches
+    ///     <paramref name="hostname" />, or <see langword="null" /> when no such entry
+    ///     exists.
+    /// </summary>
+    /// <param name="hostname">The hostname or pattern whose counter to read.</param>
+    /// <returns>The current match count, or <see langword="null" />.</returns>
+    public int? GetMatchCount(string hostname)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        var canonical = DomainPatternNormalization.Normalize(hostname);
+        var snapshot = _snapshot;
+        var matchIndex = DomainNameSystemOverrideEntryArrays.IndexOf(snapshot, canonical);
+        if (matchIndex < 0)
+        {
+            return null;
+        }
+
+        return snapshot[matchIndex].MatchCount;
+    }
+
+    /// <summary>
     ///     Returns an immutable snapshot of all entries (enabled and disabled). The
     ///     returned reference is safe to enumerate without locking.
     /// </summary>
@@ -132,6 +153,54 @@ public sealed class DomainNameSystemOverrideMap
             _snapshot = shrunk;
             return true;
         }
+    }
+
+    /// <summary>
+    ///     Resets the match counter to zero on the entry whose canonical pattern matches
+    ///     <paramref name="hostname" />. Returns <see langword="true" /> when an entry
+    ///     was found (and reset); <see langword="false" /> when no entry matches.
+    /// </summary>
+    /// <param name="hostname">The hostname or pattern whose counter to reset.</param>
+    /// <returns><see langword="true" /> when an entry was reset.</returns>
+    public bool HasResetMatchCount(string hostname)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        var canonical = DomainPatternNormalization.Normalize(hostname);
+        var snapshot = _snapshot;
+        var matchIndex = DomainNameSystemOverrideEntryArrays.IndexOf(snapshot, canonical);
+        if (matchIndex < 0)
+        {
+            return false;
+        }
+
+        snapshot[matchIndex].ResetMatchCount();
+        return true;
+    }
+
+    /// <summary>
+    ///     Sets the enabled state of the entry whose canonical pattern matches
+    ///     <paramref name="hostname" />. Returns <see langword="true" /> when an entry
+    ///     was found (and updated); <see langword="false" /> when no entry matches.
+    ///     This is the single supported mutation path for the enabled flag from the UI
+    ///     so that future eventing, validation, and persistence hooks have one place
+    ///     to plug in.
+    /// </summary>
+    /// <param name="hostname">The hostname or pattern whose entry to update.</param>
+    /// <param name="isEnabled">The desired enabled state.</param>
+    /// <returns><see langword="true" /> when an entry was updated.</returns>
+    public bool HasSetEnabled(string hostname, bool isEnabled)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        var canonical = DomainPatternNormalization.Normalize(hostname);
+        var snapshot = _snapshot;
+        var matchIndex = DomainNameSystemOverrideEntryArrays.IndexOf(snapshot, canonical);
+        if (matchIndex < 0)
+        {
+            return false;
+        }
+
+        snapshot[matchIndex].IsEnabled = isEnabled;
+        return true;
     }
 
     /// <summary>
