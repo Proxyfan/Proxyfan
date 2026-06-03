@@ -364,6 +364,31 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         await _clipboardService.SetTextAsync(url, cancellationToken).ConfigureAwait(false);
     }
 
+    private List<string> CreateSourceHostsSnapshot()
+    {
+        var hosts = new List<string>(Flows.Count);
+        foreach (var flow in Flows)
+        {
+            var request = flow.Source.Request;
+            if (request is null)
+            {
+                hosts.Add(flow.Host);
+                continue;
+            }
+
+            var headerHost = request.Headers.Get("Host");
+            if (!string.IsNullOrWhiteSpace(headerHost))
+            {
+                hosts.Add(headerHost);
+                continue;
+            }
+
+            hosts.Add(request.RequestUri.Host);
+        }
+
+        return hosts;
+    }
+
     private bool HasHostFilterMatch(TrafficFlowViewModel flow)
     {
         if (string.IsNullOrWhiteSpace(HostFilter))
@@ -411,6 +436,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
+        _coordinator.SetSourceHostsSnapshot(CreateSourceHostsSnapshot());
+        _coordinator.NotifyFlowsChanged();
         RebuildVisibleFlowsOnUiThread();
     }
 

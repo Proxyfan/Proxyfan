@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -12,6 +14,12 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed class TrafficListCoordinator
 {
     /// <summary>
+    ///     Raised when the traffic list changes its flow collection. The
+    ///     source list rebuilds its host groups in response.
+    /// </summary>
+    public event TrafficListFlowsChangedHandler? FlowsChanged;
+
+    /// <summary>
     ///     Raised when the traffic list clears its flow collection. The
     ///     source list rebuilds its host groups in response.
     /// </summary>
@@ -23,6 +31,35 @@ public sealed class TrafficListCoordinator
     ///     empty string clears the filter.
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
+
+    private readonly List<string> _sourceHostsSnapshot;
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListCoordinator" />.
+    /// </summary>
+    public TrafficListCoordinator()
+    {
+        var sourceHostsSnapshot = new List<string>();
+        _sourceHostsSnapshot = sourceHostsSnapshot;
+    }
+
+    /// <summary>
+    ///     Gets a snapshot of source hosts derived from the current flows.
+    /// </summary>
+    /// <returns>The current source-host snapshot.</returns>
+    public IReadOnlyList<string> GetSourceHostsSnapshot()
+    {
+        var snapshot = _sourceHostsSnapshot.ToArray();
+        return snapshot;
+    }
+
+    /// <summary>
+    ///     Publishes a flows-changed notification to subscribers.
+    /// </summary>
+    public void NotifyFlowsChanged()
+    {
+        FlowsChanged?.Invoke();
+    }
 
     /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
@@ -43,5 +80,19 @@ public sealed class TrafficListCoordinator
     public void RequestHostFilter(string? host)
     {
         HostFilterRequested?.Invoke(host ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Replaces the source-host snapshot with hosts derived from the
+    ///     traffic list's current flow collection.
+    /// </summary>
+    /// <param name="hosts">The current source hosts, in flow order.</param>
+    public void SetSourceHostsSnapshot(IReadOnlyList<string> hosts)
+    {
+        _sourceHostsSnapshot.Clear();
+        foreach (var host in hosts)
+        {
+            _sourceHostsSnapshot.Add(host);
+        }
     }
 }
