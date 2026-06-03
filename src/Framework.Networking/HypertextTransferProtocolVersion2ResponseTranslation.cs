@@ -12,7 +12,8 @@ namespace Proxyfan.Framework.Networking;
 ///     status code onto a <c>:status</c> pseudo-header (which must precede regular headers),
 ///     lowercases header names (HTTP/2 wire format requirement, § 8.1.2), and strips the
 ///     connection-specific headers (<c>Connection</c>, <c>Keep-Alive</c>, <c>Proxy-Connection</c>,
-///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids.
+///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids, as well as any extension
+///     hop-by-hop headers named by the <c>Connection</c> header value (RFC 7230 § 6.1).
 /// </summary>
 public static class HypertextTransferProtocolVersion2ResponseTranslation
 {
@@ -62,10 +63,18 @@ public static class HypertextTransferProtocolVersion2ResponseTranslation
         HeaderCollection source,
         List<HypertextTransferProtocolVersion2HpackHeaderField> destination)
     {
+        var connectionListedHeaders = new HashSet<string>(
+            ConnectionHeaderTokenizer.Parse(source),
+            StringComparer.OrdinalIgnoreCase);
+
         foreach (var pair in source)
         {
             var name = pair.Key;
             if (ForbiddenConnectionHeaders.Contains(name))
+            {
+                continue;
+            }
+            if (connectionListedHeaders.Contains(name))
             {
                 continue;
             }

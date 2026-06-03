@@ -104,6 +104,37 @@ public sealed class HypertextTransferProtocolVersion2ResponseTranslationTests
     }
 
     /// <summary>
+    ///     RFC 7230 § 6.1 — headers named as tokens in the <c>Connection</c> value are
+    ///     hop-by-hop and must not be forwarded across protocol boundaries into an HTTP/2
+    ///     response.
+    /// </summary>
+    [Test]
+    public async Task Translate_ExtensionHopByHopHeadersNamedInConnection_StripsThemAlso()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "X-Internal, X-Session-Token")
+            .Add("X-Internal", "some-value")
+            .Add("X-Session-Token", "abc123")
+            .Add("Content-Type", "application/json");
+        var response = BuildResponse(200, "OK", headers, ReadOnlyMemory<byte>.Empty);
+
+        var result = HypertextTransferProtocolVersion2ResponseTranslation.Translate(response);
+
+        var hasContentType = false;
+        for (var headerIndex = 0; headerIndex < result.Headers.Count; headerIndex++)
+        {
+            var name = result.Headers[headerIndex].Name;
+            await Assert.That(string.Equals(name, "x-internal", StringComparison.OrdinalIgnoreCase)).IsFalse();
+            await Assert.That(string.Equals(name, "x-session-token", StringComparison.OrdinalIgnoreCase)).IsFalse();
+            if (string.Equals(name, "content-type", StringComparison.OrdinalIgnoreCase))
+            {
+                hasContentType = true;
+            }
+        }
+        await Assert.That(hasContentType).IsTrue();
+    }
+
+    /// <summary>
     ///     The body view is carried through verbatim.
     /// </summary>
     [Test]
