@@ -34,7 +34,7 @@ public static class CacheControlParser
         return directives;
     }
 
-    private static void AddDirective(StringBuilder builder, List<string> directives)
+    private static void FlushDirective(StringBuilder builder, List<string> directives)
     {
         var directive = builder.ToString().Trim();
         builder.Clear();
@@ -136,14 +136,14 @@ public static class CacheControlParser
 
             if (character == ',' && !isInsideQuotes)
             {
-                AddDirective(builder, directives);
+                FlushDirective(builder, directives);
                 continue;
             }
 
             builder.Append(character);
         }
 
-        AddDirective(builder, directives);
+        FlushDirective(builder, directives);
 
         return [.. directives];
     }
