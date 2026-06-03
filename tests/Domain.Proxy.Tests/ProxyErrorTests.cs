@@ -81,4 +81,30 @@ public sealed class ProxyErrorTests
         var error = new ProxyNotRunningError();
         await Assert.That(error.Code).IsEqualTo("PROXY_NOT_RUNNING");
     }
+
+    /// <summary>
+    ///     Verifies the code for <see cref="ConnectionHandlerError" />.
+    /// </summary>
+    [Test]
+    public async Task ConnectionHandlerError_Code_IsConnectionHandlerFaulted()
+    {
+        var error = new ConnectionHandlerError(new InvalidOperationException("secret detail"));
+        await Assert.That(error.Code).IsEqualTo("CONNECTION_HANDLER_FAULTED");
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ConnectionHandlerError" /> captures only the exception type
+    ///     name and does not leak the exception message or inner exception across the bus.
+    /// </summary>
+    [Test]
+    public async Task ConnectionHandlerError_FromException_RedactsExceptionDetails()
+    {
+        var ex = new InvalidOperationException("sensitive host=example.com path=/etc/passwd");
+        var error = new ConnectionHandlerError(ex);
+        await Assert.That(error.ExceptionTypeName).IsEqualTo(typeof(InvalidOperationException).FullName);
+        await Assert.That(error.InnerException).IsNull();
+        await Assert.That(error.Message).DoesNotContain("sensitive");
+        await Assert.That(error.Message).DoesNotContain("example.com");
+        await Assert.That(error.Message).DoesNotContain("/etc/passwd");
+    }
 }
