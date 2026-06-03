@@ -156,13 +156,17 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         var bytesReadSoFar = 0;
         while (true)
         {
-            var read = await stream.ReadAsync(buffer.AsMemory(0, ReadBufferSizeInBytes), cancellationToken).ConfigureAwait(true);
+            var remainingCapacity = MaxDescriptorFileSizeInBytes - bytesReadSoFar;
+            var requestSize = remainingCapacity < ReadBufferSizeInBytes
+                ? remainingCapacity + 1
+                : ReadBufferSizeInBytes;
+            var read = await stream.ReadAsync(buffer.AsMemory(0, requestSize), cancellationToken).ConfigureAwait(true);
             if (read <= 0)
             {
                 return memory.ToArray();
             }
 
-            if (bytesReadSoFar > MaxDescriptorFileSizeInBytes - read)
+            if (read > remainingCapacity)
             {
                 return null;
             }
