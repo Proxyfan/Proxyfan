@@ -12,7 +12,7 @@ namespace Proxyfan.Framework.Networking;
 ///     <see cref="AdvanceConsumed" />. The underlying array is compacted in-place when the
 ///     tail no longer has room, and grown only when even compaction is insufficient.
 /// </summary>
-internal sealed class WebSocketRelayAccumulator : IDisposable
+public sealed class WebSocketRelayAccumulator : IDisposable
 {
     private readonly ArrayPool<byte> _pool;
     private byte[] _buffer;

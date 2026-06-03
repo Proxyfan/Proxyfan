@@ -11,7 +11,7 @@ namespace Proxyfan.Framework.Platform;
 ///     so a managed wrapper can keep the native entry point private (S4200).
 /// </summary>
 [SupportedOSPlatform("windows")]
-internal static partial class WindowsInternetSettingsRefresherNativeMethods
+public static partial class WindowsInternetSettingsRefresherNativeMethods
 {
     /// <summary>
     ///     Asks WinINet to reload the proxy configuration from the registry.

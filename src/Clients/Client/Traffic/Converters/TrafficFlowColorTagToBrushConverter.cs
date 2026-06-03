@@ -22,44 +22,37 @@ public sealed class TrafficFlowColorTagToBrushConverter : AvaloniaObject, IValue
     /// <summary>
     ///     Styled property backing <see cref="BlueBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> BlueBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(BlueBrush));
+    public static readonly StyledProperty<IBrush?> BlueBrushProperty;
 
     /// <summary>
     ///     Styled property backing <see cref="GrayBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> GrayBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(GrayBrush));
+    public static readonly StyledProperty<IBrush?> GrayBrushProperty;
 
     /// <summary>
     ///     Styled property backing <see cref="GreenBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> GreenBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(GreenBrush));
+    public static readonly StyledProperty<IBrush?> GreenBrushProperty;
 
     /// <summary>
     ///     Styled property backing <see cref="OrangeBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> OrangeBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(OrangeBrush));
+    public static readonly StyledProperty<IBrush?> OrangeBrushProperty;
 
     /// <summary>
     ///     Styled property backing <see cref="PurpleBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> PurpleBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(PurpleBrush));
+    public static readonly StyledProperty<IBrush?> PurpleBrushProperty;
 
     /// <summary>
     ///     Styled property backing <see cref="RedBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> RedBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(RedBrush));
+    public static readonly StyledProperty<IBrush?> RedBrushProperty;
 
     /// <summary>
     ///     Styled property backing <see cref="YellowBrush" />.
     /// </summary>
-    public static readonly StyledProperty<IBrush?> YellowBrushProperty =
-        AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(YellowBrush));
+    public static readonly StyledProperty<IBrush?> YellowBrushProperty;
 
     /// <summary>
     ///     Brush used for <see cref="TrafficFlowColorTag.Blue" />.
@@ -122,6 +115,17 @@ public sealed class TrafficFlowColorTagToBrushConverter : AvaloniaObject, IValue
     {
         get => GetValue(YellowBrushProperty);
         set => SetValue(YellowBrushProperty, value);
+    }
+
+    static TrafficFlowColorTagToBrushConverter()
+    {
+        BlueBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(BlueBrush));
+        GrayBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(GrayBrush));
+        GreenBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(GreenBrush));
+        OrangeBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(OrangeBrush));
+        PurpleBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(PurpleBrush));
+        RedBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(RedBrush));
+        YellowBrushProperty = AvaloniaProperty.Register<TrafficFlowColorTagToBrushConverter, IBrush?>(nameof(YellowBrush));
     }
 
     /// <summary>
