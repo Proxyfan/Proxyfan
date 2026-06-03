@@ -417,6 +417,14 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
+        var sourceHosts = new List<string>(Flows.Count);
+        foreach (var flow in Flows)
+        {
+            sourceHosts.Add(SourceHostExtractor.Extract(flow.Request));
+        }
+
+        _coordinator.SetSourceHostsSnapshot(sourceHosts);
+        _coordinator.NotifyFlowsChanged();
         RebuildVisibleFlowsOnUiThread();
     }
 

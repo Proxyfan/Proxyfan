@@ -22,7 +22,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(sourceList.Sources.Count).IsEqualTo(1);
         await Assert.That(sourceList.Sources[0].IsAllGroup).IsTrue();
@@ -38,7 +38,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
 
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
 
@@ -57,7 +57,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
 
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
@@ -77,7 +77,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
 
         sourceList.SelectedSource = sourceList.Sources[1];
@@ -94,7 +94,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
         sourceList.SelectedSource = sourceList.Sources[1];
 
@@ -104,23 +104,27 @@ public sealed class SourceListViewModelTests
     }
 
     /// <summary>
-    ///     Verifies that clearing the traffic list clears all host groups except "All".
+    ///     Verifies that rebuild derives host groups from the current traffic-list flows.
     /// </summary>
     [Test]
-    public async Task Rebuild_AfterClear_KeepsOnlyAllGroup()
+    public async Task Rebuild_WithCurrentFlows_RecreatesHostGroupsAndCounts()
     {
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
         bus.RequestReceivedHandler!(CreateRequestEvent("other.com"));
 
         sourceList.Rebuild();
 
-        await Assert.That(sourceList.Sources.Count).IsEqualTo(1);
+        await Assert.That(sourceList.Sources.Count).IsEqualTo(3);
         await Assert.That(sourceList.Sources[0].IsAllGroup).IsTrue();
-        await Assert.That(sourceList.Sources[0].Count).IsEqualTo(0);
+        await Assert.That(sourceList.Sources[0].Count).IsEqualTo(2);
+        await Assert.That(sourceList.Sources[1].Host).IsEqualTo("example.com");
+        await Assert.That(sourceList.Sources[1].Count).IsEqualTo(1);
+        await Assert.That(sourceList.Sources[2].Host).IsEqualTo("other.com");
+        await Assert.That(sourceList.Sources[2].Count).IsEqualTo(1);
     }
 
     /// <summary>
@@ -132,7 +136,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
         bus.RequestReceivedHandler!(CreateRequestEvent("other.com"));
 
@@ -151,7 +155,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(() => sourceList.Dispose()).ThrowsNothing();
     }
@@ -165,7 +169,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
 
         bus.RequestReceivedHandler!(CreateRequestEventWithoutHostHeader("uri-host.test"));
 
@@ -184,7 +188,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
         bus.RequestReceivedHandler!(CreateRequestEvent("other.com"));
 
@@ -192,6 +196,34 @@ public sealed class SourceListViewModelTests
 
         await Assert.That(sourceList.Sources.Count).IsEqualTo(1);
         await Assert.That(sourceList.Sources[0].IsAllGroup).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that loading imported flows rebuilds host groups from the
+    ///     current traffic-list flow collection.
+    /// </summary>
+    [Test]
+    public async Task LoadFlows_GivenImportedFlows_RebuildsSourceList()
+    {
+        var bus = new RecordingEventBus();
+        var coordinator = new TrafficListCoordinator();
+        using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
+
+        trafficList.LoadFlows(
+            [
+                CreateImportedFlow("imported.example.com"),
+                CreateImportedFlow("other.example.com"),
+                CreateImportedFlow("imported.example.com"),
+            ]);
+
+        await Assert.That(sourceList.Sources.Count).IsEqualTo(3);
+        await Assert.That(sourceList.Sources[0].IsAllGroup).IsTrue();
+        await Assert.That(sourceList.Sources[0].Count).IsEqualTo(3);
+        await Assert.That(sourceList.Sources[1].Host).IsEqualTo("imported.example.com");
+        await Assert.That(sourceList.Sources[1].Count).IsEqualTo(2);
+        await Assert.That(sourceList.Sources[2].Host).IsEqualTo("other.example.com");
+        await Assert.That(sourceList.Sources[2].Count).IsEqualTo(1);
     }
 
     /// <summary>
@@ -205,7 +237,7 @@ public sealed class SourceListViewModelTests
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
         using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
+        using var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         bus.RequestReceivedHandler!(CreateRequestEvent("example.com"));
 
         sourceList.SelectedSource = sourceList.Sources[1];
@@ -244,6 +276,22 @@ public sealed class SourceListViewModelTests
         };
         var request = new HypertextTransferProtocolRequestData(parameters);
         return new RequestReceived(flowId, request, "127.0.0.1:9000", DateTimeOffset.UtcNow);
+    }
+
+    private static TrafficFlow CreateImportedFlow(string host)
+    {
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9000", DateTimeOffset.UtcNow);
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty.Add("Host", host),
+            Method = "GET",
+            RequestUri = new Uri($"https://{host}/api"),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+        flow.SetRequest(request);
+        return flow;
     }
 
     private sealed class RecordingEventBus : IDomainEventBus

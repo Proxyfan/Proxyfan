@@ -143,7 +143,7 @@ public static class ShellViewModelFactory
         var eventBus = new NoopEventBus();
         var coordinator = new TrafficListCoordinator();
         var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        var sourceList = new SourceListViewModel(eventBus, coordinator, InlineUserInterfaceScheduler.Instance);
+        var sourceList = new SourceListViewModel(coordinator, InlineUserInterfaceScheduler.Instance);
         var tabHost = new TabHostViewModel(trafficList);
         return new ShellViewModel(
             systemProxy,

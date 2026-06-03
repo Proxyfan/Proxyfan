@@ -1,6 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using Proxyfan.Domain;
-using Proxyfan.Domain.Traffic.Events;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
@@ -10,8 +8,8 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
 ///     View model for the source list panel that groups captured traffic
-///     by host. Subscribes to <see cref="RequestReceived" /> events and
-///     publishes a host-filter request via the shared
+///     by host. Rebuilds its groups from the shared traffic-list snapshot
+///     and publishes a host-filter request via the shared
 ///     <see cref="TrafficListCoordinator" /> whenever the selection changes.
 /// </summary>
 public sealed partial class SourceListViewModel : ObservableObject, IDisposable
@@ -19,7 +17,6 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     private const string AllGroupSentinel = "*";
     private readonly TrafficListCoordinator _coordinator;
     private readonly Dictionary<string, SourceGroupViewModel> _groupsByHost;
-    private readonly IDisposable _requestSubscription;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private SourceGroupViewModel? _selectedSource;
@@ -32,18 +29,16 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
 
     /// <summary>
     ///     Initializes a new <see cref="SourceListViewModel" /> and
-    ///     subscribes to the supplied event bus and traffic-list coordinator.
+    ///     subscribes to the supplied traffic-list coordinator.
     /// </summary>
-    /// <param name="eventBus">The domain event bus to subscribe to.</param>
     /// <param name="coordinator">
     ///     Shared mediator used to publish host-filter requests and to
-    ///     observe flows-cleared notifications from the traffic list.
+    ///     observe flow snapshot changes from the traffic list.
     /// </param>
     /// <param name="userInterfaceScheduler">
     ///     Scheduler used to marshal collection mutations onto the UI thread.
     /// </param>
     public SourceListViewModel(
-        IDomainEventBus eventBus,
         TrafficListCoordinator coordinator,
         IUserInterfaceScheduler userInterfaceScheduler)
     {
@@ -60,16 +55,13 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         Sources = sources;
         _groupsByHost[AllGroupSentinel] = allGroup;
         _selectedSource = allGroup;
-
-        _coordinator.FlowsCleared += OnFlowsCleared;
-        _requestSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
+        _coordinator.FlowsChanged += OnFlowsChanged;
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
-        _coordinator.FlowsCleared -= OnFlowsCleared;
-        _requestSubscription.Dispose();
+        _coordinator.FlowsChanged -= OnFlowsChanged;
     }
 
     /// <summary>
@@ -81,15 +73,9 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _userInterfaceScheduler.Post(RebuildOnUiThread);
     }
 
-    private void OnFlowsCleared()
+    private void OnFlowsChanged()
     {
         _userInterfaceScheduler.Post(RebuildOnUiThread);
-    }
-
-    private void OnRequestReceived(RequestReceived domainEvent)
-    {
-        var host = SourceHostExtractor.Extract(domainEvent);
-        _userInterfaceScheduler.Post(() => RegisterHostOnUiThread(host));
     }
 
     partial void OnSelectedSourceChanged(SourceGroupViewModel? value)
@@ -113,6 +99,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         Sources.Clear();
         Sources.Add(allGroup);
         SelectedSource = allGroup;
+
+        foreach (var host in _coordinator.GetSourceHostsSnapshot())
+        {
+            RegisterHostOnUiThread(host);
+        }
     }
 
     private void RegisterHostOnUiThread(string host)
