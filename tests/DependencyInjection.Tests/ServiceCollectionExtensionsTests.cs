@@ -74,6 +74,24 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     /// <summary>
+    ///     Verifies that resolving two different interfaces from the same
+    ///     <see cref="ServiceCollectionExtensions.AddSingletonAsImplementedInterfaces{TImplementation}" />
+    ///     registration returns the same shared singleton instance.
+    /// </summary>
+    [Test]
+    public async Task AddSingletonAsImplementedInterfaces_WhenResolvingMultipleInterfaces_ReturnsSameInstance()
+    {
+        var services = new ServiceCollection();
+        services.AddSingletonAsImplementedInterfaces<SampleImplementation>(CreateSampleImplementation);
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        var first = provider.GetService<IFirstContract>();
+        var second = provider.GetService<ISecondContract>();
+
+        await Assert.That(first).IsSameReferenceAs(second);
+    }
+
+    /// <summary>
     ///     Resolving the singletons that are wired in by AddProxyListener forces the
     ///     DI factory lambdas to execute, covering the body of those registrations
     ///     (HttpClient, IComposerHistoryStore, IUserPreferencesStore, RemoteDeviceTracker,
