@@ -94,8 +94,18 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
     {
         lock (_mutationLock)
         {
+            var newIndex = _entries.Count;
+            var compiledNew = new CompiledEntry
+            {
+                Destination = entry.Destination,
+                IsEnabled = entry.IsEnabled,
+                Matcher = entry.MatchingRule.Compile(),
+            };
+            var rebuilt = new CompiledEntry[newIndex + 1];
+            _compiled.CopyTo(rebuilt, 0);
+            rebuilt[newIndex] = compiledNew;
             _entries.Add(entry);
-            RebuildUnderLock();
+            _compiled = rebuilt;
         }
 
         RaiseChanged();

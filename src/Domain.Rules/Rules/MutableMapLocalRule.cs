@@ -97,8 +97,26 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
 
         lock (_mutationLock)
         {
+            var newIndex = _entries.Count;
+            var newHeaders = HeaderCollection.Empty;
+            foreach (var header in entry.Headers)
+            {
+                newHeaders = newHeaders.Add(header.Key, header.Value);
+            }
+            var compiledNew = new CompiledEntry
+            {
+                Body = entry.Body,
+                Headers = newHeaders,
+                IsEnabled = entry.IsEnabled,
+                Matcher = entry.MatchingRule.Compile(),
+                ReasonPhrase = entry.ReasonPhrase,
+                StatusCode = entry.StatusCode,
+            };
+            var rebuilt = new CompiledEntry[newIndex + 1];
+            _compiled.CopyTo(rebuilt, 0);
+            rebuilt[newIndex] = compiledNew;
             _entries.Add(entry);
-            RebuildUnderLock();
+            _compiled = rebuilt;
         }
 
         RaiseChanged();
