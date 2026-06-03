@@ -1,4 +1,5 @@
-﻿using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain.Traffic.Events;
 
 namespace Proxyfan.Client.Traffic.ViewModels;
 
@@ -16,12 +17,28 @@ public static class SourceHostExtractor
     /// <returns>The host string used to key the source list grouping.</returns>
     public static string Extract(RequestReceived domainEvent)
     {
-        var header = domainEvent.Request.Headers.Get("Host");
+        return Extract(domainEvent.Request);
+    }
+
+    /// <summary>
+    ///     Returns the host header value when present and non-blank,
+    ///     falling back to the request URI host otherwise.
+    /// </summary>
+    /// <param name="request">The request snapshot to extract from.</param>
+    /// <returns>The host string used to key the source list grouping.</returns>
+    public static string Extract(HypertextTransferProtocolRequestData? request)
+    {
+        if (request is null)
+        {
+            return "(tunnel)";
+        }
+
+        var header = request.Headers.Get("Host");
         if (!string.IsNullOrWhiteSpace(header))
         {
             return header;
         }
 
-        return domainEvent.Request.RequestUri.Host;
+        return request.RequestUri.Host;
     }
 }
