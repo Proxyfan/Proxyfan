@@ -228,17 +228,128 @@ public sealed class HypertextTransferProtocolBodyFramingClassifierTests
     }
 
     /// <summary>
-    ///     A negative Content-Length value is treated as missing and falls through to read-until-close.
+    ///     A negative Content-Length value is malformed and surfaces as <see cref="HypertextTransferProtocolBodyFraming.Invalid" />
+    ///     so that the caller can reject the response instead of waiting for connection close.
     /// </summary>
     [Test]
-    public async Task ClassifyResponse_NegativeContentLength_ReturnsUntilClose()
+    public async Task ClassifyResponse_NegativeContentLength_ReturnsInvalid()
     {
         var headers = HeaderCollection.Empty.Add("Content-Length", "-5");
         var response = CreateResponse(200, headers);
 
         var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
 
-        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.UntilClose);
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.Invalid);
+    }
+
+    /// <summary>
+    ///     A non-numeric Content-Length value is malformed and surfaces as
+    ///     <see cref="HypertextTransferProtocolBodyFraming.Invalid" />.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_NonNumericContentLength_ReturnsInvalid()
+    {
+        var headers = HeaderCollection.Empty.Add("Content-Length", "abc");
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.Invalid);
+    }
+
+    /// <summary>
+    ///     An empty Content-Length value is malformed and surfaces as
+    ///     <see cref="HypertextTransferProtocolBodyFraming.Invalid" />.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_EmptyContentLength_ReturnsInvalid()
+    {
+        var headers = HeaderCollection.Empty.Add("Content-Length", string.Empty);
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.Invalid);
+    }
+
+    /// <summary>
+    ///     A Content-Length value containing comma-joined tokens that all agree on the same
+    ///     non-negative length is valid per RFC 7230 § 3.3.2.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_CommaJoinedEqualContentLength_ReturnsContentLength()
+    {
+        var headers = HeaderCollection.Empty.Add("Content-Length", "42, 42");
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.ContentLength);
+    }
+
+    /// <summary>
+    ///     A Content-Length value containing comma-joined tokens that conflict is malformed and
+    ///     surfaces as <see cref="HypertextTransferProtocolBodyFraming.Invalid" /> per
+    ///     RFC 7230 § 3.3.2.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_CommaJoinedConflictingContentLength_ReturnsInvalid()
+    {
+        var headers = HeaderCollection.Empty.Add("Content-Length", "42, 100");
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.Invalid);
+    }
+
+    /// <summary>
+    ///     Duplicate Content-Length headers that agree on the same value are valid.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_DuplicateEqualContentLength_ReturnsContentLength()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Content-Length", "42")
+            .Add("Content-Length", "42");
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.ContentLength);
+    }
+
+    /// <summary>
+    ///     Duplicate Content-Length headers that disagree are malformed and surface as
+    ///     <see cref="HypertextTransferProtocolBodyFraming.Invalid" /> per RFC 7230 § 3.3.2.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_DuplicateConflictingContentLength_ReturnsInvalid()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Content-Length", "42")
+            .Add("Content-Length", "100");
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.Invalid);
+    }
+
+    /// <summary>
+    ///     A signed Content-Length value (with a leading '+') is malformed even though
+    ///     <see cref="long.TryParse(string, out long)" /> accepts it, because RFC 7230 § 3.3.2
+    ///     defines <c>Content-Length</c> as an unsigned decimal integer.
+    /// </summary>
+    [Test]
+    public async Task ClassifyResponse_SignedContentLength_ReturnsInvalid()
+    {
+        var headers = HeaderCollection.Empty.Add("Content-Length", "+5");
+        var response = CreateResponse(200, headers);
+
+        var framing = HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse(response, "GET");
+
+        await Assert.That(framing).IsEqualTo(HypertextTransferProtocolBodyFraming.Invalid);
     }
 
     /// <summary>

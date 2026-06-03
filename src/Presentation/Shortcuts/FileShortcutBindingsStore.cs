@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -31,7 +32,20 @@ public sealed class FileShortcutBindingsStore : IShortcutBindingsStore
             return new Dictionary<ShortcutAction, KeyboardGesture>();
         }
 
-        var json = File.ReadAllText(_filePath);
+        string json;
+        try
+        {
+            json = File.ReadAllText(_filePath);
+        }
+        catch (IOException)
+        {
+            return new Dictionary<ShortcutAction, KeyboardGesture>();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new Dictionary<ShortcutAction, KeyboardGesture>();
+        }
+
         return ShortcutBindingsJsonSerializer.Deserialize(json);
     }
 

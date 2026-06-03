@@ -55,7 +55,11 @@ to point at one.
 
 - Editing `docs/BACKLOG.md` to mark the item complete. That is a separate
   bookkeeping step the user owns.
-- Merging the PR. Open it, hand the URL back to the user, and stop.
+
+You DO own merging the PR once the checks are green and any review
+feedback is addressed. Hand the PR back unmerged only when something
+concrete blocks it (failing checks, conflicts, unresolved review threads
+that need human input).
 
 ## Tooling contract
 

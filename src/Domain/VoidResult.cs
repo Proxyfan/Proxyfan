@@ -16,12 +16,14 @@ public sealed class VoidResult
     public bool IsSuccess { get; }
 
     /// <summary>
-    ///     Initializes a new <see cref="VoidResult" /> with the specified success state.
+    ///     Initializes a new successful <see cref="VoidResult" />. Prefer <see cref="Result.Success()" /> to
+    ///     obtain the shared success instance; failures must go through the <see cref="DomainError" />
+    ///     constructor or <see cref="Result.Failure(DomainError)" /> so the <see cref="Error" /> property
+    ///     is always populated when <see cref="IsSuccess" /> is <see langword="false" />.
     /// </summary>
-    /// <param name="isSuccess"><see langword="true" /> for a successful result; <see langword="false" /> for failure.</param>
-    public VoidResult(bool isSuccess)
+    public VoidResult()
     {
-        IsSuccess = isSuccess;
+        IsSuccess = true;
     }
 
     /// <summary>

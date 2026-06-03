@@ -113,7 +113,7 @@ public sealed class PluginUpdateManifestParserTests
             {
               "plugins": [
                 { "latestVersion": "1.0.0" },
-                { "id": "com.example.ok", "latestVersion": "2.0.0" }
+                { "id": "com.example.ok", "latestVersion": "2.0.0", "downloadUrl": "https://example.com/ok.zip", "minApiVersion": "1.0" }
               ]
             }
             """;
@@ -135,7 +135,7 @@ public sealed class PluginUpdateManifestParserTests
             {
               "plugins": [
                 { "id": "com.example.x" },
-                { "id": "com.example.y", "latestVersion": "1.0.0" }
+                { "id": "com.example.y", "latestVersion": "1.0.0", "downloadUrl": "https://example.com/y.zip", "minApiVersion": "1.0" }
               ]
             }
             """;
@@ -177,7 +177,7 @@ public sealed class PluginUpdateManifestParserTests
               "plugins": [
                 "string-element",
                 42,
-                { "id": "com.example.ok", "latestVersion": "1.0.0" }
+                { "id": "com.example.ok", "latestVersion": "1.0.0", "downloadUrl": "https://example.com/ok.zip", "minApiVersion": "1.0" }
               ]
             }
             """;
@@ -189,20 +189,67 @@ public sealed class PluginUpdateManifestParserTests
     }
 
     /// <summary>
-    ///     Missing optional fields default to safe values.
+    ///     Entries missing downloadUrl are skipped.
     /// </summary>
     [Test]
-    public async Task TryParse_MissingOptionalFields_DefaultsApplied()
+    public async Task TryParse_EntryMissingDownloadUrl_SkipsEntry()
     {
         var json = """
-            { "plugins": [ { "id": "x", "latestVersion": "1.0.0" } ] }
+            {
+              "plugins": [
+                { "id": "com.example.x", "latestVersion": "1.0.0", "minApiVersion": "1.0" },
+                { "id": "com.example.y", "latestVersion": "1.0.0", "downloadUrl": "https://example.com/y.zip", "minApiVersion": "1.0" }
+              ]
+            }
             """;
 
         var manifest = PluginUpdateManifestParser.TryParse(json);
 
         await Assert.That(manifest).IsNotNull();
-        var entry = manifest!.Plugins[0];
-        await Assert.That(entry.DownloadUrl).IsEqualTo(string.Empty);
-        await Assert.That(entry.MinimumApiVersion).IsEqualTo("0.0");
+        await Assert.That(manifest!.Plugins).Count().IsEqualTo(1);
+        await Assert.That(manifest.Plugins[0].Identifier).IsEqualTo("com.example.y");
+    }
+
+    /// <summary>
+    ///     Entries missing minApiVersion are skipped.
+    /// </summary>
+    [Test]
+    public async Task TryParse_EntryMissingMinApiVersion_SkipsEntry()
+    {
+        var json = """
+            {
+              "plugins": [
+                { "id": "com.example.x", "latestVersion": "1.0.0", "downloadUrl": "https://example.com/x.zip" },
+                { "id": "com.example.y", "latestVersion": "1.0.0", "downloadUrl": "https://example.com/y.zip", "minApiVersion": "1.0" }
+              ]
+            }
+            """;
+
+        var manifest = PluginUpdateManifestParser.TryParse(json);
+
+        await Assert.That(manifest).IsNotNull();
+        await Assert.That(manifest!.Plugins).Count().IsEqualTo(1);
+        await Assert.That(manifest.Plugins[0].Identifier).IsEqualTo("com.example.y");
+    }
+
+    /// <summary>
+    ///     Entries with blank downloadUrl or minApiVersion are skipped rather than defaulted.
+    /// </summary>
+    [Test]
+    public async Task TryParse_BlankRequiredField_SkipsEntry()
+    {
+        var json = """
+            {
+              "plugins": [
+                { "id": "x", "latestVersion": "1.0.0", "downloadUrl": "", "minApiVersion": "1.0" },
+                { "id": "y", "latestVersion": "1.0.0", "downloadUrl": "https://example.com/y.zip", "minApiVersion": "   " }
+              ]
+            }
+            """;
+
+        var manifest = PluginUpdateManifestParser.TryParse(json);
+
+        await Assert.That(manifest).IsNotNull();
+        await Assert.That(manifest!.Plugins).IsEmpty();
     }
 }
