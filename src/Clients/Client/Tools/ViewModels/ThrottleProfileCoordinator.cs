@@ -1,12 +1,13 @@
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Presentation.Threading;
+using System;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
 ///     Coordinates UI-facing throttle state with the mutable runtime throttle profile holder.
 /// </summary>
-public sealed class ThrottleProfileCoordinator : IThrottleProfileCoordinator
+public sealed class ThrottleProfileCoordinator : IThrottleProfileCoordinator, IDisposable
 {
     /// <inheritdoc />
     public event ThrottleProfileCoordinatorChanged? Changed;

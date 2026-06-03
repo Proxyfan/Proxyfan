@@ -1,5 +1,4 @@
 using Proxyfan.Domain.Throttling;
-using System;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
@@ -7,7 +6,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 ///     Coordinates UI-facing access to the active throttle profile while keeping
 ///     <see cref="MutableThrottleProfile" /> behind a presentation boundary.
 /// </summary>
-public interface IThrottleProfileCoordinator : IDisposable
+public interface IThrottleProfileCoordinator
 {
     /// <summary>
     ///     Raised when the active profile changes.
