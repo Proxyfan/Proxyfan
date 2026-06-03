@@ -74,7 +74,6 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        _throttleProfileCoordinator.Changed -= OnProfileChanged;
         _throttleProfileCoordinator.Dispose();
         if (_localizationService is { } unsubscribeService)
         {
@@ -139,8 +138,11 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
 
     private void OnProfileChanged(ThrottleProfile? profile)
     {
-        ActiveProfileName = ResolveActiveProfileName(profile);
-        SelectedPreset = FindMatchingPreset(profile);
+        _userInterfaceScheduler.Post(() =>
+        {
+            ActiveProfileName = ResolveActiveProfileName(profile);
+            SelectedPreset = FindMatchingPreset(profile);
+        });
     }
 
     private string ResolveActiveProfileName(ThrottleProfile? profile)
