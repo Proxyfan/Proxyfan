@@ -322,10 +322,8 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
                 throw ThrowOnLoad;
             }
 
-            if (!_loadedFilePaths.Contains(sourcePath))
-            {
-                _loadedFilePaths.Add(sourcePath);
-            }
+            _loadedFilePaths.Remove(sourcePath);
+            _loadedFilePaths.Add(sourcePath);
         }
 
         public void Unload(string sourcePath)
