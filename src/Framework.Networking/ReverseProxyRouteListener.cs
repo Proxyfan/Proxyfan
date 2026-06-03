@@ -21,7 +21,7 @@ namespace Proxyfan.Framework.Networking;
 public sealed partial class ReverseProxyRouteListener : IDisposable
 {
     private const int BufferSize = 16384;
-    private const int PeekByteCount = 8;
+    private const int PeekByteCount = 16;
     private readonly ReverseProxyHypertextTransferProtocolHandler? _hypertextTransferProtocolHandler;
     private readonly ILogger<ReverseProxyRouteListener> _logger;
     private readonly List<Task> _pendingForwards;
