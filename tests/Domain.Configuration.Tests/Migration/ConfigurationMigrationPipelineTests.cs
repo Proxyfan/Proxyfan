@@ -171,6 +171,52 @@ public sealed class ConfigurationMigrationPipelineTests
     }
 
     /// <summary>
+    ///     A migrator whose <c>To</c> version does not advance past its <c>From</c> version
+    ///     (e.g. <c>To == From</c>) is rejected to prevent an infinite loop.
+    /// </summary>
+    [Test]
+    public async Task Migrate_MigratorToDoesNotAdvanceVersion_Throws()
+    {
+        var stuckMigrator = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(1, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([stuckMigrator]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     A migrator whose <c>To</c> version exceeds the requested target is rejected so
+    ///     that the active configuration is never left at an unexpected schema version.
+    /// </summary>
+    [Test]
+    public async Task Migrate_MigratorToOvershootsTarget_Throws()
+    {
+        var overshootMigrator = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(3, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([overshootMigrator]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
     ///     The pipeline does not mutate the supplied source dictionary.
     /// </summary>
     [Test]
