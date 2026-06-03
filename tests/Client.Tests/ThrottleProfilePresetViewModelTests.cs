@@ -1,5 +1,4 @@
 ﻿using Proxyfan.Client.Tools.ViewModels;
-using Proxyfan.Domain.Throttling;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -13,22 +12,20 @@ namespace Proxyfan.Client.Tests;
 public sealed class ThrottleProfilePresetViewModelTests
 {
     [Test]
-    public async Task Constructor_NullProfile_RepresentsOff()
+    public async Task Constructor_IdentifierOnly_UsesIdentifierAsDisplayName()
     {
-        var viewModel = new ThrottleProfilePresetViewModel("Off", null);
+        var viewModel = new ThrottleProfilePresetViewModel("Off");
 
         await Assert.That(viewModel.DisplayName).IsEqualTo("Off");
-        await Assert.That(viewModel.Profile).IsNull();
+        await Assert.That(viewModel.Identifier).IsEqualTo("Off");
     }
 
     [Test]
-    public async Task Constructor_WithProfile_StoresReference()
+    public async Task Constructor_DisplayNameProvided_StoresDisplayName()
     {
-        var profile = ThrottleProfilePresets.Wireless();
+        var viewModel = new ThrottleProfilePresetViewModel("WiFi", "Wireless");
 
-        var viewModel = new ThrottleProfilePresetViewModel("WiFi", profile);
-
-        await Assert.That(viewModel.DisplayName).IsEqualTo("WiFi");
-        await Assert.That(viewModel.Profile).IsSameReferenceAs(profile);
+        await Assert.That(viewModel.Identifier).IsEqualTo("WiFi");
+        await Assert.That(viewModel.DisplayName).IsEqualTo("Wireless");
     }
 }

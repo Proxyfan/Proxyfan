@@ -28,7 +28,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
             var names = vm.Presets.Select(p => p.DisplayName).ToArray();
 
@@ -42,7 +43,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
             await Assert.That(vm.SelectedPreset).IsNotNull();
             await Assert.That(vm.SelectedPreset!.DisplayName).IsEqualTo("Off");
@@ -55,7 +57,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
             await Assert.That(vm.ActiveProfileName).IsEqualTo("Off");
         });
@@ -67,7 +70,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
             vm.SelectedPreset = vm.Presets.First(p => p.DisplayName == "3G");
 
             vm.ApplyCommand.Execute(null);
@@ -83,7 +87,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile(ThrottleProfilePresets.ThirdGeneration());
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
             vm.SelectedPreset = vm.Presets.First(p => p.DisplayName == "Off");
 
             vm.ApplyCommand.Execute(null);
@@ -98,7 +103,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
             vm.SelectedPreset = null;
 
             vm.ApplyCommand.Execute(null);
@@ -113,7 +119,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
             profile.SetProfile(ThrottleProfilePresets.FastFourthGeneration());
 
@@ -128,7 +135,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile(ThrottleProfilePresets.Wireless());
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, localizationService: null);
+            using var coordinator = new ThrottleCoordinator(profile);
+            using var vm = new ThrottleViewModel(coordinator, InlineUserInterfaceScheduler.Instance, localizationService: null);
 
             profile.Disable();
 
