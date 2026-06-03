@@ -228,6 +228,11 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
             pendingConnections.Add(connectionTask);
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
         await Task.WhenAll(pendingConnections).ConfigureAwait(false);
     }
 }
