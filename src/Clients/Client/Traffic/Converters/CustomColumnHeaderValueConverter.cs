@@ -12,6 +12,8 @@ namespace Proxyfan.Client.Traffic.Converters;
 /// </summary>
 public sealed class CustomColumnHeaderValueConverter : IValueConverter
 {
+    private const string HeaderValueSeparator = ", ";
+
     /// <inheritdoc />
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -37,7 +39,7 @@ public sealed class CustomColumnHeaderValueConverter : IValueConverter
             return values[0];
         }
 
-        return string.Join(", ", values);
+        return string.Join(HeaderValueSeparator, values);
     }
 
     /// <inheritdoc />
