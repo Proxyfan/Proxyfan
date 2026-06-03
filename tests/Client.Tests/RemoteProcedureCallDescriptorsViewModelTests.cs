@@ -1,4 +1,5 @@
 using Proxyfan.Client.Tools.ViewModels;
+using Proxyfan.Client.Tools;
 using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Threading;
@@ -21,7 +22,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task Construct_Empty_HasNoLoadedFiles()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var picker = new StubPickerService();
         var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
@@ -35,7 +36,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_ValidDescriptorSet_AppearsInFileList()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var setBytes = BuildEmptyDescriptorSet("test.proto", "demo");
         var picker = new StubPickerService
         {
@@ -57,7 +58,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_CancelledPicker_NoChangeToLibrary()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var picker = new StubPickerService { Stream = null };
         var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
@@ -73,7 +74,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_MalformedPayload_ReportsParseFailure()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var picker = new StubPickerService
         {
             Stream = new MemoryStream(new byte[] { 0x80 }),
@@ -93,7 +94,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task UnloadSelected_AfterLoad_RemovesEntry()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var setBytes = BuildEmptyDescriptorSet("a.proto", "a");
         var picker = new StubPickerService { Stream = new MemoryStream(setBytes), DisplayName = "a.pb" };
         var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
@@ -112,7 +113,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task UnloadSelected_NoSelection_NoOp()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, new StubPickerService(), Stubs.InlineUserInterfaceScheduler.Instance);
 
         viewModel.UnloadSelectedCommand.Execute(null);
@@ -126,7 +127,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task Clear_AfterLoad_EmptiesLibrary()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = CreateDescriptorFileLibrary();
         var setBytes = BuildEmptyDescriptorSet("a.proto", "a");
         var picker = new StubPickerService { Stream = new MemoryStream(setBytes), DisplayName = "a.pb" };
         var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
@@ -174,6 +175,12 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         }
 
         stream.WriteByte((byte)value);
+    }
+
+    private static RemoteProcedureCallDescriptorFileLibraryAdapter CreateDescriptorFileLibrary()
+    {
+        var library = new RemoteProcedureCallDescriptorLibrary();
+        return new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
     }
 
     private sealed class StubPickerService : IFilePickerService

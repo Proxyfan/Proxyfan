@@ -1,0 +1,43 @@
+using Proxyfan.Presentation.RemoteProcedureCall;
+using FrameworkDescriptorLibrary = Proxyfan.Framework.Serialization.IRemoteProcedureCallDescriptorLibrary;
+using System.Collections.Generic;
+
+namespace Proxyfan.Client.Tools;
+
+/// <summary>
+///     Adapts the framework descriptor-library contract to a presentation-safe contract.
+/// </summary>
+public sealed class RemoteProcedureCallDescriptorFileLibraryAdapter : IRemoteProcedureCallDescriptorFileLibrary
+{
+    private readonly FrameworkDescriptorLibrary _library;
+
+    /// <summary>
+    ///     Initializes a new adapter for the supplied framework descriptor library.
+    /// </summary>
+    /// <param name="library">The framework descriptor library to wrap.</param>
+    public RemoteProcedureCallDescriptorFileLibraryAdapter(FrameworkDescriptorLibrary library)
+    {
+        _library = library;
+    }
+
+    /// <inheritdoc />
+    public void Clear()
+    {
+        _library.Clear();
+    }
+
+    /// <inheritdoc />
+    public void Load(string sourcePath, byte[] payload)
+    {
+        _library.Load(sourcePath, payload);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> LoadedFilePaths => _library.LoadedFilePaths;
+
+    /// <inheritdoc />
+    public void Unload(string sourcePath)
+    {
+        _library.Unload(sourcePath);
+    }
+}
