@@ -411,23 +411,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _userInterfaceScheduler.Post(() =>
         {
             viewModel.UpdateStatus(domainEvent);
-            var source = viewModel.GetDomainFlow();
-            if (domainEvent.Status == TrafficFlowStatus.Complete && source.Status == TrafficFlowStatus.Active)
-            {
-                source.Complete();
-                return;
-            }
-
-            if (domainEvent.Status == TrafficFlowStatus.Failed)
-            {
-                source.Fail();
-                return;
-            }
-
-            if (domainEvent.Status == TrafficFlowStatus.Aborted)
-            {
-                source.Abort();
-            }
+            SynchronizeDomainFlowStatus(viewModel.GetDomainFlow(), domainEvent.Status);
         });
     }
 
@@ -558,6 +542,26 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private async Task RepeatSelectedTenTimesAsync(CancellationToken cancellationToken)
     {
         await RepeatFlowAsync(SelectedFlow, repeatCount: 10, cancellationToken).ConfigureAwait(false);
+    }
+
+    private void SynchronizeDomainFlowStatus(TrafficFlow source, TrafficFlowStatus status)
+    {
+        if (status == TrafficFlowStatus.Complete && source.Status == TrafficFlowStatus.Active)
+        {
+            source.Complete();
+            return;
+        }
+
+        if (status == TrafficFlowStatus.Failed)
+        {
+            source.Fail();
+            return;
+        }
+
+        if (status == TrafficFlowStatus.Aborted)
+        {
+            source.Abort();
+        }
     }
 
     [RelayCommand]
