@@ -25,7 +25,7 @@ public static class CacheControlParser
             return new CacheControlDirectives(parameters);
         }
 
-        foreach (var part in EnumerateDirectives(headerValue))
+        foreach (var part in SplitDirectives(headerValue))
         {
             ApplyDirective(parameters, part);
         }
@@ -104,7 +104,7 @@ public static class CacheControlParser
         }
     }
 
-    private static string[] EnumerateDirectives(string headerValue)
+    private static string[] SplitDirectives(string headerValue)
     {
         var directives = new List<string>();
         var builder = new StringBuilder(headerValue.Length);
