@@ -3,6 +3,7 @@ using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -100,6 +101,30 @@ public sealed class MutableBlockListRuleTests
 
         rule.AddPattern(pattern);
 
+        await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding an invalid pattern throws without mutating patterns or matchers.
+    /// </summary>
+    [Test]
+    public async Task AddPattern_InvalidPattern_DoesNotMutateState()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        var validPattern = new MatchingRule("https://blocked.example.com/*", MatchingRuleKind.Wildcard);
+        rule.AddPattern(validPattern);
+        var count = 0;
+        rule.Changed += () => count++;
+
+        await Assert.That(() => rule.AddPattern(new MatchingRule("(", MatchingRuleKind.Regex)))
+            .Throws<RegexParseException>();
+
+        var patterns = rule.GetPatterns();
+        await Assert.That(patterns.Count).IsEqualTo(1);
+        await Assert.That(patterns[0].Pattern).IsEqualTo(validPattern.Pattern);
+        await Assert.That(patterns[0].Kind).IsEqualTo(validPattern.Kind);
+        await Assert.That(rule.EvaluateRequest(CreateRequest("https://blocked.example.com/path")))
+            .IsTypeOf<RequestPipelineAction.Block>();
         await Assert.That(count).IsEqualTo(0);
     }
 
