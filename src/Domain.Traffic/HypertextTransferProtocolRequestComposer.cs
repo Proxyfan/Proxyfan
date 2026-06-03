@@ -10,7 +10,7 @@ namespace Proxyfan.Domain.Traffic;
 /// </summary>
 public sealed class HypertextTransferProtocolRequestComposer
 {
-    private readonly Dictionary<string, string> _headers;
+    private readonly Dictionary<string, List<string>> _headers;
 
     /// <summary>
     ///     Gets or sets the request body bytes.
@@ -41,7 +41,7 @@ public sealed class HypertextTransferProtocolRequestComposer
         Method = "GET";
         Version = "HTTP/1.1";
         Body = ReadOnlyMemory<byte>.Empty;
-        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var headers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         _headers = headers;
     }
 
@@ -60,7 +60,8 @@ public sealed class HypertextTransferProtocolRequestComposer
         {
             if (header.Value.Length > 0)
             {
-                _headers[header.Key] = header.Value[0];
+                List<string> values = [.. header.Value];
+                _headers[header.Key] = values;
             }
         }
     }
@@ -88,7 +89,10 @@ public sealed class HypertextTransferProtocolRequestComposer
         var headers = HeaderCollection.Empty;
         foreach (var header in _headers)
         {
-            headers = headers.Add(header.Key, header.Value);
+            foreach (var value in header.Value)
+            {
+                headers = headers.Add(header.Key, value);
+            }
         }
 
         var parameters = new HypertextTransferProtocolRequestDataParameters
@@ -122,6 +126,6 @@ public sealed class HypertextTransferProtocolRequestComposer
     public void SetHeader(string name, string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        _headers[name] = value;
+        _headers[name] = [value];
     }
 }

@@ -96,14 +96,28 @@ public sealed class TokenBucket
     {
         var now = _timeProvider.GetTimestamp();
         var elapsed = _timeProvider.GetElapsedTime(_lastRefillTimestamp, now);
-        var tokensToAdd = (long)(elapsed.TotalSeconds * RefillRatePerSecond);
+        var tokensToAddDouble = elapsed.TotalSeconds * RefillRatePerSecond;
 
+        if (tokensToAddDouble <= 0)
+        {
+            return;
+        }
+
+        var headroom = Capacity - _availableTokens;
+        if (tokensToAddDouble >= headroom)
+        {
+            _availableTokens = Capacity;
+            _lastRefillTimestamp = now;
+            return;
+        }
+
+        var tokensToAdd = (long)tokensToAddDouble;
         if (tokensToAdd <= 0)
         {
             return;
         }
 
-        _availableTokens = Math.Min(Capacity, _availableTokens + tokensToAdd);
+        _availableTokens += tokensToAdd;
         _lastRefillTimestamp = now;
     }
 }

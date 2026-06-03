@@ -115,7 +115,7 @@ public sealed class WebSocketFlow
 
         if (fire)
         {
-            Closed?.Invoke();
+            RaiseClosed();
         }
     }
 
@@ -130,6 +130,58 @@ public sealed class WebSocketFlow
             _messages.Add(message);
         }
 
-        MessageRecorded?.Invoke(message);
+        RaiseMessageRecorded(message);
+    }
+
+    private void RaiseClosed()
+    {
+        var handler = Closed;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handler.GetInvocationList())
+        {
+            if (subscriber is not WebSocketFlowClosedHandler typedSubscriber)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedSubscriber();
+            }
+            catch (Exception ex)
+            {
+                _ = ex;
+            }
+        }
+    }
+
+    private void RaiseMessageRecorded(WebSocketMessage message)
+    {
+        var handler = MessageRecorded;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handler.GetInvocationList())
+        {
+            if (subscriber is not WebSocketMessageRecordedHandler typedSubscriber)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedSubscriber(message);
+            }
+            catch (Exception ex)
+            {
+                _ = ex;
+            }
+        }
     }
 }

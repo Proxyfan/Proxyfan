@@ -127,6 +127,57 @@ public sealed class ThrottleProfileTests
         await Assert.That(() => _ = new ThrottleProfile("p", parameters)).Throws<ArgumentOutOfRangeException>();
     }
 
+    /// <summary>
+    ///     Verifies that a NaN packet-loss probability throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithPacketLossNaN_Throws()
+    {
+        var parameters = new ThrottleProfileParameters
+        {
+            UploadBytesPerSecond = 1024,
+            DownloadBytesPerSecond = 1024,
+            Latency = TimeSpan.Zero,
+            PacketLossProbability = double.NaN,
+        };
+
+        await Assert.That(() => _ = new ThrottleProfile("p", parameters)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     Verifies that a positive-infinity packet-loss probability throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithPacketLossPositiveInfinity_Throws()
+    {
+        var parameters = new ThrottleProfileParameters
+        {
+            UploadBytesPerSecond = 1024,
+            DownloadBytesPerSecond = 1024,
+            Latency = TimeSpan.Zero,
+            PacketLossProbability = double.PositiveInfinity,
+        };
+
+        await Assert.That(() => _ = new ThrottleProfile("p", parameters)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     Verifies that a negative-infinity packet-loss probability throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithPacketLossNegativeInfinity_Throws()
+    {
+        var parameters = new ThrottleProfileParameters
+        {
+            UploadBytesPerSecond = 1024,
+            DownloadBytesPerSecond = 1024,
+            Latency = TimeSpan.Zero,
+            PacketLossProbability = double.NegativeInfinity,
+        };
+
+        await Assert.That(() => _ = new ThrottleProfile("p", parameters)).Throws<ArgumentOutOfRangeException>();
+    }
+
     private static ThrottleProfileParameters CreateValidParameters()
     {
         return new ThrottleProfileParameters

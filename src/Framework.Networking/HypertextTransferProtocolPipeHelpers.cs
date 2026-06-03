@@ -298,6 +298,11 @@ public static class HypertextTransferProtocolPipeHelpers
             return await ReadBodyAsync(reader, contentLength, cancellationToken).ConfigureAwait(false);
         }
 
+        if (framing == HypertextTransferProtocolBodyFraming.Invalid)
+        {
+            return null;
+        }
+
         return await ReadBodyUntilCloseAsync(reader, cancellationToken).ConfigureAwait(false);
     }
 }

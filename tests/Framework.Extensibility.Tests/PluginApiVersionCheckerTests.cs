@@ -94,4 +94,27 @@ public sealed class PluginApiVersionCheckerTests
 
         await Assert.That(result).IsFalse();
     }
+
+    /// <summary>
+    ///     A plugin requirement with a negative minor must not be considered compatible,
+    ///     even though the host's minor is numerically greater.
+    /// </summary>
+    [Test]
+    public async Task HasCompatibility_PluginNegativeMinor_ReturnsFalse()
+    {
+        var result = PluginApiVersionChecker.HasCompatibility("1.5.0", "1.-1");
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    ///     A plugin requirement with a negative major must not be considered compatible.
+    /// </summary>
+    [Test]
+    public async Task HasCompatibility_PluginNegativeMajor_ReturnsFalse()
+    {
+        var result = PluginApiVersionChecker.HasCompatibility("1.0.0", "-1.0");
+
+        await Assert.That(result).IsFalse();
+    }
 }

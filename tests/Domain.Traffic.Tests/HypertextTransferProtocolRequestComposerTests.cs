@@ -121,6 +121,34 @@ public sealed class HypertextTransferProtocolRequestComposerTests
     }
 
     /// <summary>
+    ///     Verifies that the cloning constructor preserves all values for repeated headers
+    ///     so the built request matches the captured one.
+    /// </summary>
+    [Test]
+    public async Task Constructor_FromSourceWithRepeatedHeader_PreservesAllValues()
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = ReadOnlyMemory<byte>.Empty,
+            Headers = HeaderCollection.Empty
+                .Add("Forwarded", "for=192.0.2.1")
+                .Add("Forwarded", "for=192.0.2.2"),
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/"),
+            Version = "HTTP/1.1",
+        };
+        var source = new HypertextTransferProtocolRequestData(parameters);
+
+        var composer = new HypertextTransferProtocolRequestComposer(source);
+        var built = composer.Build();
+
+        var values = built.Headers.GetAll("Forwarded");
+        await Assert.That(values.Length).IsEqualTo(2);
+        await Assert.That(values[0]).IsEqualTo("for=192.0.2.1");
+        await Assert.That(values[1]).IsEqualTo("for=192.0.2.2");
+    }
+
+    /// <summary>
     ///     Verifies that the cloning constructor throws when source is null.
     /// </summary>
     [Test]
