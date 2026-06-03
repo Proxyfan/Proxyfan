@@ -30,7 +30,7 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyColorTagToSelectedCommand.Execute(TrafficFlowColorTag.Blue);
 
         await Assert.That(viewModel.SelectedFlow.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
-        await Assert.That(viewModel.SelectedFlow.Source.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyCommentToSelectedCommand.Execute("login failure repro");
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsEqualTo("login failure repro");
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsEqualTo("login failure repro");
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().Comment).IsEqualTo("login failure repro");
     }
 
     /// <summary>
@@ -73,11 +73,12 @@ public sealed class TrafficListViewModelAnnotationTests
         bus.PublishRequestReceived(CreateRequestEvent());
         viewModel.SelectedFlow = viewModel.Flows[0];
         viewModel.SelectedFlow.ApplyComment("prior");
+        viewModel.SelectedFlow.GetDomainFlow().SetComment("prior");
 
         viewModel.ApplyCommentToSelectedCommand.Execute(null);
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsNull();
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsNull();
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().Comment).IsNull();
     }
 
     /// <summary>
