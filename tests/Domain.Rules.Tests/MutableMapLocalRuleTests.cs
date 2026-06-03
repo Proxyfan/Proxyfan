@@ -129,6 +129,81 @@ public sealed class MutableMapLocalRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry whose matcher fails to compile does not leave a stale entry in the rule.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatchingRule_DoesNotLeaveStaleEntry()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var invalidEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("x", (MatchingRuleKind)999),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<InvalidOperationException>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding an entry whose matcher fails to compile does not raise <see cref="MutableMapLocalRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatchingRule_DoesNotRaiseChanged()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var count = 0;
+        rule.Changed += () => count++;
+        var invalidEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("x", (MatchingRuleKind)999),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<InvalidOperationException>();
+        await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     A valid entry can be added after a previously failed add.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_AfterFailedAdd_SubsequentValidAddSucceeds()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var invalidEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("x", (MatchingRuleKind)999),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<InvalidOperationException>();
+
+        rule.AddEntry(new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://stub.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        });
+
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Adding an entry raises the <see cref="MutableMapLocalRule.Changed" /> event.
     /// </summary>
     [Test]

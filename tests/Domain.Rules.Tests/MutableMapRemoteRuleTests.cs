@@ -144,6 +144,72 @@ public sealed class MutableMapRemoteRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry whose matcher fails to compile does not leave a stale entry in the rule.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatchingRule_DoesNotLeaveStaleEntry()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        var invalidEntry = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("x", (MatchingRuleKind)999),
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<InvalidOperationException>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Adding an entry whose matcher fails to compile does not raise <see cref="MutableMapRemoteRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatchingRule_DoesNotRaiseChanged()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var count = 0;
+        rule.Changed += () => count++;
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        var invalidEntry = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("x", (MatchingRuleKind)999),
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<InvalidOperationException>();
+        await Assert.That(count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     A valid entry can be added after a previously failed add.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_AfterFailedAdd_SubsequentValidAddSucceeds()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        var invalidEntry = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("x", (MatchingRuleKind)999),
+        };
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<InvalidOperationException>();
+
+        rule.AddEntry(new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
+        });
+
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Removing a registered entry raises Changed and removes the entry.
     /// </summary>
     [Test]
