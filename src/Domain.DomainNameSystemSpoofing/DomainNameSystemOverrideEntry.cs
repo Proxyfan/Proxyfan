@@ -173,7 +173,7 @@ public sealed class DomainNameSystemOverrideEntry
     ///     exercise saturation behaviour without performing billions of increments.
     /// </summary>
     /// <param name="value">The value to publish to the match counter.</param>
-    internal void SeedMatchCountForTesting(int value)
+    public void SeedMatchCountForTesting(int value)
     {
         Volatile.Write(ref _matchCount, value);
     }
