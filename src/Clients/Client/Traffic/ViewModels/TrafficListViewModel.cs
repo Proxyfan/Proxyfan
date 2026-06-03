@@ -312,6 +312,25 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         flow.Source.SetComment(comment);
     }
 
+    /// <summary>
+    ///     Applies the HTTP response to the domain source when the flow is still active.
+    ///     The guard is required because <see cref="TrafficFlow.SetResponse" /> enforces an
+    ///     active-only precondition and throws for flows that have already reached a
+    ///     terminal state. By contrast, <see cref="TrafficFlow.SetColorTag" /> and
+    ///     <see cref="TrafficFlow.SetComment" /> carry no such precondition and are called
+    ///     unconditionally in <see cref="ApplyColorTagToSelected" /> and
+    ///     <see cref="ApplyCommentToSelected" />.
+    /// </summary>
+    private void ApplyResponseToDomainSource(TrafficFlow source, HypertextTransferProtocolResponseData response)
+    {
+        if (source.Status != TrafficFlowStatus.Active)
+        {
+            return;
+        }
+
+        source.SetResponse(response);
+    }
+
     [RelayCommand]
     private void Clear()
     {
@@ -449,10 +468,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _userInterfaceScheduler.Post(() =>
         {
             viewModel.UpdateResponse(domainEvent);
-            if (viewModel.Source.Status == TrafficFlowStatus.Active)
-            {
-                viewModel.Source.SetResponse(domainEvent.Response);
-            }
+            ApplyResponseToDomainSource(viewModel.Source, domainEvent.Response);
 
             if (!string.IsNullOrWhiteSpace(FilterText))
             {
