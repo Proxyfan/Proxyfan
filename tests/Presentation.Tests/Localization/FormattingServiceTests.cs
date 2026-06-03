@@ -150,6 +150,19 @@ public sealed class FormattingServiceTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="FormattingService.FormatFileSize" /> handles
+    ///     <see cref="long.MinValue" /> without overflowing the absolute-value
+    ///     calculation, formatting the full magnitude with a leading minus sign.
+    /// </summary>
+    [Test]
+    public async Task FormatFileSize_LongMinValue_FormatsFullMagnitude()
+    {
+        var formattingService = CreateFormattingService("en-US");
+        var formatted = formattingService.FormatFileSize(long.MinValue);
+        await Assert.That(formatted).IsEqualTo("-8,388,608.0 TB");
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="FormattingService.FormatDuration" /> reports
     ///     sub-second values in milliseconds.
     /// </summary>
