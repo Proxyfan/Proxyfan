@@ -176,5 +176,13 @@ feature branch — never commit directly to `main`.
    (these typically become new GitHub issues — file them if the user
    confirms, otherwise note them in the PR body for triage).
 
-5. Hand the PR URL back to the user and stop. Do **not** merge — that
-   step is owned by the human.
+5. Merge the PR once the required checks are green:
+
+   ```powershell
+   gh pr merge --squash   # add --delete-branch only if merge queues are off
+   ```
+
+   If checks are still running, wait for them; if a check fails or the
+   branch goes stale with conflicts, fix the blocker and try again. Only
+   hand the PR back unmerged when something concrete prevents the merge
+   (e.g. an unresolved review thread that needs human input).

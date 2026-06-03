@@ -110,57 +110,48 @@ public sealed partial class ReverseProxyRouteListener : IDisposable
     /// <returns>A task that completes when the accept loop exits.</returns>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _ = cancellationToken;
         if (!IsListening)
         {
             return;
         }
 
         IsListening = false;
-        if (_cancellationSource is not null)
-        {
-            await _cancellationSource.CancelAsync().ConfigureAwait(false);
-            _cancellationSource.Dispose();
-            _cancellationSource = null;
-        }
-
-        _listener?.Stop();
+        var source = _cancellationSource;
+        var acceptTask = _acceptTask;
+        var listener = _listener;
+        _cancellationSource = null;
+        _acceptTask = null;
         _listener = null;
 
-        if (_acceptTask is not null)
+        try
         {
+            if (source is not null)
+            {
+                await source.CancelAsync().ConfigureAwait(false);
+            }
+
             try
             {
-                await _acceptTask.ConfigureAwait(false);
+                listener?.Stop();
             }
-            catch (OperationCanceledException ex)
+            catch (SocketException ex)
+            {
+                _ = ex;
+            }
+            catch (ObjectDisposedException ex)
             {
                 _ = ex;
             }
 
-            _acceptTask = null;
-        }
+            await WaitForAcceptLoopAsync(acceptTask, cancellationToken).ConfigureAwait(false);
+            await WaitForPendingForwardsAsync(cancellationToken).ConfigureAwait(false);
 
-        Task[] pending;
-        lock (_pendingForwards)
+            LogStopped(_route.Identifier);
+        }
+        finally
         {
-            pending = [.. _pendingForwards];
-            _pendingForwards.Clear();
+            source?.Dispose();
         }
-
-        if (pending.Length > 0)
-        {
-            try
-            {
-                await Task.WhenAll(pending).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _ = ex;
-            }
-        }
-
-        LogStopped(_route.Identifier);
     }
 
     private async Task ForwardConnectionAsync(Socket socket, CancellationToken cancellationToken)
@@ -281,5 +272,50 @@ public sealed partial class ReverseProxyRouteListener : IDisposable
         }
 
         return true;
+    }
+
+    private async Task WaitForAcceptLoopAsync(Task? acceptTask, CancellationToken cancellationToken)
+    {
+        if (acceptTask is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await acceptTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _ = ex;
+        }
+    }
+
+    private async Task WaitForPendingForwardsAsync(CancellationToken cancellationToken)
+    {
+        Task[] pending;
+        lock (_pendingForwards)
+        {
+            pending = [.. _pendingForwards];
+            _pendingForwards.Clear();
+        }
+
+        if (pending.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _ = ex;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _ = ex;
+        }
     }
 }

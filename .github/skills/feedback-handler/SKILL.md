@@ -27,11 +27,14 @@ first.
 
 ## What you do NOT own
 
-- Pushing commits or merging the PR — that remains the user's call.
-- Replying to the GitHub comment thread — this skill only updates the local
-  queue. The user replies on GitHub after they review your work.
 - Deciding whether to ignore a comment — see the *Disagreeing with a comment*
   section; you must surface disagreement to the user before skipping.
+
+You DO own the rest of the lifecycle: implementing the fix, committing,
+pushing, resolving the GitHub review threads, and merging the PR once the
+queue is clean and the checks are green. Hand the PR back unmerged only
+when something concrete blocks the merge (failing checks, conflicts you
+can't resolve, an unresolved disagreement).
 
 ## Tooling contract
 

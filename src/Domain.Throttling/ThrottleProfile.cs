@@ -55,9 +55,9 @@ public sealed class ThrottleProfile
             throw new ArgumentOutOfRangeException(nameof(parameters), parameters.DownloadBytesPerSecond, "Download rate must be positive.");
         }
 
-        if (parameters.PacketLossProbability is < 0 or > 1)
+        if (!double.IsFinite(parameters.PacketLossProbability) || parameters.PacketLossProbability is < 0 or > 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(parameters), parameters.PacketLossProbability, "Packet loss probability must be in [0, 1].");
+            throw new ArgumentOutOfRangeException(nameof(parameters), parameters.PacketLossProbability, "Packet loss probability must be a finite value in [0, 1].");
         }
 
         if (parameters.Latency < TimeSpan.Zero)

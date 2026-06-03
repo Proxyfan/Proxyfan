@@ -44,6 +44,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private static readonly byte[] SuccessResponseBytes;
     private readonly IBreakpointHandler? _breakpointHandler;
     private readonly TransportLayerSecurityInterceptionContext _context;
+    private readonly TransportLayerSecurityInterceptorHandlerDependencies _dependencies;
     private readonly IDomainEventBus _eventBus;
     private readonly UpstreamHostResolver? _hostResolver;
     private readonly ILogger<TransportLayerSecurityInterceptorHandler> _logger;
@@ -55,7 +56,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly MutableThrottleProfile? _throttleProfile;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
-    private readonly IWebSocketStore? _webSocketStore;
 
     static TransportLayerSecurityInterceptorHandler()
     {
@@ -73,6 +73,7 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     /// <param name="dependencies">The bundled handler dependencies.</param>
     public TransportLayerSecurityInterceptorHandler(TransportLayerSecurityInterceptorHandlerDependencies dependencies)
     {
+        _dependencies = dependencies;
         _context = dependencies.Context;
         _eventBus = dependencies.EventBus;
         _hostResolver = dependencies.HostResolver;
@@ -82,7 +83,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _breakpointHandler = dependencies.BreakpointHandler;
         _scriptingHandler = dependencies.ScriptingHandler;
         _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
-        _webSocketStore = dependencies.WebSocketStore;
         _serverSentEventsStore = dependencies.ServerSentEventsStore;
         _remoteProcedureCallStore = dependencies.RemoteProcedureCallStore;
         _throttleProfile = dependencies.ThrottleProfile;
@@ -236,17 +236,13 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         await handler.HandleAsync(streamRequest, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task DispatchInterceptedUpgradeAsync(
+    private Task DispatchInterceptedUpgradeAsync(
         TransportLayerSecurityInterceptedUpgradeRequest upgradeRequest,
         CancellationToken cancellationToken)
     {
-        var upgradeHandler = new TransportLayerSecurityInterceptedUpgradeHandler(
-            _eventBus,
-            _logger,
-            _timeProvider,
-            _trafficStore,
-            _webSocketStore);
-        await upgradeHandler.HandleAsync(upgradeRequest, cancellationToken).ConfigureAwait(false);
+        var dependencies = TransportLayerSecurityInterceptedUpgradeHandlerDependenciesBuilder.Build(_dependencies);
+        var upgradeHandler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
+        return upgradeHandler.HandleAsync(upgradeRequest, cancellationToken);
     }
 
     private async Task DispatchVersionTwoAsync(
