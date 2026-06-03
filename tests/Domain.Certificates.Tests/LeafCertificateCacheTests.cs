@@ -107,10 +107,11 @@ public sealed class LeafCertificateCacheTests
                 }));
 
         await Assert.That(fastFactoryStarted.Wait(TimeSpan.FromSeconds(5))).IsTrue();
-        await Assert.That(fastTask.Wait(TimeSpan.FromSeconds(5))).IsTrue();
+        await fastTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         releaseSlowFactory.Set();
         await slowTask;
+        await Assert.That(cache.Count).IsEqualTo(2);
     }
 
     private static X509Certificate2 CreateCertificate(string hostname)
