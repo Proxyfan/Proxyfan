@@ -11,8 +11,10 @@ namespace Proxyfan.Framework.Networking;
 ///       <item><description>Header Block Fragment (variable length).</description></item>
 ///       <item><description>Padding (Pad Length octets, must be zeroed; not validated here).</description></item>
 ///     </list>
-///     Returns <c>null</c> when the payload is too short to contain the mandatory fields or
-///     when the padding length exceeds the available payload — both are FRAME_SIZE_ERROR cases.
+///     Returns <c>null</c> when the payload is too short to contain the mandatory fields, when the
+///     padding length exceeds the available payload (both FRAME_SIZE_ERROR cases), or when the
+///     promised stream identifier is zero or odd — PUSH_PROMISE promises must reference a
+///     server-initiated (even, non-zero) stream.
 /// </summary>
 public static class HypertextTransferProtocolVersion2PushPromiseParser
 {
@@ -42,6 +44,10 @@ public static class HypertextTransferProtocolVersion2PushPromiseParser
         }
         var raw = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(offset, 4));
         var promisedStreamIdentifier = raw & 0x7FFFFFFFu;
+        if (promisedStreamIdentifier == 0 || (promisedStreamIdentifier & 1u) == 1u)
+        {
+            return null;
+        }
         offset += 4;
         var fragmentEnd = span.Length - paddingLength;
         if (fragmentEnd < offset)

@@ -107,4 +107,56 @@ public sealed class HypertextTransferProtocolVersion2PushPromiseParserTests
 
         await Assert.That(result).IsNull();
     }
+
+    /// <summary>
+    ///     A promised stream identifier of zero is invalid (RFC 7540 § 5.1.1).
+    /// </summary>
+    [Test]
+    public async Task Parse_ZeroPromisedStreamIdentifier_ReturnsNull()
+    {
+        byte[] payload =
+        [
+            0x00, 0x00, 0x00, 0x00,
+            0x82,
+        ];
+
+        var result = HypertextTransferProtocolVersion2PushPromiseParser.Parse(payload, hasPaddedFlag: false);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     PUSH_PROMISE must promise a server-initiated (even) stream id; odd ids are rejected.
+    /// </summary>
+    [Test]
+    public async Task Parse_OddPromisedStreamIdentifier_ReturnsNull()
+    {
+        byte[] payload =
+        [
+            0x00, 0x00, 0x00, 0x03,
+            0x82,
+        ];
+
+        var result = HypertextTransferProtocolVersion2PushPromiseParser.Parse(payload, hasPaddedFlag: false);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>
+    ///     The reserved bit must be masked before the odd/zero check so that a server-initiated id
+    ///     with the reserved bit set is still accepted.
+    /// </summary>
+    [Test]
+    public async Task Parse_ReservedBitSetWithEvenStreamId_IsAccepted()
+    {
+        byte[] payload =
+        [
+            0x80, 0x00, 0x00, 0x02,
+            0x82,
+        ];
+
+        var result = HypertextTransferProtocolVersion2PushPromiseParser.Parse(payload, hasPaddedFlag: false);
+
+        await Assert.That(result!.Value.PromisedStreamIdentifier).IsEqualTo((uint)2);
+    }
 }
