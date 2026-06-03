@@ -97,7 +97,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     [Test]
     public async Task LoadFromFile_OversizeFile_ReportsSizeLimitExceeded()
     {
-        var library = new RemoteProcedureCallDescriptorLibrary();
+        var library = new StubDescriptorLibrary();
         var picker = new StubPickerService
         {
             Stream = new OversizeStream(11 * 1024 * 1024),
