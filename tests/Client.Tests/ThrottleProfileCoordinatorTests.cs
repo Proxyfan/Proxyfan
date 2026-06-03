@@ -114,6 +114,10 @@ public sealed class ThrottleProfileCoordinatorTests
     ///     Verifies that after <see cref="ThrottleProfileCoordinator.Dispose" />, external
     ///     changes to the holder no longer raise the coordinator's Changed event.
     /// </summary>
+    /// <remarks>
+    ///     <c>using</c> is intentionally omitted: the coordinator is disposed explicitly before
+    ///     the act step to verify post-disposal behaviour, so there is no dangling resource.
+    /// </remarks>
     [Test]
     public async Task Dispose_AfterExternalChange_StopsForwardingEvents()
     {

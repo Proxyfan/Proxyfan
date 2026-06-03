@@ -137,6 +137,10 @@ public sealed partial class ThrottleViewModel : ObservableObject, IDisposable
         });
     }
 
+    /// <summary>
+    ///     Handles a profile-change notification already marshalled to the UI thread by
+    ///     <see cref="IThrottleProfileCoordinator" />.
+    /// </summary>
     private void OnProfileChanged(ThrottleProfile? profile)
     {
         ActiveProfileName = ResolveActiveProfileName(profile);
