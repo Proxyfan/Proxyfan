@@ -200,4 +200,73 @@ public sealed class ConfigurationMigrationPipelineTests
         await Assert.That(source.Count).IsEqualTo(1);
         await Assert.That(source.ContainsKey("ui.theme")).IsFalse();
     }
+
+    /// <summary>
+    ///     A migrator whose <c>To</c> equals its <c>From</c> does not advance the version and
+    ///     must be rejected to prevent an infinite loop.
+    /// </summary>
+    [Test]
+    public async Task Migrate_MigratorToEqualsFrom_Throws()
+    {
+        var stalling = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(1, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([stalling]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     A migrator whose <c>To</c> is lower than its <c>From</c> does not advance the
+    ///     version and must be rejected to prevent an infinite loop.
+    /// </summary>
+    [Test]
+    public async Task Migrate_MigratorToLowerThanFrom_Throws()
+    {
+        var regressing = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 1),
+            Operations = [],
+            To = new ConfigurationVersion(1, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([regressing]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.1",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     A migrator whose <c>To</c> jumps past the requested target version must be rejected
+    ///     so the caller always receives the schema version it asked for.
+    /// </summary>
+    [Test]
+    public async Task Migrate_MigratorOvershoots_Throws()
+    {
+        var overshooting = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(3, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([overshooting]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
 }
