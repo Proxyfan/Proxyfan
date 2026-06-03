@@ -112,4 +112,41 @@ public sealed class ContentTypeParserTests
         await Assert.That(parsed!.MediaType).IsEqualTo("text/html");
         await Assert.That(parsed.Charset).IsNull();
     }
+
+    /// <summary>
+    ///     Verifies that a semicolon inside a quoted boundary value does not split the parameter.
+    /// </summary>
+    [Test]
+    public async Task Parse_QuotedBoundaryWithSemicolon_PreservesValue()
+    {
+        var parsed = ContentTypeParser.Parse("multipart/form-data; boundary=\"abc;def\"");
+
+        await Assert.That(parsed!.MediaType).IsEqualTo("multipart/form-data");
+        await Assert.That(parsed.Boundary).IsEqualTo("abc;def");
+    }
+
+    /// <summary>
+    ///     Verifies that a semicolon inside a quoted charset value does not split the parameter
+    ///     and that subsequent parameters are still captured.
+    /// </summary>
+    [Test]
+    public async Task Parse_QuotedCharsetWithSemicolonFollowedByBoundary_CapturesBoth()
+    {
+        var parsed = ContentTypeParser.Parse("multipart/mixed; charset=\"utf;8\"; boundary=xyz");
+
+        await Assert.That(parsed!.Charset).IsEqualTo("utf;8");
+        await Assert.That(parsed.Boundary).IsEqualTo("xyz");
+    }
+
+    /// <summary>
+    ///     Verifies that a backslash-escaped quote inside a quoted value is unescaped and does
+    ///     not terminate the quoted string prematurely.
+    /// </summary>
+    [Test]
+    public async Task Parse_QuotedBoundaryWithEscapedQuote_UnescapesValue()
+    {
+        var parsed = ContentTypeParser.Parse("multipart/form-data; boundary=\"a\\\"b;c\"");
+
+        await Assert.That(parsed!.Boundary).IsEqualTo("a\"b;c");
+    }
 }

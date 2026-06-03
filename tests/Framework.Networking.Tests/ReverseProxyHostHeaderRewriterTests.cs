@@ -129,6 +129,58 @@ public sealed class ReverseProxyHostHeaderRewriterTests
         await Assert.That(hostHeaderValues[0]).IsEqualTo("backend.local:8080");
     }
 
+    /// <summary>
+    ///     IPv6 literal backend host is wrapped in brackets even at the default HTTP port.
+    /// </summary>
+    [Test]
+    public async Task Rewrite_IpVersion6LiteralDefaultPort_WrapsHostInBrackets()
+    {
+        var request = BuildRequest(originalHost: "example.com");
+
+        var rewritten = ReverseProxyHostHeaderRewriter.Rewrite(request, "::1", 80);
+
+        await Assert.That(rewritten.Headers.Get("Host")).IsEqualTo("[::1]");
+    }
+
+    /// <summary>
+    ///     IPv6 literal backend host is wrapped in brackets and separated from the port.
+    /// </summary>
+    [Test]
+    public async Task Rewrite_IpVersion6LiteralNonDefaultPort_WrapsHostInBracketsAndAppendsPort()
+    {
+        var request = BuildRequest(originalHost: "example.com");
+
+        var rewritten = ReverseProxyHostHeaderRewriter.Rewrite(request, "::1", 8080);
+
+        await Assert.That(rewritten.Headers.Get("Host")).IsEqualTo("[::1]:8080");
+    }
+
+    /// <summary>
+    ///     Already-bracketed IPv6 literal is preserved without double-wrapping.
+    /// </summary>
+    [Test]
+    public async Task Rewrite_AlreadyBracketedIpVersion6Literal_DoesNotDoubleWrap()
+    {
+        var request = BuildRequest(originalHost: "example.com");
+
+        var rewritten = ReverseProxyHostHeaderRewriter.Rewrite(request, "[::1]", 8080);
+
+        await Assert.That(rewritten.Headers.Get("Host")).IsEqualTo("[::1]:8080");
+    }
+
+    /// <summary>
+    ///     IPv4 literal backend host is not wrapped in brackets.
+    /// </summary>
+    [Test]
+    public async Task Rewrite_IpVersion4Literal_DoesNotWrapInBrackets()
+    {
+        var request = BuildRequest(originalHost: "example.com");
+
+        var rewritten = ReverseProxyHostHeaderRewriter.Rewrite(request, "127.0.0.1", 8080);
+
+        await Assert.That(rewritten.Headers.Get("Host")).IsEqualTo("127.0.0.1:8080");
+    }
+
     private static HypertextTransferProtocolRequestData BuildRequest(string originalHost)
     {
         var headers = HeaderCollection.Empty.Add("Host", originalHost);

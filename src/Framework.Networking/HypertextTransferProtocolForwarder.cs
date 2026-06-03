@@ -77,6 +77,7 @@ public sealed class HypertextTransferProtocolForwarder
                 await upstreamStream.WriteAsync(upstream.HeaderBytes, cancellationToken).ConfigureAwait(false);
                 await upstreamStream.WriteAsync(requestExchange.Body, cancellationToken).ConfigureAwait(false);
                 await upstreamStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                forwardingRequest.Flow.MarkRequestCompleted();
                 var outcome = await ReadUpstreamResponseAsync(forwardingRequest, upstreamStream, cancellationToken).ConfigureAwait(false);
                 return outcome;
             }
@@ -106,6 +107,8 @@ public sealed class HypertextTransferProtocolForwarder
             await reader.CompleteAsync().ConfigureAwait(false);
             return HypertextTransferProtocolForwardingOutcomes.Failure();
         }
+
+        forwardingRequest.Flow.MarkResponseStarted();
 
         if (ServerSentEventsResponseDetector.HasServerSentEventsResponse(headerRead.Response))
         {

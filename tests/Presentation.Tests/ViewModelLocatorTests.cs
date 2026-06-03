@@ -147,6 +147,34 @@ public sealed class ViewModelLocatorTests
         }
     }
 
+    /// <summary>
+    ///     Verifies that clearing the locator property after a ViewModel has been resolved
+    ///     also clears the previously assigned <see cref="Control.DataContext" /> so stale
+    ///     state is not left attached.
+    /// </summary>
+    [Test]
+    public async Task SetDataContext_TypeThenNull_ClearsResolvedDataContext()
+    {
+        ContainerLocator.Reset();
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<SampleViewModel>();
+            ServiceProvider provider = services.BuildServiceProvider();
+            ContainerLocator.Set(() => provider);
+            var control = new ContentControl();
+            ViewModelLocator.SetDataContext(control, typeof(SampleViewModel));
+
+            ViewModelLocator.SetDataContext(control, null);
+
+            await Assert.That(control.DataContext).IsNull();
+        }
+        finally
+        {
+            ContainerLocator.Reset();
+        }
+    }
+
     private sealed class TestApplication : Application
     {
     }

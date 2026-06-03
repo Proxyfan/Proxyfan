@@ -394,6 +394,18 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
         HypertextTransferProtocolVersion2OrchestratorPumpContext context)
     {
         var type = frame.Header.Type;
+        var assembler = SelectAssembler(context.Direction);
+        if (assembler.IsInProgress)
+        {
+            var isContiguousContinuation = type == HypertextTransferProtocolVersion2FrameType.Continuation
+                && frame.Header.StreamIdentifier == assembler.ActiveStreamIdentifier;
+            if (!isContiguousContinuation)
+            {
+                RejectInterleavedFrame(context);
+                return;
+            }
+        }
+
         if (type == HypertextTransferProtocolVersion2FrameType.Headers)
         {
             ProcessHeadersFrame(frame, context);
@@ -504,6 +516,29 @@ public sealed class HypertextTransferProtocolVersion2Orchestrator
             await context.Reader.CompleteAsync().ConfigureAwait(false);
             await pumpCancellation.CancelAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    ///     Discards the in-progress header block state (assembler buffer + pending END_STREAM
+    ///     flag for the active stream) when the peer interleaves a non-CONTINUATION frame, or
+    ///     a CONTINUATION for a different stream, between a HEADERS fragment and its terminating
+    ///     END_HEADERS CONTINUATION. RFC 7540 § 6.10 forbids interleaving and treats this as a
+    ///     connection-level PROTOCOL_ERROR. The orchestrator continues to forward the wire bytes
+    ///     verbatim — the peers will surface the protocol error themselves — but it MUST stop
+    ///     attempting to decode further HPACK fragments for the desynchronised block.
+    /// </summary>
+    private void RejectInterleavedFrame(HypertextTransferProtocolVersion2OrchestratorPumpContext context)
+    {
+        var assembler = SelectAssembler(context.Direction);
+        var activeStreamIdentifier = assembler.ActiveStreamIdentifier;
+        assembler.Reset();
+        if (activeStreamIdentifier == 0)
+        {
+            return;
+        }
+
+        var pendingMap = SelectPendingEndStreamMap(context.Direction);
+        pendingMap.TryRemove(activeStreamIdentifier, out _);
     }
 
     private HypertextTransferProtocolVersion2HeaderBlockAssembler SelectAssembler(HypertextTransferProtocolVersion2RelayDirection direction)
