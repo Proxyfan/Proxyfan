@@ -15,6 +15,8 @@ namespace Proxyfan.Domain.Certificates.Tests;
 /// </summary>
 public sealed class CertificateAuthorityTests
 {
+    private const string SubjectAlternativeNameOid = "2.5.29.17";
+
     /// <summary>
     ///     Verifies that a newly constructed <see cref="CertificateAuthority" /> reports
     ///     <see cref="CertificateAuthority.IsInstalled" /> as <see langword="false" />.
@@ -122,6 +124,17 @@ public sealed class CertificateAuthorityTests
     }
 
     /// <summary>
+    ///     Verifies that bracketed non-IPv6 host names are rejected.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithBracketedNonIpv6HostName_ThrowsArgumentException()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+
+        await Assert.That(() => authority.Sign("[not-an-ipv6]")).Throws<ArgumentException>();
+    }
+
+    /// <summary>
     ///     Verifies that two calls to <see cref="CertificateAuthority.Sign" /> for the same host
     ///     return distinct certificate instances.
     /// </summary>
@@ -146,7 +159,7 @@ public sealed class CertificateAuthorityTests
     {
         var extension = certificate.Extensions
             .OfType<X509Extension>()
-            .FirstOrDefault(item => item.Oid?.Value == "2.5.29.17");
+            .FirstOrDefault(item => item.Oid?.Value == SubjectAlternativeNameOid);
         if (extension is null)
         {
             throw new InvalidOperationException("Certificate is missing subject alternative name extension.");

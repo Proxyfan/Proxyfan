@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
@@ -108,7 +109,14 @@ public sealed class CertificateAuthority
             normalizedHostname.StartsWith('[') &&
             normalizedHostname.EndsWith(']'))
         {
-            normalizedHostname = normalizedHostname[1..^1];
+            var bracketedHost = normalizedHostname[1..^1];
+            if (!IPAddress.TryParse(bracketedHost, out var bracketedAddress) ||
+                bracketedAddress.AddressFamily != AddressFamily.InterNetworkV6)
+            {
+                throw new ArgumentException("Bracketed host names must be valid IPv6 addresses.", nameof(hostname));
+            }
+
+            normalizedHostname = bracketedHost;
         }
 
         if (Uri.CheckHostName(normalizedHostname) == UriHostNameType.Unknown)
