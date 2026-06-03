@@ -203,7 +203,6 @@ public sealed class SourceListViewModelTests
     {
         var bus = new RecordingEventBus();
         var coordinator = new TrafficListCoordinator();
-        using var trafficList = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator);
         using var sourceList = new SourceListViewModel(bus, coordinator, InlineUserInterfaceScheduler.Instance);
 
         bus.RequestReceivedHandler!(CreateRequestEventWithoutHostHeader("uri-host.test"));

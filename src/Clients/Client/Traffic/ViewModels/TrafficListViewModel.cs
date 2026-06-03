@@ -168,18 +168,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _diffPool = diffPool;
         _clipboardService = clipboardService;
 
-        ITrafficListCoordinator effectiveCoordinator;
-        if (coordinator is null)
-        {
-            var fallback = new TrafficListCoordinator();
-            effectiveCoordinator = fallback;
-        }
-        else
-        {
-            effectiveCoordinator = coordinator;
-        }
-
-        _coordinator = effectiveCoordinator;
+        var fallbackCoordinator = new TrafficListCoordinator();
+        _coordinator = coordinator ?? fallbackCoordinator;
 
         var flowById = new ConcurrentDictionary<Guid, TrafficFlowViewModel>();
         _flowById = flowById;
