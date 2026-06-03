@@ -10,9 +10,9 @@ namespace Proxyfan.Domain.Certificates;
 public interface ICertificateGenerator
 {
     /// <summary>
-    ///     Generates a new leaf certificate for the specified host name.
+    ///     Generates a new leaf certificate for the specified host name or IP address.
     /// </summary>
-    /// <param name="hostname">The host name to include in the certificate.</param>
+    /// <param name="hostname">The host name or IP address to include in the certificate.</param>
     /// <param name="authority">The certificate authority that signs the leaf certificate.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The generated leaf certificate.</returns>

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
@@ -31,9 +33,9 @@ public sealed class CertificateAuthority
     }
 
     /// <summary>
-    ///     Generates a leaf certificate for the specified host name signed by this authority.
+    ///     Generates a leaf certificate for the specified host name or IP address signed by this authority.
     /// </summary>
-    /// <param name="hostname">The host name to include in the generated certificate.</param>
+    /// <param name="hostname">The host name or IP address to include in the generated certificate.</param>
     /// <returns>The generated leaf certificate.</returns>
     public X509Certificate2 Sign(string hostname)
     {
@@ -42,17 +44,14 @@ public sealed class CertificateAuthority
 
     private X509Certificate2 CreateLeafCertificate(string hostname)
     {
-        if (string.IsNullOrWhiteSpace(hostname))
-        {
-            throw new ArgumentException("Leaf certificate host name must be provided.", nameof(hostname));
-        }
+        var normalizedHostname = NormalizeHostName(hostname);
 
         using var key = RSA.Create(2048);
-        var request = new CertificateRequest($"CN={hostname}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var request = new CertificateRequest($"CN={normalizedHostname}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         var constraints = new X509BasicConstraintsExtension(false, false, 0, true);
         var keyUsage = new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true);
         var serverAuthenticationUsage = CreateServerAuthenticationUsage();
-        var serverNameIndicationExtension = CreateServerNameIndicationExtension(hostname);
+        var serverNameIndicationExtension = CreateServerNameIndicationExtension(normalizedHostname);
         var subjectKeyIdentifier = new X509SubjectKeyIdentifierExtension(request.PublicKey, false);
         request.CertificateExtensions.Add(constraints);
         request.CertificateExtensions.Add(keyUsage);
@@ -85,8 +84,61 @@ public sealed class CertificateAuthority
     private X509Extension CreateServerNameIndicationExtension(string hostname)
     {
         var builder = new SubjectAlternativeNameBuilder();
-        builder.AddDnsName(hostname);
+        if (IPAddress.TryParse(hostname, out var address))
+        {
+            builder.AddIpAddress(address);
+        }
+        else
+        {
+            builder.AddDnsName(hostname);
+        }
+
         var extension = builder.Build();
         return extension;
+    }
+
+    private string NormalizeHostName(string hostname)
+    {
+        if (string.IsNullOrWhiteSpace(hostname))
+        {
+            throw new ArgumentException("Leaf certificate host name must be provided.", nameof(hostname));
+        }
+
+        var trimmedHostname = hostname.Trim();
+        if (trimmedHostname.Length > 1
+            && trimmedHostname[0] == '['
+            && trimmedHostname[^1] == ']'
+            && IPAddress.TryParse(trimmedHostname[1..^1], out var bracketedAddress))
+        {
+            return bracketedAddress.ToString();
+        }
+
+        if (IPAddress.TryParse(trimmedHostname, out var address))
+        {
+            return address.ToString();
+        }
+
+        string normalizedHostname;
+        try
+        {
+            var mapping = new IdnMapping();
+            normalizedHostname = mapping.GetAscii(trimmedHostname);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new ArgumentException(
+                "Leaf certificate host name must be a valid DNS name or IP address.",
+                nameof(hostname),
+                exception);
+        }
+
+        if (Uri.CheckHostName(normalizedHostname) != UriHostNameType.Dns)
+        {
+            throw new ArgumentException(
+                "Leaf certificate host name must be a valid DNS name or IP address.",
+                nameof(hostname));
+        }
+
+        return normalizedHostname;
     }
 }
