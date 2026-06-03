@@ -78,6 +78,10 @@ public sealed class ConfigurationMigrationPipeline
         IReadOnlyDictionary<string, string> currentValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
         var aggregateActions = new List<ConfigurationMigrationAction>();
         var currentVersion = sourceVersion;
+        var visitedVersions = new HashSet<ConfigurationVersion>
+        {
+            currentVersion,
+        };
         while (currentVersion.HasLowerOrderThan(targetVersion))
         {
             if (!_migratorsByFrom.TryGetValue(currentVersion, out var migrator))
@@ -86,10 +90,12 @@ public sealed class ConfigurationMigrationPipeline
                     $"No configuration migrator registered for source version {currentVersion}.");
             }
 
+            EnsureMigratorTransitionIsValid(currentVersion, targetVersion, migrator, visitedVersions);
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
             aggregateActions.AddRange(stepResult.Actions);
             currentVersion = migrator.To;
+            visitedVersions.Add(currentVersion);
         }
 
         var result = new ConfigurationMigrationPipelineResult
@@ -101,5 +107,30 @@ public sealed class ConfigurationMigrationPipeline
             Values = currentValues,
         };
         return result;
+    }
+
+    private void EnsureMigratorTransitionIsValid(
+        ConfigurationVersion currentVersion,
+        ConfigurationVersion targetVersion,
+        IConfigurationMigrator migrator,
+        HashSet<ConfigurationVersion> visitedVersions)
+    {
+        if (!currentVersion.HasLowerOrderThan(migrator.To))
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator transition is invalid: {migrator.From} -> {migrator.To}. Transition must advance from {currentVersion}.");
+        }
+
+        if (targetVersion.HasLowerOrderThan(migrator.To))
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator transition is invalid: {migrator.From} -> {migrator.To}. Transition overshoots requested target {targetVersion}.");
+        }
+
+        if (visitedVersions.Contains(migrator.To))
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator transition is invalid: {migrator.From} -> {migrator.To}. Transition revisits already-seen version {migrator.To}.");
+        }
     }
 }

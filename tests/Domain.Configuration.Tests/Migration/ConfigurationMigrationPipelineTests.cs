@@ -171,6 +171,50 @@ public sealed class ConfigurationMigrationPipelineTests
     }
 
     /// <summary>
+    ///     A migrator must advance to a strictly greater version.
+    /// </summary>
+    [Test]
+    public async Task Migrate_NonAdvancingTransition_Throws()
+    {
+        var step = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(1, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([step]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(1, 1)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     A migrator cannot jump beyond the requested target version.
+    /// </summary>
+    [Test]
+    public async Task Migrate_OvershootTransition_Throws()
+    {
+        var step = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(2, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([step]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(1, 1)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
     ///     The pipeline does not mutate the supplied source dictionary.
     /// </summary>
     [Test]
