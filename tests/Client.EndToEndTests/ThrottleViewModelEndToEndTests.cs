@@ -2,7 +2,10 @@ using Proxyfan.Client.EndToEndTests.Infrastructure;
 using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Domain.Throttling;
+using Proxyfan.Presentation.Localization;
+using System.Globalization;
 using System.Linq;
+using System.Resources;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -28,11 +31,11 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
 
-            var names = vm.Presets.Select(p => p.DisplayName).ToArray();
+            var ids = vm.Presets.Select(p => p.PresetId).ToArray();
 
-            await Assert.That(names).IsEquivalentTo(ExpectedPresetOrder);
+            await Assert.That(ids).IsEquivalentTo(ExpectedPresetOrder);
         });
     }
 
@@ -42,10 +45,10 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
 
             await Assert.That(vm.SelectedPreset).IsNotNull();
-            await Assert.That(vm.SelectedPreset!.DisplayName).IsEqualTo("Off");
+            await Assert.That(vm.SelectedPreset!.PresetId).IsEqualTo("Off");
         });
     }
 
@@ -55,7 +58,7 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
 
             await Assert.That(vm.ActiveProfileName).IsEqualTo("Off");
         });
@@ -67,8 +70,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
-            vm.SelectedPreset = vm.Presets.First(p => p.DisplayName == "3G");
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
+            vm.SelectedPreset = vm.Presets.First(p => p.PresetId == "3G");
 
             vm.ApplyCommand.Execute(null);
 
@@ -83,8 +86,8 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile(ThrottleProfilePresets.ThirdGeneration());
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
-            vm.SelectedPreset = vm.Presets.First(p => p.DisplayName == "Off");
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
+            vm.SelectedPreset = vm.Presets.First(p => p.PresetId == "Off");
 
             vm.ApplyCommand.Execute(null);
 
@@ -98,7 +101,7 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
             vm.SelectedPreset = null;
 
             vm.ApplyCommand.Execute(null);
@@ -113,12 +116,12 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile();
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
 
             profile.SetProfile(ThrottleProfilePresets.FastFourthGeneration());
 
             await Assert.That(vm.ActiveProfileName).IsEqualTo("4G");
-            await Assert.That(vm.SelectedPreset!.DisplayName).IsEqualTo("4G");
+            await Assert.That(vm.SelectedPreset!.PresetId).IsEqualTo("4G");
         });
     }
 
@@ -128,12 +131,21 @@ public sealed class ThrottleViewModelEndToEndTests : EndToEndTestBase
         await RunOnUiThreadAsync(async () =>
         {
             var profile = new MutableThrottleProfile(ThrottleProfilePresets.Wireless());
-            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance);
+            using var vm = new ThrottleViewModel(profile, InlineUserInterfaceScheduler.Instance, CreateLocalization());
 
             profile.Disable();
 
             await Assert.That(vm.ActiveProfileName).IsEqualTo("Off");
-            await Assert.That(vm.SelectedPreset!.DisplayName).IsEqualTo("Off");
+            await Assert.That(vm.SelectedPreset!.PresetId).IsEqualTo("Off");
         });
+    }
+
+    private static LocalizationService CreateLocalization()
+    {
+        var localization = new LocalizationService(CultureInfo.InvariantCulture);
+        var clientAssembly = typeof(Proxyfan.Client.App).Assembly;
+        var manager = new ResourceManager("Proxyfan.Client.Resources.Strings", clientAssembly);
+        localization.RegisterManager(manager);
+        return localization;
     }
 }

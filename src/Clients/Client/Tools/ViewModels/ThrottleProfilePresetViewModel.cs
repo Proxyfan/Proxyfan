@@ -1,16 +1,24 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Proxyfan.Domain.Throttling;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
-///     Lightweight read-only DTO representing one throttle preset shown in the picker.
+///     Lightweight view-model representing one throttle preset shown in the picker.
+///     Exposes a stable <see cref="PresetId" /> (English, used for matching against
+///     <see cref="ThrottleProfile.Name" />) and a culture-aware
+///     <see cref="DisplayName" /> sourced from the client Resources table.
 /// </summary>
-public sealed class ThrottleProfilePresetViewModel
+public sealed partial class ThrottleProfilePresetViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private string _displayName;
+
     /// <summary>
-    ///     Gets the user-visible display name of the preset.
+    ///     Gets the stable English identifier of the preset, used for matching
+    ///     external profile mutations against the picker independent of UI culture.
     /// </summary>
-    public string DisplayName { get; }
+    public string PresetId { get; }
 
     /// <summary>
     ///     Gets the underlying throttle profile, or <see langword="null" /> when the preset
@@ -21,11 +29,13 @@ public sealed class ThrottleProfilePresetViewModel
     /// <summary>
     ///     Initializes a new <see cref="ThrottleProfilePresetViewModel" />.
     /// </summary>
-    /// <param name="displayName">The user-visible name.</param>
+    /// <param name="presetId">The stable English identifier of the preset.</param>
+    /// <param name="displayName">The initial localized display name.</param>
     /// <param name="profile">The underlying profile, or <see langword="null" /> to disable throttling.</param>
-    public ThrottleProfilePresetViewModel(string displayName, ThrottleProfile? profile)
+    public ThrottleProfilePresetViewModel(string presetId, string displayName, ThrottleProfile? profile)
     {
-        DisplayName = displayName;
+        PresetId = presetId;
+        _displayName = displayName;
         Profile = profile;
     }
 }
