@@ -275,6 +275,49 @@ public sealed class MutableMapLocalRuleTests
         await Assert.That(rule.Priority).IsEqualTo(305);
     }
 
+    /// <summary>
+    ///     When <see cref="MatchingRule.Compile" /> throws, <see cref="MutableMapLocalRule.AddEntry" />
+    ///     must not mutate <c>_entries</c>, must not update <c>_compiled</c>, and must not raise
+    ///     <see cref="MutableMapLocalRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_CompileThrows_LeavesStateUnchanged()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var good = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://stub.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+        rule.AddEntry(good);
+
+        var count = 0;
+        rule.Changed += () => count++;
+
+        var invalid = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("irrelevant", (MatchingRuleKind)999),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(invalid)).Throws<InvalidOperationException>();
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+
+        var request = CreateRequest("https://stub.example.com/api");
+        var action = rule.EvaluateRequest(request);
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

@@ -257,6 +257,44 @@ public sealed class MutableMapRemoteRuleTests
         await Assert.That(rule.Priority).IsEqualTo(250);
     }
 
+    /// <summary>
+    ///     When <see cref="MatchingRule.Compile" /> throws, <see cref="MutableMapRemoteRule.AddEntry" />
+    ///     must not mutate <c>_entries</c>, must not update <c>_compiled</c>, and must not raise
+    ///     <see cref="MutableMapRemoteRule.Changed" />.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_CompileThrows_LeavesStateUnchanged()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        var good = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
+        };
+        rule.AddEntry(good);
+
+        var count = 0;
+        rule.Changed += () => count++;
+
+        var invalid = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("irrelevant", (MatchingRuleKind)999),
+        };
+
+        await Assert.That(() => rule.AddEntry(invalid)).Throws<InvalidOperationException>();
+
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+
+        var request = CreateRequest("https://public.example.com/api");
+        var action = rule.EvaluateRequest(request);
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Redirect>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
