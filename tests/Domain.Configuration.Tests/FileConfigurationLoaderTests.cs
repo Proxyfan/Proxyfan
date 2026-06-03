@@ -24,6 +24,7 @@ public sealed class FileConfigurationLoaderTests
         var result = loader.Load();
 
         await Assert.That(result.BackupPath).IsNull();
+        await Assert.That(result.MalformedLines).IsNull();
         await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
         await Assert.That(result.Snapshot.Get(ConfigurationMigrationConstants.VersionKey, string.Empty)).IsEqualTo("1.0");
     }
@@ -44,6 +45,8 @@ public sealed class FileConfigurationLoaderTests
             var result = loader.Load();
 
             await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.MalformedLines).IsNotNull();
+            await Assert.That(result.MalformedLines!.Count).IsEqualTo(0);
             await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
             await Assert.That(result.Snapshot.Get("proxy.port", string.Empty)).IsEqualTo("8080");
             await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
@@ -83,6 +86,8 @@ public sealed class FileConfigurationLoaderTests
 
             var result = loader.Load();
 
+            await Assert.That(result.MalformedLines).IsNotNull();
+            await Assert.That(result.MalformedLines!.Count).IsEqualTo(0);
             await Assert.That(result.PipelineResult.IsMigrated).IsTrue();
             await Assert.That(result.Snapshot.Get("new.key", string.Empty)).IsEqualTo("value");
             await Assert.That(result.Snapshot.HasKey("old.key")).IsFalse();
@@ -129,6 +134,46 @@ public sealed class FileConfigurationLoaderTests
         {
             DeleteIfExists(path);
             DeleteIfExists(backupPath);
+        }
+    }
+
+    /// <summary>
+    ///     A file containing a malformed line (no equals separator) is rejected: the
+    ///     loader returns the malformed lines in the result, does not apply migration,
+    ///     does not rewrite the file, and does not create a backup.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedLines_RejectsFileWithoutMigrationOrRewrite()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            const string originalContent = "version=1.0\nTHIS LINE IS MALFORMED\nproxy.port=8080\n";
+            File.WriteAllText(path, originalContent);
+            var migrator = new ConfigurationMigrator
+            {
+                From = new ConfigurationVersion(1, 0),
+                Operations = [],
+                To = new ConfigurationVersion(1, 1),
+            };
+            var pipeline = new ConfigurationMigrationPipeline([migrator]);
+            var loader = new FileConfigurationLoader(path, pipeline, new ConfigurationVersion(1, 1));
+
+            var result = loader.Load();
+
+            await Assert.That(result.MalformedLines).IsNotNull();
+            await Assert.That(result.MalformedLines!.Count).IsEqualTo(1);
+            await Assert.That(result.MalformedLines![0]).IsEqualTo("THIS LINE IS MALFORMED");
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(originalContent);
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
         }
     }
 
