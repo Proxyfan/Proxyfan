@@ -161,6 +161,190 @@ public sealed class WebSocketRelayTests
         await Assert.That(destination.ToArray()).IsEquivalentTo(partialFrameSingleByte);
     }
 
+    /// <summary>
+    ///     Frames split byte-by-byte across many reads are reassembled correctly; verifies that
+    ///     the accumulator can stitch fragments together across many reads without losing or
+    ///     duplicating bytes (exercises the consume-from-head / read-into-tail pump).
+    /// </summary>
+    [Test]
+    public async Task RelayAsync_DrippedOneByteAtATime_ReassemblesAndForwardsAll()
+    {
+        var captured = new List<WebSocketMessage>();
+        var relay = new WebSocketRelay(WebSocketDirection.Inbound, captured.Add, TimeProvider.System);
+        var first = BuildUnmaskedTextFrame("alpha");
+        var second = BuildUnmaskedTextFrame("bravo");
+        var combined = new byte[first.Length + second.Length];
+        Array.Copy(first, 0, combined, 0, first.Length);
+        Array.Copy(second, 0, combined, first.Length, second.Length);
+        using var source = new SingleByteReadStream(combined);
+        using var destination = new MemoryStream();
+
+        var count = await relay.RelayAsync(source, destination, CancellationToken.None);
+
+        await Assert.That(count).IsEqualTo(2);
+        await Assert.That(Encoding.UTF8.GetString(captured[0].Payload.Span)).IsEqualTo("alpha");
+        await Assert.That(Encoding.UTF8.GetString(captured[1].Payload.Span)).IsEqualTo("bravo");
+        await Assert.That(destination.ToArray()).IsEquivalentTo(combined);
+    }
+
+    /// <summary>
+    ///     A long stream of small frames drains the accumulator continually and forces the
+    ///     internal compaction path to kick in repeatedly; verifies no bytes are lost or
+    ///     duplicated under sustained throughput.
+    /// </summary>
+    [Test]
+    public async Task RelayAsync_ManySmallFramesAcrossSmallReads_PreservesEveryFrame()
+    {
+        var captured = new List<WebSocketMessage>();
+        var relay = new WebSocketRelay(WebSocketDirection.Inbound, captured.Add, TimeProvider.System);
+        const int frameCount = 1024;
+        var pieces = new List<byte[]>(frameCount);
+        var totalLength = 0;
+        for (var index = 0; index < frameCount; index++)
+        {
+            var frame = BuildUnmaskedTextFrame($"f{index}");
+            pieces.Add(frame);
+            totalLength += frame.Length;
+        }
+
+        var combined = new byte[totalLength];
+        var offset = 0;
+        foreach (var piece in pieces)
+        {
+            Array.Copy(piece, 0, combined, offset, piece.Length);
+            offset += piece.Length;
+        }
+
+        using var source = new ChunkedReadStream(combined, chunkSize: 7);
+        using var destination = new MemoryStream();
+
+        var count = await relay.RelayAsync(source, destination, CancellationToken.None);
+
+        await Assert.That(count).IsEqualTo(frameCount);
+        await Assert.That(captured.Count).IsEqualTo(frameCount);
+        await Assert.That(destination.ToArray()).IsEquivalentTo(combined);
+        await Assert.That(Encoding.UTF8.GetString(captured[0].Payload.Span)).IsEqualTo("f0");
+        await Assert.That(Encoding.UTF8.GetString(captured[frameCount - 1].Payload.Span)).IsEqualTo($"f{frameCount - 1}");
+    }
+
+    private sealed class SingleByteReadStream : Stream
+    {
+        private readonly byte[] _data;
+        private int _position;
+
+        public SingleByteReadStream(byte[] data)
+        {
+            _data = data;
+            _position = 0;
+        }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => _data.Length;
+
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position >= _data.Length)
+            {
+                return 0;
+            }
+
+            buffer[offset] = _data[_position];
+            _position++;
+            return 1;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class ChunkedReadStream : Stream
+    {
+        private readonly int _chunkSize;
+        private readonly byte[] _data;
+        private int _position;
+
+        public ChunkedReadStream(byte[] data, int chunkSize)
+        {
+            _data = data;
+            _chunkSize = chunkSize;
+            _position = 0;
+        }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => _data.Length;
+
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position >= _data.Length)
+            {
+                return 0;
+            }
+
+            var remaining = _data.Length - _position;
+            var toCopy = Math.Min(Math.Min(_chunkSize, count), remaining);
+            Array.Copy(_data, _position, buffer, offset, toCopy);
+            _position += toCopy;
+            return toCopy;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
     private static byte[] BuildUnmaskedTextFrame(string text)
     {
         var payload = Encoding.UTF8.GetBytes(text);

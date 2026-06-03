@@ -16,6 +16,8 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public sealed class WebSocketRelay
 {
+    private const int InitialAccumulatorCapacity = 8192;
+    private const int MinimumReadChunk = 8192;
     private readonly WebSocketMessageAssembler _assembler;
     private readonly WebSocketDirection _direction;
     private readonly WebSocketMessageCallback _onMessage;
@@ -47,8 +49,7 @@ public sealed class WebSocketRelay
     /// <returns>The number of fully-reassembled messages captured during this relay.</returns>
     public async Task<int> RelayAsync(Stream source, Stream destination, CancellationToken cancellationToken)
     {
-        var buffer = new byte[8192];
-        var accumulator = new MemoryStream();
+        using var accumulator = new WebSocketRelayAccumulator(InitialAccumulatorCapacity);
         var capturedMessages = 0;
         var observedCloseFrame = false;
 
@@ -56,16 +57,20 @@ public sealed class WebSocketRelay
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var bytesRead = await source.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+            var writable = accumulator.EnsureWritableTail(MinimumReadChunk);
+
+            var bytesRead = await source.ReadAsync(writable, cancellationToken).ConfigureAwait(false);
             if (bytesRead == 0)
             {
                 break;
             }
 
-            await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+            accumulator.AdvanceWritten(bytesRead);
+
+            var freshSlice = accumulator.AsTailMemory(bytesRead);
+            await destination.WriteAsync(freshSlice, cancellationToken).ConfigureAwait(false);
             await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            await accumulator.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
             var drain = DrainCompletedFrames(accumulator);
             capturedMessages += drain.MessagesCaptured;
             if (drain.IsObservedCloseFrame)
@@ -77,23 +82,26 @@ public sealed class WebSocketRelay
         return capturedMessages;
     }
 
-    private DrainResult DrainCompletedFrames(MemoryStream accumulator)
+    private DrainResult DrainCompletedFrames(WebSocketRelayAccumulator accumulator)
     {
         var captured = 0;
         var sawClose = false;
-        var buffer = accumulator.ToArray();
-        var offset = 0;
 
-        while (offset < buffer.Length)
+        while (true)
         {
-            var slice = new ReadOnlyMemory<byte>(buffer, offset, buffer.Length - offset);
+            var slice = accumulator.UnconsumedMemory;
+            if (slice.Length == 0)
+            {
+                break;
+            }
+
             var frame = WebSocketFrameParser.TryParse(slice);
             if (frame is null)
             {
                 break;
             }
 
-            offset += frame.TotalLength;
+            accumulator.AdvanceConsumed(frame.TotalLength);
 
             var timestamp = _timeProvider.GetUtcNow();
             var message = _assembler.Accept(frame, _direction, timestamp);
@@ -108,19 +116,6 @@ public sealed class WebSocketRelay
                     break;
                 }
             }
-        }
-
-        if (offset == 0)
-        {
-            var noopResult = new DrainResult(captured, sawClose);
-            return noopResult;
-        }
-
-        var remaining = buffer.Length - offset;
-        accumulator.SetLength(0);
-        if (remaining > 0)
-        {
-            accumulator.Write(buffer, offset, remaining);
         }
 
         var result = new DrainResult(captured, sawClose);
