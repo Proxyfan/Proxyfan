@@ -10,9 +10,9 @@ namespace Proxyfan.Domain.Certificates;
 /// </summary>
 public sealed class LeafCertificateCache : ICertificateCache
 {
-    private readonly Dictionary<string, LinkedListNode<KeyValuePair<string, X509Certificate2>>> _entries;
+    private readonly Dictionary<string, LinkedListNode<KeyValuePair<string, Lazy<X509Certificate2>>>> _entries;
     private readonly Lock _syncRoot;
-    private readonly LinkedList<KeyValuePair<string, X509Certificate2>> _usageOrder;
+    private readonly LinkedList<KeyValuePair<string, Lazy<X509Certificate2>>> _usageOrder;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="LeafCertificateCache" /> class.
@@ -22,9 +22,9 @@ public sealed class LeafCertificateCache : ICertificateCache
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         Capacity = capacity;
-        var entries = new Dictionary<string, LinkedListNode<KeyValuePair<string, X509Certificate2>>>(StringComparer.OrdinalIgnoreCase);
+        var entries = new Dictionary<string, LinkedListNode<KeyValuePair<string, Lazy<X509Certificate2>>>>(StringComparer.OrdinalIgnoreCase);
         var syncRoot = new Lock();
-        var usageOrder = new LinkedList<KeyValuePair<string, X509Certificate2>>();
+        var usageOrder = new LinkedList<KeyValuePair<string, Lazy<X509Certificate2>>>();
         _entries = entries;
         _syncRoot = syncRoot;
         _usageOrder = usageOrder;
@@ -65,7 +65,7 @@ public sealed class LeafCertificateCache : ICertificateCache
 
         lock (_syncRoot)
         {
-            if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? entry))
+            if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, Lazy<X509Certificate2>>>? entry))
             {
                 _entries.Remove(hostname);
                 _usageOrder.Remove(entry);
@@ -86,24 +86,30 @@ public sealed class LeafCertificateCache : ICertificateCache
             throw new ArgumentException("Host name must be provided.", nameof(hostname));
         }
 
+        Lazy<X509Certificate2> lazy;
+
         lock (_syncRoot)
         {
-            if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, X509Certificate2>>? existingEntry))
+            if (_entries.TryGetValue(hostname, out LinkedListNode<KeyValuePair<string, Lazy<X509Certificate2>>>? existingEntry))
             {
                 MoveToFront(existingEntry);
-                return existingEntry.Value.Value;
+                lazy = existingEntry.Value.Value;
             }
-
-            var certificate = factory(hostname);
-            var cacheEntry = new KeyValuePair<string, X509Certificate2>(hostname, certificate);
-            var node = _usageOrder.AddFirst(cacheEntry);
-            _entries[hostname] = node;
-            RemoveLeastRecentlyUsedWhenRequired();
-            return certificate;
+            else
+            {
+                var newLazy = new Lazy<X509Certificate2>(() => factory(hostname), LazyThreadSafetyMode.ExecutionAndPublication);
+                lazy = newLazy;
+                var cacheEntry = new KeyValuePair<string, Lazy<X509Certificate2>>(hostname, newLazy);
+                var node = _usageOrder.AddFirst(cacheEntry);
+                _entries[hostname] = node;
+                RemoveLeastRecentlyUsedWhenRequired();
+            }
         }
+
+        return lazy.Value;
     }
 
-    private void MoveToFront(LinkedListNode<KeyValuePair<string, X509Certificate2>> node)
+    private void MoveToFront(LinkedListNode<KeyValuePair<string, Lazy<X509Certificate2>>> node)
     {
         _usageOrder.Remove(node);
         _usageOrder.AddFirst(node);
@@ -116,7 +122,7 @@ public sealed class LeafCertificateCache : ICertificateCache
             return;
         }
 
-        LinkedListNode<KeyValuePair<string, X509Certificate2>>? oldestEntry = _usageOrder.Last;
+        LinkedListNode<KeyValuePair<string, Lazy<X509Certificate2>>>? oldestEntry = _usageOrder.Last;
 
         if (oldestEntry is null)
         {

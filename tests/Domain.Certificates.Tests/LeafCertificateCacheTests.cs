@@ -75,6 +75,33 @@ public sealed class LeafCertificateCacheTests
         await Assert.That(results[0]).IsSameReferenceAs(results[^1]);
     }
 
+    /// <summary>
+    ///     Verifies that concurrent access for different host names runs factory calls in parallel rather than
+    ///     serialising them behind the global cache lock.
+    /// </summary>
+    [Test]
+    public async Task GetOrAdd_WhenDifferentHostsAccessedConcurrently_RunsFactoriesInParallel()
+    {
+        var cache = new LeafCertificateCache(8);
+        var barrier = new Barrier(2);
+
+        var taskA = Task.Run(() => cache.GetOrAdd("host-a.example", _ =>
+        {
+            barrier.SignalAndWait(TimeSpan.FromSeconds(10));
+            return CreateCertificate("host-a.example");
+        }));
+
+        var taskB = Task.Run(() => cache.GetOrAdd("host-b.example", _ =>
+        {
+            barrier.SignalAndWait(TimeSpan.FromSeconds(10));
+            return CreateCertificate("host-b.example");
+        }));
+
+        await Task.WhenAll(taskA, taskB);
+
+        await Assert.That(cache.Count).IsEqualTo(2);
+    }
+
     private static X509Certificate2 CreateCertificate(string hostname)
     {
         using var key = RSA.Create(2048);
