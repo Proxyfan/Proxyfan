@@ -10,9 +10,10 @@ namespace Proxyfan.Framework.Networking;
 ///     <see cref="HypertextTransferProtocolResponseData" /> into the HPACK-encoded header list
 ///     and body payload that an HTTP/2 server emits for a stream. The translator hoists the
 ///     status code onto a <c>:status</c> pseudo-header (which must precede regular headers),
-///     lowercases header names (HTTP/2 wire format requirement, § 8.1.2), and strips the
+///     lowercases header names (HTTP/2 wire format requirement, § 8.1.2), strips the
 ///     connection-specific headers (<c>Connection</c>, <c>Keep-Alive</c>, <c>Proxy-Connection</c>,
-///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids.
+///     <c>Transfer-Encoding</c>, <c>Upgrade</c>) HTTP/2 forbids, and strips any extension
+///     hop-by-hop headers named in the <c>Connection</c> header value (RFC 7230 § 6.1).
 /// </summary>
 public static class HypertextTransferProtocolVersion2ResponseTranslation
 {
@@ -62,10 +63,22 @@ public static class HypertextTransferProtocolVersion2ResponseTranslation
         HeaderCollection source,
         List<HypertextTransferProtocolVersion2HpackHeaderField> destination)
     {
+        var connectionTokens = ConnectionHeaderTokenizer.Parse(source);
+        HashSet<string>? extensionHopByHop = null;
+        if (connectionTokens.Length > 0)
+        {
+            var hopByHopSet = new HashSet<string>(connectionTokens, StringComparer.OrdinalIgnoreCase);
+            extensionHopByHop = hopByHopSet;
+        }
+
         foreach (var pair in source)
         {
             var name = pair.Key;
             if (ForbiddenConnectionHeaders.Contains(name))
+            {
+                continue;
+            }
+            if (extensionHopByHop is not null && extensionHopByHop.Contains(name))
             {
                 continue;
             }

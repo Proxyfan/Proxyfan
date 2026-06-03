@@ -104,6 +104,39 @@ public sealed class HypertextTransferProtocolVersion2ResponseTranslationTests
     }
 
     /// <summary>
+    ///     RFC 7230 § 6.1 — headers named in the <c>Connection</c> value are extension
+    ///     hop-by-hop headers and must be stripped from the HTTP/2 translation.
+    /// </summary>
+    [Test]
+    public async Task Translate_ExtensionHopByHopHeadersInConnection_StripsNamedHeaders()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Connection", "X-Internal, X-Request-Id")
+            .Add("X-Internal", "secret-value")
+            .Add("X-Request-Id", "req-123")
+            .Add("Content-Type", "text/plain");
+        var response = BuildResponse(200, "OK", headers, ReadOnlyMemory<byte>.Empty);
+
+        var result = HypertextTransferProtocolVersion2ResponseTranslation.Translate(response);
+
+        for (var index = 0; index < result.Headers.Count; index++)
+        {
+            var name = result.Headers[index].Name;
+            await Assert.That(string.Equals(name, "x-internal", StringComparison.OrdinalIgnoreCase)).IsFalse();
+            await Assert.That(string.Equals(name, "x-request-id", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        }
+        var hasContentType = false;
+        for (var index = 0; index < result.Headers.Count; index++)
+        {
+            if (string.Equals(result.Headers[index].Name, "content-type", StringComparison.OrdinalIgnoreCase))
+            {
+                hasContentType = true;
+            }
+        }
+        await Assert.That(hasContentType).IsTrue();
+    }
+
+    /// <summary>
     ///     The body view is carried through verbatim.
     /// </summary>
     [Test]
