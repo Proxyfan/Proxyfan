@@ -17,7 +17,7 @@ namespace Proxyfan.Client.Tests;
 public sealed class TrafficListViewModelAnnotationTests
 {
     /// <summary>
-    ///     ApplyColorTagToSelected sets both the view model and the underlying source.
+    ///     ApplyColorTagToSelected sets both the view model and the underlying domain flow.
     /// </summary>
     [Test]
     public async Task ApplyColorTagToSelectedCommand_WithSelection_UpdatesFlow()
@@ -30,7 +30,7 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyColorTagToSelectedCommand.Execute(TrafficFlowColorTag.Blue);
 
         await Assert.That(viewModel.SelectedFlow.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
-        await Assert.That(viewModel.SelectedFlow.Source.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public sealed class TrafficListViewModelAnnotationTests
     }
 
     /// <summary>
-    ///     ApplyCommentToSelected sets both the view model and the underlying source.
+    ///     ApplyCommentToSelected sets both the view model and the underlying domain flow.
     /// </summary>
     [Test]
     public async Task ApplyCommentToSelectedCommand_WithSelection_UpdatesFlow()
@@ -59,11 +59,11 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyCommentToSelectedCommand.Execute("login failure repro");
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsEqualTo("login failure repro");
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsEqualTo("login failure repro");
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().Comment).IsEqualTo("login failure repro");
     }
 
     /// <summary>
-    ///     ApplyCommentToSelected with null clears any existing comment.
+    ///     ApplyCommentToSelected with null clears any existing comment in both view model and domain flow.
     /// </summary>
     [Test]
     public async Task ApplyCommentToSelectedCommand_WithNull_ClearsComment()
@@ -72,12 +72,12 @@ public sealed class TrafficListViewModelAnnotationTests
         using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         bus.PublishRequestReceived(CreateRequestEvent());
         viewModel.SelectedFlow = viewModel.Flows[0];
-        viewModel.SelectedFlow.ApplyComment("prior");
+        viewModel.ApplyCommentToSelectedCommand.Execute("prior");
 
         viewModel.ApplyCommentToSelectedCommand.Execute(null);
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsNull();
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsNull();
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().Comment).IsNull();
     }
 
     /// <summary>
