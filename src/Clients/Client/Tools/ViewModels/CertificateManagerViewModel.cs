@@ -72,6 +72,12 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     {
     }
 
+    [RelayCommand]
+    private async Task ActivateAsync(CancellationToken cancellationToken)
+    {
+        await RefreshAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private void ApplyAuthority(CertificateAuthority authority, bool installed)
     {
         var certificate = authority.Certificate;

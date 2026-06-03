@@ -29,6 +29,23 @@ public sealed class CertificateManagerViewModelTests
     }
 
     /// <summary>
+    ///     The ActivateCommand refreshes metadata during view-model activation.
+    /// </summary>
+    [Test]
+    public async Task ActivateCommand_FreshAuthority_PopulatesMetadataAndIsInstalled()
+    {
+        var (viewModel, _, _, store) = Create();
+
+        await viewModel.ActivateCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(viewModel.Subject).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.Issuer).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.Thumbprint.Length).IsEqualTo(40);
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(store.IsInstalledCallCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     The InstallCommand delegates to the certificate store and sets <see cref="CertificateManagerViewModel.IsInstalled" />.
     /// </summary>
     [Test]

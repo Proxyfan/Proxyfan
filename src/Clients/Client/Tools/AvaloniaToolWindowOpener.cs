@@ -123,6 +123,10 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
         }
 
         var viewModel = _serviceProvider.GetRequiredService<CertificateManagerViewModel>();
+        if (viewModel.ActivateCommand.CanExecute(null))
+        {
+            viewModel.ActivateCommand.Execute(null);
+        }
         var window = new CertificateManagerWindow
         {
             DataContext = viewModel,
