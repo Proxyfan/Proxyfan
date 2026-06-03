@@ -170,7 +170,7 @@ public sealed class LineDifferTests
 
         await Assert.That(segments.Count).IsEqualTo(4_002);
         await Assert.That(segments[0].Operation).IsEqualTo(LineDiffOperation.Delete);
-        await Assert.That(segments[^1].Operation).IsEqualTo(LineDiffOperation.Insert);
+        await Assert.That(segments[segments.Count - 1].Operation).IsEqualTo(LineDiffOperation.Insert);
     }
 
     private static string BuildLines(string prefix, int count)
