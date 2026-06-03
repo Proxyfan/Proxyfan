@@ -107,6 +107,7 @@ public partial class App : Application
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ScriptingViewModel>();
             services.AddTransient<ThemeViewModel>();
+            services.AddSingleton<IThrottleProfileCoordinator, ThrottleProfileCoordinator>();
             services.AddTransient<ThrottleViewModel>();
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
