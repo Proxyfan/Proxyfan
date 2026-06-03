@@ -53,6 +53,53 @@ public sealed class BreakpointDecisionTests
         await Assert.That(decision.ModifiedResponse).IsSameReferenceAs(response);
     }
 
+    /// <summary>
+    ///     Verifies that constructing an aborting decision with a request payload throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_AbortingWithRequest_Throws()
+    {
+        var request = CreateRequest();
+
+        await Assert.That(() => new BreakpointDecision(isAborting: true, modifiedRequest: request, modifiedResponse: null))
+            .Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that constructing an aborting decision with a response payload throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_AbortingWithResponse_Throws()
+    {
+        var response = CreateResponse();
+
+        await Assert.That(() => new BreakpointDecision(isAborting: true, modifiedRequest: null, modifiedResponse: response))
+            .Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that constructing a non-aborting decision without any payload throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_NonAbortingWithoutPayload_Throws()
+    {
+        await Assert.That(() => new BreakpointDecision(isAborting: false, modifiedRequest: null, modifiedResponse: null))
+            .Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that constructing a non-aborting decision carrying both payloads throws.
+    /// </summary>
+    [Test]
+    public async Task Constructor_NonAbortingWithBothPayloads_Throws()
+    {
+        var request = CreateRequest();
+        var response = CreateResponse();
+
+        await Assert.That(() => new BreakpointDecision(isAborting: false, modifiedRequest: request, modifiedResponse: response))
+            .Throws<ArgumentException>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest()
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
