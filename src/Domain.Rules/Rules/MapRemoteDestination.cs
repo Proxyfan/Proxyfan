@@ -3,8 +3,9 @@
 namespace Proxyfan.Domain.Rules.Rules;
 
 /// <summary>
-///     Specifies the new destination components for a <see cref="MapRemoteRule" />. Empty fields
-///     mean "preserve the original component."
+///     Specifies the new destination components for a <see cref="MapRemoteRule" />. Null, empty, or
+///     whitespace-only fields are normalized to <see langword="null" /> and mean "preserve the
+///     original component."
 /// </summary>
 public sealed class MapRemoteDestination
 {
@@ -44,9 +45,22 @@ public sealed class MapRemoteDestination
     /// <param name="isPreservingHostHeader">Whether to preserve the original Host header.</param>
     public MapRemoteDestination(string? scheme, string? host, int? port, string? path, bool isPreservingHostHeader)
     {
-        if (host is { Length: 0 })
+        var normalizedScheme = string.IsNullOrWhiteSpace(scheme) ? null : scheme;
+        var normalizedHost = string.IsNullOrWhiteSpace(host) ? null : host;
+        var normalizedPath = string.IsNullOrWhiteSpace(path) ? null : path;
+
+        if (normalizedScheme is not null && !Uri.CheckSchemeName(normalizedScheme))
         {
-            throw new ArgumentException("Host must be non-empty when provided.", nameof(host));
+            throw new ArgumentException(
+                $"Scheme '{scheme}' is not a valid URI scheme.",
+                nameof(scheme));
+        }
+
+        if (normalizedHost is not null && Uri.CheckHostName(normalizedHost) == UriHostNameType.Unknown)
+        {
+            throw new ArgumentException(
+                $"Host '{host}' is not a valid URI host.",
+                nameof(host));
         }
 
         if (port is < 1 or > 65535)
@@ -54,10 +68,17 @@ public sealed class MapRemoteDestination
             throw new ArgumentOutOfRangeException(nameof(port), port, "Port must be between 1 and 65535.");
         }
 
-        Scheme = scheme;
-        Host = host;
+        if (normalizedPath is not null && !normalizedPath.StartsWith('/'))
+        {
+            throw new ArgumentException(
+                $"Path '{path}' must start with '/'.",
+                nameof(path));
+        }
+
+        Scheme = normalizedScheme;
+        Host = normalizedHost;
         Port = port;
-        Path = path;
+        Path = normalizedPath;
         IsPreservingHostHeader = isPreservingHostHeader;
     }
 }

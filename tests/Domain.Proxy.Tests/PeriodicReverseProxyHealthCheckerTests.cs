@@ -240,6 +240,60 @@ public sealed class PeriodicReverseProxyHealthCheckerTests
         await Assert.That(probed).IsFalse();
     }
 
+    /// <summary>
+    ///     Verifies the constructor rejects a negative <see cref="PeriodicReverseProxyHealthCheckOptions.InitialDelay" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithNegativeInitialDelay_ThrowsArgumentOutOfRange()
+    {
+        var engine = new StubEngine();
+        var options = new PeriodicReverseProxyHealthCheckOptions
+        {
+            InitialDelay = TimeSpan.FromMilliseconds(-1),
+            PollInterval = TimeSpan.FromMilliseconds(PollIntervalMilliseconds),
+        };
+
+        await Assert
+            .That(() => new PeriodicReverseProxyHealthChecker(engine, options))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     Verifies the constructor rejects a zero <see cref="PeriodicReverseProxyHealthCheckOptions.PollInterval" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithZeroPollInterval_ThrowsArgumentOutOfRange()
+    {
+        var engine = new StubEngine();
+        var options = new PeriodicReverseProxyHealthCheckOptions
+        {
+            InitialDelay = TimeSpan.Zero,
+            PollInterval = TimeSpan.Zero,
+        };
+
+        await Assert
+            .That(() => new PeriodicReverseProxyHealthChecker(engine, options))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     Verifies the constructor rejects a negative <see cref="PeriodicReverseProxyHealthCheckOptions.PollInterval" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithNegativePollInterval_ThrowsArgumentOutOfRange()
+    {
+        var engine = new StubEngine();
+        var options = new PeriodicReverseProxyHealthCheckOptions
+        {
+            InitialDelay = TimeSpan.Zero,
+            PollInterval = TimeSpan.FromMilliseconds(-1),
+        };
+
+        await Assert
+            .That(() => new PeriodicReverseProxyHealthChecker(engine, options))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
     private static PeriodicReverseProxyHealthCheckOptions CreateOptions()
     {
         var options = new PeriodicReverseProxyHealthCheckOptions
