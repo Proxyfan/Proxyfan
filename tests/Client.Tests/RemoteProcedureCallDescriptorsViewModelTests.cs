@@ -15,6 +15,8 @@ namespace Proxyfan.Client.Tests;
 /// </summary>
 public sealed class RemoteProcedureCallDescriptorsViewModelTests
 {
+    private const int OversizedDescriptorFileSizeInBytes = (10 * 1024 * 1024) + 1;
+
     /// <summary>
     ///     A freshly-constructed view model exposes an empty file list.
     /// </summary>
@@ -85,6 +87,26 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
 
         await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
         await Assert.That(viewModel.StatusText).Contains("Failed to parse");
+    }
+
+    /// <summary>
+    ///     A descriptor file above the size limit is rejected before parsing.
+    /// </summary>
+    [Test]
+    public async Task LoadFromFile_OversizedPayload_ReportsSizeLimit()
+    {
+        var library = new RemoteProcedureCallDescriptorLibrary();
+        var picker = new StubPickerService
+        {
+            Stream = new OversizeStream(OversizedDescriptorFileSizeInBytes),
+            DisplayName = "huge.pb",
+        };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.LoadFromFileCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
+        await Assert.That(viewModel.StatusText).Contains("size limit");
     }
 
     /// <summary>
@@ -174,6 +196,75 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         }
 
         stream.WriteByte((byte)value);
+    }
+
+    private sealed class OversizeStream : Stream
+    {
+        private long _remaining;
+
+        public OversizeStream(long totalBytes)
+        {
+            _remaining = totalBytes;
+        }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_remaining <= 0)
+            {
+                return 0;
+            }
+
+            var read = (int)Math.Min(count, _remaining);
+            Array.Clear(buffer, offset, read);
+            _remaining -= read;
+            return read;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
+        {
+            if (_remaining <= 0)
+            {
+                return new ValueTask<int>(0);
+            }
+
+            var read = (int)Math.Min(buffer.Length, _remaining);
+            buffer.Span[..read].Clear();
+            _remaining -= read;
+            return new ValueTask<int>(read);
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class StubPickerService : IFilePickerService
