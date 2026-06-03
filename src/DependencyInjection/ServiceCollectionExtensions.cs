@@ -20,6 +20,7 @@ using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
 using Proxyfan.Framework.Serialization;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net.Http;
@@ -105,14 +106,31 @@ public static class ServiceCollectionExtensions
         where TImplementation : notnull
     {
         var type = typeof(TImplementation);
+        var interfaces = new List<Type>();
 
         foreach (var @interface in type.GetInterfaces())
         {
             if (@interface != typeof(IDisposable))
             {
-                var descriptor = new ServiceDescriptor(@interface, _ => implementation.Invoke(), ServiceLifetime.Singleton);
-                serviceCollection.Add(descriptor);
+                interfaces.Add(@interface);
             }
+        }
+
+        if (interfaces.Count == 0)
+        {
+            return;
+        }
+
+        var implementationDescriptor = new ServiceDescriptor(type, _ => implementation.Invoke(), ServiceLifetime.Singleton);
+        serviceCollection.Add(implementationDescriptor);
+
+        foreach (var @interface in interfaces)
+        {
+            var descriptor = new ServiceDescriptor(
+                @interface,
+                provider => provider.GetRequiredService(type),
+                ServiceLifetime.Singleton);
+            serviceCollection.Add(descriptor);
         }
     }
 
