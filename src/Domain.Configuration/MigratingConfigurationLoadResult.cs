@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Proxyfan.Domain.Configuration.Migration;
 
 namespace Proxyfan.Domain.Configuration;
@@ -15,6 +16,13 @@ public sealed class MigratingConfigurationLoadResult
     ///     was missing or no migration occurred).
     /// </summary>
     public required string? BackupPath { get; init; }
+
+    /// <summary>
+    ///     Gets the list of diagnostics for malformed lines found while parsing the
+    ///     configuration file, or an empty list when the file was syntactically valid or
+    ///     did not exist.
+    /// </summary>
+    public required IReadOnlyList<ConfigurationParseDiagnostic> MalformedLines { get; init; }
 
     /// <summary>
     ///     Gets the migration pipeline result containing the version transition record and

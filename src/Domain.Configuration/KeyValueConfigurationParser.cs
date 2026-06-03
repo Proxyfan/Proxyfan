@@ -5,24 +5,35 @@ using System.IO;
 namespace Proxyfan.Domain.Configuration;
 
 /// <summary>
-///     Parses a minimal `key=value` text configuration file into a
-///     <see cref="ConfigurationSnapshot" />. Lines starting with `#` are treated as comments.
-///     Empty lines are skipped.
+///     Parses a minimal <c>key=value</c> text configuration file into a
+///     <see cref="ConfigurationParseResult" />. Lines starting with <c>#</c> are treated
+///     as comments. Empty lines are skipped. Lines that are non-empty, non-comment, and
+///     lack a valid <c>=</c> separator are reported as
+///     <see cref="ConfigurationParseDiagnostic" /> entries rather than silently discarded.
 /// </summary>
 public static class KeyValueConfigurationParser
 {
     /// <summary>
-    ///     Parses the supplied configuration text into a snapshot.
+    ///     Parses the supplied configuration text and returns a result containing the
+    ///     successfully parsed snapshot together with diagnostics for any malformed lines.
     /// </summary>
     /// <param name="text">The configuration text.</param>
-    /// <returns>The parsed snapshot.</returns>
-    public static ConfigurationSnapshot Parse(string text)
+    /// <returns>
+    ///     A <see cref="ConfigurationParseResult" /> whose
+    ///     <see cref="ConfigurationParseResult.Snapshot" /> holds the valid key-value pairs
+    ///     and whose <see cref="ConfigurationParseResult.MalformedLines" /> lists every line
+    ///     that could not be parsed.
+    /// </returns>
+    public static ConfigurationParseResult Parse(string text)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var malformed = new List<ConfigurationParseDiagnostic>();
         using var reader = new StringReader(text);
         string? line;
+        var lineNumber = 0;
         while ((line = reader.ReadLine()) is not null)
         {
+            lineNumber++;
             var trimmed = line.Trim();
             if (trimmed.Length == 0 || trimmed.StartsWith('#'))
             {
@@ -32,6 +43,12 @@ public static class KeyValueConfigurationParser
             var separatorIndex = trimmed.IndexOf('=', StringComparison.Ordinal);
             if (separatorIndex <= 0)
             {
+                var diagnostic = new ConfigurationParseDiagnostic
+                {
+                    LineContent = line,
+                    LineNumber = lineNumber,
+                };
+                malformed.Add(diagnostic);
                 continue;
             }
 
@@ -44,6 +61,11 @@ public static class KeyValueConfigurationParser
         }
 
         var snapshot = new ConfigurationSnapshot(values);
-        return snapshot;
+        var result = new ConfigurationParseResult
+        {
+            MalformedLines = malformed,
+            Snapshot = snapshot,
+        };
+        return result;
     }
 }

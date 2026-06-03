@@ -48,10 +48,15 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
-        var sourceValues = new Dictionary<string, string>();
+        var parseResult = KeyValueConfigurationParser.Parse(text);
 
-        foreach (var pair in snapshot.Enumerate())
+        if (parseResult.HasMalformedLines)
+        {
+            return BuildMalformedFileResult(parseResult);
+        }
+
+        var sourceValues = new Dictionary<string, string>();
+        foreach (var pair in parseResult.Snapshot.Enumerate())
         {
             sourceValues[pair.Key] = pair.Value;
         }
@@ -64,6 +69,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             return new MigratingConfigurationLoadResult
             {
                 BackupPath = null,
+                MalformedLines = [],
                 PipelineResult = pipelineResult,
                 Snapshot = unchanged,
             };
@@ -78,6 +84,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = backupPath,
+            MalformedLines = [],
             PipelineResult = pipelineResult,
             Snapshot = migrated,
         };
@@ -101,8 +108,34 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         return new MigratingConfigurationLoadResult
         {
             BackupPath = null,
+            MalformedLines = [],
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
+        };
+    }
+
+    private MigratingConfigurationLoadResult BuildMalformedFileResult(ConfigurationParseResult parseResult)
+    {
+        var parsedValues = new Dictionary<string, string>();
+        foreach (var pair in parseResult.Snapshot.Enumerate())
+        {
+            parsedValues[pair.Key] = pair.Value;
+        }
+
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = parsedValues,
+        };
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            MalformedLines = parseResult.MalformedLines,
+            PipelineResult = pipelineResult,
+            Snapshot = parseResult.Snapshot,
         };
     }
 }

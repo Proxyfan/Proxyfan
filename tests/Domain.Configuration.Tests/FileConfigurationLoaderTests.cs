@@ -132,6 +132,39 @@ public sealed class FileConfigurationLoaderTests
         }
     }
 
+    /// <summary>
+    ///     A file that contains malformed lines returns diagnostics; migration is not run,
+    ///     the file is not rewritten, and no backup is created.
+    /// </summary>
+    [Test]
+    public async Task Load_FileWithMalformedLines_ReturnsDiagnosticsWithoutMigrationOrRewrite()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            const string originalContent = "version=1.0\nthis-is-malformed\nproxy.port=8080\n";
+            File.WriteAllText(path, originalContent);
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.MalformedLines.Count).IsEqualTo(1);
+            await Assert.That(result.MalformedLines[0].LineNumber).IsEqualTo(2);
+            await Assert.That(result.MalformedLines[0].LineContent).IsEqualTo("this-is-malformed");
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(result.Snapshot.Get("proxy.port", string.Empty)).IsEqualTo("8080");
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(originalContent);
+            await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
+        }
+    }
+
     private static ConfigurationMigrationPipeline BuildEmptyPipeline()
     {
         return new ConfigurationMigrationPipeline(new List<IConfigurationMigrator>());

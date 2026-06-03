@@ -13,9 +13,10 @@ public sealed class KeyValueConfigurationParserTests
     [Test]
     public async Task Parse_EmptyText_ReturnsEmptySnapshot()
     {
-        var snapshot = KeyValueConfigurationParser.Parse(string.Empty);
+        var result = KeyValueConfigurationParser.Parse(string.Empty);
 
-        await Assert.That(snapshot.Count).IsEqualTo(0);
+        await Assert.That(result.Snapshot.Count).IsEqualTo(0);
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 
     /// <summary>
@@ -26,9 +27,10 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "proxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 
     /// <summary>
@@ -39,10 +41,11 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "# this is a comment\nproxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
-        await Assert.That(snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 
     /// <summary>
@@ -53,9 +56,10 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "\n\nproxy.port=8080\n\n";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 
     /// <summary>
@@ -66,22 +70,47 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "  proxy.port  =  8080  ";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 
     /// <summary>
-    ///     Verifies that lines without an equals sign are skipped.
+    ///     Verifies that a line without an equals sign is reported as a malformed-line
+    ///     diagnostic rather than silently discarded.
     /// </summary>
     [Test]
-    public async Task Parse_LineWithoutEquals_IsSkipped()
+    public async Task Parse_LineWithoutEquals_ReportsDiagnostic()
     {
         const string text = "no-equals-here\nproxy.port=8080";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.HasMalformedLines).IsTrue();
+        await Assert.That(result.MalformedLines.Count).IsEqualTo(1);
+        await Assert.That(result.MalformedLines[0].LineNumber).IsEqualTo(1);
+        await Assert.That(result.MalformedLines[0].LineContent).IsEqualTo("no-equals-here");
+    }
+
+    /// <summary>
+    ///     Verifies that multiple malformed lines are each reported with correct line
+    ///     numbers when mixed with valid and comment lines.
+    /// </summary>
+    [Test]
+    public async Task Parse_MultipleMalformedLines_ReportsAllDiagnosticsWithCorrectLineNumbers()
+    {
+        const string text = "bad-line\n# comment\nproxy.port=8080\nanother-bad-line";
+
+        var result = KeyValueConfigurationParser.Parse(text);
+
+        await Assert.That(result.Snapshot.Count).IsEqualTo(1);
+        await Assert.That(result.MalformedLines.Count).IsEqualTo(2);
+        await Assert.That(result.MalformedLines[0].LineNumber).IsEqualTo(1);
+        await Assert.That(result.MalformedLines[0].LineContent).IsEqualTo("bad-line");
+        await Assert.That(result.MalformedLines[1].LineNumber).IsEqualTo(4);
+        await Assert.That(result.MalformedLines[1].LineContent).IsEqualTo("another-bad-line");
     }
 
     /// <summary>
@@ -92,12 +121,13 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "a=1\nb=2\nc=3";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Count).IsEqualTo(3);
-        await Assert.That(snapshot.Get("a", "missing")).IsEqualTo("1");
-        await Assert.That(snapshot.Get("b", "missing")).IsEqualTo("2");
-        await Assert.That(snapshot.Get("c", "missing")).IsEqualTo("3");
+        await Assert.That(result.Snapshot.Count).IsEqualTo(3);
+        await Assert.That(result.Snapshot.Get("a", "missing")).IsEqualTo("1");
+        await Assert.That(result.Snapshot.Get("b", "missing")).IsEqualTo("2");
+        await Assert.That(result.Snapshot.Get("c", "missing")).IsEqualTo("3");
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 
     /// <summary>
@@ -108,8 +138,9 @@ public sealed class KeyValueConfigurationParserTests
     {
         const string text = "url=http://example.com/path?key=value";
 
-        var snapshot = KeyValueConfigurationParser.Parse(text);
+        var result = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(snapshot.Get("url", "missing")).IsEqualTo("http://example.com/path?key=value");
+        await Assert.That(result.Snapshot.Get("url", "missing")).IsEqualTo("http://example.com/path?key=value");
+        await Assert.That(result.HasMalformedLines).IsFalse();
     }
 }
