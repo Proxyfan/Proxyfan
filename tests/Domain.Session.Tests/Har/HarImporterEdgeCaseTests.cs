@@ -402,6 +402,70 @@ public sealed class HarImporterEdgeCaseTests
     }
 
     /// <summary>
+    ///     Verifies that response content marked with encoding "base64" is decoded into raw bytes.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithBase64Encoding_DecodesBody()
+    {
+        var originalBytes = new byte[] { 0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD };
+        var base64 = System.Convert.ToBase64String(originalBytes);
+        var harJson = "{\"log\":{\"entries\":[{\"request\":{\"method\":\"GET\",\"url\":\"https://example.com/\",\"headers\":[]},"
+            + "\"response\":{\"status\":200,\"statusText\":\"OK\",\"headers\":[],\"content\":{\"text\":\"" + base64 + "\",\"encoding\":\"base64\"}}}]}}";
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Response!.Body.ToArray()).IsEquivalentTo(originalBytes);
+    }
+
+    /// <summary>
+    ///     Verifies that base64 encoding matching is case-insensitive.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithBase64EncodingMixedCase_DecodesBody()
+    {
+        var originalBytes = new byte[] { 0x10, 0x20, 0x30 };
+        var base64 = System.Convert.ToBase64String(originalBytes);
+        var harJson = "{\"log\":{\"entries\":[{\"request\":{\"method\":\"GET\",\"url\":\"https://example.com/\",\"headers\":[]},"
+            + "\"response\":{\"status\":200,\"statusText\":\"OK\",\"headers\":[],\"content\":{\"text\":\"" + base64 + "\",\"encoding\":\"Base64\"}}}]}}";
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Response!.Body.ToArray()).IsEquivalentTo(originalBytes);
+    }
+
+    /// <summary>
+    ///     Verifies that malformed base64 text yields an empty body rather than corrupting data.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithInvalidBase64_HasEmptyBody()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{"text":"not_valid_base64!!!","encoding":"base64"}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Response!.Body.Length).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that content without an encoding field continues to be treated as UTF-8 text.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_ResponseWithoutEncoding_TreatsTextAsUtf8()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{"text":"hello"}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(Encoding.UTF8.GetString(flows[0].Response!.Body.Span)).IsEqualTo("hello");
+    }
+
+    /// <summary>
     ///     Verifies that headers with non-string name/value properties are skipped instead of
     ///     throwing and aborting the import.
     /// </summary>

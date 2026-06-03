@@ -129,6 +129,11 @@ public sealed class MutableScriptingConfiguration
             }
 
             _isEnabled = isEnabled;
+
+            if (!isEnabled)
+            {
+                _activeScript = null;
+            }
         }
 
         Changed?.Invoke();

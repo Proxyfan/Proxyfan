@@ -442,14 +442,15 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         {
             return false;
         }
-        var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(forwardContext.RequestExchange, effectiveRequest);
-        await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
-
         if (forwardContext.ServeLocal is not null)
         {
             var localResponseExchange = HypertextTransferProtocolRuleApplicator.BuildLocalResponseExchange(forwardContext.ServeLocal.LocalResponse);
             return await CompleteInterceptedResponseAsync(forwardContext, localResponseExchange, cancellationToken).ConfigureAwait(false);
         }
+
+        var modifiedExchange = HypertextTransferProtocolRuleApplicator.BuildRequestExchangeWith(forwardContext.RequestExchange, effectiveRequest);
+        await WriteRequestToServerAsync(pipes.ServerWriter, modifiedExchange, cancellationToken).ConfigureAwait(false);
+        flow.MarkRequestCompleted();
 
         var headerRead = await HypertextTransferProtocolPipeHelpers.ReadResponseHeadersAsync(pipes.ServerReader, MaxHeaderBytes, cancellationToken).ConfigureAwait(false);
 
@@ -459,6 +460,8 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
             return false;
         }
+
+        flow.MarkResponseStarted();
 
         if (ServerSentEventsResponseDetector.HasServerSentEventsResponse(headerRead.Response))
         {

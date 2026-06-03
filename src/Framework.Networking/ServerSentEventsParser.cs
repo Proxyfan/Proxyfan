@@ -16,6 +16,7 @@ public sealed class ServerSentEventsParser
     private readonly StringBuilder _carry;
     private readonly List<ServerSentEvent> _completed;
     private readonly StringBuilder _data;
+    private readonly Decoder _decoder;
     private string? _eventType;
     private string? _id;
     private int? _retry;
@@ -31,6 +32,7 @@ public sealed class ServerSentEventsParser
         _carry = carry;
         _completed = completed;
         _data = data;
+        _decoder = Encoding.UTF8.GetDecoder();
     }
 
     /// <summary>
@@ -40,8 +42,38 @@ public sealed class ServerSentEventsParser
     /// <param name="timestamp">The timestamp to assign to events finalized in this call.</param>
     public void Append(ReadOnlyMemory<byte> chunk, DateTimeOffset timestamp)
     {
-        var text = Encoding.UTF8.GetString(chunk.Span);
-        _carry.Append(text);
+        var span = chunk.Span;
+        var charCount = _decoder.GetCharCount(span, flush: false);
+        if (charCount > 0)
+        {
+            var buffer = new char[charCount];
+            var written = _decoder.GetChars(span, buffer, flush: false);
+            _carry.Append(buffer, 0, written);
+        }
+
+        while (HasNextLine(out var line))
+        {
+            ProcessLine(line, timestamp);
+        }
+    }
+
+    /// <summary>
+    ///     Signals end-of-stream to the parser. Flushes any buffered partial UTF-8 bytes
+    ///     (surfacing them as U+FFFD if incomplete) and drains any newly-completed lines
+    ///     that the flushed characters terminate. Completed events are available via
+    ///     <see cref="DrainCompletedEvents" />.
+    /// </summary>
+    /// <param name="timestamp">The timestamp to assign to events finalized in this call.</param>
+    public void Complete(DateTimeOffset timestamp)
+    {
+        ReadOnlySpan<byte> empty = [];
+        var charCount = _decoder.GetCharCount(empty, flush: true);
+        if (charCount > 0)
+        {
+            var buffer = new char[charCount];
+            var written = _decoder.GetChars(empty, buffer, flush: true);
+            _carry.Append(buffer, 0, written);
+        }
 
         while (HasNextLine(out var line))
         {
