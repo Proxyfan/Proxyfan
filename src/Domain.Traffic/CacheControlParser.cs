@@ -34,17 +34,6 @@ public static class CacheControlParser
         return directives;
     }
 
-    private static void FlushDirective(StringBuilder builder, List<string> directives)
-    {
-        var directive = builder.ToString().Trim();
-        builder.Clear();
-
-        if (!string.IsNullOrEmpty(directive))
-        {
-            directives.Add(directive);
-        }
-    }
-
     private static void ApplyDirective(CacheControlDirectivesParameters parameters, string directive)
     {
         var equalsIndex = directive.IndexOf('=', StringComparison.Ordinal);
@@ -101,6 +90,17 @@ public static class CacheControlParser
         else if (string.Equals(flag, "must-revalidate", StringComparison.OrdinalIgnoreCase))
         {
             parameters.IsMustRevalidate = true;
+        }
+    }
+
+    private static void FlushDirective(StringBuilder builder, List<string> directives)
+    {
+        var directive = builder.ToString().Trim();
+        builder.Clear();
+
+        if (!string.IsNullOrEmpty(directive))
+        {
+            directives.Add(directive);
         }
     }
 
