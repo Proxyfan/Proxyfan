@@ -109,6 +109,16 @@ public static class ProtobufSchemaAwarePrettyPrinter
             or ProtobufFieldKind.TypeSignedInt64;
     }
 
+    private static int ComputePackedCapacity(int byteLength, ProtobufWireType elementWireType)
+    {
+        return elementWireType switch
+        {
+            ProtobufWireType.I32 => byteLength / 4,
+            ProtobufWireType.I64 => byteLength / 8,
+            _ => 0,
+        };
+    }
+
     private static ProtobufFieldDescriptor? FindFieldDescriptor(ProtobufMessageDescriptor messageDescriptor, int fieldNumber)
     {
         for (var index = 0; index < messageDescriptor.Fields.Count; index++)
@@ -242,13 +252,7 @@ public static class ProtobufSchemaAwarePrettyPrinter
 
     private static List<ProtobufField>? TryDecodePackedElements(byte[] bytes, int fieldNumber, ProtobufWireType elementWireType)
     {
-        var initialCapacity = elementWireType switch
-        {
-            ProtobufWireType.I32 => bytes.Length / 4,
-            ProtobufWireType.I64 => bytes.Length / 8,
-            _ => 0,
-        };
-        var elements = new List<ProtobufField>(initialCapacity);
+        var elements = new List<ProtobufField>(ComputePackedCapacity(bytes.Length, elementWireType));
         var offset = 0;
         while (offset < bytes.Length)
         {
