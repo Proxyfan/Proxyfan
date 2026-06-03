@@ -75,6 +75,7 @@ public sealed class TrafficFlowViewModelTests
         await Assert.That(viewModel.StatusCode).IsEqualTo(200);
         await Assert.That(viewModel.Response).IsNotNull();
         await Assert.That(viewModel.BodySize).IsGreaterThan(0L);
+        await Assert.That(viewModel.GetDomainFlow().Response).IsNull();
     }
 
     /// <summary>
@@ -91,13 +92,14 @@ public sealed class TrafficFlowViewModelTests
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Complete);
         await Assert.That(viewModel.Duration).IsNotNull();
+        await Assert.That(viewModel.GetDomainFlow().Status).IsEqualTo(TrafficFlowStatus.Active);
     }
 
     /// <summary>
-    ///     A failed status propagates Fail() on the underlying TrafficFlow source.
+    ///     A failed status updates only the observable projection when invoked directly on the view model.
     /// </summary>
     [Test]
-    public async Task UpdateStatus_WithFailedEvent_TransitionsSourceToFailed()
+    public async Task UpdateStatus_WithFailedEvent_DoesNotMutateDomainFlow()
     {
         var requestEvent = CreateRequestEvent();
         var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
@@ -106,14 +108,14 @@ public sealed class TrafficFlowViewModelTests
         viewModel.UpdateStatus(failedEvent);
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Failed);
-        await Assert.That(viewModel.Source.Status).IsEqualTo(TrafficFlowStatus.Failed);
+        await Assert.That(viewModel.GetDomainFlow().Status).IsEqualTo(TrafficFlowStatus.Active);
     }
 
     /// <summary>
-    ///     An aborted status propagates Abort() on the underlying TrafficFlow source.
+    ///     An aborted status updates only the observable projection when invoked directly on the view model.
     /// </summary>
     [Test]
-    public async Task UpdateStatus_WithAbortedEvent_TransitionsSourceToAborted()
+    public async Task UpdateStatus_WithAbortedEvent_DoesNotMutateDomainFlow()
     {
         var requestEvent = CreateRequestEvent();
         var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
@@ -122,15 +124,14 @@ public sealed class TrafficFlowViewModelTests
         viewModel.UpdateStatus(abortedEvent);
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Aborted);
-        await Assert.That(viewModel.Source.Status).IsEqualTo(TrafficFlowStatus.Aborted);
+        await Assert.That(viewModel.GetDomainFlow().Status).IsEqualTo(TrafficFlowStatus.Active);
     }
 
     /// <summary>
-    ///     A Complete status applied when the source is already in a terminal state does not
-    ///     attempt to re-complete the source (no exception thrown).
+    ///     A Complete status applied twice keeps the view-model projection stable without mutating the domain flow.
     /// </summary>
     [Test]
-    public async Task UpdateStatus_CompleteWhenSourceAlreadyComplete_DoesNotReCompleteSource()
+    public async Task UpdateStatus_CompleteWhenAppliedTwice_DoesNotMutateDomainFlow()
     {
         var requestEvent = CreateRequestEvent();
         var viewModel = new Client.Traffic.ViewModels.TrafficFlowViewModel(requestEvent, 1);
@@ -140,7 +141,7 @@ public sealed class TrafficFlowViewModelTests
         viewModel.UpdateStatus(completedEvent);
 
         await Assert.That(viewModel.FlowStatus).IsEqualTo(TrafficFlowStatus.Complete);
-        await Assert.That(viewModel.Source.Status).IsEqualTo(TrafficFlowStatus.Complete);
+        await Assert.That(viewModel.GetDomainFlow().Status).IsEqualTo(TrafficFlowStatus.Active);
     }
 
     private RequestReceived CreateRequestEvent()

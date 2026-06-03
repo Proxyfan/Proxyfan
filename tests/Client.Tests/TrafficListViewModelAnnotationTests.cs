@@ -11,13 +11,13 @@ namespace Proxyfan.Client.Tests;
 
 /// <summary>
 ///     Tests for the color tag and comment annotation commands on
-///     <see cref="TrafficListViewModel" />. Verifies the commands forward to the
-///     selected flow's view model and that the underlying domain flow is updated.
+///     <see cref="TrafficListViewModel" />. Verifies the coordinator updates both
+///     the selected flow projection and the underlying domain flow.
 /// </summary>
 public sealed class TrafficListViewModelAnnotationTests
 {
     /// <summary>
-    ///     ApplyColorTagToSelected sets both the view model and the underlying source.
+    ///     ApplyColorTagToSelected updates the projection and the domain flow.
     /// </summary>
     [Test]
     public async Task ApplyColorTagToSelectedCommand_WithSelection_UpdatesFlow()
@@ -30,7 +30,7 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyColorTagToSelectedCommand.Execute(TrafficFlowColorTag.Blue);
 
         await Assert.That(viewModel.SelectedFlow.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
-        await Assert.That(viewModel.SelectedFlow.Source.ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().ColorTag).IsEqualTo(TrafficFlowColorTag.Blue);
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public sealed class TrafficListViewModelAnnotationTests
     }
 
     /// <summary>
-    ///     ApplyCommentToSelected sets both the view model and the underlying source.
+    ///     ApplyCommentToSelected updates the projection and the domain flow.
     /// </summary>
     [Test]
     public async Task ApplyCommentToSelectedCommand_WithSelection_UpdatesFlow()
@@ -59,7 +59,7 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyCommentToSelectedCommand.Execute("login failure repro");
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsEqualTo("login failure repro");
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsEqualTo("login failure repro");
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().Comment).IsEqualTo("login failure repro");
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ public sealed class TrafficListViewModelAnnotationTests
         viewModel.ApplyCommentToSelectedCommand.Execute(null);
 
         await Assert.That(viewModel.SelectedFlow.Comment).IsNull();
-        await Assert.That(viewModel.SelectedFlow.Source.Comment).IsNull();
+        await Assert.That(viewModel.SelectedFlow.GetDomainFlow().Comment).IsNull();
     }
 
     /// <summary>
