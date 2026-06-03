@@ -155,6 +155,17 @@ public sealed class Socks5ConnectRequestParserTests
     }
 
     /// <summary>
+    ///     Verifies a non-zero reserved byte (RFC 1928 § 4 requires 0x00) throws.
+    /// </summary>
+    [Test]
+    public async Task TryParse_NonZeroReservedByte_Throws()
+    {
+        var bytes = new byte[] { 0x05, 0x01, 0xFF, 0x01, 192, 168, 1, 1, 0x01, 0xBB };
+
+        await Assert.That(() => Socks5ConnectRequestParser.TryParse(bytes)).Throws<System.IO.InvalidDataException>();
+    }
+
+    /// <summary>
     ///     A domain-name address type with the buffer exactly at the 4-byte boundary (so
     ///     the length byte itself is absent) must return null rather than throwing.
     /// </summary>

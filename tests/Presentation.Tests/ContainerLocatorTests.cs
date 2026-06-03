@@ -79,6 +79,35 @@ public sealed class ContainerLocatorTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="ContainerLocator.Set" /> discards a previously resolved provider
+    ///     so that a subsequent access to <see cref="ContainerLocator.Current" /> resolves through the
+    ///     newly registered factory.
+    ///     Also verifies that the locator does not silently return a stale provider after a host
+    ///     restart or re-initialization (regression for #259).
+    /// </summary>
+    [Test]
+    public async Task Set_AfterCurrentResolved_ReplacesProvider()
+    {
+        ContainerLocator.Reset();
+
+        try
+        {
+            var first = CreateServiceProvider();
+            ContainerLocator.Set(() => first);
+            _ = ContainerLocator.Current;
+
+            var second = CreateServiceProvider();
+            ContainerLocator.Set(() => second);
+
+            await Assert.That(ContainerLocator.Current).IsSameReferenceAs(second);
+        }
+        finally
+        {
+            ContainerLocator.Reset();
+        }
+    }
+
+    /// <summary>
     ///     Verifies that the registered factory is evaluated lazily on first access.
     ///     Also verifies that the resolved provider is cached across subsequent accesses.
     /// </summary>

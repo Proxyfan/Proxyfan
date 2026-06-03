@@ -16,7 +16,14 @@ public sealed class TrafficFilter
     /// <param name="query">The query string. Empty matches everything.</param>
     public TrafficFilter(string? query)
     {
-        _query = string.IsNullOrWhiteSpace(query) ? string.Empty : query.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            _query = string.Empty;
+        }
+        else
+        {
+            _query = query.Trim();
+        }
     }
 
     /// <summary>

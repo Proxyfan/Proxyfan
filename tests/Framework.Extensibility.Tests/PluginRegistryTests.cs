@@ -74,6 +74,25 @@ public sealed class PluginRegistryTests
         await Assert.That(loaded.ErrorMessage).IsEqualTo("boom");
     }
 
+    /// <summary>
+    ///     Verifies that <see cref="PluginRegistry.Plugins" /> returns a detached snapshot
+    ///     that cannot be cast back to the backing list and is not affected by subsequent
+    ///     mutations.
+    /// </summary>
+    [Test]
+    public async Task Plugins_AfterMutation_ReturnsDetachedSnapshot()
+    {
+        var registry = new PluginRegistry();
+        var entry = new LoadedPlugin(new PluginMetadata("a", "A", "1.0", "Test", "desc", "1.0"), null, false, "err", null);
+        registry.AddFailed(entry);
+
+        var snapshot = registry.Plugins;
+        registry.AddFailed(entry);
+
+        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(snapshot is System.Collections.Generic.List<LoadedPlugin>).IsFalse();
+    }
+
     private sealed class StubPlugin : IProxyfanPlugin
     {
         private readonly Action _initAction;

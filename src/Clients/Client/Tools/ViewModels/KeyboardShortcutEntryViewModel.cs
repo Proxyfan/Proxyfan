@@ -11,6 +11,8 @@ namespace Proxyfan.Client.Tools.ViewModels;
 public sealed partial class KeyboardShortcutEntryViewModel : ObservableObject
 {
     [ObservableProperty]
+    private string _actionLabel;
+    [ObservableProperty]
     private string _gestureText;
     [ObservableProperty]
     private bool _isRecording;
@@ -19,11 +21,6 @@ public sealed partial class KeyboardShortcutEntryViewModel : ObservableObject
     ///     Gets the action identifier.
     /// </summary>
     public ShortcutAction Action { get; }
-
-    /// <summary>
-    ///     Gets the human-readable label for the action (used in the grid).
-    /// </summary>
-    public string ActionLabel { get; }
 
     /// <summary>
     ///     Initializes a new <see cref="KeyboardShortcutEntryViewModel" /> for the supplied
@@ -35,7 +32,7 @@ public sealed partial class KeyboardShortcutEntryViewModel : ObservableObject
     public KeyboardShortcutEntryViewModel(ShortcutAction action, string actionLabel, string gestureText)
     {
         Action = action;
-        ActionLabel = actionLabel;
+        _actionLabel = actionLabel;
         _gestureText = gestureText;
         _isRecording = false;
     }

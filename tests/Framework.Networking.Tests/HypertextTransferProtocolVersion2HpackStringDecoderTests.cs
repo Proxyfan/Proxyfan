@@ -109,13 +109,44 @@ public sealed class HypertextTransferProtocolVersion2HpackStringDecoderTests
     [Test]
     public async Task Encode_NonAsciiPayload_RoundTripsWithDecode()
     {
-        const string value = "你好世界";
+        // HPACK string literals carry opaque header octets (RFC 9110 § 5.5 field-vchar +
+        // obs-text), so any byte 0x00..0xFF must survive a round-trip unchanged.
+        const string value = "café \u00ff\u0080\u00fe";
         using var encoded = new MemoryStream();
         HypertextTransferProtocolVersion2HpackStringDecoder.Encode(encoded, value);
 
         var result = HypertextTransferProtocolVersion2HpackStringDecoder.Decode(encoded.ToArray());
 
         await Assert.That(result.Value).IsEqualTo(value);
+    }
+
+    [Test]
+    public async Task Decode_RawNonUtf8Octets_PreservesEveryByte()
+    {
+        // A raw literal whose payload is not valid UTF-8 must not be lossily replaced with
+        // U+FFFD; each byte must map one-to-one to the corresponding Latin-1 code point.
+        var payload = new byte[] { 0xC0, 0xC1, 0xF5, 0xFF, 0x80 };
+        using var memory = new MemoryStream();
+        memory.WriteByte((byte)payload.Length);
+        memory.Write(payload);
+
+        var result = HypertextTransferProtocolVersion2HpackStringDecoder.Decode(memory.ToArray());
+
+        await Assert.That(result.Value).IsEqualTo("\u00c0\u00c1\u00f5\u00ff\u0080");
+    }
+
+    /// <summary>
+    ///     Encoding a string with a code point above U+00FF must throw rather than silently
+    ///     replacing the character with '?': HPACK string literals carry opaque header octets
+    ///     and there is no defined mapping for higher code points.
+    /// </summary>
+    [Test]
+    public async Task Encode_NonLatin1Character_ThrowsFormatException()
+    {
+        using var output = new MemoryStream();
+
+        await Assert.That(() => HypertextTransferProtocolVersion2HpackStringDecoder.Encode(output, "hello\u4e2d"))
+            .Throws<FormatException>();
     }
 
     /// <summary>

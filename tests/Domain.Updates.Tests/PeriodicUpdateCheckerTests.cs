@@ -178,6 +178,66 @@ public sealed class PeriodicUpdateCheckerTests
         await Assert.That(checker.CheckCount).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies the constructor rejects a negative <see cref="PeriodicUpdateCheckOptions.InitialDelay" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithNegativeInitialDelay_ThrowsArgumentOutOfRange()
+    {
+        var checker = new StubUpdateChecker();
+        var notification = new MutableUpdateNotification();
+        var options = new PeriodicUpdateCheckOptions
+        {
+            CurrentVersion = "1.0.0",
+            InitialDelay = TimeSpan.FromMilliseconds(-1),
+            PollInterval = TimeSpan.FromMilliseconds(PollIntervalMilliseconds),
+        };
+
+        await Assert
+            .That(() => new PeriodicUpdateChecker(checker, notification, options))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     Verifies the constructor rejects a zero <see cref="PeriodicUpdateCheckOptions.PollInterval" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithZeroPollInterval_ThrowsArgumentOutOfRange()
+    {
+        var checker = new StubUpdateChecker();
+        var notification = new MutableUpdateNotification();
+        var options = new PeriodicUpdateCheckOptions
+        {
+            CurrentVersion = "1.0.0",
+            InitialDelay = TimeSpan.Zero,
+            PollInterval = TimeSpan.Zero,
+        };
+
+        await Assert
+            .That(() => new PeriodicUpdateChecker(checker, notification, options))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     Verifies the constructor rejects a negative <see cref="PeriodicUpdateCheckOptions.PollInterval" />.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithNegativePollInterval_ThrowsArgumentOutOfRange()
+    {
+        var checker = new StubUpdateChecker();
+        var notification = new MutableUpdateNotification();
+        var options = new PeriodicUpdateCheckOptions
+        {
+            CurrentVersion = "1.0.0",
+            InitialDelay = TimeSpan.Zero,
+            PollInterval = TimeSpan.FromMilliseconds(-1),
+        };
+
+        await Assert
+            .That(() => new PeriodicUpdateChecker(checker, notification, options))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
     private static PeriodicUpdateCheckOptions CreateOptions()
     {
         var options = new PeriodicUpdateCheckOptions
