@@ -94,8 +94,13 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
     {
         lock (_mutationLock)
         {
+            var updatedEntries = new List<MapRemoteEntry>(_entries.Count + 1);
+            updatedEntries.AddRange(_entries);
+            updatedEntries.Add(entry);
+
+            var rebuilt = BuildCompiledEntries(updatedEntries);
             _entries.Add(entry);
-            RebuildUnderLock();
+            _compiled = rebuilt;
         }
 
         RaiseChanged();
@@ -150,17 +155,12 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
         RaiseChanged();
     }
 
-    private void RaiseChanged()
+    private CompiledEntry[] BuildCompiledEntries(List<MapRemoteEntry> entries)
     {
-        Changed?.Invoke();
-    }
-
-    private void RebuildUnderLock()
-    {
-        var rebuilt = new CompiledEntry[_entries.Count];
-        for (var index = 0; index < _entries.Count; index++)
+        var rebuilt = new CompiledEntry[entries.Count];
+        for (var index = 0; index < entries.Count; index++)
         {
-            var entry = _entries[index];
+            var entry = entries[index];
             var compiled = new CompiledEntry
             {
                 Destination = entry.Destination,
@@ -170,7 +170,17 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
             rebuilt[index] = compiled;
         }
 
-        _compiled = rebuilt;
+        return rebuilt;
+    }
+
+    private void RaiseChanged()
+    {
+        Changed?.Invoke();
+    }
+
+    private void RebuildUnderLock()
+    {
+        _compiled = BuildCompiledEntries(_entries);
     }
 
     private sealed class CompiledEntry

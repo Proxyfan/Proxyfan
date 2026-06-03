@@ -144,6 +144,36 @@ public sealed class MutableMapRemoteRuleTests
     }
 
     /// <summary>
+    ///     Adding an entry with an invalid matcher leaves the existing state unchanged.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatchingRule_ThrowsWithoutMutatingState()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var count = 0;
+        rule.Changed += () => count++;
+
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        rule.AddEntry(new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
+        });
+
+        await Assert.That(() => rule.AddEntry(new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://broken.example.com/*", (MatchingRuleKind)999),
+        })).Throws<InvalidOperationException>();
+
+        await Assert.That(count).IsEqualTo(1);
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+        await Assert.That(rule.EvaluateRequest(CreateRequest("https://public.example.com/api"))).IsTypeOf<RequestPipelineAction.Redirect>();
+    }
+
+    /// <summary>
     ///     Removing a registered entry raises Changed and removes the entry.
     /// </summary>
     [Test]
