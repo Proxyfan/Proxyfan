@@ -44,14 +44,7 @@ public static class KeyValueConfigurationParser
 
             var key = trimmed[..separatorIndex].Trim();
             var value = trimmed[(separatorIndex + 1)..].Trim();
-            if (key.Length > 0)
-            {
-                values[key] = value;
-            }
-            else
-            {
-                malformedLines.Add(trimmed);
-            }
+            values[key] = value;
         }
 
         var snapshot = new ConfigurationSnapshot(values);

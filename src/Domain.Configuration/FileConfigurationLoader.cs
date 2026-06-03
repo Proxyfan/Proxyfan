@@ -118,6 +118,13 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         };
     }
 
+    /// <summary>
+    ///     Builds a <see cref="MigratingConfigurationLoadResult" /> for the case where the
+    ///     configuration file contained malformed lines. Migration is not applied and the
+    ///     file is not rewritten so that no good data can be lost due to a bad parse.
+    /// </summary>
+    /// <param name="parseResult">The failed parse result carrying the malformed lines.</param>
+    /// <returns>The rejection result.</returns>
     private MigratingConfigurationLoadResult BuildMalformedResult(KeyValueConfigurationParseResult parseResult)
     {
         var rejectedValues = new Dictionary<string, string>();
