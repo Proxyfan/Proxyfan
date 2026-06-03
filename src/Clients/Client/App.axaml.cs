@@ -88,7 +88,7 @@ public partial class App : Application
             services.AddSingleton<IRemoteProcedureCallDescriptorLibrary>(static serviceProvider => serviceProvider.GetRequiredService<RemoteProcedureCallDescriptorLibrary>());
             services.AddSingleton<IRemoteProcedureCallDescriptorFileLibrary>(static serviceProvider =>
             {
-                var library = serviceProvider.GetRequiredService<IRemoteProcedureCallDescriptorLibrary>();
+                var library = serviceProvider.GetRequiredService<RemoteProcedureCallDescriptorLibrary>();
                 return new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
             });
             services.AddSingleton<RemoteProcedureCallInspectorViewModel>();

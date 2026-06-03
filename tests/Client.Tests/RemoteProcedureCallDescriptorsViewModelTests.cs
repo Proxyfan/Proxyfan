@@ -76,7 +76,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     {
         var library = new StubDescriptorFileLibrary
         {
-            ThrowOnLoad = new InvalidDataException("Malformed descriptor set."),
+            LoadException = new InvalidDataException("Malformed descriptor set."),
         };
         var picker = new StubPickerService
         {
@@ -305,7 +305,7 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
             _loadedFilePaths = new List<string>();
         }
 
-        public InvalidDataException? ThrowOnLoad { get; set; }
+        public InvalidDataException? LoadException { get; set; }
 
         public IReadOnlyList<string> LoadedFilePaths => _loadedFilePaths;
 
@@ -317,9 +317,9 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         public void Load(string sourcePath, byte[] payload)
         {
             _ = payload;
-            if (ThrowOnLoad is not null)
+            if (LoadException is not null)
             {
-                throw ThrowOnLoad;
+                throw LoadException;
             }
 
             _loadedFilePaths.Remove(sourcePath);
