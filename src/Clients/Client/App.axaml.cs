@@ -30,6 +30,7 @@ using Proxyfan.Presentation;
 using Proxyfan.Presentation.Dialogs;
 using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Localization;
+using Proxyfan.Presentation.RemoteProcedureCall;
 using Proxyfan.Presentation.Shortcuts;
 using Proxyfan.Presentation.Theming;
 using Proxyfan.Presentation.Threading;
@@ -84,6 +85,8 @@ public partial class App : Application
             services.AddSingleton<WebSocketInspectorViewModel>();
             services.AddSingleton<ServerSentEventsInspectorViewModel>();
             services.AddSingleton<IRemoteProcedureCallDescriptorLibrary, RemoteProcedureCallDescriptorLibrary>();
+            services.AddSingleton<RemoteProcedureCallDescriptorFileLibraryAdapter>();
+            services.AddSingleton<IRemoteProcedureCallDescriptorFileLibrary>(static serviceProvider => serviceProvider.GetRequiredService<RemoteProcedureCallDescriptorFileLibraryAdapter>());
             services.AddSingleton<RemoteProcedureCallInspectorViewModel>();
             services.AddSingleton<InspectorViewModel>();
             services.AddSingleton<TabHostViewModel>();
