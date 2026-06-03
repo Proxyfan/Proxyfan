@@ -48,13 +48,13 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         }
 
         var text = File.ReadAllText(_filePath);
-        var snapshot = KeyValueConfigurationParser.Parse(text);
-        var sourceValues = new Dictionary<string, string>();
-
-        foreach (var pair in snapshot.Enumerate())
+        var parseResult = KeyValueConfigurationParser.Parse(text);
+        if (!parseResult.IsSuccess)
         {
-            sourceValues[pair.Key] = pair.Value;
+            throw BuildMalformedConfigurationException(_filePath, parseResult.Diagnostics);
         }
+
+        var sourceValues = CopyValues(parseResult.Snapshot);
 
         var pipelineResult = _pipeline.Migrate(sourceValues, _targetVersion);
 
@@ -104,5 +104,32 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
         };
+    }
+
+    private InvalidDataException BuildMalformedConfigurationException(
+        string filePath,
+        IReadOnlyList<KeyValueConfigurationParseDiagnostic> diagnostics)
+    {
+        var details = new List<string>();
+
+        foreach (var diagnostic in diagnostics)
+        {
+            details.Add($"line {diagnostic.Line}: {diagnostic.Message}");
+        }
+
+        return new InvalidDataException(
+            $"Configuration file '{filePath}' is malformed: {string.Join("; ", details)}");
+    }
+
+    private Dictionary<string, string> CopyValues(ConfigurationSnapshot snapshot)
+    {
+        var sourceValues = new Dictionary<string, string>();
+
+        foreach (var pair in snapshot.Enumerate())
+        {
+            sourceValues[pair.Key] = pair.Value;
+        }
+
+        return sourceValues;
     }
 }

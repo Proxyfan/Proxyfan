@@ -26,10 +26,11 @@ public sealed class KeyValueConfigurationWriterTests
         var text = KeyValueConfigurationWriter.Write(snapshot);
         var parsed = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(parsed.Count).IsEqualTo(3);
-        await Assert.That(parsed.Get("a.key", string.Empty)).IsEqualTo("one");
-        await Assert.That(parsed.Get("b.key", string.Empty)).IsEqualTo("two");
-        await Assert.That(parsed.Get("c.key", string.Empty)).IsEqualTo("three");
+        await Assert.That(parsed.IsSuccess).IsTrue();
+        await Assert.That(parsed.Snapshot.Count).IsEqualTo(3);
+        await Assert.That(parsed.Snapshot.Get("a.key", string.Empty)).IsEqualTo("one");
+        await Assert.That(parsed.Snapshot.Get("b.key", string.Empty)).IsEqualTo("two");
+        await Assert.That(parsed.Snapshot.Get("c.key", string.Empty)).IsEqualTo("three");
     }
 
     /// <summary>
@@ -92,7 +93,8 @@ public sealed class KeyValueConfigurationWriterTests
         var text = KeyValueConfigurationWriter.Write(input);
         var parsed = KeyValueConfigurationParser.Parse(text);
 
-        await Assert.That(parsed.Get("query", string.Empty)).IsEqualTo("name = value");
-        await Assert.That(parsed.Get("plain", string.Empty)).IsEqualTo("hello world");
+        await Assert.That(parsed.IsSuccess).IsTrue();
+        await Assert.That(parsed.Snapshot.Get("query", string.Empty)).IsEqualTo("name = value");
+        await Assert.That(parsed.Snapshot.Get("plain", string.Empty)).IsEqualTo("hello world");
     }
 }
