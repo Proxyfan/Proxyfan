@@ -2,6 +2,7 @@
 using Proxyfan.Framework.Platform;
 using System;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -82,6 +83,76 @@ public sealed class CertificateAuthorityTests
         var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
 
         await Assert.That(() => authority.Sign(string.Empty)).Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that the leaf certificate for an IPv4 address target encodes the address as an
+    ///     iPAddress Subject Alternative Name entry and does not produce a DNS SAN entry.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIpV4Address_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+        var expectedAddress = IPAddress.Parse("192.168.1.1");
+
+        var leaf = authority.Sign("192.168.1.1");
+
+        var sanExtension = leaf.Extensions.OfType<X509SubjectAlternativeNameExtension>().FirstOrDefault();
+        await Assert.That(sanExtension).IsNotNull();
+        var containsExpectedIp = false;
+        foreach (var ip in sanExtension!.EnumerateIPAddresses())
+        {
+            if (ip.Equals(expectedAddress))
+            {
+                containsExpectedIp = true;
+                break;
+            }
+        }
+
+        await Assert.That(containsExpectedIp).IsTrue();
+        var hasDnsSan = false;
+        foreach (var _ in sanExtension!.EnumerateDnsNames())
+        {
+            hasDnsSan = true;
+            break;
+        }
+
+        await Assert.That(hasDnsSan).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that the leaf certificate for an IPv6 address target encodes the address as an
+    ///     iPAddress Subject Alternative Name entry and does not produce a DNS SAN entry.
+    /// </summary>
+    [Test]
+    public async Task Sign_WithIpV6Address_ReturnsLeafCertificateWithIpAddressSan()
+    {
+        var authority = await CreateAuthorityAsync(CancellationToken.None).ConfigureAwait(false);
+        var expectedAddress = IPAddress.Parse("::1");
+
+        var leaf = authority.Sign("::1");
+
+        var sanExtension = leaf.Extensions.OfType<X509SubjectAlternativeNameExtension>().FirstOrDefault();
+        await Assert.That(sanExtension).IsNotNull();
+        var containsExpectedIp = false;
+        foreach (var ip in sanExtension!.EnumerateIPAddresses())
+        {
+            if (ip.Equals(expectedAddress))
+            {
+                containsExpectedIp = true;
+                break;
+            }
+        }
+
+        await Assert.That(containsExpectedIp).IsTrue();
+        var hasDnsSan = false;
+        foreach (var _ in sanExtension!.EnumerateDnsNames())
+        {
+            hasDnsSan = true;
+            break;
+        }
+
+        await Assert.That(hasDnsSan).IsFalse();
     }
 
     /// <summary>
