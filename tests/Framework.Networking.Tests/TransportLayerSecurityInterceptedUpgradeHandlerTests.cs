@@ -338,7 +338,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         var eventBus = new StubDomainEventBus();
         var breakpointHandler = new StubBreakpointHandler
         {
-            ResponseDecision = new BreakpointDecision(isAborting: true, modifiedRequest: null, modifiedResponse: null),
+            ResponseDecision = BreakpointDecisions.Abort(),
         };
         var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, breakpointHandler: breakpointHandler);
         var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
@@ -389,7 +389,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         });
         var breakpointHandler = new StubBreakpointHandler
         {
-            ResponseDecision = new BreakpointDecision(isAborting: false, modifiedRequest: null, modifiedResponse: modifiedResponse),
+            ResponseDecision = BreakpointDecisions.ResumeResponse(modifiedResponse),
         };
         var dependencies = BuildDependencies(eventBus, trafficStore, webSocketStore, breakpointHandler: breakpointHandler);
         var handler = new TransportLayerSecurityInterceptedUpgradeHandler(dependencies);
