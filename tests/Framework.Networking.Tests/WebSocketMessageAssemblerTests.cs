@@ -101,5 +101,44 @@ public sealed class WebSocketMessageAssemblerTests
         await Assert.That(() => assembler.Accept(secondFrame, WebSocketDirection.Inbound, DateTimeOffset.UtcNow))
             .Throws<InvalidDataException>();
     }
+
+    /// <summary>
+    ///     Verifies that a fragmented Ping control frame (FIN=false) is rejected per RFC 6455 § 5.5.
+    /// </summary>
+    [Test]
+    public async Task Accept_FragmentedPing_Throws()
+    {
+        var assembler = new WebSocketMessageAssembler();
+        var fragmentedPing = new WebSocketFrame(isFinalFragment: false, WebSocketOpcode.Ping, System.Array.Empty<byte>(), 2);
+
+        await Assert.That(() => assembler.Accept(fragmentedPing, WebSocketDirection.Inbound, DateTimeOffset.UtcNow))
+            .Throws<InvalidDataException>();
+    }
+
+    /// <summary>
+    ///     Verifies that a fragmented Pong control frame (FIN=false) is rejected per RFC 6455 § 5.5.
+    /// </summary>
+    [Test]
+    public async Task Accept_FragmentedPong_Throws()
+    {
+        var assembler = new WebSocketMessageAssembler();
+        var fragmentedPong = new WebSocketFrame(isFinalFragment: false, WebSocketOpcode.Pong, System.Array.Empty<byte>(), 2);
+
+        await Assert.That(() => assembler.Accept(fragmentedPong, WebSocketDirection.Inbound, DateTimeOffset.UtcNow))
+            .Throws<InvalidDataException>();
+    }
+
+    /// <summary>
+    ///     Verifies that a fragmented Close control frame (FIN=false) is rejected per RFC 6455 § 5.5.
+    /// </summary>
+    [Test]
+    public async Task Accept_FragmentedClose_Throws()
+    {
+        var assembler = new WebSocketMessageAssembler();
+        var fragmentedClose = new WebSocketFrame(isFinalFragment: false, WebSocketOpcode.Close, System.Array.Empty<byte>(), 2);
+
+        await Assert.That(() => assembler.Accept(fragmentedClose, WebSocketDirection.Inbound, DateTimeOffset.UtcNow))
+            .Throws<InvalidDataException>();
+    }
 }
 
