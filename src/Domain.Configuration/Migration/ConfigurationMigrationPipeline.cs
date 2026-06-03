@@ -78,6 +78,10 @@ public sealed class ConfigurationMigrationPipeline
         IReadOnlyDictionary<string, string> currentValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
         var aggregateActions = new List<ConfigurationMigrationAction>();
         var currentVersion = sourceVersion;
+        var visitedVersions = new HashSet<ConfigurationVersion>
+        {
+            sourceVersion,
+        };
         while (currentVersion.HasLowerOrderThan(targetVersion))
         {
             if (!_migratorsByFrom.TryGetValue(currentVersion, out var migrator))
@@ -86,6 +90,7 @@ public sealed class ConfigurationMigrationPipeline
                     $"No configuration migrator registered for source version {currentVersion}.");
             }
 
+            ValidateMigrationTransition(migrator, currentVersion, targetVersion, visitedVersions);
             var stepResult = migrator.Apply(currentValues);
             currentValues = stepResult.Values;
             aggregateActions.AddRange(stepResult.Actions);
@@ -101,5 +106,30 @@ public sealed class ConfigurationMigrationPipeline
             Values = currentValues,
         };
         return result;
+    }
+
+    private void ValidateMigrationTransition(
+        IConfigurationMigrator migrator,
+        ConfigurationVersion currentVersion,
+        ConfigurationVersion targetVersion,
+        HashSet<ConfigurationVersion> visitedVersions)
+    {
+        if (migrator.To <= currentVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator for source version {currentVersion} does not advance the version (from {migrator.From} to {migrator.To}).");
+        }
+
+        if (migrator.To > targetVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator for source version {currentVersion} overshoots target version {targetVersion} (to {migrator.To}).");
+        }
+
+        if (!visitedVersions.Add(migrator.To))
+        {
+            throw new InvalidOperationException(
+                $"Configuration migrator for source version {currentVersion} revisits schema version {migrator.To}.");
+        }
     }
 }
