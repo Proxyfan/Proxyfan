@@ -92,10 +92,18 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
     /// <param name="entry">The mapping entry to add.</param>
     public void AddEntry(MapRemoteEntry entry)
     {
+        var compiled = CompileEntry(entry);
         lock (_mutationLock)
         {
             _entries.Add(entry);
-            RebuildUnderLock();
+            var rebuilt = new CompiledEntry[_entries.Count];
+            for (var index = 0; index < _entries.Count - 1; index++)
+            {
+                rebuilt[index] = CompileEntry(_entries[index]);
+            }
+
+            rebuilt[^1] = compiled;
+            _compiled = rebuilt;
         }
 
         RaiseChanged();
@@ -150,6 +158,16 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
         RaiseChanged();
     }
 
+    private CompiledEntry CompileEntry(MapRemoteEntry entry)
+    {
+        return new CompiledEntry
+        {
+            Destination = entry.Destination,
+            IsEnabled = entry.IsEnabled,
+            Matcher = entry.MatchingRule.Compile(),
+        };
+    }
+
     private void RaiseChanged()
     {
         Changed?.Invoke();
@@ -160,14 +178,7 @@ public sealed class MutableMapRemoteRule : IRequestPhaseRule
         var rebuilt = new CompiledEntry[_entries.Count];
         for (var index = 0; index < _entries.Count; index++)
         {
-            var entry = _entries[index];
-            var compiled = new CompiledEntry
-            {
-                Destination = entry.Destination,
-                IsEnabled = entry.IsEnabled,
-                Matcher = entry.MatchingRule.Compile(),
-            };
-            rebuilt[index] = compiled;
+            rebuilt[index] = CompileEntry(_entries[index]);
         }
 
         _compiled = rebuilt;

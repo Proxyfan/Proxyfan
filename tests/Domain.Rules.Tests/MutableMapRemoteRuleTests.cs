@@ -3,6 +3,7 @@ using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Traffic;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -141,6 +142,38 @@ public sealed class MutableMapRemoteRuleTests
 
         await Assert.That(count).IsEqualTo(1);
         await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Adding an invalid entry leaves existing snapshots unchanged and does not raise Changed.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_InvalidMatcher_ThrowsWithoutMutatingState()
+    {
+        var rule = new MutableMapRemoteRule(priority: 200, isEnabled: true);
+        var destination = new MapRemoteDestination(scheme: "https", host: "internal.example.com", port: null, path: null, isPreservingHostHeader: false);
+        rule.AddEntry(new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://public.example.com/*", MatchingRuleKind.Wildcard),
+        });
+        var count = 0;
+        rule.Changed += () => count++;
+
+        var invalidEntry = new MapRemoteEntry
+        {
+            Destination = destination,
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("[", MatchingRuleKind.Regex),
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<RegexParseException>();
+        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+
+        var action = rule.EvaluateRequest(CreateRequest("https://public.example.com/path"));
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Redirect>();
     }
 
     /// <summary>
