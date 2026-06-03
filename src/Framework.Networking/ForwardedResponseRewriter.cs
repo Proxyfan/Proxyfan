@@ -7,13 +7,13 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Rewrites HTTP response headers on the way from origin to client per RFC 7230 § 5.7.1
-///     (Via) and § 6.1 (hop-by-hop header removal). Strips the full RFC 7230 hop-by-hop header
-///     set that must not be forwarded (Connection, Keep-Alive, Proxy-Authenticate,
-///     Proxy-Authorization, Proxy-Connection, TE, Trailer, Upgrade, plus any header listed in
-///     the response's <c>Connection</c> header) and appends or extends the <c>Via</c> chain with
-///     this proxy's identity. Normalizes body framing by stripping <c>Transfer-Encoding</c> and
-///     setting <c>Content-Length</c> to the decoded body length (chunked-decoded bodies must
-///     not be re-emitted under chunked framing).
+///     (Via) and § 6.1 (hop-by-hop header removal). Strips the RFC 7230 § 6.1 hop-by-hop
+///     header set (Connection, Keep-Alive, Proxy-Authenticate, Proxy-Authorization, TE,
+///     Trailer, Transfer-Encoding, Upgrade), plus the widely-deployed non-standard
+///     <c>Proxy-Connection</c> header and any header listed in the response's
+///     <c>Connection</c> header. Appends or extends the <c>Via</c> chain with this proxy's
+///     identity. Normalizes body framing by resetting <c>Content-Length</c> to the decoded
+///     body length (chunked-decoded bodies must not be re-emitted under chunked framing).
 /// </summary>
 public static class ForwardedResponseRewriter
 {
