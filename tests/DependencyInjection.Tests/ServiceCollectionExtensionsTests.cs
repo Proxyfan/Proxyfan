@@ -85,8 +85,7 @@ public sealed class ServiceCollectionExtensionsTests
         services.AddSingletonAsImplementedInterfaces<SampleImplementation>(() =>
         {
             creationCount++;
-            var implementation = new SampleImplementation();
-            return implementation;
+            return new SampleImplementation();
         });
 
         using ServiceProvider provider = services.BuildServiceProvider();
