@@ -31,6 +31,13 @@ public static class WebSocketFrameParser
 
         var firstByte = span[0];
         var isFinalFragment = (firstByte & 0x80) != 0;
+
+        if ((firstByte & 0x70) != 0)
+        {
+            throw new System.IO.InvalidDataException(
+                $"WebSocket frame has reserved bits set (RSV1/RSV2/RSV3): 0x{firstByte:X2}.");
+        }
+
         var opcodeRaw = firstByte & 0x0F;
 
         if (!WebSocketOpcodes.HasKnownValue(opcodeRaw))

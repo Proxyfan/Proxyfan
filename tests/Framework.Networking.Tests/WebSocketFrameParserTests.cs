@@ -243,4 +243,21 @@ public sealed class WebSocketFrameParserTests
         await Assert.That(frame).IsNotNull();
         await Assert.That(frame!.Opcode).IsEqualTo(expected);
     }
+
+    /// <summary>
+    ///     Verifies that frames with any RSV bit set throw InvalidDataException, per RFC 6455
+    ///     §5.2 — reserved bits must be zero unless an extension defines non-zero values.
+    /// </summary>
+    /// <param name="firstByte">First byte with FIN, an RSV bit, and Text opcode.</param>
+    [Test]
+    [Arguments((byte)0xC1)] // FIN + RSV1 + Text
+    [Arguments((byte)0xA1)] // FIN + RSV2 + Text
+    [Arguments((byte)0x91)] // FIN + RSV3 + Text
+    [Arguments((byte)0xF1)] // FIN + RSV1 + RSV2 + RSV3 + Text
+    public async Task TryParse_ReservedBitsSet_Throws(byte firstByte)
+    {
+        var bytes = new byte[] { firstByte, 0x00 };
+
+        await Assert.That(() => WebSocketFrameParser.TryParse(bytes)).Throws<InvalidDataException>();
+    }
 }

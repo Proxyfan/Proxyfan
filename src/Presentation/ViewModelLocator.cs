@@ -49,6 +49,7 @@ public static class ViewModelLocator
     {
         if (propertyChangedArgs.NewValue is not Type newValueType)
         {
+            control.DataContext = null;
             return;
         }
 

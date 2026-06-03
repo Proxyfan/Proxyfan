@@ -360,6 +360,35 @@ public sealed class OriginRequestRewriterTests
         await Assert.That(asString).DoesNotContain("Content-Length: 999");
     }
 
+    /// <summary>
+    ///     Verifies that header values containing obs-text (RFC 7230 § 3.2.6) bytes outside the
+    ///     ASCII range are forwarded byte-for-byte rather than being silently replaced by an ASCII
+    ///     decode/encode round trip.
+    /// </summary>
+    [Test]
+    public async Task RewriteHeaders_HeaderValueWithObsTextBytes_PreservesBytesVerbatim()
+    {
+        var prefix = Encoding.ASCII.GetBytes(
+            "GET /api HTTP/1.1\r\nHost: example.com\r\nX-Signature: ");
+        var obsTextBytes = new byte[] { 0xC3, 0x89, 0xE2, 0x9C, 0x93, 0xFF };
+        var suffix = Encoding.ASCII.GetBytes("\r\n\r\n");
+        var original = new byte[prefix.Length + obsTextBytes.Length + suffix.Length];
+        Buffer.BlockCopy(prefix, 0, original, 0, prefix.Length);
+        Buffer.BlockCopy(obsTextBytes, 0, original, prefix.Length, obsTextBytes.Length);
+        Buffer.BlockCopy(suffix, 0, original, prefix.Length + obsTextBytes.Length, suffix.Length);
+        var request = BuildRelativeRequest("GET", "/api");
+
+        var rewritten = OriginRequestRewriter.RewriteHeaders(original, request);
+
+        var headerLabel = Encoding.ASCII.GetBytes("X-Signature: ");
+        var startIndex = IndexOfSequence(rewritten, headerLabel);
+        await Assert.That(startIndex).IsGreaterThanOrEqualTo(0);
+        var valueStart = startIndex + headerLabel.Length;
+        var preservedValue = new byte[obsTextBytes.Length];
+        Buffer.BlockCopy(rewritten, valueStart, preservedValue, 0, obsTextBytes.Length);
+        await Assert.That(preservedValue).IsEquivalentTo(obsTextBytes);
+    }
+
     [Test]
     public async Task RewriteHeaders_GetRequestNoBody_OmitsContentLength()
     {
@@ -371,6 +400,35 @@ public sealed class OriginRequestRewriterTests
         var asString = Encoding.ASCII.GetString(rewritten);
 
         await Assert.That(asString).DoesNotContain("Content-Length");
+    }
+
+    private static int IndexOfSequence(byte[] haystack, byte[] needle)
+    {
+        if (needle.Length == 0 || haystack.Length < needle.Length)
+        {
+            return -1;
+        }
+
+        for (var start = 0; start <= haystack.Length - needle.Length; start++)
+        {
+            var matched = true;
+
+            for (var offset = 0; offset < needle.Length; offset++)
+            {
+                if (haystack[start + offset] != needle[offset])
+                {
+                    matched = false;
+                    break;
+                }
+            }
+
+            if (matched)
+            {
+                return start;
+            }
+        }
+
+        return -1;
     }
 
     private static HypertextTransferProtocolRequestData BuildAbsoluteRequest(string method, string absoluteUri)

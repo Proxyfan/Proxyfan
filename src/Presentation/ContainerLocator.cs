@@ -33,11 +33,14 @@ public static class ContainerLocator
 
     /// <summary>
     ///     Registers a factory that will be used to lazily resolve the <see cref="IServiceProvider" />.
+    ///     Any previously resolved provider is discarded so that the next access to
+    ///     <see cref="Current" /> resolves through the newly registered factory.
     /// </summary>
     /// <param name="factory">A delegate that returns the application's <see cref="IServiceProvider" />.</param>
     public static void Set(ServiceLocatorFactory factory)
     {
         var lazyContainer = new Lazy<IServiceProvider>(factory.Invoke);
+        Current = null;
         _lazyContainer = lazyContainer;
     }
 }

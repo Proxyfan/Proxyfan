@@ -14,6 +14,13 @@ public static class HypertextTransferProtocolResponseParser
 
     /// <summary>
     ///     Returns the numeric response content length when the header is present and valid.
+    ///     A header that is present but malformed, negative, or in conflict with itself across
+    ///     comma-joined tokens or repeated header lines is treated as invalid and returns
+    ///     <c>-1</c>; callers that need to distinguish &quot;absent&quot; from &quot;invalid&quot;
+    ///     must inspect the response headers directly or go through
+    ///     <see cref="HypertextTransferProtocolBodyFramingClassifier.ClassifyResponse" />,
+    ///     which surfaces <see cref="HypertextTransferProtocolBodyFraming.Invalid" /> for
+    ///     malformed framing.
     /// </summary>
     /// <param name="response">
     ///     The parsed response data.
@@ -23,11 +30,16 @@ public static class HypertextTransferProtocolResponseParser
     /// </returns>
     public static long GetContentLength(HypertextTransferProtocolResponseData response)
     {
-        var contentLength = response.Headers.Get("Content-Length");
+        var values = response.Headers.GetAll("Content-Length");
 
-        if (long.TryParse(contentLength, out var parsedContentLength) && parsedContentLength >= 0)
+        if (values.Length == 0)
         {
-            return parsedContentLength;
+            return -1;
+        }
+
+        if (ContentLengthParser.HasValidContentLength(values, out var parsed))
+        {
+            return parsed;
         }
 
         return -1;
@@ -89,19 +101,33 @@ public static class HypertextTransferProtocolResponseParser
 
     private static HypertextTransferProtocolResponseStatusLine? ParseStatusLine(string statusLine)
     {
-        var parts = statusLine.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length != 3 || !int.TryParse(parts[1], out var statusCode) || string.IsNullOrWhiteSpace(parts[2]))
+        var firstSpaceIndex = statusLine.IndexOf(' ');
+        if (firstSpaceIndex <= 0)
         {
             return null;
         }
 
-        if (!parts[0].StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase))
+        var secondSpaceIndex = statusLine.IndexOf(' ', firstSpaceIndex + 1);
+        if (secondSpaceIndex < 0)
         {
             return null;
         }
 
-        var parsedStatusLine = new HypertextTransferProtocolResponseStatusLine(statusCode, parts[2], parts[0]);
+        var version = statusLine[..firstSpaceIndex];
+        var statusCodeText = statusLine.Substring(firstSpaceIndex + 1, secondSpaceIndex - firstSpaceIndex - 1);
+        var reasonPhrase = statusLine[(secondSpaceIndex + 1)..];
+
+        if (!int.TryParse(statusCodeText, out var statusCode))
+        {
+            return null;
+        }
+
+        if (!version.StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var parsedStatusLine = new HypertextTransferProtocolResponseStatusLine(statusCode, reasonPhrase, version);
         return parsedStatusLine;
     }
 }
