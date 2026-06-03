@@ -55,12 +55,18 @@ public sealed class ServiceCollectionExtensionsTests
     public async Task AddSingletonAsImplementedInterfaces_WhenImplementationHasInterfaces_RegistersAllNonDisposableInterfaces()
     {
         var services = new ServiceCollection();
-        services.AddSingletonAsImplementedInterfaces<SampleImplementation>(CreateSampleImplementation);
+        var createdInstances = 0;
+        services.AddSingletonAsImplementedInterfaces<SampleImplementation>(() =>
+        {
+            createdInstances++;
+            return CreateSampleImplementation();
+        });
 
         using ServiceProvider provider = services.BuildServiceProvider();
         var firstRegistrationCount = services.Count(descriptor => descriptor.ServiceType == typeof(IFirstContract));
         var secondRegistrationCount = services.Count(descriptor => descriptor.ServiceType == typeof(ISecondContract));
         var disposableRegistrationCount = services.Count(descriptor => descriptor.ServiceType == typeof(IDisposable));
+        var implementationRegistrationCount = services.Count(descriptor => descriptor.ServiceType == typeof(SampleImplementation));
         var first = provider.GetService<IFirstContract>();
         var second = provider.GetService<ISecondContract>();
         var disposable = provider.GetService<IDisposable>();
@@ -68,8 +74,11 @@ public sealed class ServiceCollectionExtensionsTests
         await Assert.That(firstRegistrationCount).IsEqualTo(1);
         await Assert.That(secondRegistrationCount).IsEqualTo(1);
         await Assert.That(disposableRegistrationCount).IsEqualTo(0);
+        await Assert.That(implementationRegistrationCount).IsEqualTo(1);
         await Assert.That(first).IsNotNull();
         await Assert.That(second).IsNotNull();
+        await Assert.That(ReferenceEquals(first, second)).IsTrue();
+        await Assert.That(createdInstances).IsEqualTo(1);
         await Assert.That(disposable).IsNull();
     }
 
