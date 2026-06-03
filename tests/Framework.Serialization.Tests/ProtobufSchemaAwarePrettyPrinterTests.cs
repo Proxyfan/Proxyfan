@@ -326,6 +326,148 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
         await Assert.That(rendering).IsEqualTo("x: 2.5");
     }
 
+    /// <summary>
+    ///     A packed repeated int32 field decodes each element using the declared scalar kind.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedInt32Field_RendersEachElement()
+    {
+        var descriptor = BuildMessage(".demo.Numbers", "Numbers", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeInt32, Label = ProtobufFieldLabel.Repeated, Name = "values", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[] { 0x01, 0x96, 0x01, 0x03 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("values: 1\nvalues: 150\nvalues: 3");
+    }
+
+    /// <summary>
+    ///     A packed repeated enum field resolves each element via the enum descriptor.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedEnumField_RendersValueNames()
+    {
+        var enumDescriptor = new ProtobufEnumDescriptor
+        {
+            FullName = ".demo.Color",
+            Name = "Color",
+            Values = new List<ProtobufEnumValueDescriptor>
+            {
+                new() { Name = "RED", Number = 0 },
+                new() { Name = "GREEN", Number = 1 },
+                new() { Name = "BLUE", Number = 2 },
+            },
+        };
+        var descriptor = BuildMessage(".demo.Palette", "Palette", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeEnum, Label = ProtobufFieldLabel.Repeated, Name = "colors", Number = 1, TypeName = ".demo.Color" },
+        });
+        var file = new ProtobufFileDescriptor
+        {
+            Enums = new List<ProtobufEnumDescriptor> { enumDescriptor },
+            Messages = new List<ProtobufMessageDescriptor> { descriptor },
+            Name = "palette.proto",
+            Package = "demo",
+            Services = Array.Empty<ProtobufServiceDescriptor>(),
+        };
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { file });
+        var packed = new byte[] { 0x01, 0x02 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("colors: GREEN (1)\ncolors: BLUE (2)");
+    }
+
+    /// <summary>
+    ///     A packed repeated fixed32 float field decodes each IEEE 754 single-precision value.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedFloatField_RendersEachElement()
+    {
+        var descriptor = BuildMessage(".demo.Vec", "Vec", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeFloat, Label = ProtobufFieldLabel.Repeated, Name = "samples", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[8];
+        var firstBytes = BitConverter.GetBytes(1.5f);
+        var secondBytes = BitConverter.GetBytes(-2.25f);
+        Buffer.BlockCopy(firstBytes, 0, packed, 0, 4);
+        Buffer.BlockCopy(secondBytes, 0, packed, 4, 4);
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("samples: 1.5\nsamples: -2.25");
+    }
+
+    /// <summary>
+    ///     A packed repeated fixed64 double field decodes each IEEE 754 double-precision value.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedDoubleField_RendersEachElement()
+    {
+        var descriptor = BuildMessage(".demo.Vec", "Vec", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeDouble, Label = ProtobufFieldLabel.Repeated, Name = "samples", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[16];
+        var firstBytes = BitConverter.GetBytes(2.5d);
+        var secondBytes = BitConverter.GetBytes(-0.125d);
+        Buffer.BlockCopy(firstBytes, 0, packed, 0, 8);
+        Buffer.BlockCopy(secondBytes, 0, packed, 8, 8);
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("samples: 2.5\nsamples: -0.125");
+    }
+
+    /// <summary>
+    ///     A packed repeated bool field renders each element as <c>true</c>/<c>false</c>.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedBoolField_RendersTrueAndFalse()
+    {
+        var descriptor = BuildMessage(".demo.Flags", "Flags", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeBool, Label = ProtobufFieldLabel.Repeated, Name = "flags", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[] { 0x01, 0x00, 0x01 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("flags: true\nflags: false\nflags: true");
+    }
+
+    /// <summary>
+    ///     A repeated bytes field is not packable and still renders as a raw byte dump.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_RepeatedBytesField_FallsBackToRawBytes()
+    {
+        var descriptor = BuildMessage(".demo.Data", "Data", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeBytes, Label = ProtobufFieldLabel.Repeated, Name = "blobs", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var data = new byte[] { 0xCA, 0xFE };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, data).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).Contains("blobs (bytes, 2)");
+        await Assert.That(rendering).Contains("0xcafe");
+    }
+
     private static ProtobufMessageDescriptor BuildMessage(string fullName, string name, IReadOnlyList<ProtobufFieldDescriptor> fields)
     {
         var descriptor = new ProtobufMessageDescriptor
