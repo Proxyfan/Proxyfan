@@ -116,10 +116,8 @@ public static class GraphQueryLanguageRequestClassifier
             if (string.Equals(key, "query", StringComparison.OrdinalIgnoreCase))
             {
                 query = value;
-                continue;
             }
-
-            if (string.Equals(key, "operationName", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(key, "operationName", StringComparison.OrdinalIgnoreCase))
             {
                 operationName = value;
             }
