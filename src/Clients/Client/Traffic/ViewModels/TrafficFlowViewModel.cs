@@ -174,7 +174,6 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
         BodySize = responseEvent.Response.Body.Length;
         Response = responseEvent.Response;
         StatusCode = responseEvent.Response.StatusCode;
-
     }
 
     /// <summary>
@@ -187,6 +186,5 @@ public sealed partial class TrafficFlowViewModel : ObservableObject
     {
         Duration = completedEvent.Timestamp - StartedAt;
         FlowStatus = completedEvent.Status;
-
     }
 }
