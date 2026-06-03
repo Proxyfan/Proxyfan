@@ -15,8 +15,9 @@ public sealed class ThemeOptionViewModelTests
     [Test]
     public async Task Constructor_FromValues_StoresProperties()
     {
-        var viewModel = new ThemeOptionViewModel("Light Theme", AppTheme.Light);
+        var viewModel = new ThemeOptionViewModel("Tools_Theme_Option_Light", "Light Theme", AppTheme.Light);
 
+        await Assert.That(viewModel.ResourceKey).IsEqualTo("Tools_Theme_Option_Light");
         await Assert.That(viewModel.DisplayName).IsEqualTo("Light Theme");
         await Assert.That(viewModel.Theme).IsEqualTo(AppTheme.Light);
     }
@@ -24,7 +25,7 @@ public sealed class ThemeOptionViewModelTests
     [Test]
     public async Task Constructor_FromDarkTheme_StoresDarkValue()
     {
-        var viewModel = new ThemeOptionViewModel("Dark Theme", AppTheme.Dark);
+        var viewModel = new ThemeOptionViewModel("Tools_Theme_Option_Dark", "Dark Theme", AppTheme.Dark);
 
         await Assert.That(viewModel.Theme).IsEqualTo(AppTheme.Dark);
     }
