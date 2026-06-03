@@ -19,6 +19,8 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
+    private const int DescriptorReadBufferSizeInBytes = 81920;
+    private const int MaxDescriptorFileSizeInBytes = 10 * 1024 * 1024;
     private readonly IFilePickerService _filePickerService;
     private readonly IRemoteProcedureCallDescriptorLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
@@ -60,6 +62,31 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         _library.Clear();
         RefreshLoadedFiles();
         StatusText = "All descriptor files unloaded.";
+    }
+
+    private bool HasRemainingLength(Stream stream, out long remainingLength)
+    {
+        if (!stream.CanSeek)
+        {
+            remainingLength = 0;
+            return false;
+        }
+
+        try
+        {
+            remainingLength = stream.Length - stream.Position;
+            return remainingLength >= 0;
+        }
+        catch (IOException)
+        {
+            remainingLength = 0;
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            remainingLength = 0;
+            return false;
+        }
     }
 
     [RelayCommand]
@@ -112,10 +139,15 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             await using (picked.Stream.ConfigureAwait(true))
             {
-                using var memory = new MemoryStream();
-                await picked.Stream.CopyToAsync(memory, cancellationToken).ConfigureAwait(true);
                 var sourcePath = string.IsNullOrEmpty(picked.DisplayName) ? "descriptor.pb" : picked.DisplayName;
-                _library.Load(sourcePath, memory.ToArray());
+                var payload = await TryReadBoundedAsync(picked.Stream, cancellationToken).ConfigureAwait(true);
+                if (payload is null)
+                {
+                    _userInterfaceScheduler.Post(() => StatusText = "Descriptor file exceeds the 10 MB size limit.");
+                    return;
+                }
+
+                _library.Load(sourcePath, payload.Value);
                 _userInterfaceScheduler.Post(() =>
                 {
                     RefreshLoadedFiles();
@@ -131,6 +163,44 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             _userInterfaceScheduler.Post(() => StatusText = "Failed to read descriptor file: " + ex.Message);
         }
+    }
+
+    private async Task<ReadOnlyMemory<byte>?> TryReadBoundedAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        if (HasRemainingLength(stream, out var remainingLength))
+        {
+            if (remainingLength > MaxDescriptorFileSizeInBytes)
+            {
+                return null;
+            }
+
+            using var exactBuffer = new MemoryStream(checked((int)remainingLength));
+            await stream.CopyToAsync(exactBuffer, DescriptorReadBufferSizeInBytes, cancellationToken).ConfigureAwait(true);
+            return exactBuffer.GetBuffer().AsMemory(0, (int)exactBuffer.Length);
+        }
+
+        using var boundedBuffer = new MemoryStream();
+        var buffer = new byte[DescriptorReadBufferSizeInBytes];
+        var total = 0;
+        while (true)
+        {
+            var bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(true);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            total += bytesRead;
+            if (total > MaxDescriptorFileSizeInBytes)
+            {
+                return null;
+            }
+
+            var writeBuffer = new ReadOnlyMemory<byte>(buffer, 0, bytesRead);
+            await boundedBuffer.WriteAsync(writeBuffer, cancellationToken).ConfigureAwait(true);
+        }
+
+        return boundedBuffer.GetBuffer().AsMemory(0, (int)boundedBuffer.Length);
     }
 
     [RelayCommand]

@@ -503,7 +503,7 @@ public sealed class RemoteProcedureCallInspectorViewModelTests
         {
         }
 
-        public void Load(string sourcePath, byte[] payload)
+        public void Load(string sourcePath, ReadOnlyMemory<byte> payload)
         {
             _ = sourcePath;
             _ = payload;
