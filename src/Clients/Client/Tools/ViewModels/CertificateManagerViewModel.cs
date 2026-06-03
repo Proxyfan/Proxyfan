@@ -72,6 +72,17 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
     {
     }
 
+    /// <summary>
+    ///     Loads the current certificate metadata when the tool is opened.
+    /// </summary>
+    public void Activate()
+    {
+        if (RefreshCommand.CanExecute(null))
+        {
+            RefreshCommand.Execute(null);
+        }
+    }
+
     private void ApplyAuthority(CertificateAuthority authority, bool installed)
     {
         var certificate = authority.Certificate;

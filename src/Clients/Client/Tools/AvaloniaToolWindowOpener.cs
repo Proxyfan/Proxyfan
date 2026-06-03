@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Client.Tools.Views;
 using System;
@@ -132,6 +132,7 @@ public sealed class AvaloniaToolWindowOpener : IToolWindowOpener
             viewModel.Dispose();
             _certificateManagerWindow = null;
         };
+        viewModel.Activate();
         _certificateManagerWindow = window;
         ToolWindowDisplay.Show(window);
     }

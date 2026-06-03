@@ -15,6 +15,23 @@ public sealed class CertificateManagerViewModelTests
     ///     The RefreshCommand loads metadata from the current authority and reports the trust-store state.
     /// </summary>
     [Test]
+    public async Task Activate_FreshAuthority_PopulatesMetadataAndIsInstalled()
+    {
+        var (viewModel, _, _, store) = Create();
+
+        viewModel.Activate();
+        var activationTask = viewModel.RefreshCommand.ExecutionTask;
+        await Assert.That(activationTask is not null).IsTrue();
+        await activationTask!.ConfigureAwait(false);
+
+        await Assert.That(viewModel.Subject).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.Issuer).IsEqualTo("CN=Proxyfan Client Test CA");
+        await Assert.That(viewModel.Thumbprint.Length).IsEqualTo(40);
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(store.IsInstalledCallCount).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task RefreshCommand_FreshAuthority_PopulatesMetadataAndIsInstalled()
     {
         var (viewModel, _, _, store) = Create();
