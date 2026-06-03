@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -136,7 +137,40 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
     }
 
     /// <summary>
-    ///     Nested messages render recursively with the inner field expanded.
+    ///     A nested message field whose bytes are malformed renders as a raw hex dump
+    ///     with a malformed-message marker rather than as an empty <c>name { }</c> block.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_MalformedNestedMessage_RendersMalformedMarker()
+    {
+        var innerDescriptor = BuildMessage(".demo.Inner", "Inner", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeString, Label = ProtobufFieldLabel.Optional, Name = "label", Number = 1 },
+        });
+        var outerDescriptor = BuildMessage(".demo.Outer", "Outer", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeMessage, Label = ProtobufFieldLabel.Optional, Name = "inner", Number = 1, TypeName = ".demo.Inner" },
+        });
+        var file = new ProtobufFileDescriptor
+        {
+            Enums = Array.Empty<ProtobufEnumDescriptor>(),
+            Messages = new List<ProtobufMessageDescriptor> { innerDescriptor, outerDescriptor },
+            Name = "nested.proto",
+            Package = "demo",
+            Services = Array.Empty<ProtobufServiceDescriptor>(),
+        };
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { file });
+        var malformedInnerBytes = new byte[] { 0x80, 0x80 };
+        var outerBytes = new ProtobufWireWriter().WriteBytesField(1, malformedInnerBytes).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(outerBytes, outerDescriptor, index);
+
+        await Assert.That(rendering).Contains("inner (malformed message, 2 bytes): 0x8080");
+        await Assert.That(rendering).DoesNotContain("inner {");
+    }
+
+    /// <summary>
+    ///     A nested message field renders recursively with the inner field expanded.
     /// </summary>
     [Test]
     public async Task PrettyPrint_NestedMessageField_RendersRecursively()
@@ -291,6 +325,185 @@ public sealed class ProtobufSchemaAwarePrettyPrinterTests
         var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
 
         await Assert.That(rendering).IsEqualTo("x: 2.5");
+    }
+
+    /// <summary>
+    ///     A packed repeated int32 field decodes the length-delimited payload into
+    ///     individual varint elements rendered as a list.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedInt32_RendersListOfValues()
+    {
+        var descriptor = BuildMessage(".demo.Numbers", "Numbers", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeInt32, Label = ProtobufFieldLabel.Repeated, Name = "values", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        // Packed payload: three varints 1, 2, 150 (150 encodes as 0x96 0x01).
+        var packed = new byte[] { 0x01, 0x02, 0x96, 0x01 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("values: [1, 2, 150]");
+    }
+
+    /// <summary>
+    ///     A packed repeated bool field renders each element as <c>true</c>/<c>false</c>.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedBool_RendersBooleanLiterals()
+    {
+        var descriptor = BuildMessage(".demo.Flags", "Flags", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeBool, Label = ProtobufFieldLabel.Repeated, Name = "flags", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[] { 0x01, 0x00, 0x01 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("flags: [true, false, true]");
+    }
+
+    /// <summary>
+    ///     A packed repeated sint32 field applies zig-zag decoding to each element.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedSignedInt32_DecodesZigZagPerElement()
+    {
+        var descriptor = BuildMessage(".demo.Deltas", "Deltas", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeSignedInt32, Label = ProtobufFieldLabel.Repeated, Name = "deltas", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        // Zig-zag: 0 -> 0, -1 -> 1, 1 -> 2.
+        var packed = new byte[] { 0x00, 0x01, 0x02 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("deltas: [0, -1, 1]");
+    }
+
+    /// <summary>
+    ///     A packed repeated enum field resolves each numeric element via the descriptor
+    ///     index to <c>NAME (number)</c>.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedEnum_RendersEnumValueNames()
+    {
+        var enumDescriptor = new ProtobufEnumDescriptor
+        {
+            FullName = ".demo.Color",
+            Name = "Color",
+            Values = new List<ProtobufEnumValueDescriptor>
+            {
+                new() { Name = "RED", Number = 0 },
+                new() { Name = "GREEN", Number = 1 },
+            },
+        };
+        var descriptor = BuildMessage(".demo.Palette", "Palette", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeEnum, Label = ProtobufFieldLabel.Repeated, Name = "colors", Number = 1, TypeName = ".demo.Color" },
+        });
+        var file = new ProtobufFileDescriptor
+        {
+            Enums = new List<ProtobufEnumDescriptor> { enumDescriptor },
+            Messages = new List<ProtobufMessageDescriptor> { descriptor },
+            Name = "palette.proto",
+            Package = "demo",
+            Services = Array.Empty<ProtobufServiceDescriptor>(),
+        };
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { file });
+        var packed = new byte[] { 0x01, 0x00, 0x01 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("colors: [GREEN (1), RED (0), GREEN (1)]");
+    }
+
+    /// <summary>
+    ///     A packed repeated fixed32 float field decodes each 4-byte IEEE 754 element.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedFloat_DecodesIeee754Elements()
+    {
+        var descriptor = BuildMessage(".demo.Vec", "Vec", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeFloat, Label = ProtobufFieldLabel.Repeated, Name = "coords", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[8];
+        BinaryPrimitives.WriteSingleLittleEndian(packed.AsSpan(0, 4), 1.5f);
+        BinaryPrimitives.WriteSingleLittleEndian(packed.AsSpan(4, 4), 2.5f);
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("coords: [1.5, 2.5]");
+    }
+
+    /// <summary>
+    ///     A packed repeated fixed64 double field decodes each 8-byte IEEE 754 element.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedDouble_DecodesIeee754Elements()
+    {
+        var descriptor = BuildMessage(".demo.Vec", "Vec", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeDouble, Label = ProtobufFieldLabel.Repeated, Name = "coords", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var packed = new byte[16];
+        BinaryPrimitives.WriteDoubleLittleEndian(packed.AsSpan(0, 8), 1.5);
+        BinaryPrimitives.WriteDoubleLittleEndian(packed.AsSpan(8, 8), 2.5);
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("coords: [1.5, 2.5]");
+    }
+
+    /// <summary>
+    ///     A packed repeated payload that is truncated falls back to the raw hex rendering.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedMalformed_FallsBackToHex()
+    {
+        var descriptor = BuildMessage(".demo.Numbers", "Numbers", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeInt32, Label = ProtobufFieldLabel.Repeated, Name = "values", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        // Truncated varint (continuation bit set, no follow-up byte).
+        var packed = new byte[] { 0x80 };
+        var payload = new ProtobufWireWriter().WriteBytesField(1, packed).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).Contains("values (bytes, 1)");
+        await Assert.That(rendering).Contains("0x80");
+    }
+
+    /// <summary>
+    ///     An empty packed repeated payload renders as an empty list.
+    /// </summary>
+    [Test]
+    public async Task PrettyPrint_PackedRepeatedEmpty_RendersEmptyList()
+    {
+        var descriptor = BuildMessage(".demo.Numbers", "Numbers", new List<ProtobufFieldDescriptor>
+        {
+            new() { Kind = ProtobufFieldKind.TypeInt32, Label = ProtobufFieldLabel.Repeated, Name = "values", Number = 1 },
+        });
+        var index = new ProtobufDescriptorIndex(new List<ProtobufFileDescriptor> { BuildFileWith(descriptor) });
+        var payload = new ProtobufWireWriter().WriteBytesField(1, Array.Empty<byte>()).ToArray();
+
+        var rendering = ProtobufSchemaAwarePrettyPrinter.PrettyPrint(payload, descriptor, index);
+
+        await Assert.That(rendering).IsEqualTo("values: []");
     }
 
     private static ProtobufMessageDescriptor BuildMessage(string fullName, string name, IReadOnlyList<ProtobufFieldDescriptor> fields)

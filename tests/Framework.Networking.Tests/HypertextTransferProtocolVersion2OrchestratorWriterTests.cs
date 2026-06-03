@@ -53,6 +53,32 @@ public sealed class HypertextTransferProtocolVersion2OrchestratorWriterTests
         await Assert.That(ok).IsFalse();
     }
 
+    /// <summary>
+    ///     Verifies that <see cref="HypertextTransferProtocolVersion2OrchestratorWriter.TryForwardFrameAsync" />
+    ///     serializes the supplied frame (header + payload) verbatim into the destination
+    ///     while leasing the buffer from <see cref="System.Buffers.ArrayPool{T}.Shared" />.
+    /// </summary>
+    [Test]
+    public async Task TryForwardFrameAsync_AnyFrame_WritesHeaderAndPayloadToDestination()
+    {
+        using var destination = new System.IO.MemoryStream();
+        var payload = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD };
+        var header = new HypertextTransferProtocolVersion2FrameHeader(
+            length: payload.Length,
+            rawType: (byte)HypertextTransferProtocolVersion2FrameType.Data,
+            flags: HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge,
+            streamIdentifier: 7);
+        var frame = new HypertextTransferProtocolVersion2Frame(header, payload);
+
+        var ok = await HypertextTransferProtocolVersion2OrchestratorWriter.TryForwardFrameAsync(destination, frame, System.Threading.CancellationToken.None);
+
+        await Assert.That(ok).IsTrue();
+        var expected = new byte[HypertextTransferProtocolVersion2FrameParser.HeaderLength + payload.Length];
+        var descriptor = HypertextTransferProtocolVersion2OrchestratorHelpers.BuildDescriptor(frame);
+        HypertextTransferProtocolVersion2FrameWriter.WriteFrame(expected, descriptor, payload);
+        await Assert.That(destination.ToArray()).IsEquivalentTo(expected);
+    }
+
     private sealed class ThrowingWriteStream : System.IO.Stream
     {
         private readonly Exception _throwOnWrite;

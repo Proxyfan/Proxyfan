@@ -136,6 +136,30 @@ public sealed class MutableScriptingConfigurationTests
     }
 
     /// <summary>
+    ///     Verifies that disabling scripting clears the active compiled script so the pipeline
+    ///     immediately stops running it and the snapshot is not retained for a later enable.
+    /// </summary>
+    [Test]
+    public async Task SetEnabled_DisablingWithActiveScript_ClearsActiveScript()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript("script"));
+        var raised = false;
+        configuration.Changed += () => raised = true;
+
+        configuration.SetEnabled(false);
+
+        await Assert.That(configuration.IsEnabled).IsFalse();
+        await Assert.That(configuration.ActiveScript).IsNull();
+        await Assert.That(raised).IsTrue();
+
+        configuration.SetEnabled(true);
+
+        await Assert.That(configuration.IsEnabled).IsTrue();
+        await Assert.That(configuration.ActiveScript).IsNull();
+    }
+
+    /// <summary>
     ///     Verifies that setting the request source clears the active script reference.
     /// </summary>
     [Test]

@@ -108,14 +108,21 @@ The script prints the updated status table; verify the comment moved to
 If `pending > 0` and you have time / context budget left, go back to
 **Step 3** with the next-highest-severity item.
 
-If `pending = 0` or the user wants to stop, exit. Print:
+If `pending = 0` or the user wants to stop, finish the loop:
 
-- `Get-PrCommentQueue.ps1 -Action Status` final snapshot.
-- A list of files modified, grouped by module.
-- The exact commands the user should run before pushing
-  (`Invoke-Build.ps1 -RunTests`, etc.).
-- The suggested commit-message subject (conventional commits).
-
-Then append a journal entry tagged at minimum with the affected systems
-(e.g. `[traffic,inspector,tests]`) plus `[feedback]`, capturing the three
-bullets per `.github/journal-protocol.md`.
+1. Print the final snapshot:
+   `Get-PrCommentQueue.ps1 -Action Status`.
+2. Run the build + test gate one last time
+   (`Invoke-Build.ps1 -SkipRestore -RunTests`).
+3. Commit with a conventional-commit subject and push:
+   `git commit` then `git push`.
+4. Resolve the GitHub review threads (`resolveReviewThread` GraphQL
+   mutation, or accept the auto-resolve when the reviewer set it).
+5. Merge the PR (`gh pr merge <N> --squash`, add `--delete-branch`
+   only when merge queues are off). If the merge is blocked
+   (failing checks, stale branch, unresolved disagreement), fix
+   the blocker first; only hand the PR back unmerged when something
+   concrete needs human input.
+6. Append a journal entry tagged at minimum with the affected systems
+   (e.g. `[traffic,inspector,tests]`) plus `[feedback]`, capturing the
+   three bullets per `.github/journal-protocol.md`.

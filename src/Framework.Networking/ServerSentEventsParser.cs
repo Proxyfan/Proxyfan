@@ -122,18 +122,19 @@ public sealed class ServerSentEventsParser
 
     private void FinalizeEvent(DateTimeOffset timestamp)
     {
-        var dataText = _data.ToString();
-        _data.Clear();
-        var hasContent = dataText.Length > 0 || _eventType is not null || _id is not null || _retry is not null;
-        if (!hasContent)
+        if (_data.Length == 0)
         {
+            _eventType = null;
+            _retry = null;
             return;
         }
+
+        var dataText = _data.ToString();
+        _data.Clear();
 
         var sse = new ServerSentEvent(dataText, _eventType, _id, _retry, timestamp);
         _completed.Add(sse);
         _eventType = null;
-        _id = null;
         _retry = null;
     }
 
