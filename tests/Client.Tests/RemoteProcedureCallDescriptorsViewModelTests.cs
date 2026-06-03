@@ -138,6 +138,26 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         await Assert.That(viewModel.StatusText).Contains("unloaded");
     }
 
+    /// <summary>
+    ///     A descriptor file larger than the 10 MB limit is rejected with a size-exceeded status.
+    /// </summary>
+    [Test]
+    public async Task LoadFromFile_OversizedDescriptorFile_ReportsSizeLimitExceeded()
+    {
+        var library = new RemoteProcedureCallDescriptorLibrary();
+        var picker = new StubPickerService
+        {
+            Stream = new LargeStream(10 * 1024 * 1024 + 1),
+            DisplayName = "huge.pb",
+        };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.LoadFromFileCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
+        await Assert.That(viewModel.StatusText).Contains("10 MB");
+    }
+
     private static byte[] BuildEmptyDescriptorSet(string fileName, string package)
     {
         // FileDescriptorSet { repeated FileDescriptorProto file = 1; }
@@ -206,5 +226,38 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
         {
             return Task.FromResult<Stream?>(null);
         }
+    }
+
+    private sealed class LargeStream : Stream
+    {
+        private long _remaining;
+
+        public LargeStream(long size)
+        {
+            _remaining = size;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() { }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var toRead = (int)Math.Min(count, _remaining);
+            _remaining -= toRead;
+            return toRead;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }
