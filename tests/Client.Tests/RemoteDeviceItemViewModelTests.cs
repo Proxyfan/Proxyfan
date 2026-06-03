@@ -24,7 +24,7 @@ public sealed class RemoteDeviceItemViewModelTests
         await Assert.That(viewModel.Name).IsEqualTo("10.0.0.5");
         await Assert.That(viewModel.UserAgent).IsEqualTo("Mozilla/5.0");
         await Assert.That(viewModel.Status).IsEqualTo(RemoteDeviceStatus.Active);
-        await Assert.That(viewModel.RequestCount).IsEqualTo(0L);
+        await Assert.That(viewModel.RequestCount).IsEqualTo(1L);
     }
 
     [Test]
@@ -38,7 +38,7 @@ public sealed class RemoteDeviceItemViewModelTests
 
         viewModel.UpdateFrom(device);
 
-        await Assert.That(viewModel.RequestCount).IsEqualTo(2L);
+        await Assert.That(viewModel.RequestCount).IsEqualTo(3L);
         await Assert.That(viewModel.UserAgent).IsEqualTo("curl/8.0");
         await Assert.That(viewModel.Name).IsEqualTo("My Laptop");
         await Assert.That(viewModel.Status).IsEqualTo(RemoteDeviceStatus.Active);

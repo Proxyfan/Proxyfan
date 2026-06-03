@@ -15,6 +15,7 @@ public sealed class RemoteDeviceTrackerTests
         var tracker = new RemoteDeviceTracker();
         var info = tracker.RecordRequest("192.168.0.10", "Mozilla/5.0 (iPhone)");
         await Assert.That(info.Address).IsEqualTo("192.168.0.10");
+        await Assert.That(info.RequestCount).IsEqualTo(1L);
         await Assert.That(tracker.Snapshot().Count).IsEqualTo(1);
     }
 
@@ -25,7 +26,7 @@ public sealed class RemoteDeviceTrackerTests
         tracker.RecordRequest("192.168.0.10", "Mozilla/5.0 (iPhone)");
         var info = tracker.RecordRequest("192.168.0.10", "Mozilla/5.0 (iPhone)");
         await Assert.That(tracker.Snapshot().Count).IsEqualTo(1);
-        await Assert.That(info.RequestCount).IsEqualTo(1L);
+        await Assert.That(info.RequestCount).IsEqualTo(2L);
     }
 
     [Test]
