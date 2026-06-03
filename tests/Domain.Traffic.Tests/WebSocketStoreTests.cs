@@ -63,13 +63,15 @@ public sealed class WebSocketStoreTests
 
         await Assert.That(store.Count).IsEqualTo(2);
         await Assert.That(store.GetAll().Count).IsEqualTo(2);
-        await Assert.That(store.GetById(firstFlow.Id)).IsEqualTo(updatedFirstFlow);
+        var replacedFlow = store.GetById(firstFlow.Id);
+        await Assert.That(replacedFlow).IsSameReferenceAs(updatedFirstFlow);
 
         store.Add(thirdFlow);
 
         await Assert.That(store.Count).IsEqualTo(3);
         await Assert.That(store.GetAll().Count).IsEqualTo(3);
-        await Assert.That(store.GetById(firstFlow.Id)).IsEqualTo(updatedFirstFlow);
+        var storedFlowAfterAdd = store.GetById(firstFlow.Id);
+        await Assert.That(storedFlowAfterAdd).IsSameReferenceAs(updatedFirstFlow);
     }
 
     /// <summary>
