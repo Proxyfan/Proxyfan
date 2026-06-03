@@ -29,14 +29,46 @@ public sealed class MapRemoteDestinationTests
     }
 
     /// <summary>
-    ///     Verifies that an empty host (zero-length string) is rejected.
+    ///     Verifies that blank scheme/host/path values are normalized to null.
     /// </summary>
     [Test]
-    public async Task Constructor_WithEmptyHost_Throws()
+    public async Task Constructor_WithBlankValues_NormalizesToNull()
+    {
+        var destination = new Domain.Rules.Rules.MapRemoteDestination(
+            scheme: "   ",
+            host: string.Empty,
+            port: null,
+            path: "\t",
+            isPreservingHostHeader: false);
+
+        await Assert.That(destination.Scheme).IsNull();
+        await Assert.That(destination.Host).IsNull();
+        await Assert.That(destination.Path).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that an invalid scheme is rejected.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithInvalidScheme_Throws()
+    {
+        await Assert.That(() => _ = new Domain.Rules.Rules.MapRemoteDestination(
+            scheme: "not a scheme",
+            host: null,
+            port: null,
+            path: null,
+            isPreservingHostHeader: false)).Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that an invalid host is rejected.
+    /// </summary>
+    [Test]
+    public async Task Constructor_WithInvalidHost_Throws()
     {
         await Assert.That(() => _ = new Domain.Rules.Rules.MapRemoteDestination(
             scheme: null,
-            host: string.Empty,
+            host: "bad host",
             port: null,
             path: null,
             isPreservingHostHeader: false)).Throws<ArgumentException>();

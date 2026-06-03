@@ -44,9 +44,18 @@ public sealed class MapRemoteDestination
     /// <param name="isPreservingHostHeader">Whether to preserve the original Host header.</param>
     public MapRemoteDestination(string? scheme, string? host, int? port, string? path, bool isPreservingHostHeader)
     {
-        if (host is { Length: 0 })
+        scheme = string.IsNullOrWhiteSpace(scheme) ? null : scheme;
+        host = string.IsNullOrWhiteSpace(host) ? null : host;
+        path = string.IsNullOrWhiteSpace(path) ? null : path;
+
+        if (scheme is not null && !Uri.CheckSchemeName(scheme))
         {
-            throw new ArgumentException("Host must be non-empty when provided.", nameof(host));
+            throw new ArgumentException("Scheme must be URI-safe when provided.", nameof(scheme));
+        }
+
+        if (host is not null && Uri.CheckHostName(host) is UriHostNameType.Unknown)
+        {
+            throw new ArgumentException("Host must be URI-safe when provided.", nameof(host));
         }
 
         if (port is < 1 or > 65535)
