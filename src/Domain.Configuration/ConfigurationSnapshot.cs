@@ -38,7 +38,7 @@ public sealed class ConfigurationSnapshot
     /// <returns>An enumeration of name-value pairs.</returns>
     public IEnumerable<KeyValuePair<string, string>> Enumerate()
     {
-        return _values;
+        return new Dictionary<string, string>(_values, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

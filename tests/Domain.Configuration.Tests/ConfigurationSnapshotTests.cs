@@ -177,6 +177,30 @@ public sealed class ConfigurationSnapshotTests
     }
 
     /// <summary>
+    ///     Verifies that mutating a returned enumeration does not mutate the snapshot.
+    /// </summary>
+    [Test]
+    public async Task Enumerate_MutatingReturnedCollection_DoesNotMutateSnapshot()
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["a"] = "1",
+            ["b"] = "2",
+        };
+        var snapshot = new ConfigurationSnapshot(data);
+
+        var enumerated = snapshot.Enumerate();
+        if (enumerated is IDictionary<string, string> dictionary)
+        {
+            dictionary["a"] = "changed";
+            dictionary["c"] = "3";
+        }
+
+        await Assert.That(snapshot.Get("a", "missing")).IsEqualTo("1");
+        await Assert.That(snapshot.HasKey("c")).IsFalse();
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="ConfigurationSnapshot.Enumerate" /> returns all stored pairs.
     /// </summary>
     [Test]
