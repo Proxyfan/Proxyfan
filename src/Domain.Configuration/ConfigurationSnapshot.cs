@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 
 namespace Proxyfan.Domain.Configuration;
@@ -10,7 +11,7 @@ namespace Proxyfan.Domain.Configuration;
 /// </summary>
 public sealed class ConfigurationSnapshot
 {
-    private readonly Dictionary<string, string> _values;
+    private readonly FrozenDictionary<string, string> _values;
 
     /// <summary>
     ///     Gets the number of key-value pairs in the snapshot.
@@ -29,7 +30,7 @@ public sealed class ConfigurationSnapshot
             dictionary[pair.Key] = pair.Value;
         }
 
-        _values = dictionary;
+        _values = dictionary.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

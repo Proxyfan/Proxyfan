@@ -198,4 +198,19 @@ public sealed class ConfigurationSnapshotTests
 
         await Assert.That(count).IsEqualTo(3);
     }
+
+    /// <summary>
+    ///     Verifies that the enumerable returned by <see cref="ConfigurationSnapshot.Enumerate" />
+    ///     cannot be cast to a mutable dictionary, preserving the immutable-snapshot guarantee.
+    /// </summary>
+    [Test]
+    public async Task Enumerate_ReturnedEnumerable_IsNotMutableDictionary()
+    {
+        var data = new Dictionary<string, string> { ["a"] = "1" };
+        var snapshot = new ConfigurationSnapshot(data);
+
+        var enumerable = snapshot.Enumerate();
+
+        await Assert.That(enumerable is Dictionary<string, string>).IsFalse();
+    }
 }
