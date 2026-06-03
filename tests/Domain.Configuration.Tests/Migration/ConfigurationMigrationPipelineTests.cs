@@ -171,6 +171,52 @@ public sealed class ConfigurationMigrationPipelineTests
     }
 
     /// <summary>
+    ///     A migrator whose <c>To</c> equals <c>From</c> causes no forward progress and the
+    ///     pipeline throws rather than looping forever.
+    /// </summary>
+    [Test]
+    public async Task Migrate_NonProgressMigrator_Throws()
+    {
+        var migrator = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(1, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([migrator]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     A migrator whose <c>To</c> exceeds the requested target version is rejected so that
+    ///     the active configuration is never left at a schema version the caller did not request.
+    /// </summary>
+    [Test]
+    public async Task Migrate_OvershotMigrator_Throws()
+    {
+        var migrator = new ConfigurationMigrator
+        {
+            From = new ConfigurationVersion(1, 0),
+            Operations = [],
+            To = new ConfigurationVersion(3, 0),
+        };
+        var pipeline = new ConfigurationMigrationPipeline([migrator]);
+        var source = new Dictionary<string, string>
+        {
+            ["version"] = "1.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
     ///     The pipeline does not mutate the supplied source dictionary.
     /// </summary>
     [Test]
