@@ -96,6 +96,32 @@ public sealed class InteractiveBreakpointHandlerTests
     }
 
     /// <summary>
+    ///     A pre-cancelled token must short-circuit the pause without exposing it to the inbox,
+    ///     so a synchronous subscriber cannot beat the cancellation.
+    /// </summary>
+    [Test]
+    public async Task ResolveRequestAsync_PreCancelledToken_DoesNotEnqueuePause()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.AddPattern(new MatchingRule("*", MatchingRuleKind.Wildcard));
+        var inbox = new BreakpointPauseInbox();
+        var handler = new InteractiveBreakpointHandler(configuration, inbox);
+        var addedPauses = 0;
+        inbox.PauseAdded += p =>
+        {
+            addedPauses++;
+            inbox.Resolve(p, BreakpointDecisions.ResumeRequest(p.Request));
+        };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.That(async () => await handler.ResolveRequestAsync(NewRequest("https://example.com/"), cts.Token))
+            .Throws<OperationCanceledException>();
+        await Assert.That(addedPauses).IsEqualTo(0);
+        await Assert.That(inbox.GetPending().Count).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     Response-phase resolution resumes immediately when the configuration is disabled.
     /// </summary>
     [Test]

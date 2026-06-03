@@ -5,6 +5,7 @@ using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Rules.Tests;
@@ -126,6 +127,48 @@ public sealed class MutableMapLocalRuleTests
         };
 
         await Assert.That(() => rule.AddEntry(entry)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    ///     AddEntry that fails matcher compilation leaves the existing entry collection unchanged
+    ///     so the rule's compiled state cannot drift away from its declared entries.
+    /// </summary>
+    [Test]
+    public async Task AddEntry_MatcherCompilationFails_LeavesStateUnchanged()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var changedCount = 0;
+        rule.Changed += () => changedCount++;
+        var invalidEntry = new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("([unterminated", MatchingRuleKind.Regex),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+
+        await Assert.That(() => rule.AddEntry(invalidEntry)).Throws<RegexParseException>();
+
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(0);
+        await Assert.That(changedCount).IsEqualTo(0);
+
+        // Subsequent valid edits must continue to succeed and be served.
+        rule.AddEntry(new MapLocalEntry
+        {
+            Body = Array.Empty<byte>(),
+            Headers = Array.Empty<KeyValuePair<string, string>>(),
+            IsEnabled = true,
+            MatchingRule = new MatchingRule("https://stub.example.com/*", MatchingRuleKind.Wildcard),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        });
+        var action = rule.EvaluateRequest(CreateRequest("https://stub.example.com/path"));
+
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.ServeLocalResponse>();
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(1);
+        await Assert.That(changedCount).IsEqualTo(1);
     }
 
     /// <summary>

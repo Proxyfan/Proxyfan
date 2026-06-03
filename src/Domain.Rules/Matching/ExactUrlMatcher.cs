@@ -31,6 +31,17 @@ public sealed class ExactUrlMatcher : IUrlMatcher
             return false;
         }
 
-        return string.Equals(_pattern, url, StringComparison.OrdinalIgnoreCase);
+        if (Uri.TryCreate(_pattern, UriKind.Absolute, out var patternUri)
+            && Uri.TryCreate(url, UriKind.Absolute, out var candidateUri))
+        {
+            return string.Equals(patternUri.Scheme, candidateUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(patternUri.Host, candidateUri.Host, StringComparison.OrdinalIgnoreCase)
+                && patternUri.Port == candidateUri.Port
+                && string.Equals(patternUri.AbsolutePath, candidateUri.AbsolutePath, StringComparison.Ordinal)
+                && string.Equals(patternUri.Query, candidateUri.Query, StringComparison.Ordinal)
+                && string.Equals(patternUri.Fragment, candidateUri.Fragment, StringComparison.Ordinal);
+        }
+
+        return string.Equals(_pattern, url, StringComparison.Ordinal);
     }
 }

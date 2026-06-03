@@ -97,24 +97,10 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
 
         lock (_mutationLock)
         {
-            var newIndex = _entries.Count;
-            var newHeaders = HeaderCollection.Empty;
-            foreach (var header in entry.Headers)
-            {
-                newHeaders = newHeaders.Add(header.Key, header.Value);
-            }
-            var compiledNew = new CompiledEntry
-            {
-                Body = entry.Body,
-                Headers = newHeaders,
-                IsEnabled = entry.IsEnabled,
-                Matcher = entry.MatchingRule.Compile(),
-                ReasonPhrase = entry.ReasonPhrase,
-                StatusCode = entry.StatusCode,
-            };
-            var rebuilt = new CompiledEntry[newIndex + 1];
-            _compiled.CopyTo(rebuilt, 0);
-            rebuilt[newIndex] = compiledNew;
+            var compiledEntry = CompileEntry(entry);
+            var rebuilt = new CompiledEntry[_compiled.Length + 1];
+            Array.Copy(_compiled, rebuilt, _compiled.Length);
+            rebuilt[_compiled.Length] = compiledEntry;
             _entries.Add(entry);
             _compiled = rebuilt;
         }
@@ -171,6 +157,25 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
         RaiseChanged();
     }
 
+    private CompiledEntry CompileEntry(MapLocalEntry entry)
+    {
+        var headers = HeaderCollection.Empty;
+        foreach (var header in entry.Headers)
+        {
+            headers = headers.Add(header.Key, header.Value);
+        }
+
+        return new CompiledEntry
+        {
+            Body = entry.Body,
+            Headers = headers,
+            IsEnabled = entry.IsEnabled,
+            Matcher = entry.MatchingRule.Compile(),
+            ReasonPhrase = entry.ReasonPhrase,
+            StatusCode = entry.StatusCode,
+        };
+    }
+
     private void RaiseChanged()
     {
         Changed?.Invoke();
@@ -181,23 +186,7 @@ public sealed class MutableMapLocalRule : IRequestPhaseRule
         var rebuilt = new CompiledEntry[_entries.Count];
         for (var index = 0; index < _entries.Count; index++)
         {
-            var entry = _entries[index];
-            var headers = HeaderCollection.Empty;
-            foreach (var header in entry.Headers)
-            {
-                headers = headers.Add(header.Key, header.Value);
-            }
-
-            var compiled = new CompiledEntry
-            {
-                Body = entry.Body,
-                Headers = headers,
-                IsEnabled = entry.IsEnabled,
-                Matcher = entry.MatchingRule.Compile(),
-                ReasonPhrase = entry.ReasonPhrase,
-                StatusCode = entry.StatusCode,
-            };
-            rebuilt[index] = compiled;
+            rebuilt[index] = CompileEntry(_entries[index]);
         }
 
         _compiled = rebuilt;
