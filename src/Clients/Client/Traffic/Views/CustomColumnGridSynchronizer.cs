@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Layout;
+using Proxyfan.Client.Traffic.Converters;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Traffic.Columns;
 using System.Collections.Generic;
@@ -55,20 +57,26 @@ public sealed class CustomColumnGridSynchronizer
 
     private DataGridTemplateColumn BuildColumn(CustomColumnDefinition definition)
     {
+        var converter = new CustomColumnHeaderValueConverter();
+        var path = definition.Source == CustomColumnSource.Request
+            ? nameof(TrafficFlowViewModel.Request)
+            : nameof(TrafficFlowViewModel.Response);
+        var binding = new Binding
+        {
+            Converter = converter,
+            ConverterParameter = definition,
+            Path = path,
+        };
         var template = new FuncDataTemplate<TrafficFlowViewModel>((flow, _) =>
         {
             var margin = new Avalonia.Thickness(4, 0, 4, 0);
             var textBlock = new TextBlock
             {
+                DataContext = flow,
                 Margin = margin,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            if (flow is null)
-            {
-                return textBlock;
-            }
-
-            textBlock.Text = CustomColumnValueExtractor.Extract(definition, flow.Source);
+            textBlock.Bind(TextBlock.TextProperty, binding);
             return textBlock;
         });
         var width = new DataGridLength(120);
