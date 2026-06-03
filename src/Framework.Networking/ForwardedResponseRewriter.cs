@@ -47,7 +47,13 @@ public static class ForwardedResponseRewriter
     /// <returns>A response with safely rewritten headers ready to forward to the client.</returns>
     public static HypertextTransferProtocolResponseData Rewrite(HypertextTransferProtocolResponseData response)
     {
-        var connectionListedHeaders = ExtractConnectionListedHeaderNames(response.Headers);
+        var connectionListedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var token in ConnectionHeaderTokenizer.Parse(response.Headers))
+        {
+            connectionListedHeaders.Add(token);
+        }
+
         var sanitized = HeaderCollection.Empty;
         var hasExistingVia = false;
         string existingViaChain = string.Empty;
@@ -92,23 +98,4 @@ public static class ForwardedResponseRewriter
         return new HypertextTransferProtocolResponseData(parameters);
     }
 
-    private static HashSet<string> ExtractConnectionListedHeaderNames(HeaderCollection headers)
-    {
-        var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var connection = headers.Get("Connection");
-
-        if (string.IsNullOrEmpty(connection))
-        {
-            return listed;
-        }
-
-        var tokens = connection.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var token in tokens)
-        {
-            listed.Add(token);
-        }
-
-        return listed;
-    }
 }
