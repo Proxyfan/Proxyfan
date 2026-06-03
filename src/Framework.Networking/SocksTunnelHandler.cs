@@ -21,6 +21,9 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public sealed partial class SocksTunnelHandler : IConnectionHandler
 {
+    private const int Socks4MaxRequestLength = 264;
+    private const int Socks5MaxConnectRequestLength = 262;
+    private const int Socks5MaxGreetingLength = 257;
     private static readonly byte[] Socks5NoAcceptableMethods;
     private static readonly byte[] Socks5NoAuthSelection;
     private readonly UpstreamHostResolver? _hostResolver;
@@ -108,7 +111,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task HandleSocks4Async(IProxyConnection connection, CancellationToken cancellationToken)
     {
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(connection.Transport.Input, 9, cancellationToken).ConfigureAwait(false);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(connection.Transport.Input, 9, Socks4MaxRequestLength, cancellationToken).ConfigureAwait(false);
         Socks4ConnectRequest? request;
 
         try
@@ -204,9 +207,24 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task<Socks5ConnectRequest?> ReadSocks5ConnectRequestAsync(PipeReader reader, CancellationToken cancellationToken)
     {
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 10, cancellationToken).ConfigureAwait(false);
+        var prefix = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 4, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
 
-        if (bytes.Length < 4)
+        if (prefix.Length < 4)
+        {
+            return null;
+        }
+
+        _ = Socks5ConnectRequestParser.TryParse(prefix);
+
+        var requiredLength = await Socks5RequestLengthDeriver.DeriveRequiredLengthAsync(reader, prefix, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
+        if (requiredLength is null)
+        {
+            return null;
+        }
+
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, requiredLength.Value, Socks5MaxConnectRequestLength, cancellationToken).ConfigureAwait(false);
+
+        if (bytes.Length < requiredLength.Value)
         {
             return null;
         }
@@ -226,7 +244,7 @@ public sealed partial class SocksTunnelHandler : IConnectionHandler
 
     private async Task<Socks5Greeting?> ReadSocks5GreetingAsync(PipeReader reader, CancellationToken cancellationToken)
     {
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 2, cancellationToken).ConfigureAwait(false);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(reader, 2, Socks5MaxGreetingLength, cancellationToken).ConfigureAwait(false);
 
         if (bytes.Length < 2)
         {
