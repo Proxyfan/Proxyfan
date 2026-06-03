@@ -83,19 +83,20 @@ public sealed class LeafCertificateCacheTests
     public async Task GetOrAdd_WhenDifferentHostsAccessedConcurrently_RunsFactoriesInParallel()
     {
         var cache = new LeafCertificateCache(8);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var barrier = new Barrier(2);
 
         var taskA = Task.Run(() => cache.GetOrAdd("host-a.example", _ =>
         {
             barrier.SignalAndWait(TimeSpan.FromSeconds(10));
             return CreateCertificate("host-a.example");
-        }));
+        }), cts.Token);
 
         var taskB = Task.Run(() => cache.GetOrAdd("host-b.example", _ =>
         {
             barrier.SignalAndWait(TimeSpan.FromSeconds(10));
             return CreateCertificate("host-b.example");
-        }));
+        }), cts.Token);
 
         await Task.WhenAll(taskA, taskB);
 
