@@ -111,6 +111,7 @@ public partial class App : Application
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
             services.AddSingleton<IUserInterfaceScheduler>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaUserInterfaceScheduler>());
+            services.AddSingleton<IThrottleProfileCoordinator, ThrottleProfileCoordinator>();
             services.AddSingleton<AvaloniaFilePickerService>();
             services.AddSingleton<IFilePickerService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaFilePickerService>());
             services.AddSingleton<Proxyfan.Client.Clipboard.AvaloniaClipboardService>();
