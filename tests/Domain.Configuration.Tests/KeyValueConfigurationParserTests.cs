@@ -95,8 +95,8 @@ public sealed class KeyValueConfigurationParserTests
         var parseResult = KeyValueConfigurationParser.ParseWithDiagnostics(text);
 
         await Assert.That(parseResult.IsSuccessful).IsFalse();
-        await Assert.That(parseResult.Diagnostics.Count).IsEqualTo(1);
-        await Assert.That(parseResult.Diagnostics[0].Contains("Line 1")).IsTrue();
+        await Assert.That(parseResult.ParseDiagnostics.Count).IsEqualTo(1);
+        await Assert.That(parseResult.ParseDiagnostics[0].Contains("Line 1")).IsTrue();
         await Assert.That(parseResult.Snapshot.Get("proxy.port", "missing")).IsEqualTo("8080");
     }
 

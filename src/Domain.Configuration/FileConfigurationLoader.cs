@@ -51,7 +51,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         var parseResult = KeyValueConfigurationParser.ParseWithDiagnostics(text);
         if (!parseResult.IsSuccessful)
         {
-            return BuildMalformedResult(parseResult.Diagnostics);
+            return BuildMalformedResult(parseResult.ParseDiagnostics);
         }
 
         var snapshot = parseResult.Snapshot;
@@ -118,11 +118,12 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
     private MigratingConfigurationLoadResult BuildMalformedResult(IReadOnlyList<string> parseDiagnostics)
     {
         var emptyValues = new Dictionary<string, string>();
+        var unknownVersion = new ConfigurationVersion(0, 0);
         var pipelineResult = new ConfigurationMigrationPipelineResult
         {
             Actions = [],
             IsMigrated = false,
-            SourceVersion = _targetVersion,
+            SourceVersion = unknownVersion,
             TargetVersion = _targetVersion,
             Values = emptyValues,
         };

@@ -8,14 +8,14 @@ namespace Proxyfan.Domain.Configuration;
 public sealed class KeyValueConfigurationParseResult
 {
     /// <summary>
-    ///     Gets diagnostics for malformed lines that were encountered during parsing.
-    /// </summary>
-    public required IReadOnlyList<string> Diagnostics { get; init; }
-
-    /// <summary>
     ///     Gets a value indicating whether the parse completed without malformed lines.
     /// </summary>
-    public bool IsSuccessful => Diagnostics.Count == 0;
+    public bool IsSuccessful => ParseDiagnostics.Count == 0;
+
+    /// <summary>
+    ///     Gets diagnostics for malformed lines that were encountered during parsing.
+    /// </summary>
+    public required IReadOnlyList<string> ParseDiagnostics { get; init; }
 
     /// <summary>
     ///     Gets the parsed snapshot.

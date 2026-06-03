@@ -61,7 +61,7 @@ public static class KeyValueConfigurationParser
         var snapshot = new ConfigurationSnapshot(values);
         return new KeyValueConfigurationParseResult
         {
-            Diagnostics = diagnostics,
+            ParseDiagnostics = diagnostics,
             Snapshot = snapshot,
         };
     }
