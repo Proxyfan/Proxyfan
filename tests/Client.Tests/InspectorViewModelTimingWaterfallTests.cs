@@ -5,6 +5,7 @@ using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,7 +22,7 @@ public sealed class InspectorViewModelTimingWaterfallTests
     [Test]
     public async Task TimingPhases_NoFlowSelected_IsEmpty()
     {
-        var bus = new StubBus();
+        var bus = new RecordingBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
 
@@ -36,13 +37,12 @@ public sealed class InspectorViewModelTimingWaterfallTests
     [Test]
     public async Task TimingPhases_FlowWithMeasurableTimings_PopulatesAndFormats()
     {
-        var bus = new StubBus();
+        var bus = new RecordingBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
-        var flow = CreateFlowWithMeasurableTimings();
-        var flowViewModel = new TrafficFlowViewModel(flow, 1);
+        PublishFlowWithMeasurableTimings(bus);
 
-        trafficListViewModel.SelectedFlow = flowViewModel;
+        trafficListViewModel.SelectedFlow = trafficListViewModel.Flows[0];
 
         await Assert.That(inspectorViewModel.TimingPhases.Count).IsGreaterThanOrEqualTo(1);
         await Assert.That(inspectorViewModel.TotalDurationText).IsNotEmpty();
@@ -55,12 +55,11 @@ public sealed class InspectorViewModelTimingWaterfallTests
     [Test]
     public async Task TimingPhases_FlowDeselected_ClearsWaterfall()
     {
-        var bus = new StubBus();
+        var bus = new RecordingBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         using var inspectorViewModel = InspectorViewModelFactory.Create(trafficListViewModel);
-        var flow = CreateFlowWithMeasurableTimings();
-        var flowViewModel = new TrafficFlowViewModel(flow, 1);
-        trafficListViewModel.SelectedFlow = flowViewModel;
+        PublishFlowWithMeasurableTimings(bus);
+        trafficListViewModel.SelectedFlow = trafficListViewModel.Flows[0];
 
         trafficListViewModel.SelectedFlow = null;
 
@@ -68,42 +67,40 @@ public sealed class InspectorViewModelTimingWaterfallTests
         await Assert.That(inspectorViewModel.TotalDurationText).IsEqualTo(string.Empty);
     }
 
-    private static TrafficFlow CreateFlowWithMeasurableTimings()
+    private static void PublishFlowWithMeasurableTimings(RecordingBus bus)
     {
-        var requestUri = new Uri("https://example.com/timing");
-        var requestHeaders = HeaderCollection.Empty.Add("Host", "example.com");
+        var id = Guid.NewGuid();
         var requestParameters = new HypertextTransferProtocolRequestDataParameters
         {
             Body = Array.Empty<byte>(),
-            Headers = requestHeaders,
+            Headers = HeaderCollection.Empty.Add("Host", "example.com"),
             Method = "GET",
-            RequestUri = requestUri,
+            RequestUri = new Uri("https://example.com/timing"),
             Version = "HTTP/1.1",
         };
         var request = new HypertextTransferProtocolRequestData(requestParameters);
-
-        var responseHeaders = HeaderCollection.Empty.Add("Content-Type", "text/plain");
+        bus.PublishRequestReceived(new RequestReceived(id, request, "127.0.0.1:9100", DateTimeOffset.UtcNow));
+        Thread.Sleep(20);
         var responseParameters = new HypertextTransferProtocolResponseDataParameters
         {
             Body = new byte[] { 104, 105 },
-            Headers = responseHeaders,
+            Headers = HeaderCollection.Empty.Add("Content-Type", "text/plain"),
             ReasonPhrase = "OK",
             StatusCode = 200,
             Version = "HTTP/1.1",
         };
         var response = new HypertextTransferProtocolResponseData(responseParameters);
-
-        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9100", DateTimeOffset.UtcNow);
-        flow.SetRequest(request);
+        bus.PublishResponseReceived(new ResponseReceived(id, response, DateTimeOffset.UtcNow));
         Thread.Sleep(20);
-        flow.SetResponse(response);
-        Thread.Sleep(20);
-        flow.Complete();
-        return flow;
+        bus.PublishFlowCompleted(new TrafficFlowCompleted(id, TrafficFlowStatus.Complete, DateTimeOffset.UtcNow));
     }
 
-    private sealed class StubBus : IDomainEventBus
+    private sealed class RecordingBus : IDomainEventBus
     {
+        private readonly List<DomainEventHandler<RequestReceived>> _requestHandlers = [];
+        private readonly List<DomainEventHandler<ResponseReceived>> _responseHandlers = [];
+        private readonly List<DomainEventHandler<TrafficFlowCompleted>> _completedHandlers = [];
+
         public void Publish<TEvent>(TEvent domainEvent)
             where TEvent : IDomainEvent
         {
@@ -112,10 +109,49 @@ public sealed class InspectorViewModelTimingWaterfallTests
         public IDisposable Subscribe<TEvent>(DomainEventHandler<TEvent> handler)
             where TEvent : IDomainEvent
         {
-            return new StubSubscription();
+            if (handler is DomainEventHandler<RequestReceived> requestHandler)
+            {
+                _requestHandlers.Add(requestHandler);
+            }
+
+            if (handler is DomainEventHandler<ResponseReceived> responseHandler)
+            {
+                _responseHandlers.Add(responseHandler);
+            }
+
+            if (handler is DomainEventHandler<TrafficFlowCompleted> completedHandler)
+            {
+                _completedHandlers.Add(completedHandler);
+            }
+
+            return new NoOpSubscription();
         }
 
-        private sealed class StubSubscription : IDisposable
+        public void PublishRequestReceived(RequestReceived domainEvent)
+        {
+            foreach (var handler in _requestHandlers)
+            {
+                handler(domainEvent);
+            }
+        }
+
+        public void PublishResponseReceived(ResponseReceived domainEvent)
+        {
+            foreach (var handler in _responseHandlers)
+            {
+                handler(domainEvent);
+            }
+        }
+
+        public void PublishFlowCompleted(TrafficFlowCompleted domainEvent)
+        {
+            foreach (var handler in _completedHandlers)
+            {
+                handler(domainEvent);
+            }
+        }
+
+        private sealed class NoOpSubscription : IDisposable
         {
             public void Dispose()
             {
@@ -123,3 +159,4 @@ public sealed class InspectorViewModelTimingWaterfallTests
         }
     }
 }
+

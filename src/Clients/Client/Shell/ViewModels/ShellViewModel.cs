@@ -328,7 +328,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         var snapshot = new List<TrafficFlow>(TrafficList.Flows.Count);
         foreach (var viewModel in TrafficList.Flows)
         {
-            snapshot.Add(viewModel.Source);
+            var domainFlow = TrafficList.GetDomainFlow(viewModel.Id);
+            if (domainFlow is not null)
+            {
+                snapshot.Add(domainFlow);
+            }
         }
 
         var request = new FilePickerSaveRequest

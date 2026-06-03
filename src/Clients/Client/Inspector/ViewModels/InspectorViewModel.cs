@@ -228,11 +228,12 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             ClearResponseSections();
         }
 
-        if (selectedFlow.Source is not null)
+        var domainFlow = _trafficListViewModel.GetDomainFlow(selectedFlow.Id);
+        if (domainFlow is not null)
         {
-            SummaryText = FlowSummaryFormatter.Format(selectedFlow.Source);
-            TimingText = FlowTimingFormatter.Format(selectedFlow.Source.Timings);
-            UpdateTimingWaterfall(selectedFlow.Source.Timings);
+            SummaryText = FlowSummaryFormatter.Format(domainFlow);
+            TimingText = FlowTimingFormatter.Format(domainFlow.Timings);
+            UpdateTimingWaterfall(domainFlow.Timings);
         }
         else
         {
