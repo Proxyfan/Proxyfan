@@ -7,6 +7,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
@@ -33,6 +34,8 @@ public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
     private string _responseReasonPhrase;
     [ObservableProperty]
     private string _responseStatusCode;
+    [ObservableProperty]
+    private string? _validationMessage;
 
     /// <summary>
     ///     Gets the observable collection of entries currently configured on the rule.
@@ -54,6 +57,7 @@ public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
         _responseReasonPhrase = "OK";
         _responseHeaders = string.Empty;
         _responseBody = string.Empty;
+        _validationMessage = null;
         _isEnabled = rule.IsEnabled;
         Entries = [];
         _rule.Changed += OnRuleChanged;
@@ -97,7 +101,22 @@ public sealed partial class MapLocalViewModel : ObservableObject, IDisposable
             ReasonPhrase = ResponseReasonPhrase,
             StatusCode = statusCode,
         };
-        _rule.AddEntry(entry);
+        try
+        {
+            _rule.AddEntry(entry);
+        }
+        catch (RegexParseException exception)
+        {
+            ValidationMessage = exception.Message;
+            return;
+        }
+        catch (ArgumentException exception)
+        {
+            ValidationMessage = exception.Message;
+            return;
+        }
+
+        ValidationMessage = null;
         NewPatternText = string.Empty;
         ResponseBody = string.Empty;
         ResponseHeaders = string.Empty;

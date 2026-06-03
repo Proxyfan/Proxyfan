@@ -11,7 +11,7 @@
              presentation:ViewModelLocator.DataContext="{x:Type viewModels:MapLocalViewModel}"
              x:DataType="viewModels:MapLocalViewModel"
              mc:Ignorable="d">
-    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+    <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
         <CheckBox Grid.Row="0"
                   Content="{localization:Localize Key=Tools_RuleList_Enabled}"
                   IsChecked="{Binding IsEnabled, Mode=TwoWay}"
@@ -36,7 +36,13 @@
                     Content="{localization:Localize Key=Tools_RuleList_AddPattern}"
                     Padding="12,4" />
         </Grid>
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
+        <TextBlock Grid.Row="2"
+                   Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                   IsVisible="{Binding ValidationMessage, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Margin="0,0,0,8"
+                   Text="{Binding ValidationMessage}"
+                   TextWrapping="Wrap" />
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
             <TextBlock Grid.Column="0"
                        Margin="0,0,8,0"
                        Text="{localization:Localize Key=Tools_MapLocal_StatusCode}"
@@ -45,7 +51,7 @@
                      Grid.Column="1"
                      Text="{Binding ResponseStatusCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </Grid>
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,4,0,4">
             <TextBlock Grid.Column="0"
                        Margin="0,0,8,0"
                        Text="{localization:Localize Key=Tools_MapLocal_ReasonPhrase}"
@@ -54,17 +60,17 @@
                      Grid.Column="1"
                      Text="{Binding ResponseReasonPhrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </Grid>
-        <TextBlock Grid.Row="4"
+        <TextBlock Grid.Row="5"
                    Margin="0,4,0,2"
                    Text="{localization:Localize Key=Tools_MapLocal_Headers}" />
         <TextBox AutomationProperties.Name="{localization:Localize Key=Tools_MapLocal_HeadersBox_Automation}"
-                 Grid.Row="5"
+                 Grid.Row="6"
                  AcceptsReturn="True"
                  Height="80"
                  Margin="0,2,0,4"
                  Text="{Binding ResponseHeaders, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  TextWrapping="NoWrap" />
-        <Grid Grid.Row="6" RowDefinitions="Auto,*,Auto,*">
+        <Grid Grid.Row="7" RowDefinitions="Auto,*,Auto,*">
             <TextBlock Grid.Row="0"
                        Margin="0,4,0,2"
                        Text="{localization:Localize Key=Tools_MapLocal_Body}" />

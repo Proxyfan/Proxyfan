@@ -94,9 +94,38 @@ public sealed class MapLocalViewModelTests
         var entry = rule.GetEntries()[0];
         await Assert.That(entry.StatusCode).IsEqualTo(201);
         await Assert.That(entry.Headers.Count).IsEqualTo(2);
+        await Assert.That(viewModel.ValidationMessage).IsNull();
         await Assert.That(viewModel.NewPatternText).IsEqualTo(string.Empty);
         await Assert.That(viewModel.ResponseBody).IsEqualTo(string.Empty);
         await Assert.That(viewModel.ResponseHeaders).IsEqualTo(string.Empty);
+        viewModel.Dispose();
+    }
+
+    /// <summary>
+    ///     AddEntry command with an invalid regex reports a validation message and preserves editor state.
+    /// </summary>
+    [Test]
+    public async Task AddEntryCommand_InvalidRegex_SetsValidationMessageWithoutMutatingRule()
+    {
+        var rule = new MutableMapLocalRule(priority: 300, isEnabled: true);
+        var viewModel = new MapLocalViewModel(rule, InlineUserInterfaceScheduler.Instance)
+        {
+            NewPatternText = "([unterminated",
+            NewPatternKind = MatchingRuleKind.Regex,
+            ResponseStatusCode = "201",
+            ResponseReasonPhrase = "Created",
+            ResponseHeaders = "Content-Type: application/json",
+            ResponseBody = "{}",
+        };
+
+        viewModel.AddEntryCommand.Execute(null);
+
+        await Assert.That(rule.GetEntries().Count).IsEqualTo(0);
+        await Assert.That(viewModel.ValidationMessage).IsNotNull();
+        await Assert.That(viewModel.ValidationMessage!.Length).IsGreaterThan(0);
+        await Assert.That(viewModel.NewPatternText).IsEqualTo("([unterminated");
+        await Assert.That(viewModel.ResponseBody).IsEqualTo("{}");
+        await Assert.That(viewModel.ResponseHeaders).IsEqualTo("Content-Type: application/json");
         viewModel.Dispose();
     }
 
