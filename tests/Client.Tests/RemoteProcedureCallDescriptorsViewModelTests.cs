@@ -88,6 +88,26 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     }
 
     /// <summary>
+    ///     Descriptor files larger than the allowed limit are rejected before parsing.
+    /// </summary>
+    [Test]
+    public async Task LoadFromFile_TooLargePayload_RejectsFile()
+    {
+        var library = new RemoteProcedureCallDescriptorLibrary();
+        var picker = new StubPickerService
+        {
+            Stream = new MemoryStream(new byte[(8 * 1024 * 1024) + 1]),
+            DisplayName = "huge.pb",
+        };
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+
+        await viewModel.LoadFromFileCommand.ExecuteAsync(null);
+
+        await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
+        await Assert.That(viewModel.StatusText).Contains("exceeds 8 MB limit");
+    }
+
+    /// <summary>
     ///     UnloadSelected removes the selected entry and updates the status text.
     /// </summary>
     [Test]

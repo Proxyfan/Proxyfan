@@ -19,6 +19,9 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
+    private const int MaxDescriptorPayloadBytes = MaxDescriptorPayloadMegabytes * 1024 * 1024;
+    private const int MaxDescriptorPayloadMegabytes = 8;
+    private const int StreamReadBufferSize = 81920;
     private readonly IFilePickerService _filePickerService;
     private readonly IRemoteProcedureCallDescriptorLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
@@ -62,6 +65,22 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         StatusText = "All descriptor files unloaded.";
     }
 
+    private byte[] CopySegment(ArraySegment<byte> segment)
+    {
+        if (segment.Offset == 0 && segment.Array is not null && segment.Count == segment.Array.Length)
+        {
+            return segment.Array;
+        }
+
+        var payload = new byte[segment.Count];
+        if (segment.Array is not null)
+        {
+            Buffer.BlockCopy(segment.Array, segment.Offset, payload, 0, segment.Count);
+        }
+
+        return payload;
+    }
+
     [RelayCommand]
     private async Task LoadFromFileAsync(CancellationToken cancellationToken)
     {
@@ -92,6 +111,75 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         }
     }
 
+    private async Task<byte[]?> ReadDescriptorPayloadAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        if (stream.CanSeek)
+        {
+            return await ReadSeekableDescriptorPayloadAsync(stream, cancellationToken).ConfigureAwait(true);
+        }
+
+        return await ReadUnseekableDescriptorPayloadAsync(stream, cancellationToken).ConfigureAwait(true);
+    }
+
+    private async Task<byte[]?> ReadSeekableDescriptorPayloadAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var remainingLength = stream.Length - stream.Position;
+        if (remainingLength < 0)
+        {
+            throw new IOException("Descriptor stream position is invalid.");
+        }
+
+        if (remainingLength > MaxDescriptorPayloadBytes)
+        {
+            return null;
+        }
+
+        var payload = new byte[(int)remainingLength];
+        var readOffset = 0;
+        while (readOffset < payload.Length)
+        {
+            var readCount = await stream.ReadAsync(payload.AsMemory(readOffset), cancellationToken).ConfigureAwait(true);
+            if (readCount == 0)
+            {
+                throw new IOException("Descriptor stream ended unexpectedly.");
+            }
+
+            readOffset += readCount;
+        }
+
+        return payload;
+    }
+
+    private async Task<byte[]?> ReadUnseekableDescriptorPayloadAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        using var memory = new MemoryStream();
+        var buffer = new byte[StreamReadBufferSize];
+        var totalBytesRead = 0;
+        while (true)
+        {
+            var readCount = await stream.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(true);
+            if (readCount == 0)
+            {
+                break;
+            }
+
+            totalBytesRead += readCount;
+            if (totalBytesRead > MaxDescriptorPayloadBytes)
+            {
+                return null;
+            }
+
+            await memory.WriteAsync(buffer.AsMemory(0, readCount), cancellationToken).ConfigureAwait(true);
+        }
+
+        if (!memory.TryGetBuffer(out var segment))
+        {
+            return memory.ToArray();
+        }
+
+        return CopySegment(segment);
+    }
+
     private void RefreshLoadedFiles()
     {
         LoadedFilePaths.Clear();
@@ -112,10 +200,16 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
         {
             await using (picked.Stream.ConfigureAwait(true))
             {
-                using var memory = new MemoryStream();
-                await picked.Stream.CopyToAsync(memory, cancellationToken).ConfigureAwait(true);
                 var sourcePath = string.IsNullOrEmpty(picked.DisplayName) ? "descriptor.pb" : picked.DisplayName;
-                _library.Load(sourcePath, memory.ToArray());
+                var payload = await ReadDescriptorPayloadAsync(picked.Stream, cancellationToken).ConfigureAwait(true);
+                if (payload is null)
+                {
+                    _userInterfaceScheduler.Post(() =>
+                        StatusText = "Failed to load descriptor set: file exceeds " + MaxDescriptorPayloadMegabytes + " MB limit.");
+                    return;
+                }
+
+                _library.Load(sourcePath, payload);
                 _userInterfaceScheduler.Post(() =>
                 {
                     RefreshLoadedFiles();
