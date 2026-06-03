@@ -31,7 +31,10 @@ public static class UserPreferencesJsonSerializer
     /// <summary>
     ///     Deserializes a <see cref="UserPreferences" /> instance from JSON text. Returns the
     ///     defaults when the JSON is empty, the schema version is unknown, or the payload is
-    ///     malformed.
+    ///     malformed. Fields that fall outside the valid ranges enforced by the Preferences UI
+    ///     (proxy port 1024-65535, upstream proxy port 1-65535, capture cap &gt;= 100) are
+    ///     replaced with their documented defaults so a hand-edited or corrupted file cannot
+    ///     start the application with out-of-range settings.
     /// </summary>
     /// <param name="json">The JSON text to deserialize.</param>
     /// <returns>The deserialized preferences (or defaults on failure).</returns>
@@ -61,16 +64,16 @@ public static class UserPreferencesJsonSerializer
         var defaults = UserPreferencesDefaults.Create();
         var loaded = new UserPreferences
         {
-            CaptureMaximumFlows = raw.CaptureMaximumFlows ?? defaults.CaptureMaximumFlows,
+            CaptureMaximumFlows = SanitizeCaptureMaximumFlows(raw.CaptureMaximumFlows, defaults.CaptureMaximumFlows),
             IsRegisterSystemProxyOnStartup = raw.IsRegisterSystemProxyOnStartup ?? defaults.IsRegisterSystemProxyOnStartup,
             IsStartProxyOnLaunch = raw.IsStartProxyOnLaunch ?? defaults.IsStartProxyOnLaunch,
             IsUpstreamProxyEnabled = raw.IsUpstreamProxyEnabled ?? defaults.IsUpstreamProxyEnabled,
             Locale = raw.Locale,
             LogLevel = raw.LogLevel ?? defaults.LogLevel,
-            ProxyPort = raw.ProxyPort ?? defaults.ProxyPort,
+            ProxyPort = SanitizeProxyPort(raw.ProxyPort, defaults.ProxyPort),
             Theme = raw.Theme ?? defaults.Theme,
             UpstreamProxyHost = raw.UpstreamProxyHost,
-            UpstreamProxyPort = raw.UpstreamProxyPort ?? defaults.UpstreamProxyPort,
+            UpstreamProxyPort = SanitizeUpstreamProxyPort(raw.UpstreamProxyPort, defaults.UpstreamProxyPort),
         };
         return loaded;
     }
@@ -138,6 +141,36 @@ public static class UserPreferencesJsonSerializer
 
         var json = Serialize(preferences);
         File.WriteAllText(filePath, json);
+    }
+
+    private static int SanitizeCaptureMaximumFlows(int? value, int fallback)
+    {
+        if (value is null or < 100)
+        {
+            return fallback;
+        }
+
+        return value.Value;
+    }
+
+    private static int SanitizeProxyPort(int? value, int fallback)
+    {
+        if (value is null or < 1024 or > 65535)
+        {
+            return fallback;
+        }
+
+        return value.Value;
+    }
+
+    private static int SanitizeUpstreamProxyPort(int? value, int fallback)
+    {
+        if (value is null or < 1 or > 65535)
+        {
+            return fallback;
+        }
+
+        return value.Value;
     }
 
     private sealed class RawUserPreferences
