@@ -1,3 +1,4 @@
+using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading;
@@ -57,18 +58,29 @@ public static class SocksHandshakeReader
     /// <summary>
     ///     Reads at least <paramref name="minimumBytes" /> from the reader into a byte array
     ///     without consuming any data (the data remains available for subsequent reads). The
-    ///     reader's examined pointer is advanced to the end of the buffer so that calling
+    ///     copied array is bounded by <paramref name="maximumBytes" /> so that a client which
+    ///     pipelines a large payload behind the handshake cannot force an unbounded allocation
+    ///     on this hot connection path. The reader's examined pointer is advanced to the end
+    ///     of the buffer so that calling
     ///     <see cref="PipeReader.ReadAsync(CancellationToken)" /> after this method is valid.
     /// </summary>
     /// <param name="reader">The reader.</param>
     /// <param name="minimumBytes">Minimum bytes to buffer.</param>
+    /// <param name="maximumBytes">
+    ///     Maximum bytes to copy into the returned array. Should be the largest possible size
+    ///     of the handshake message being parsed.
+    /// </param>
     /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The buffered bytes as an array (may exceed minimumBytes).</returns>
-    public static async Task<byte[]> ReadIntoArrayAsync(PipeReader reader, int minimumBytes, CancellationToken cancellationToken)
+    /// <returns>
+    ///     The buffered bytes as an array, bounded by <paramref name="maximumBytes" />.
+    /// </returns>
+    public static async Task<byte[]> ReadIntoArrayAsync(PipeReader reader, int minimumBytes, int maximumBytes, CancellationToken cancellationToken)
     {
         var result = await PipeReaderHelper.ReadUntilAsync(reader, minimumBytes, cancellationToken).ConfigureAwait(false);
-        var bytes = result.Buffer.ToArray();
-        reader.AdvanceTo(result.Buffer.Start, result.Buffer.End);
+        var buffer = result.Buffer;
+        var sliceLength = (int)Math.Min(buffer.Length, maximumBytes);
+        var bytes = buffer.Slice(0, sliceLength).ToArray();
+        reader.AdvanceTo(buffer.Start, buffer.End);
         return bytes;
     }
 }

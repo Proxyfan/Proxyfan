@@ -80,10 +80,33 @@ public sealed class SocksHandshakeReaderTests
         await pipe.Writer.WriteAsync(new byte[] { 1, 2, 3, 4, 5 });
         await pipe.Writer.CompleteAsync();
 
-        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 3, default);
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 3, 1024, default);
 
         await Assert.That(bytes.Length).IsEqualTo(5);
         await Assert.That(bytes[0]).IsEqualTo((byte)1);
+    }
+
+    /// <summary>
+    ///     Verifies that the returned array never exceeds the configured maximum even when
+    ///     the pipe has buffered far more than the handshake protocol allows.
+    /// </summary>
+    [Test]
+    public async Task ReadIntoArrayAsync_PipeBufferLargerThanMaximum_TruncatesToMaximum()
+    {
+        var pipe = new Pipe();
+        var payload = new byte[16 * 1024];
+        payload[0] = 0xAB;
+        payload[15] = 0xCD;
+        await pipe.Writer.WriteAsync(payload);
+        await pipe.Writer.CompleteAsync();
+
+        var bytes = await SocksHandshakeReader.ReadIntoArrayAsync(pipe.Reader, 2, 16, default);
+
+        await Assert.That(bytes.Length).IsEqualTo(16);
+        await Assert.That(bytes[0]).IsEqualTo((byte)0xAB);
+        await Assert.That(bytes[15]).IsEqualTo((byte)0xCD);
+        var result = await pipe.Reader.ReadAsync();
+        await Assert.That((int)result.Buffer.Length).IsEqualTo(payload.Length);
     }
 
     /// <summary>
