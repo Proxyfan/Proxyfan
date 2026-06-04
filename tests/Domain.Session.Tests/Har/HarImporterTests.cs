@@ -185,6 +185,65 @@ public sealed class HarImporterTests
     }
 
     /// <summary>
+    ///     Verifies that files larger than the configured HAR size cap are rejected before parsing.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_FileExceedsMaxBytes_RejectsBeforeParse()
+    {
+        const string harJson = "{\"log\":{\"entries\":[{\"request\":{\"method\":\"GET\",\"url\":\"https://example.com/\",\"headers\":[]},\"response\":{\"status\":200,\"statusText\":\"OK\",\"headers\":[],\"content\":{}}}]}}";
+        using var input = new MemoryStream(Encoding.UTF8.GetBytes(harJson));
+        var importer = new HarImporter(maxHarBytes: input.Length - 1, maxEntries: 100_000, maxEntryBodyBytes: 100 * 1024 * 1024);
+
+        await Assert.That(async () => await importer.ImportAsync(input, CancellationToken.None))
+            .Throws<InvalidDataException>();
+    }
+
+    /// <summary>
+    ///     Verifies that oversized response bodies are truncated and marked as truncated on the flow.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_EntryBodyExceedsMaxBytes_TruncatesAndFlags()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"GET","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{"text":"0123456789"}}}
+            ]}}
+            """;
+        var importer = new HarImporter(maxHarBytes: 200L * 1024L * 1024L, maxEntries: 100_000, maxEntryBodyBytes: 4);
+        using var input = new MemoryStream(Encoding.UTF8.GetBytes(harJson));
+
+        var flows = await importer.ImportAsync(input, CancellationToken.None);
+
+        await Assert.That(flows.Count).IsEqualTo(1);
+        await Assert.That(flows[0].IsResponseBodyTruncated).IsTrue();
+        await Assert.That(Encoding.UTF8.GetString(flows[0].Response!.Body.Span)).IsEqualTo("0123");
+    }
+
+    /// <summary>
+    ///     Verifies that import stops once the configured maximum entry count is reached.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_EntryCountExceedsMax_StopsImport()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"_proxyfanClientEndPoint":"entry-1","request":{"method":"GET","url":"https://example.com/1","headers":[]},"response":{"status":200,"statusText":"OK","headers":[],"content":{}}},
+                {"_proxyfanClientEndPoint":"entry-2","request":{"method":"GET","url":"https://example.com/2","headers":[]},"response":{"status":200,"statusText":"OK","headers":[],"content":{}}},
+                {"_proxyfanClientEndPoint":"entry-3","request":{"method":"GET","url":"https://example.com/3","headers":[]},"response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var importer = new HarImporter(maxHarBytes: 200L * 1024L * 1024L, maxEntries: 2, maxEntryBodyBytes: 100 * 1024 * 1024);
+        using var input = new MemoryStream(Encoding.UTF8.GetBytes(harJson));
+
+        var flows = await importer.ImportAsync(input, CancellationToken.None);
+
+        await Assert.That(flows.Count).IsEqualTo(2);
+        await Assert.That(flows[0].ClientEndPoint).IsEqualTo("entry-1");
+        await Assert.That(flows[1].ClientEndPoint).IsEqualTo("entry-2");
+    }
+
+    /// <summary>
     ///     Verifies that a text request body and a text response body are both preserved
     ///     through a full export/import round-trip.
     /// </summary>

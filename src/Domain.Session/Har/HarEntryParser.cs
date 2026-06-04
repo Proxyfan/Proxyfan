@@ -19,6 +19,17 @@ public static class HarEntryParser
     /// <returns>The reconstructed traffic flow, or null when the entry is invalid.</returns>
     public static TrafficFlow? ParseEntry(JsonElement entry)
     {
+        return ParseEntry(entry, int.MaxValue);
+    }
+
+    /// <summary>
+    ///     Parses a single HAR entry element into a <see cref="TrafficFlow" /> with a body-size limit.
+    /// </summary>
+    /// <param name="entry">The HAR entry JSON element.</param>
+    /// <param name="maxEntryBodyBytes">Maximum request/response body bytes retained per entry.</param>
+    /// <returns>The reconstructed traffic flow, or null when the entry is invalid.</returns>
+    public static TrafficFlow? ParseEntry(JsonElement entry, int maxEntryBodyBytes)
+    {
         var startedAt = ExtractStartedDateTime(entry);
         var clientEndPoint = ExtractClientEndPoint(entry);
         var flowId = ExtractFlowId(entry);
@@ -26,22 +37,32 @@ public static class HarEntryParser
 
         if (entry.TryGetProperty("request", out var requestElement))
         {
-            var request = ParseRequest(requestElement);
+            var request = ParseRequest(requestElement, maxEntryBodyBytes, out var hasRequestBodyBeenTruncated);
 
             if (request is not null)
             {
                 flow.SetRequest(request);
+
+                if (hasRequestBodyBeenTruncated)
+                {
+                    flow.UpdateRequestBodyForStorage(request.Body, null, isTruncated: true);
+                }
             }
         }
 
         if (entry.TryGetProperty("response", out var responseElement))
         {
-            var response = ParseResponse(responseElement);
+            var response = ParseResponse(responseElement, maxEntryBodyBytes, out var hasResponseBodyBeenTruncated);
 
             if (response is not null && flow.Status == TrafficFlowStatus.Active)
             {
                 flow.SetResponse(response);
                 flow.Complete();
+
+                if (hasResponseBodyBeenTruncated)
+                {
+                    flow.UpdateResponseBodyForStorage(response.Body, null, isTruncated: true);
+                }
             }
         }
 
@@ -173,8 +194,10 @@ public static class HarEntryParser
         return headers;
     }
 
-    private static HypertextTransferProtocolRequestData? ParseRequest(JsonElement requestElement)
+    private static HypertextTransferProtocolRequestData? ParseRequest(JsonElement requestElement, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
     {
+        hasBodyBeenTruncated = false;
+
         if (!requestElement.TryGetProperty("method", out var methodElement)
             || !requestElement.TryGetProperty("url", out var urlElement))
         {
@@ -191,7 +214,7 @@ public static class HarEntryParser
 
         var version = ExtractStringOrDefault(requestElement, "httpVersion", "HTTP/1.1");
         var headers = ParseHeaders(requestElement);
-        var body = ParseRequestBody(requestElement);
+        var body = ParseRequestBody(requestElement, maxEntryBodyBytes, out hasBodyBeenTruncated);
         var parameters = new HypertextTransferProtocolRequestDataParameters
         {
             Body = body,
@@ -203,8 +226,10 @@ public static class HarEntryParser
         return new HypertextTransferProtocolRequestData(parameters);
     }
 
-    private static byte[] ParseRequestBody(JsonElement requestElement)
+    private static byte[] ParseRequestBody(JsonElement requestElement, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
     {
+        hasBodyBeenTruncated = false;
+
         if (!requestElement.TryGetProperty("postData", out var postData))
         {
             return [];
@@ -212,12 +237,13 @@ public static class HarEntryParser
 
         if (postData.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String)
         {
-            return ParseRequestBodyFromPostDataText(postData, textElement.GetString());
+            return ParseRequestBodyFromPostDataText(postData, textElement.GetString(), maxEntryBodyBytes, out hasBodyBeenTruncated);
         }
 
         if (postData.TryGetProperty("params", out var paramsArray) && paramsArray.ValueKind == JsonValueKind.Array)
         {
-            return ParseRequestBodyFromParams(paramsArray);
+            var body = ParseRequestBodyFromParams(paramsArray);
+            return TruncateBodyIfNeeded(body, maxEntryBodyBytes, out hasBodyBeenTruncated);
         }
 
         return [];
@@ -255,8 +281,10 @@ public static class HarEntryParser
         return urlBuilder.Length > 0 ? Encoding.UTF8.GetBytes(urlBuilder.ToString()) : [];
     }
 
-    private static byte[] ParseRequestBodyFromPostDataText(JsonElement postData, string? bodyText)
+    private static byte[] ParseRequestBodyFromPostDataText(JsonElement postData, string? bodyText, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
     {
+        hasBodyBeenTruncated = false;
+
         if (string.IsNullOrEmpty(bodyText))
         {
             return [];
@@ -268,7 +296,8 @@ public static class HarEntryParser
         {
             try
             {
-                return Convert.FromBase64String(bodyText);
+                var body = Convert.FromBase64String(bodyText);
+                return TruncateBodyIfNeeded(body, maxEntryBodyBytes, out hasBodyBeenTruncated);
             }
             catch (FormatException)
             {
@@ -276,11 +305,13 @@ public static class HarEntryParser
             }
         }
 
-        return Encoding.UTF8.GetBytes(bodyText);
+        return ParseUtf8TextBody(bodyText, maxEntryBodyBytes, out hasBodyBeenTruncated);
     }
 
-    private static HypertextTransferProtocolResponseData? ParseResponse(JsonElement responseElement)
+    private static HypertextTransferProtocolResponseData? ParseResponse(JsonElement responseElement, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
     {
+        hasBodyBeenTruncated = false;
+
         if (!responseElement.TryGetProperty("status", out var statusElement) || statusElement.ValueKind != JsonValueKind.Number)
         {
             return null;
@@ -294,7 +325,7 @@ public static class HarEntryParser
         var reasonPhrase = ExtractStringOrDefault(responseElement, "statusText", string.Empty);
         var version = ExtractStringOrDefault(responseElement, "httpVersion", "HTTP/1.1");
         var headers = ParseHeaders(responseElement);
-        var body = ParseResponseBody(responseElement);
+        var body = ParseResponseBody(responseElement, maxEntryBodyBytes, out hasBodyBeenTruncated);
         var parameters = new HypertextTransferProtocolResponseDataParameters
         {
             Body = body,
@@ -306,8 +337,10 @@ public static class HarEntryParser
         return new HypertextTransferProtocolResponseData(parameters);
     }
 
-    private static byte[] ParseResponseBody(JsonElement responseElement)
+    private static byte[] ParseResponseBody(JsonElement responseElement, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
     {
+        hasBodyBeenTruncated = false;
+
         if (!responseElement.TryGetProperty("content", out var content))
         {
             return [];
@@ -331,7 +364,8 @@ public static class HarEntryParser
         {
             try
             {
-                return Convert.FromBase64String(bodyText);
+                var body = Convert.FromBase64String(bodyText);
+                return TruncateBodyIfNeeded(body, maxEntryBodyBytes, out hasBodyBeenTruncated);
             }
             catch (FormatException)
             {
@@ -339,6 +373,48 @@ public static class HarEntryParser
             }
         }
 
-        return Encoding.UTF8.GetBytes(bodyText);
+        return ParseUtf8TextBody(bodyText, maxEntryBodyBytes, out hasBodyBeenTruncated);
+    }
+
+    private static byte[] ParseUtf8TextBody(string bodyText, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
+    {
+        if (maxEntryBodyBytes == 0)
+        {
+            hasBodyBeenTruncated = true;
+            return [];
+        }
+
+        var utf8ByteCount = Encoding.UTF8.GetByteCount(bodyText);
+        if (utf8ByteCount <= maxEntryBodyBytes)
+        {
+            hasBodyBeenTruncated = false;
+            return Encoding.UTF8.GetBytes(bodyText);
+        }
+
+        var truncatedBody = new byte[maxEntryBodyBytes];
+        var encoder = Encoding.UTF8.GetEncoder();
+        encoder.Convert(bodyText.AsSpan(), truncatedBody.AsSpan(), flush: true, out _, out _, out _);
+        hasBodyBeenTruncated = true;
+        return truncatedBody;
+    }
+
+    private static byte[] TruncateBodyIfNeeded(byte[] bodyBytes, int maxEntryBodyBytes, out bool hasBodyBeenTruncated)
+    {
+        if (bodyBytes.Length <= maxEntryBodyBytes)
+        {
+            hasBodyBeenTruncated = false;
+            return bodyBytes;
+        }
+
+        if (maxEntryBodyBytes == 0)
+        {
+            hasBodyBeenTruncated = true;
+            return [];
+        }
+
+        var truncatedBody = new byte[maxEntryBodyBytes];
+        Array.Copy(bodyBytes, truncatedBody, maxEntryBodyBytes);
+        hasBodyBeenTruncated = true;
+        return truncatedBody;
     }
 }
