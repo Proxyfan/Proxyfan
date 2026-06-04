@@ -23,6 +23,7 @@ using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Session.Har;
+using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic.Columns;
 using Proxyfan.Domain.Updates;
 using Proxyfan.Framework.Serialization;
@@ -107,6 +108,12 @@ public partial class App : Application
             services.AddTransient<SecureSocketsLayerProxyingViewModel>();
             services.AddTransient<ScriptingViewModel>();
             services.AddTransient<ThemeViewModel>();
+            services.AddTransient<IThrottleProfileCoordinator>(static serviceProvider =>
+            {
+                var mutableProfile = serviceProvider.GetRequiredService<MutableThrottleProfile>();
+                var scheduler = serviceProvider.GetRequiredService<IUserInterfaceScheduler>();
+                return new ThrottleProfileCoordinator(mutableProfile, scheduler);
+            });
             services.AddTransient<ThrottleViewModel>();
             services.AddSingleton<IToolWindowOpener, AvaloniaToolWindowOpener>();
             services.AddSingleton<AvaloniaUserInterfaceScheduler>();
