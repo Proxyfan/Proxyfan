@@ -1,4 +1,4 @@
-﻿using Proxyfan.Framework.Extensibility;
+using Proxyfan.Plugin.Abstractions;
 using System;
 using System.IO;
 using System.Runtime.Versioning;

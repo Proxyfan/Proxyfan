@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Compares two SemVer-style version strings using SemVer 2.0.0 precedence rules.

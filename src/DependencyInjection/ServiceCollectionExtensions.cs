@@ -19,6 +19,7 @@ using Proxyfan.Framework.Extensibility;
 using Proxyfan.Framework.Networking;
 using Proxyfan.Framework.Platform;
 using Proxyfan.Framework.Serialization;
+using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -189,6 +190,7 @@ public static class ServiceCollectionExtensions
     private static void AddPlugins(IServiceCollection serviceCollection)
     {
         serviceCollection.AddSingleton<PluginRegistry>();
+        serviceCollection.AddSingleton<IPluginRegistry>(static serviceProvider => serviceProvider.GetRequiredService<PluginRegistry>());
         serviceCollection.AddSingleton<PluginDirectoryScanner>();
         serviceCollection.AddSingleton<IPluginInstanceFactory, IsolatedPluginInstanceFactory>();
         serviceCollection.AddSingleton<IPluginEnabledStateStore>(static _ =>
@@ -215,6 +217,7 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton<DefaultPluginHost>();
         serviceCollection.AddSingleton<Proxyfan.Plugin.Abstractions.IPluginHost>(static serviceProvider => serviceProvider.GetRequiredService<DefaultPluginHost>());
         serviceCollection.AddSingleton<PluginActivationService>();
+        serviceCollection.AddSingleton<IPluginActivationService>(static serviceProvider => serviceProvider.GetRequiredService<PluginActivationService>());
         serviceCollection.AddSingleton<IPluginFolderOpener, WindowsPluginFolderOpener>();
         serviceCollection.AddSingleton<IPluginDirectoryWatcher, FileSystemPluginDirectoryWatcher>();
         serviceCollection.AddSingleton<PluginUpdateManifestUrlProvider>(static _ =>

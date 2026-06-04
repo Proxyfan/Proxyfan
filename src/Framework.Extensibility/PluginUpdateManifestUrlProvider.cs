@@ -1,9 +1,10 @@
+
 namespace Proxyfan.Framework.Extensibility;
 
 /// <summary>
 ///     Holds the absolute URL the plugin manager uses when checking for plugin updates.
 ///     An empty URL signals the feature is disabled and the manager should not invoke
-///     <see cref="IPluginUpdateFeed.FetchAsync" />.
+///     <see cref="Proxyfan.Plugin.Abstractions.IPluginUpdateFeed.FetchAsync" />.
 /// </summary>
 public sealed class PluginUpdateManifestUrlProvider
 {

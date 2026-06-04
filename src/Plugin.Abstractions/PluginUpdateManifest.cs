@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     A parsed plugin update manifest fetched from a remote source. Contains zero or more

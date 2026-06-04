@@ -1,4 +1,4 @@
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Parsed major + minor version pair, returned by <see cref="PluginApiVersionParser" />.

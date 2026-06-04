@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -149,7 +150,7 @@ public sealed class ServiceCollectionExtensionsTests
         {
             var updateFeedFunction = provider.GetService<Proxyfan.Domain.Updates.UpdateFeedFunction>();
             var updateChecker = provider.GetService<Proxyfan.Domain.Updates.IUpdateChecker>();
-            var enabledStateStore = provider.GetService<Proxyfan.Framework.Extensibility.IPluginEnabledStateStore>();
+            var enabledStateStore = provider.GetService<Proxyfan.Plugin.Abstractions.IPluginEnabledStateStore>();
             var rootProvider = provider.GetService<Proxyfan.Framework.Extensibility.PluginRootDirectoryProvider>();
             var pluginHost = provider.GetService<Proxyfan.Plugin.Abstractions.IPluginHost>();
             var pluginUpdateManifestUrlProvider = provider.GetService<Proxyfan.Framework.Extensibility.PluginUpdateManifestUrlProvider>();

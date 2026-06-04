@@ -7,7 +7,7 @@ namespace Proxyfan.Framework.Extensibility;
 ///     the live <see cref="IProxyfanPlugin" /> instance, the load result, and an optional
 ///     error message when load failed.
 /// </summary>
-public sealed class LoadedPlugin
+public sealed class LoadedPlugin : IPluginLoadState
 {
     /// <summary>
     ///     Gets the failure message when <see cref="IsLoaded" /> is false, otherwise null.
@@ -52,4 +52,12 @@ public sealed class LoadedPlugin
         ErrorMessage = errorMessage;
         SourceDirectory = sourceDirectory;
     }
+
+    string? IPluginLoadState.ErrorMessage => ErrorMessage;
+
+    bool IPluginLoadState.IsLoaded => IsLoaded;
+
+    PluginMetadata IPluginLoadState.Metadata => Metadata;
+
+    string? IPluginLoadState.SourceDirectory => SourceDirectory;
 }

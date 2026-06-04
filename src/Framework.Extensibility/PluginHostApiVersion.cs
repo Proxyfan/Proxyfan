@@ -1,9 +1,10 @@
+
 namespace Proxyfan.Framework.Extensibility;
 
 /// <summary>
 ///     Constants describing the host's published plugin API contract. Plugins compare
 ///     <see cref="Current" /> against their declared required version via
-///     <see cref="PluginApiVersionChecker.HasCompatibility" />.
+///     <see cref="Proxyfan.Plugin.Abstractions.PluginApiVersionChecker.HasCompatibility" />.
 /// </summary>
 public static class PluginHostApiVersion
 {

@@ -1,6 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
 using Proxyfan.Presentation.Threading;
 using System;
@@ -12,7 +11,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
 ///     View model for the Plugin Manager tool window. Exposes the list of loaded plugins
-///     surfaced by <see cref="PluginRegistry" />, drives <see cref="PluginActivationService" />
+///     surfaced by <see cref="IPluginRegistry" />, drives <see cref="IPluginActivationService" />
 ///     for reload flows, surfaces remote update availability via <see cref="IPluginUpdateFeed" />,
 ///     and tracks plugins-directory changes via <see cref="IPluginDirectoryWatcher" /> so
 ///     that hot-added plugin folders are detected without manual refresh. Whether any user
@@ -21,13 +20,13 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class PluginManagerViewModel : ObservableObject, IDisposable
 {
-    private readonly PluginActivationService _activationService;
+    private readonly IPluginActivationService _activationService;
     private readonly IPluginDirectoryWatcher _directoryWatcher;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
     private readonly Lock _lifecycleLock;
     private readonly IPluginHost _pluginHost;
-    private readonly PluginRegistry _registry;
+    private readonly IPluginRegistry _registry;
     private readonly IPluginUpdateFeed _updateFeed;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
@@ -69,10 +68,10 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     /// <param name="directoryWatcher">The plugin directory watcher that fires when subdirectories are added/removed.</param>
     /// <param name="userInterfaceScheduler">Scheduler used to marshal bound-state updates onto the UI thread.</param>
     public PluginManagerViewModel(
-        PluginRegistry registry,
+        IPluginRegistry registry,
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
-        PluginActivationService activationService,
+        IPluginActivationService activationService,
         IPluginUpdateFeed updateFeed,
         IPluginHost pluginHost,
         IPluginDirectoryWatcher directoryWatcher,

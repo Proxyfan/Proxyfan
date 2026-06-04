@@ -1,4 +1,4 @@
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Opens a directory on disk in the host operating system's file manager (e.g. Windows
