@@ -1,10 +1,11 @@
+using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
 
 namespace Proxyfan.Framework.Extensibility;
 
 /// <summary>
-///     Joins a <see cref="PluginRegistry" /> snapshot against a fetched
+///     Joins an <see cref="IPluginRegistry" /> snapshot against a fetched
 ///     <see cref="PluginUpdateManifest" /> and emits one
 ///     <see cref="PluginUpdateAvailability" /> entry per plugin where the manifest version
 ///     is strictly newer than the installed version.
@@ -19,7 +20,7 @@ public static class PluginUpdateAvailabilityResolver
     /// <param name="hostApiVersion">The host API version used for compatibility flagging.</param>
     /// <returns>The list of updates with one row per upgradable plugin.</returns>
     public static IReadOnlyList<PluginUpdateAvailability> Resolve(
-        PluginRegistry registry,
+        IPluginRegistry registry,
         PluginUpdateManifest? manifest,
         string hostApiVersion)
     {

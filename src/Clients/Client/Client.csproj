@@ -32,9 +32,6 @@
         <ProjectReference Include="..\..\Domain.Throttling\Domain.Throttling.csproj" />
         <ProjectReference Include="..\..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\..\DependencyInjection\DependencyInjection.csproj" />
-        <ProjectReference Include="..\..\Framework\Framework.csproj" />
-        <ProjectReference Include="..\..\Framework.Extensibility\Framework.Extensibility.csproj" />
-        <ProjectReference Include="..\..\Framework.Serialization\Framework.Serialization.csproj" />
         <ProjectReference Include="..\..\Plugin.Abstractions\Plugin.Abstractions.csproj" />
         <ProjectReference Include="..\..\Presentation\Presentation.csproj" />
     </ItemGroup>

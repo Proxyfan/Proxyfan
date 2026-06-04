@@ -9,7 +9,7 @@ namespace Proxyfan.Framework.Extensibility;
 ///     In-memory registry of loaded plugins. Used by the host to track which plugins have
 ///     been initialized and to surface their state in the manager UI.
 /// </summary>
-public sealed class PluginRegistry
+public sealed class PluginRegistry : IPluginRegistry
 {
     private readonly Lock _gate;
     private readonly List<LoadedPlugin> _plugins;
@@ -43,6 +43,8 @@ public sealed class PluginRegistry
         _plugins = plugins;
         _gate = gate;
     }
+
+    IReadOnlyList<IPluginLoadState> IPluginRegistry.Plugins => Plugins;
 
     /// <summary>
     ///     Adds a pre-built failed <see cref="LoadedPlugin" /> entry (e.g. from a bad manifest

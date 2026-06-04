@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Proxyfan.Client.Tests;
 
@@ -19,6 +20,35 @@ public sealed partial class AppAccessibilityArchitectureTests
     private static readonly Regex ControlDeclarationRegex = BuildControlDeclarationRegex();
     private static readonly Regex AutomationNameRegex = BuildAutomationNameRegex();
     private static readonly HashSet<string> AllowListedFileNames = BuildAllowList();
+
+    [Test]
+    public async Task Architecture_ClientProject_DoesNotReferenceFrameworkImplementations()
+    {
+        var clientProjectPath = ResolveClientProjectPath();
+        var project = XDocument.Load(clientProjectPath);
+        var offenders = new List<string>();
+
+        foreach (var element in project.Descendants("ProjectReference"))
+        {
+            var include = element.Attribute("Include")?.Value;
+
+            if (include is null)
+            {
+                continue;
+            }
+
+            var normalized = include.Replace('\\', '/');
+
+            if (normalized.StartsWith("../../Framework", StringComparison.OrdinalIgnoreCase))
+            {
+                offenders.Add(include);
+            }
+        }
+
+        await Assert.That(offenders.Count)
+            .IsEqualTo(0)
+            .Because("Client must consume abstractions only. Offenders: " + string.Join(", ", offenders));
+    }
 
     /// <summary>
     ///     Verifies that every interactive control in every .axaml file under
@@ -131,5 +161,25 @@ public sealed partial class AppAccessibilityArchitectureTests
         }
 
         throw new DirectoryNotFoundException("Could not locate src/Clients/Client root from " + current);
+    }
+
+    private static string ResolveClientProjectPath()
+    {
+        var current = AppContext.BaseDirectory;
+        var directory = new DirectoryInfo(current);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, "src", "Clients", "Client", "Client.csproj");
+
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException("Could not locate src/Clients/Client/Client.csproj from " + current);
     }
 }

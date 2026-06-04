@@ -9,7 +9,7 @@ namespace Proxyfan.Framework.Extensibility;
 ///     <see cref="EnsureLoaded" /> calls are no-ops; UI-triggered "Reload" flows clear the
 ///     registry first via <see cref="Reload" />.
 /// </summary>
-public sealed class PluginActivationService
+public sealed class PluginActivationService : IPluginActivationService
 {
     private readonly IPluginHost _host;
     private readonly PluginLoader _loader;
@@ -41,6 +41,18 @@ public sealed class PluginActivationService
         _rootProvider = rootProvider;
         _registry = registry;
         _loadLock = newLock;
+    }
+
+    void IPluginActivationService.EnsureLoaded()
+    {
+        EnsureLoaded();
+    }
+
+    bool IPluginActivationService.IsActivated => IsActivated;
+
+    void IPluginActivationService.Reload()
+    {
+        Reload();
     }
 
     /// <summary>

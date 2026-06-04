@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Framework.Extensibility;
+using Proxyfan.Plugin.Abstractions;
 using System;
 using System.IO;
 
@@ -85,7 +86,7 @@ public sealed partial class PluginItemViewModel : ObservableObject
     /// <param name="folderOpener">The folder opener invoked by the Open Folder command.</param>
     /// <param name="onStateChanged">Callback fired whenever the user toggles the enabled state or removes the plugin; the parent view model uses this to mark a restart as required and to refresh the snapshot.</param>
     public PluginItemViewModel(
-        LoadedPlugin plugin,
+        IPluginLoadState plugin,
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
         PluginStateChangedCallback onStateChanged)
@@ -103,7 +104,7 @@ public sealed partial class PluginItemViewModel : ObservableObject
     /// <param name="onStateChanged">Callback fired whenever the user toggles the enabled state or removes the plugin; the parent view model uses this to mark a restart as required and to refresh the snapshot.</param>
     /// <param name="deleteDirectory">The callback invoked when removing the plugin source directory.</param>
     public PluginItemViewModel(
-        LoadedPlugin plugin,
+        IPluginLoadState plugin,
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
         PluginStateChangedCallback onStateChanged,
