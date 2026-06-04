@@ -415,13 +415,31 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
         IScriptingHandler? scriptingHandler = null,
         IBreakpointHandler? breakpointHandler = null)
     {
+        IRuleEngine effectiveRuleEngine;
+        if (ruleEngine is not null)
+        {
+            effectiveRuleEngine = ruleEngine;
+        }
+        else
+        {
+            var registry = new RuleRegistry();
+            if (scriptingHandler is not null)
+            {
+                var scriptingRule = new ScriptingRule(scriptingHandler, NullLogger<ScriptingRule>.Instance);
+                registry.RegisterAsyncResponsePhaseRule(scriptingRule);
+            }
+            if (breakpointHandler is not null)
+            {
+                var breakpointRule = new BreakpointRule(breakpointHandler);
+                registry.RegisterAsyncResponsePhaseRule(breakpointRule);
+            }
+            effectiveRuleEngine = new RuleEngine(registry);
+        }
         return new TransportLayerSecurityInterceptedUpgradeHandlerDependencies
         {
-            BreakpointHandler = breakpointHandler,
             EventBus = eventBus,
             Logger = NullLogger.Instance,
-            RuleEngine = ruleEngine,
-            ScriptingHandler = scriptingHandler,
+            RuleEngine = effectiveRuleEngine,
             TimeProvider = TimeProvider.System,
             TrafficStore = trafficStore,
             WebSocketStore = webSocketStore,

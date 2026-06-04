@@ -103,9 +103,13 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
             StatusCode = 200,
         };
         var mapLocal = new MapLocalRule(matching, parameters);
-        var ruleEngine = new RuleEngine(new IRequestPhaseRule[] { mapLocal }, Array.Empty<IResponsePhaseRule>());
+        var registry = new RuleRegistry();
+        registry.RegisterRequestPhaseRule(mapLocal);
         var scripting = new StubScriptingHandler();
-        var handler = CreateHandler(ruleEngine, out var trafficStore, scripting);
+        var scriptingRule = new ScriptingRule(scripting, NullLogger<ScriptingRule>.Instance);
+        registry.RegisterAsyncRequestPhaseRule(scriptingRule);
+        var ruleEngine = new RuleEngine(registry);
+        var handler = CreateHandler(ruleEngine, out var trafficStore);
         var connection = new StubFullDuplexProxyConnection();
 
         var requestBytes = Encoding.ASCII.GetBytes("GET http://anything.example/ HTTP/1.1\r\nHost: anything.example\r\n\r\n");
@@ -184,7 +188,7 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
         await Assert.That(trafficStore.Count).IsEqualTo(1);
     }
 
-    private static HypertextTransferProtocolProxyHandler CreateHandler(IRuleEngine ruleEngine, out StubTrafficStore trafficStore, IScriptingHandler? scriptingHandler = null)
+    private static HypertextTransferProtocolProxyHandler CreateHandler(IRuleEngine ruleEngine, out StubTrafficStore trafficStore)
     {
         var newStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
@@ -194,7 +198,6 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
             EventBus = eventBus,
             RuleEngine = ruleEngine,
             Logger = NullLogger<HypertextTransferProtocolProxyHandler>.Instance,
-            ScriptingHandler = scriptingHandler,
         });
         trafficStore = newStore;
         return handler;

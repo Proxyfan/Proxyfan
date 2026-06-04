@@ -1,8 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Rules;
-using Proxyfan.Domain.Rules.Rules;
-using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
@@ -29,11 +27,9 @@ namespace Proxyfan.Framework.Networking;
 public sealed class TransportLayerSecurityInterceptedUpgradeHandler
 {
     private const int MaxHeaderBytes = 65536;
-    private readonly IBreakpointHandler? _breakpointHandler;
     private readonly IDomainEventBus _eventBus;
     private readonly ILogger _logger;
     private readonly IRuleEngine? _ruleEngine;
-    private readonly IScriptingHandler? _scriptingHandler;
     private readonly TimeProvider _timeProvider;
     private readonly ITrafficStore _trafficStore;
     private readonly IWebSocketStore? _webSocketStore;
@@ -51,8 +47,6 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandler
         _trafficStore = dependencies.TrafficStore;
         _webSocketStore = dependencies.WebSocketStore;
         _ruleEngine = dependencies.RuleEngine;
-        _scriptingHandler = dependencies.ScriptingHandler;
-        _breakpointHandler = dependencies.BreakpointHandler;
     }
 
     /// <summary>
@@ -111,29 +105,17 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandler
         HypertextTransferProtocolResponseData upstreamResponse,
         CancellationToken cancellationToken)
     {
-        var responseActions = _ruleEngine?.EvaluateResponse(request.EffectiveRequest, upstreamResponse) ?? [];
-        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(upstreamResponse, responseActions);
-        var scriptingRequest = new TransportLayerSecurityInterceptedScriptingResponseRequest
-        {
-            EffectiveRequest = request.EffectiveRequest,
-            FinalResponse = finalResponse,
-            Flow = request.Flow,
-            Handler = _scriptingHandler,
-            Logger = _logger,
-        };
-        finalResponse = await TransportLayerSecurityInterceptedScripting.ApplyResponseAsync(scriptingRequest, cancellationToken).ConfigureAwait(false);
-        if (_breakpointHandler is null)
-        {
-            return finalResponse;
-        }
-
-        var decision = await _breakpointHandler.ResolveResponseAsync(request.EffectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-        if (decision.IsAborting)
+        var flowId = request.Flow.Id.ToString();
+        var responseActions = _ruleEngine is not null
+            ? await _ruleEngine.EvaluateResponseAsync(request.EffectiveRequest, upstreamResponse, flowId, cancellationToken).ConfigureAwait(false)
+            : [];
+        if (HypertextTransferProtocolRuleApplicator.HasResponsePauseAction(responseActions))
         {
             return null;
         }
 
-        return decision.ModifiedResponse ?? finalResponse;
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(upstreamResponse, responseActions);
+        return finalResponse;
     }
 
     private void CompleteFlow(TrafficFlow flow)

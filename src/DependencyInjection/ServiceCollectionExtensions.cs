@@ -311,8 +311,6 @@ public static class ServiceCollectionExtensions
             Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HypertextTransferProtocolProxyHandler>>(),
             UpstreamProxy = provider.GetService<IOptionsMonitor<UpstreamProxyOptions>>(),
             ThrottleProfile = provider.GetService<MutableThrottleProfile>(),
-            BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
-            ScriptingHandler = provider.GetService<IScriptingHandler>(),
             CertificateAuthorityProvider = provider.GetService<MutableCertificateAuthorityProvider>(),
             WebSocketStore = provider.GetService<IWebSocketStore>(),
             ServerSentEventsStore = provider.GetService<IServerSentEventsStore>(),
@@ -336,6 +334,15 @@ public static class ServiceCollectionExtensions
         registry.RegisterRequestPhaseRule(mapLocal);
         registry.RegisterRequestPhaseRule(noCachingRule);
         registry.RegisterResponsePhaseRule(noCachingRule);
+        var breakpointHandler = provider.GetRequiredService<IBreakpointHandler>();
+        var breakpointRule = new BreakpointRule(breakpointHandler);
+        registry.RegisterAsyncRequestPhaseRule(breakpointRule);
+        registry.RegisterAsyncResponsePhaseRule(breakpointRule);
+        var scriptingHandler = provider.GetRequiredService<IScriptingHandler>();
+        var logger = provider.GetRequiredService<ILogger<ScriptingRule>>();
+        var scriptingRule = new ScriptingRule(scriptingHandler, logger);
+        registry.RegisterAsyncRequestPhaseRule(scriptingRule);
+        registry.RegisterAsyncResponsePhaseRule(scriptingRule);
         return new RuleEngine(registry);
     }
 
@@ -349,8 +356,6 @@ public static class ServiceCollectionExtensions
             HostResolver = provider.GetService<UpstreamHostResolver>(),
             Logger = provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TransportLayerSecurityInterceptorHandler>>(),
             RuleEngine = provider.GetService<IRuleEngine>(),
-            BreakpointHandler = provider.GetService<Proxyfan.Domain.Rules.Rules.IBreakpointHandler>(),
-            ScriptingHandler = provider.GetService<IScriptingHandler>(),
             ThrottleProfile = provider.GetService<MutableThrottleProfile>(),
             TimeProvider = provider.GetService<TimeProvider>(),
             WebSocketStore = provider.GetService<IWebSocketStore>(),

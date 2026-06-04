@@ -162,7 +162,14 @@ public sealed class HypertextTransferProtocolProxyHandlerUpstreamTests
         IOptionsMonitor<UpstreamProxyOptions>? upstreamProxy = null,
         StubBreakpointHandler? breakpointHandler = null)
     {
-        var ruleEngine = new RuleEngine(System.Array.Empty<IRequestPhaseRule>(), System.Array.Empty<IResponsePhaseRule>());
+        var registry = new RuleRegistry();
+        if (breakpointHandler is not null)
+        {
+            var breakpointRule = new BreakpointRule(breakpointHandler);
+            registry.RegisterAsyncRequestPhaseRule(breakpointRule);
+            registry.RegisterAsyncResponsePhaseRule(breakpointRule);
+        }
+        var ruleEngine = new RuleEngine(registry);
         var dependencies = new HypertextTransferProtocolProxyHandlerDependencies
         {
             TrafficStore = new StubTrafficStore(),
@@ -170,7 +177,6 @@ public sealed class HypertextTransferProtocolProxyHandlerUpstreamTests
             RuleEngine = ruleEngine,
             Logger = NullLogger<HypertextTransferProtocolProxyHandler>.Instance,
             UpstreamProxy = upstreamProxy,
-            BreakpointHandler = breakpointHandler,
         };
         return new HypertextTransferProtocolProxyHandler(dependencies);
     }

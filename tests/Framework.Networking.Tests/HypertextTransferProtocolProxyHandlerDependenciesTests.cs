@@ -9,8 +9,8 @@ namespace Proxyfan.Framework.Networking.Tests;
 public sealed class HypertextTransferProtocolProxyHandlerDependenciesTests
 {
     /// <summary>
-    ///     Verifies that the dependencies object exposes optional upstream, throttle, and
-    ///     breakpoint handler fields with default null values.
+    ///     Verifies that the dependencies object exposes optional upstream and throttle
+    ///     fields with default null values.
     /// </summary>
     [Test]
     public async Task Construction_OptionalFields_DefaultToNull()
@@ -25,6 +25,5 @@ public sealed class HypertextTransferProtocolProxyHandlerDependenciesTests
 
         await Assert.That(dependencies.UpstreamProxy).IsNull();
         await Assert.That(dependencies.ThrottleProfile).IsNull();
-        await Assert.That(dependencies.BreakpointHandler).IsNull();
     }
 }

@@ -3,8 +3,6 @@ using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Pipeline;
-using Proxyfan.Domain.Rules.Rules;
-using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using System;
@@ -24,14 +22,12 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     private const int DefaultHypertextTransferProtocolPort = 80;
     private const int MaxHeaderBytes = 65536;
     private static readonly byte[][] MethodPrefixes;
-    private readonly IBreakpointHandler? _breakpointHandler;
     private readonly MutableCertificateAuthorityProvider? _certificateAuthorityProvider;
     private readonly HypertextTransferProtocolFlowEventPublisher _flowEventPublisher;
     private readonly HypertextTransferProtocolForwarder _forwarder;
     private readonly ILogger<HypertextTransferProtocolProxyHandler> _logger;
     private readonly PacketLossSampler _packetLossSampler;
     private readonly IRuleEngine _ruleEngine;
-    private readonly IScriptingHandler? _scriptingHandler;
     private readonly MutableThrottleProfile? _throttleProfile;
     private readonly ITrafficStore _trafficStore;
     private readonly HypertextTransferProtocolUpgradeOrchestrator _upgradeOrchestrator;
@@ -60,10 +56,8 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
     {
         _trafficStore = dependencies.TrafficStore;
         _ruleEngine = dependencies.RuleEngine;
-        _scriptingHandler = dependencies.ScriptingHandler;
         _logger = dependencies.Logger;
         _throttleProfile = dependencies.ThrottleProfile;
-        _breakpointHandler = dependencies.BreakpointHandler;
         _certificateAuthorityProvider = dependencies.CertificateAuthorityProvider;
         _packetLossSampler = dependencies.PacketLossSampler ?? DefaultPacketLossSamplers.Shared;
         var timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
@@ -127,100 +121,6 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             {
                 return;
             }
-        }
-    }
-
-    private async Task<BreakpointDecision> ApplyRequestBreakpointAsync(
-        HypertextTransferProtocolRequestData effectiveRequest,
-        RequestPipelineAction? blockingAction,
-        CancellationToken cancellationToken)
-    {
-        if (_breakpointHandler is null || blockingAction is RequestPipelineAction.ServeLocalResponse)
-        {
-            return BreakpointDecisions.ResumeRequest(effectiveRequest);
-        }
-
-        var decision = await _breakpointHandler.ResolveRequestAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
-        return decision;
-    }
-
-    private async Task<BreakpointDecision> ApplyResponseBreakpointAsync(
-        HypertextTransferProtocolRequestData effectiveRequest,
-        HypertextTransferProtocolResponseData finalResponse,
-        CancellationToken cancellationToken)
-    {
-        if (_breakpointHandler is null)
-        {
-            return BreakpointDecisions.ResumeResponse(finalResponse);
-        }
-
-        var decision = await _breakpointHandler.ResolveResponseAsync(effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-        return decision;
-    }
-
-    private async Task<HypertextTransferProtocolRequestData> ApplyScriptingRequestAsync(
-        TrafficFlow flow,
-        HypertextTransferProtocolRequestData effectiveRequest,
-        RequestPipelineAction? blockingAction,
-        CancellationToken cancellationToken)
-    {
-        if (_scriptingHandler is null || blockingAction is RequestPipelineAction.ServeLocalResponse)
-        {
-            return effectiveRequest;
-        }
-
-        try
-        {
-            var flowId = flow.Id.ToString();
-            var result = await _scriptingHandler.ApplyRequestAsync(flowId, effectiveRequest, cancellationToken).ConfigureAwait(false);
-            if (result.IsSuccess)
-            {
-                return result.Value;
-            }
-
-            _logger.LogWarning(
-                "Scripting request-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified request",
-                result.Error!.Code,
-                result.Error.Message);
-            return effectiveRequest;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "Scripting request-phase hook threw; continuing with unmodified request");
-            return effectiveRequest;
-        }
-    }
-
-    private async Task<HypertextTransferProtocolResponseData> ApplyScriptingResponseAsync(
-        TrafficFlow flow,
-        HypertextTransferProtocolRequestData effectiveRequest,
-        HypertextTransferProtocolResponseData finalResponse,
-        CancellationToken cancellationToken)
-    {
-        if (_scriptingHandler is null)
-        {
-            return finalResponse;
-        }
-
-        try
-        {
-            var flowId = flow.Id.ToString();
-            var result = await _scriptingHandler.ApplyResponseAsync(flowId, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-            if (result.IsSuccess)
-            {
-                return result.Value;
-            }
-
-            _logger.LogWarning(
-                "Scripting response-phase hook reported failure {ErrorCode}: {ErrorMessage}; continuing with unmodified response",
-                result.Error!.Code,
-                result.Error.Message);
-            return finalResponse;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "Scripting response-phase hook threw; continuing with unmodified response");
-            return finalResponse;
         }
     }
 
@@ -423,19 +323,15 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
         var flow = context.Flow;
         var effectiveRequest = context.EffectiveRequest;
         var responseExchange = context.ResponseExchange;
-        var responseActions = _ruleEngine.EvaluateResponse(effectiveRequest, responseExchange.Response);
-        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(responseExchange.Response, responseActions);
-
-        finalResponse = await ApplyScriptingResponseAsync(flow, effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-
-        var responseBreakpoint = await ApplyResponseBreakpointAsync(effectiveRequest, finalResponse, cancellationToken).ConfigureAwait(false);
-        if (responseBreakpoint.IsAborting)
+        var flowId = flow.Id.ToString();
+        var responseActions = await _ruleEngine.EvaluateResponseAsync(effectiveRequest, responseExchange.Response, flowId, cancellationToken).ConfigureAwait(false);
+        if (HypertextTransferProtocolRuleApplicator.HasResponsePauseAction(responseActions))
         {
             FailAndCompleteFlow(flow);
             return false;
         }
-        finalResponse = responseBreakpoint.ModifiedResponse ?? finalResponse;
 
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(responseExchange.Response, responseActions);
         finalResponse = ForwardedResponseRewriter.Rewrite(finalResponse);
 
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(responseExchange, finalResponse);
@@ -470,7 +366,8 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             await HandleProvisioningRequestAsync(connection, flow, requestExchange.Request, cancellationToken).ConfigureAwait(false);
             return false;
         }
-        var requestActions = _ruleEngine.EvaluateRequest(requestExchange.Request);
+        var flowId = flow.Id.ToString();
+        var requestActions = await _ruleEngine.EvaluateRequestAsync(requestExchange.Request, flowId, cancellationToken).ConfigureAwait(false);
         var effectiveRequest = HypertextTransferProtocolRuleApplicator.ApplyRequestModifications(requestExchange.Request, requestActions);
         var blockingAction = HypertextTransferProtocolRuleApplicator.FindBlockingAction(requestActions);
         if (blockingAction is RequestPipelineAction.Block)
@@ -478,14 +375,11 @@ public sealed class HypertextTransferProtocolProxyHandler : IConnectionHandler
             await HandleBlockedRequestAsync(connection, flow, cancellationToken).ConfigureAwait(false);
             return false;
         }
-        var requestBreakpoint = await ApplyRequestBreakpointAsync(effectiveRequest, blockingAction, cancellationToken).ConfigureAwait(false);
-        if (requestBreakpoint.IsAborting)
+        if (blockingAction is RequestPipelineAction.Pause)
         {
             FailAndCompleteFlow(flow);
             return false;
         }
-        effectiveRequest = requestBreakpoint.ModifiedRequest ?? effectiveRequest;
-        effectiveRequest = await ApplyScriptingRequestAsync(flow, effectiveRequest, blockingAction, cancellationToken).ConfigureAwait(false);
         if (blockingAction is not RequestPipelineAction.ServeLocalResponse
             && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
         {

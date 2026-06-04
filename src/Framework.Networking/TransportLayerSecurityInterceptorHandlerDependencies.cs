@@ -2,8 +2,6 @@ using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
 using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Rules;
-using Proxyfan.Domain.Rules.Rules;
-using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using System;
@@ -12,16 +10,11 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Dependency bundle for <see cref="TransportLayerSecurityInterceptorHandler" />.
-///     Bundling lets the handler accept the optional rule engine and breakpoint handler
+///     Bundling lets the handler accept the optional rule engine
 ///     without exceeding the analyzer-enforced constructor parameter limit (ATXCS022).
 /// </summary>
 public sealed class TransportLayerSecurityInterceptorHandlerDependencies
 {
-    /// <summary>
-    ///     Gets the optional breakpoint handler used to pause intercepted requests/responses.
-    /// </summary>
-    public IBreakpointHandler? BreakpointHandler { get; init; }
-
     /// <summary>
     ///     Gets the TLS interception context used to resolve certificates and proxying rules.
     /// </summary>
@@ -64,12 +57,6 @@ public sealed class TransportLayerSecurityInterceptorHandlerDependencies
     ///     for intercepted (decrypted) traffic.
     /// </summary>
     public IRuleEngine? RuleEngine { get; init; }
-
-    /// <summary>
-    ///     Gets the optional scripting handler used to invoke user scripts on intercepted
-    ///     (decrypted) requests and responses.
-    /// </summary>
-    public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
     ///     Gets the optional Server-Sent Events store used to capture <c>text/event-stream</c>

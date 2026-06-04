@@ -345,15 +345,26 @@ public sealed class HypertextTransferProtocolProxyHandlerCoverageTests
         IScriptingHandler? scriptingHandler = null,
         ITrafficStore? trafficStore = null)
     {
-        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
+        var registry = new RuleRegistry();
+        if (scriptingHandler is not null)
+        {
+            var scriptingRule = new ScriptingRule(scriptingHandler, NullLogger<ScriptingRule>.Instance);
+            registry.RegisterAsyncRequestPhaseRule(scriptingRule);
+            registry.RegisterAsyncResponsePhaseRule(scriptingRule);
+        }
+        if (breakpointHandler is not null)
+        {
+            var breakpointRule = new BreakpointRule(breakpointHandler);
+            registry.RegisterAsyncRequestPhaseRule(breakpointRule);
+            registry.RegisterAsyncResponsePhaseRule(breakpointRule);
+        }
+        var ruleEngine = new RuleEngine(registry);
         var handler = new HypertextTransferProtocolProxyHandler(new HypertextTransferProtocolProxyHandlerDependencies
         {
             TrafficStore = trafficStore ?? new StubTrafficStore(),
             EventBus = new StubDomainEventBus(),
             RuleEngine = ruleEngine,
             Logger = NullLogger<HypertextTransferProtocolProxyHandler>.Instance,
-            BreakpointHandler = breakpointHandler,
-            ScriptingHandler = scriptingHandler,
         });
         return handler;
     }
