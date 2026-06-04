@@ -1,5 +1,6 @@
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.Exceptions;
 using FlaUI.Core.Tools;
 using Proxyfan.Client.UiAutomationTests.Infrastructure;
 using System;
@@ -33,7 +34,7 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
             preferences.Close();
         }
 
-        WaitForWindowClosed(preferencesWindow, "Preferences");
+        EnsureWindowClosed(preferencesWindow, "Preferences");
         // After dispose only the main shell window may remain as a child of
         // the desktop owned by this process.
         var pid = shell.Window.Properties.ProcessId.Value;
@@ -58,7 +59,7 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
             blockList.Close();
         }
 
-        WaitForWindowClosed(blockListWindow, "Block List");
+        EnsureWindowClosed(blockListWindow, "Block List");
         var pid = shell.Window.Properties.ProcessId.Value;
         var children = app.Automation.GetDesktop().FindAllChildren(cf =>
             cf.ByControlType(ControlType.Window).And(cf.ByProcessId(pid)));
@@ -81,7 +82,7 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
             theme.Close();
         }
 
-        WaitForWindowClosed(themeWindow, "Theme");
+        EnsureWindowClosed(themeWindow, "Theme");
         var pid = shell.Window.Properties.ProcessId.Value;
         var children = app.Automation.GetDesktop().FindAllChildren(cf =>
             cf.ByControlType(ControlType.Window).And(cf.ByProcessId(pid)));
@@ -90,7 +91,7 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
         await Assert.That(names[0]).IsEqualTo("Proxyfan");
     }
 
-    private static void WaitForWindowClosed(Window window, string windowTitle)
+    private static void EnsureWindowClosed(Window window, string windowDescription)
     {
         var waitResult = Retry.WhileTrue(
             () =>
@@ -99,7 +100,11 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
                 {
                     return window.IsAvailable;
                 }
-                catch
+                catch (ElementNotAvailableException)
+                {
+                    return false;
+                }
+                catch (ObjectDisposedException)
                 {
                     return false;
                 }
@@ -110,7 +115,7 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
 
         if (!waitResult.Success)
         {
-            throw new TimeoutException($"Window '{windowTitle}' was still available after waiting for it to close.");
+            throw new TimeoutException($"Window '{windowDescription}' was still available after waiting for it to close.");
         }
     }
 }
