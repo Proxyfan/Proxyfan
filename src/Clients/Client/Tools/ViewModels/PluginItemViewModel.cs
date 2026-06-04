@@ -14,9 +14,12 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class PluginItemViewModel : ObservableObject
 {
+    private readonly PluginDirectoryDeleteCallback _deleteDirectory;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
     private readonly PluginStateChangedCallback _onStateChanged;
+    [ObservableProperty]
+    private string? _errorMessage;
     [ObservableProperty]
     private bool _isEnabled;
 
@@ -34,11 +37,6 @@ public sealed partial class PluginItemViewModel : ObservableObject
     ///     Gets the plugin description.
     /// </summary>
     public string Description { get; }
-
-    /// <summary>
-    ///     Gets the human-readable error message when load failed, or null on success.
-    /// </summary>
-    public string? ErrorMessage { get; }
 
     /// <summary>
     ///     Gets the plugin identifier.
@@ -91,7 +89,27 @@ public sealed partial class PluginItemViewModel : ObservableObject
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
         PluginStateChangedCallback onStateChanged)
+        : this(plugin, enabledStateStore, folderOpener, onStateChanged, Directory.Delete)
     {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied loaded
+    ///     plugin and delete-directory callback.
+    /// </summary>
+    /// <param name="plugin">The loaded plugin to expose.</param>
+    /// <param name="enabledStateStore">The store used to read + persist the user's enable choice.</param>
+    /// <param name="folderOpener">The folder opener invoked by the Open Folder command.</param>
+    /// <param name="onStateChanged">Callback fired whenever the user toggles the enabled state or removes the plugin; the parent view model uses this to mark a restart as required and to refresh the snapshot.</param>
+    /// <param name="deleteDirectory">The callback invoked when removing the plugin source directory.</param>
+    public PluginItemViewModel(
+        LoadedPlugin plugin,
+        IPluginEnabledStateStore enabledStateStore,
+        IPluginFolderOpener folderOpener,
+        PluginStateChangedCallback onStateChanged,
+        PluginDirectoryDeleteCallback deleteDirectory)
+    {
+        _deleteDirectory = deleteDirectory;
         _enabledStateStore = enabledStateStore;
         _folderOpener = folderOpener;
         _onStateChanged = onStateChanged;
@@ -137,19 +155,20 @@ public sealed partial class PluginItemViewModel : ObservableObject
     [RelayCommand]
     private void Remove()
     {
-        _enabledStateStore.SetEnabled(Identifier, false);
         if (SourceDirectory is not null)
         {
             try
             {
-                Directory.Delete(SourceDirectory, recursive: true);
+                _deleteDirectory(SourceDirectory, true);
             }
             catch (Exception ex)
             {
-                _ = ex;
+                ErrorMessage = $"Failed to remove plugin folder: {ex.Message}";
+                return;
             }
         }
 
+        _enabledStateStore.SetEnabled(Identifier, false);
         _onStateChanged();
     }
 }
