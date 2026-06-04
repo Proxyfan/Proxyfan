@@ -144,9 +144,9 @@ Each feature is a self-contained slice with its own subdirectory within each mod
 - Rule/script errors do NOT crash pipeline — traffic falls through to next rule or server
 
 ### Configuration
-- **Precedence** (highest → lowest): CLI arguments → environment variables (`PROXYFAN_*`) → `%LOCALAPPDATA%\Proxyfan\config.yaml` → `defaults.yaml` (shipped)
+- **Precedence** (highest → lowest): CLI arguments → environment variables (`PROXYFAN_*`) → `%LOCALAPPDATA%\Proxyfan\config.kv` → `defaults.yaml` (shipped)
 - Hot reload via file watcher (non-proxy settings); proxy settings (port, upstream) require restart
-- Strongly-typed options via `Microsoft.Extensions.Options` with YAML backing store
+- Strongly-typed options via `Microsoft.Extensions.Options` with key=value backing store
 
 ### Logging & Privacy
 - `Microsoft.Extensions.Logging` with structured logging to `%LOCALAPPDATA%\Proxyfan\logs\`
@@ -181,7 +181,7 @@ Each feature is a self-contained slice with its own subdirectory within each mod
 - **In-memory traffic store**: concurrent ring buffer, default 10,000 flows (configurable to 100,000+); oldest evicted on capacity; single-writer via `Channel<T>`, lock-free reads
 - **Large bodies** (>1 MB): spilled to temp files; memory pressure strategy: soft (>70%) → warning, hard (>90%) → evict 10%, critical (OS pressure) → pause capture
 - **HAR 1.2**: save/load sessions; streaming writes for large sessions; optional gzip (`.har.gz`); custom `_proxyfan` namespace for color tags/comments
-- **YAML config**: `%LOCALAPPDATA%\Proxyfan\config.yaml` with schema validation and hot reload
+- **Key-value config**: `%LOCALAPPDATA%\Proxyfan\config.kv` with schema validation and hot reload
 - **Certificates**: root CA + custom certs in `%LOCALAPPDATA%\Proxyfan\certificates\`; private keys encrypted via Windows DPAPI; leaf cert LRU cache (default 1,000 entries)
 
 ## Extensibility Interfaces
