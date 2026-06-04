@@ -127,6 +127,7 @@ public static class CliArgumentParser
             var port = ExtractPort(args);
             var startOptions = new CliStartOptions
             {
+                BindAddress = ExtractStringOption(args, "--bind-address"),
                 OutputPath = ExtractStringOption(args, "--output"),
                 DurationSeconds = ExtractPositiveInt(args, "--duration"),
             };

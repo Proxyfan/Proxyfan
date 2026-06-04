@@ -36,6 +36,28 @@ public static class ShellViewModelFactory
     }
 
     /// <summary>
+    ///     Creates a new <see cref="ShellViewModel" /> using an explicit proxy bind address.
+    /// </summary>
+    /// <param name="systemProxy">The system proxy stub to wire in.</param>
+    /// <param name="port">The proxy port for <see cref="ProxyOptions" />.</param>
+    /// <param name="bindAddress">The proxy bind address for <see cref="ProxyOptions" />.</param>
+    /// <returns>A new <see cref="ShellViewModel" /> instance.</returns>
+    internal static ShellViewModel Create(StubSystemProxy systemProxy, int port, string bindAddress)
+    {
+        return Create(
+            systemProxy,
+            port,
+            new StubFilePickerService(),
+            new StubHarExporter(),
+            new StubHarImporter(),
+            new StubToolWindowOpener(),
+            new MutableUpdateNotification(),
+            new MutableNoCachingRule(priority: 400, isEnabled: false),
+            new MutableBreakpointConfiguration(isEnabled: false),
+            bindAddress);
+    }
+
+    /// <summary>
     ///     Creates a new <see cref="ShellViewModel" /> wired with the supplied
     ///     <paramref name="systemProxy" /> and explicit picker/exporter/importer stubs.
     /// </summary>
@@ -136,9 +158,15 @@ public static class ShellViewModelFactory
         StubToolWindowOpener toolWindowOpener,
         MutableUpdateNotification updateNotification,
         MutableNoCachingRule noCachingRule,
-        MutableBreakpointConfiguration breakpointConfiguration)
+        MutableBreakpointConfiguration breakpointConfiguration,
+        string? bindAddress = null)
     {
         var options = new ProxyOptions { Port = port };
+        if (!string.IsNullOrWhiteSpace(bindAddress))
+        {
+            options.BindAddress = bindAddress;
+        }
+
         var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
         var eventBus = new NoopEventBus();
         var coordinator = new TrafficListCoordinator();

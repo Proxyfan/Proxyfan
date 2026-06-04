@@ -8,6 +8,12 @@ namespace Proxyfan.Cli;
 public sealed class CliStartOptions
 {
     /// <summary>
+    ///     Gets the optional bind address for the listener (<c>proxy.bindAddress</c> override).
+    ///     When null, the configured/default bind address is used.
+    /// </summary>
+    public string? BindAddress { get; init; }
+
+    /// <summary>
     ///     Gets the optional auto-stop duration in seconds. When set, the proxy stops
     ///     automatically after this many seconds even if no Ctrl+C is observed.
     /// </summary>

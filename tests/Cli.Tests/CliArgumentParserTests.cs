@@ -61,8 +61,24 @@ public sealed class CliArgumentParserTests
         var command = CliArgumentParser.Parse(args);
 
         await Assert.That(command.StartOptions).IsNotNull();
+        await Assert.That(command.StartOptions!.BindAddress).IsNull();
         await Assert.That(command.StartOptions!.OutputPath).IsNull();
         await Assert.That(command.StartOptions.DurationSeconds).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that "start --bind-address 0.0.0.0" sets the bind-address override.
+    /// </summary>
+    [Test]
+    public async Task Parse_StartWithBindAddress_SetsStartOptionsBindAddress()
+    {
+        var args = ParserTestArguments.Three("start", "--bind-address", "0.0.0.0");
+
+        var command = CliArgumentParser.Parse(args);
+
+        await Assert.That(command.Kind).IsEqualTo(CliCommandKind.Start);
+        await Assert.That(command.StartOptions).IsNotNull();
+        await Assert.That(command.StartOptions!.BindAddress).IsEqualTo("0.0.0.0");
     }
 
     /// <summary>

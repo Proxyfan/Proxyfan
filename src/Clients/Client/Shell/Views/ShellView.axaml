@@ -194,6 +194,18 @@
                            Margin="16,0"
                            Text="{localization:Localize Key=Shell_StatusBar_CapturePaused}"
                            VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
+                           IsVisible="{Binding IsRemoteBindingWarningVisible}"
+                           Margin="16,0,4,0"
+                           Text="{localization:Localize Key=Shell_StatusBar_RemoteBindWarning}"
+                           VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
+                           IsVisible="{Binding IsRemoteBindingWarningVisible}"
+                           Margin="0,0,8,0"
+                           Text="{Binding RemoteBindingWarningAddress}"
+                           VerticalAlignment="Center" />
             </DockPanel>
         </Border>
     </Grid>

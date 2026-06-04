@@ -26,6 +26,7 @@ public sealed class CliHelpWriterTests
         await Assert.That(text).Contains("start");
         await Assert.That(text).Contains("har-summary");
         await Assert.That(text).Contains("--port");
+        await Assert.That(text).Contains("--bind-address");
         await Assert.That(text).Contains("--input");
     }
 }

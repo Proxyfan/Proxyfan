@@ -42,7 +42,7 @@ public static class CliStartHandler
     {
         var fallbackStartOptions = new CliStartOptions();
         var startOptions = command.StartOptions ?? fallbackStartOptions;
-        var host = BuildHost(command.Port);
+        var host = BuildHost(command.Port, startOptions.BindAddress);
         try
         {
             await host.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -81,7 +81,7 @@ public static class CliStartHandler
         return 0;
     }
 
-    private static IHost BuildHost(int port)
+    private static IHost BuildHost(int port, string? bindAddress)
     {
         var hostBuilder = Host.CreateDefaultBuilder();
         hostBuilder.ConfigureAppConfiguration((_, configurationBuilder) =>
@@ -92,6 +92,11 @@ public static class CliStartHandler
                 ["proxy:IsAutoStart"] = "false",
                 ["proxy:IsRegisterSystemProxy"] = "false",
             };
+            if (!string.IsNullOrWhiteSpace(bindAddress))
+            {
+                inMemory["proxy:BindAddress"] = bindAddress;
+            }
+
             configurationBuilder.AddInMemoryCollection(inMemory);
         });
         hostBuilder.ConfigureServices((context, services) =>

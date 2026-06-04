@@ -14,6 +14,7 @@ using Proxyfan.Presentation.Files;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -45,9 +46,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isNoCachingEnabled;
     [ObservableProperty]
+    private bool _isRemoteBindingWarningVisible;
+    [ObservableProperty]
     private bool _isSystemProxyEnabled;
     [ObservableProperty]
     private bool _isUpdateBannerVisible;
+    [ObservableProperty]
+    private string? _remoteBindingWarningAddress;
     [ObservableProperty]
     private string? _updateBannerDownloadUrl;
     [ObservableProperty]
@@ -123,6 +128,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _isUpdateBannerVisible = false;
         _isNoCachingEnabled = noCachingRule.IsEnabled;
         _isBreakpointEnabled = breakpointConfiguration.IsEnabled;
+        ConfigureRemoteBindingWarning();
         TabHost = tabHost;
         SourceList = sourceListViewModel;
         _updateNotification.Changed += OnUpdateNotificationChanged;
@@ -148,6 +154,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         UpdateBannerMessage = $"Proxyfan {update.Version} is available.";
         UpdateBannerDownloadUrl = update.DownloadUrl;
         IsUpdateBannerVisible = true;
+    }
+
+    private bool CanShowRemoteBindingWarning(string bindAddress)
+    {
+        if (!IPAddress.TryParse(bindAddress, out var parsedAddress))
+        {
+            return false;
+        }
+
+        return !IPAddress.IsLoopback(parsedAddress);
+    }
+
+    private void ConfigureRemoteBindingWarning()
+    {
+        var bindAddress = _optionsMonitor.CurrentValue.BindAddress;
+        var isRemoteBinding = CanShowRemoteBindingWarning(bindAddress);
+        IsRemoteBindingWarningVisible = isRemoteBinding;
+        RemoteBindingWarningAddress = isRemoteBinding ? bindAddress : null;
     }
 
     [RelayCommand]

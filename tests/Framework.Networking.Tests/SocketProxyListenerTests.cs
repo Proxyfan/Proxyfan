@@ -59,6 +59,48 @@ public sealed class SocketProxyListenerTests
     }
 
     /// <summary>
+    ///     Verifies that binding to a non-loopback wildcard address requires an explicit
+    ///     source allow-list.
+    /// </summary>
+    [Test]
+    public async Task StartAsync_BindAddressAny_RequiresAuthOrAcl()
+    {
+        var listener = CreateListener(
+            new ProxyOptions
+            {
+                Port = AllocateFreePort(),
+                BindAddress = IPAddress.Any.ToString(),
+                AllowedRemoteSources = [],
+            });
+
+        await Assert.That(
+            async () => await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None)
+        ).Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    ///     Verifies that the default listener bind is loopback-only (IPv4).
+    /// </summary>
+    [Test]
+    public async Task StartAsync_DefaultConfiguration_BindsLoopbackOnly()
+    {
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
+
+        try
+        {
+            using var ipv6Client = new TcpClient(AddressFamily.InterNetworkV6);
+            await Assert.That(
+                async () => await ipv6Client.ConnectAsync(IPAddress.IPv6Loopback, listener.BoundPort!.Value)
+            ).Throws<SocketException>();
+        }
+        finally
+        {
+            await listener.StopAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>
     ///     Verifies that starting the listener sets <see cref="SocketProxyListener.IsListening" /> to
     ///     <see langword="true" />.
     /// </summary>

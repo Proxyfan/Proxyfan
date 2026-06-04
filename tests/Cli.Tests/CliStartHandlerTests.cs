@@ -95,8 +95,7 @@ public sealed class CliStartHandlerTests
     public async Task RunAsync_PortAlreadyInUse_ReportsBindFailure()
     {
         var port = GetFreePort();
-        var blocker = new TcpListener(IPAddress.IPv6Any, port);
-        blocker.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+        var blocker = new TcpListener(IPAddress.Loopback, port);
         blocker.Start();
         try
         {
