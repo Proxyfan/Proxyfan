@@ -26,6 +26,14 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
     private Socket? _listenSocket;
 
     /// <summary>
+    ///     Replaces the default <see cref="Socket.AcceptAsync(CancellationToken)" /> call
+    ///     used inside <c>RunAcceptLoopAsync</c>. When non-<see langword="null" /> the
+    ///     delegate is invoked instead of the real accept, allowing tests to inject
+    ///     controlled sockets or simulated errors without a live network stack.
+    /// </summary>
+    public SocketAcceptDelegate? AcceptOverride { get; set; }
+
+    /// <summary>
     ///     Initializes a new instance of <see cref="SocketProxyListener" />.
     /// </summary>
     /// <param name="optionsMonitor">
@@ -141,6 +149,22 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
         LogStopped(previousPort);
     }
 
+    /// <summary>
+    ///     Returns a task that completes when the running accept loop finishes.
+    ///     If the listener has not been started, returns a completed task.
+    /// </summary>
+    /// <param name="cancellationToken">
+    ///     A token that cancels the wait without stopping the accept loop.
+    /// </param>
+    /// <returns>
+    ///     A <see cref="Task" /> that completes when the accept loop exits, or
+    ///     <see cref="Task.CompletedTask" /> if the listener has not been started.
+    /// </returns>
+    public Task WaitForAcceptLoopAsync(CancellationToken cancellationToken)
+    {
+        return _acceptLoopTask?.WaitAsync(cancellationToken) ?? Task.CompletedTask;
+    }
+
     private bool CanProcessAcceptedSocket(Socket acceptedSocket)
     {
         var remoteEndPoint = acceptedSocket.RemoteEndPoint;
@@ -235,7 +259,9 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
 
             try
             {
-                acceptedSocket = await _listenSocket!.AcceptAsync(cancellationToken).ConfigureAwait(false);
+                acceptedSocket = AcceptOverride is not null
+                    ? await AcceptOverride(_listenSocket!, cancellationToken).ConfigureAwait(false)
+                    : await _listenSocket!.AcceptAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -272,5 +298,6 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
         }
 
         await Task.WhenAll(pendingConnections).ConfigureAwait(false);
+        IsListening = false;
     }
 }

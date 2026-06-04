@@ -296,8 +296,7 @@ public sealed class SocketProxyListenerTests
     }
 
     /// <summary>
-    ///     When the connection handler throws a non-cancellation exception, the listener catches
-    ///     it and logs without propagating, allowing subsequent connections to proceed normally.
+    ///     When the handler throws, listener logs and continues (existing regression test).
     ///     Exercises the connection-error catch in <see cref="SocketProxyListener" />.
     /// </summary>
     [Test]
@@ -324,6 +323,116 @@ public sealed class SocketProxyListenerTests
             await listener.StopAsync(CancellationToken.None);
         }
 
+        await Assert.That(listener.IsListening).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that a fatal <see cref="SocketException" /> (classified as fatal by
+    ///     <see cref="AcceptErrorClassifier" />) causes the accept loop to exit and
+    ///     <see cref="SocketProxyListener.IsListening" /> to flip to
+    ///     <see langword="false" /> without an explicit call to
+    ///     <see cref="SocketProxyListener.StopAsync" />.
+    /// </summary>
+    [Test]
+    public async Task RunAcceptLoopAsync_FatalAcceptError_SetsIsListeningFalse()
+    {
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        listener.AcceptOverride = (_, _) =>
+            new ValueTask<Socket>(Task.FromException<Socket>(
+                new SocketException((int)SocketError.OperationAborted)));
+
+        await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await listener.WaitForAcceptLoopAsync(cts.Token);
+
+        await Assert.That(listener.IsListening).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that when the accept loop exits due to a fatal
+    ///     <see cref="SocketException" />, any in-flight connection handler tasks are
+    ///     fully awaited (via <c>Task.WhenAll</c>) before the accept-loop task itself
+    ///     completes.
+    /// </summary>
+    [Test]
+    public async Task RunAcceptLoopAsync_FatalAcceptError_DrainsInFlightConnections()
+    {
+        var handlerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handlerRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handlerCompleted = false;
+        var callCount = 0;
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+
+        listener.AcceptOverride = async (socket, ct) =>
+        {
+            callCount++;
+            if (callCount == 1)
+            {
+                return await socket.AcceptAsync(ct).ConfigureAwait(false);
+            }
+
+            throw new SocketException((int)SocketError.OperationAborted);
+        };
+
+        await listener.StartAsync(
+            async (_, _) =>
+            {
+                handlerStarted.TrySetResult();
+                await handlerRelease.Task.ConfigureAwait(false);
+                handlerCompleted = true;
+            },
+            CancellationToken.None);
+
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, listener.BoundPort!.Value);
+            await handlerStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            handlerRelease.TrySetResult();
+        }
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await listener.WaitForAcceptLoopAsync(cts.Token);
+
+        await Assert.That(handlerCompleted).IsTrue();
+        await Assert.That(listener.IsListening).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that a recoverable (non-fatal) <see cref="SocketException" /> in the
+    ///     accept loop is logged and skipped — the loop continues to accept the subsequent
+    ///     connection, exercising the <c>continue</c> path in
+    ///     <c>RunAcceptLoopAsync</c>.
+    /// </summary>
+    [Test]
+    public async Task RunAcceptLoopAsync_RecoverableAcceptError_ContinuesLoop()
+    {
+        var secondCallStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callCount = 0;
+        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+
+        listener.AcceptOverride = async (_, ct) =>
+        {
+            callCount++;
+            if (callCount == 1)
+            {
+                throw new SocketException((int)SocketError.ConnectionReset);
+            }
+
+            secondCallStarted.TrySetResult();
+            var blocked = new SemaphoreSlim(0, 1);
+            await blocked.WaitAsync(ct).ConfigureAwait(false);
+            throw new OperationCanceledException(ct);
+        };
+
+        await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
+        await secondCallStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await listener.StopAsync(CancellationToken.None);
+
+        await Assert.That(callCount).IsGreaterThanOrEqualTo(2);
         await Assert.That(listener.IsListening).IsFalse();
     }
 }
