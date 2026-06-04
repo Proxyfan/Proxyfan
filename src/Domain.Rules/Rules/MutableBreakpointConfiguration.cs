@@ -1,4 +1,5 @@
 ﻿using Proxyfan.Domain.Rules.Matching;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -17,17 +18,36 @@ public sealed class MutableBreakpointConfiguration
     ///     Raised whenever the enabled flag, the phase mask, or the pattern collection changes.
     /// </summary>
     public event MutableBreakpointConfigurationChanged? Changed;
-
+    private const int DefaultMaxPendingPauses = 100;
+    private const int DefaultPauseTimeoutSeconds = 60;
     private readonly Lock _mutationLock;
     private readonly List<MatchingRule> _patterns;
+    private volatile bool _isBackPressureEnabled;
     private volatile bool _isEnabled;
     private volatile IReadOnlyList<IUrlMatcher> _matchers;
+    private volatile int _maxPendingPauses;
+    private long _pauseTimeoutTicks;
     private volatile BreakpointPhase _phases;
+
+    /// <summary>
+    ///     Gets a value indicating whether back-pressure bypass is enabled when the pause queue is full.
+    /// </summary>
+    public bool IsBackPressureEnabled => _isBackPressureEnabled;
 
     /// <summary>
     ///     Gets the configuration's enabled state.
     /// </summary>
     public bool IsEnabled => _isEnabled;
+
+    /// <summary>
+    ///     Gets the maximum number of pending pauses retained before overflow handling is applied.
+    /// </summary>
+    public int MaxPendingPauses => _maxPendingPauses;
+
+    /// <summary>
+    ///     Gets the timeout after which unresolved pauses auto-resume.
+    /// </summary>
+    public TimeSpan PauseTimeout => TimeSpan.FromTicks(Interlocked.Read(ref _pauseTimeoutTicks));
 
     /// <summary>
     ///     Gets the currently selected breakpoint phases.
@@ -41,12 +61,15 @@ public sealed class MutableBreakpointConfiguration
     /// <param name="isEnabled">Whether the configuration starts enabled.</param>
     public MutableBreakpointConfiguration(bool isEnabled)
     {
+        _isBackPressureEnabled = false;
         _isEnabled = isEnabled;
-        _phases = BreakpointPhase.Both;
-        _patterns = [];
         _matchers = [];
+        _maxPendingPauses = DefaultMaxPendingPauses;
         var mutationLock = new Lock();
         _mutationLock = mutationLock;
+        _patterns = [];
+        _pauseTimeoutTicks = TimeSpan.FromSeconds(DefaultPauseTimeoutSeconds).Ticks;
+        _phases = BreakpointPhase.Both;
     }
 
     /// <summary>
@@ -151,6 +174,21 @@ public sealed class MutableBreakpointConfiguration
     }
 
     /// <summary>
+    ///     Enables or disables back-pressure bypass when the pause queue reaches capacity.
+    /// </summary>
+    /// <param name="isBackPressureEnabled">Whether queue overflow should bypass new pauses.</param>
+    public void SetBackPressureEnabled(bool isBackPressureEnabled)
+    {
+        if (_isBackPressureEnabled == isBackPressureEnabled)
+        {
+            return;
+        }
+
+        _isBackPressureEnabled = isBackPressureEnabled;
+        RaiseChanged();
+    }
+
+    /// <summary>
     ///     Enables or disables the configuration.
     /// </summary>
     /// <param name="isEnabled">Whether the configuration should be active.</param>
@@ -162,6 +200,46 @@ public sealed class MutableBreakpointConfiguration
         }
 
         _isEnabled = isEnabled;
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Sets the maximum number of pending pauses before overflow handling is applied.
+    /// </summary>
+    /// <param name="maxPendingPauses">The positive pending-pause cap.</param>
+    public void SetMaxPendingPauses(int maxPendingPauses)
+    {
+        if (maxPendingPauses < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxPendingPauses), "Max pending pauses must be at least 1.");
+        }
+
+        if (_maxPendingPauses == maxPendingPauses)
+        {
+            return;
+        }
+
+        _maxPendingPauses = maxPendingPauses;
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Sets the pause timeout after which unresolved pauses auto-resume.
+    /// </summary>
+    /// <param name="pauseTimeout">The strictly positive timeout.</param>
+    public void SetPauseTimeout(TimeSpan pauseTimeout)
+    {
+        if (pauseTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pauseTimeout), "Pause timeout must be greater than zero.");
+        }
+
+        if (Interlocked.Read(ref _pauseTimeoutTicks) == pauseTimeout.Ticks)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _pauseTimeoutTicks, pauseTimeout.Ticks);
         RaiseChanged();
     }
 

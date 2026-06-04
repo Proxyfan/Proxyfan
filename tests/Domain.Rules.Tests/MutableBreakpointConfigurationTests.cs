@@ -284,4 +284,49 @@ public sealed class MutableBreakpointConfigurationTests
         await Assert.That(configuration.HasRequestMatch("https://example.com/api")).IsTrue();
         await Assert.That(changedCount).IsEqualTo(0);
     }
+
+    /// <summary>
+    ///     Constructor initializes pause-queue safeguards with their documented defaults.
+    /// </summary>
+    [Test]
+    public async Task Constructor_Defaults_ExposePauseSafeguards()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+
+        await Assert.That(configuration.MaxPendingPauses).IsEqualTo(100);
+        await Assert.That(configuration.PauseTimeout).IsEqualTo(TimeSpan.FromSeconds(60));
+        await Assert.That(configuration.IsBackPressureEnabled).IsFalse();
+    }
+
+    /// <summary>
+    ///     Safeguard setters update their properties and raise Changed.
+    /// </summary>
+    [Test]
+    public async Task SafeguardSetters_NewValues_RaiseChanged()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        var changed = 0;
+        configuration.Changed += () => changed++;
+
+        configuration.SetMaxPendingPauses(200);
+        configuration.SetPauseTimeout(TimeSpan.FromSeconds(5));
+        configuration.SetBackPressureEnabled(isBackPressureEnabled: true);
+
+        await Assert.That(configuration.MaxPendingPauses).IsEqualTo(200);
+        await Assert.That(configuration.PauseTimeout).IsEqualTo(TimeSpan.FromSeconds(5));
+        await Assert.That(configuration.IsBackPressureEnabled).IsTrue();
+        await Assert.That(changed).IsEqualTo(3);
+    }
+
+    /// <summary>
+    ///     Invalid safeguard values are rejected.
+    /// </summary>
+    [Test]
+    public async Task SafeguardSetters_InvalidValues_Throws()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+
+        await Assert.That(() => configuration.SetMaxPendingPauses(0)).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => configuration.SetPauseTimeout(TimeSpan.Zero)).Throws<ArgumentOutOfRangeException>();
+    }
 }
