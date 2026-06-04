@@ -48,6 +48,11 @@ public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
                 globalsType: typeof(RequestScriptGlobals));
             var requestDiagnostics = compiledRequest.Compile();
             RoslynUserScriptCompilerHelpers.AppendDiagnostics(diagnostics, requestDiagnostics, isRequestPhase: true);
+            var requestCompilation = compiledRequest.GetCompilation();
+            foreach (var tree in requestCompilation.SyntaxTrees)
+            {
+                ScriptForbiddenNamespaceScanner.Append(diagnostics, tree, isRequestPhase: true);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(responseScript))
@@ -58,6 +63,11 @@ public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
                 globalsType: typeof(ResponseScriptGlobals));
             var responseDiagnostics = compiledResponse.Compile();
             RoslynUserScriptCompilerHelpers.AppendDiagnostics(diagnostics, responseDiagnostics, isRequestPhase: false);
+            var responseCompilation = compiledResponse.GetCompilation();
+            foreach (var tree in responseCompilation.SyntaxTrees)
+            {
+                ScriptForbiddenNamespaceScanner.Append(diagnostics, tree, isRequestPhase: false);
+            }
         }
 
         var hasErrors = false;
