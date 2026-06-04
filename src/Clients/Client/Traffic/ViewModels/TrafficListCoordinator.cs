@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading;
 
 namespace Proxyfan.Client.Traffic.ViewModels;
 
@@ -34,7 +33,7 @@ public sealed class TrafficListCoordinator
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
 
     private readonly List<string> _sourceHostsSnapshot;
-    private readonly Lock _syncRoot;
+    private readonly object _syncRoot;
 
     /// <summary>
     ///     Initializes a new <see cref="TrafficListCoordinator" />.
@@ -42,7 +41,7 @@ public sealed class TrafficListCoordinator
     public TrafficListCoordinator()
     {
         var sourceHostsSnapshot = new List<string>();
-        var syncRoot = new Lock();
+        var syncRoot = new object();
         _sourceHostsSnapshot = sourceHostsSnapshot;
         _syncRoot = syncRoot;
     }
