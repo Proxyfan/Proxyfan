@@ -91,10 +91,16 @@ public static class CliHarStatsHandler
         return CliJsonWriter.WriteLineAsync(standardError, payload, cancellationToken);
     }
 
+    /// <summary>
+    ///     Small parameter object for a validation failure reported by the har-stats handler.
+    /// </summary>
     private sealed class HarStatsHandlerError
     {
         public required int ExitCode { get; init; }
 
+        /// <summary>
+        ///     Gets the error message to write to stderr (or the JSON error payload).
+        /// </summary>
         public required string Message { get; init; }
     }
 }

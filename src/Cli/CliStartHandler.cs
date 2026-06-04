@@ -281,18 +281,37 @@ public static class CliStartHandler
         return CliJsonWriter.WriteLineAsync(arguments.StandardError, payload, cancellationToken);
     }
 
+    /// <summary>
+    ///     Parameter object for the running start-command session so helper methods can stay
+    ///     under the repository's parameter-count limit.
+    /// </summary>
     private sealed class StartExecutionArguments
     {
         public required CliCommand Command { get; init; }
 
+        /// <summary>
+        ///     Gets the host that owns the proxy and supporting services.
+        /// </summary>
         public required IHost Host { get; init; }
 
+        /// <summary>
+        ///     Gets the running proxy server instance.
+        /// </summary>
         public required ProxyServer ProxyServer { get; init; }
 
+        /// <summary>
+        ///     Gets the standard-error writer for failures and diagnostic events.
+        /// </summary>
         public required TextWriter StandardError { get; init; }
 
+        /// <summary>
+        ///     Gets the standard-output writer for primary command output.
+        /// </summary>
         public required TextWriter StandardOut { get; init; }
 
+        /// <summary>
+        ///     Gets the parsed start options for the current invocation.
+        /// </summary>
         public required CliStartOptions StartOptions { get; init; }
     }
 }
