@@ -296,8 +296,10 @@ public sealed class SocketProxyListenerTests
     }
 
     /// <summary>
-    ///     When the handler throws, listener logs and continues (existing regression test).
-    ///     Exercises the connection-error catch in <see cref="SocketProxyListener" />.
+    ///     When the connection handler throws a non-cancellation exception, the listener
+    ///     catches it and logs without propagating, allowing subsequent connections to
+    ///     proceed normally. Exercises the connection-error catch in
+    ///     <see cref="SocketProxyListener" />.
     /// </summary>
     [Test]
     public async Task StartAsync_HandlerThrows_LogsAndContinues()
@@ -423,7 +425,7 @@ public sealed class SocketProxyListenerTests
             }
 
             secondCallStarted.TrySetResult();
-            var blocked = new SemaphoreSlim(0, 1);
+            using var blocked = new SemaphoreSlim(0, 1);
             await blocked.WaitAsync(ct).ConfigureAwait(false);
             throw new OperationCanceledException(ct);
         };
