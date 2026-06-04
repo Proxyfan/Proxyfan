@@ -9,6 +9,8 @@
 
     <ItemGroup>
         <PackageReference Include="TUnit" />
+        <PackageReference Include="TngTech.ArchUnitNET" />
+        <PackageReference Include="TngTech.ArchUnitNET.TUnit" />
     </ItemGroup>
 
     <ItemGroup>

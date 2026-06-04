@@ -8,6 +8,8 @@
 
     <ItemGroup>
         <PackageReference Include="TUnit" />
+        <PackageReference Include="TngTech.ArchUnitNET" />
+        <PackageReference Include="TngTech.ArchUnitNET.TUnit" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Options" />
     </ItemGroup>
