@@ -184,6 +184,125 @@ public sealed class HarImporterTests
         await Assert.That(flows[0].Response).IsNull();
     }
 
+    /// <summary>
+    ///     Verifies that a text request body and a text response body are both preserved
+    ///     through a full export/import round-trip.
+    /// </summary>
+    [Test]
+    public async Task RoundTrip_TextRequestAndResponse_PreservesBodies()
+    {
+        var requestBody = Encoding.UTF8.GetBytes("name=value&other=data");
+        var responseBody = Encoding.UTF8.GetBytes("{\"ok\":true}");
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);
+        var requestParameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = requestBody,
+            Headers = HeaderCollection.Empty.Add("Content-Type", "application/x-www-form-urlencoded"),
+            Method = "POST",
+            RequestUri = new Uri("https://example.com/submit"),
+            Version = "HTTP/1.1",
+        };
+        flow.SetRequest(new HypertextTransferProtocolRequestData(requestParameters));
+        var responseParameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = responseBody,
+            Headers = HeaderCollection.Empty.Add("Content-Type", "application/json"),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        };
+        flow.SetResponse(new HypertextTransferProtocolResponseData(responseParameters));
+        flow.Complete();
+
+        var exporter = new HarExporter();
+        var importer = new HarImporter();
+        using var output = new MemoryStream();
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        var imported = (await importer.ImportAsync(output, CancellationToken.None))[0];
+
+        await Assert.That(imported.Request!.Body.ToArray()).IsEquivalentTo(requestBody);
+        await Assert.That(imported.Response!.Body.ToArray()).IsEquivalentTo(responseBody);
+    }
+
+    /// <summary>
+    ///     Verifies that a binary response body is preserved through a full export/import
+    ///     round-trip via base64 encoding.
+    /// </summary>
+    [Test]
+    public async Task RoundTrip_BinaryResponseBody_PreservesViaBase64()
+    {
+        var binaryBody = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);
+        var requestParameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty,
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/image.png"),
+            Version = "HTTP/1.1",
+        };
+        flow.SetRequest(new HypertextTransferProtocolRequestData(requestParameters));
+        var responseParameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = binaryBody,
+            Headers = HeaderCollection.Empty.Add("Content-Type", "image/png"),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        };
+        flow.SetResponse(new HypertextTransferProtocolResponseData(responseParameters));
+        flow.Complete();
+
+        var exporter = new HarExporter();
+        var importer = new HarImporter();
+        using var output = new MemoryStream();
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        var imported = (await importer.ImportAsync(output, CancellationToken.None))[0];
+
+        await Assert.That(imported.Response!.Body.ToArray()).IsEquivalentTo(binaryBody);
+    }
+
+    /// <summary>
+    ///     Verifies that a binary request body is preserved through a full export/import
+    ///     round-trip via base64 encoding.
+    /// </summary>
+    [Test]
+    public async Task RoundTrip_PostDataWithFormParams_PreservesRequestBody()
+    {
+        var binaryBody = new byte[] { 0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE };
+        var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:1234", DateTimeOffset.UtcNow);
+        var requestParameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = binaryBody,
+            Headers = HeaderCollection.Empty.Add("Content-Type", "application/octet-stream"),
+            Method = "POST",
+            RequestUri = new Uri("https://example.com/upload"),
+            Version = "HTTP/1.1",
+        };
+        flow.SetRequest(new HypertextTransferProtocolRequestData(requestParameters));
+        var responseParameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty,
+            ReasonPhrase = "No Content",
+            StatusCode = 204,
+            Version = "HTTP/1.1",
+        };
+        flow.SetResponse(new HypertextTransferProtocolResponseData(responseParameters));
+        flow.Complete();
+
+        var exporter = new HarExporter();
+        var importer = new HarImporter();
+        using var output = new MemoryStream();
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+        output.Position = 0;
+        var imported = (await importer.ImportAsync(output, CancellationToken.None))[0];
+
+        await Assert.That(imported.Request!.Body.ToArray()).IsEquivalentTo(binaryBody);
+    }
+
     private static TrafficFlow CreateCompletedFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:9000", DateTimeOffset.UtcNow);
