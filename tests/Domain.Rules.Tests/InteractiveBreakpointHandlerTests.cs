@@ -136,8 +136,10 @@ public sealed class InteractiveBreakpointHandlerTests
         var firstRequest = NewRequest("https://example.com/first");
         var secondRequest = NewRequest("https://example.com/second");
         var secondModifiedRequest = NewRequest("https://example.com/second-modified");
+        var firstPauseAdded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        inbox.PauseAdded += _ => firstPauseAdded.TrySetResult();
         var firstTask = handler.ResolveRequestAsync(firstRequest, CancellationToken.None);
-        await WaitForPendingCountAsync(inbox, expectedCount: 1);
+        await firstPauseAdded.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         var secondDecision = await handler.ResolveRequestAsync(secondRequest, CancellationToken.None);
 
@@ -166,9 +168,11 @@ public sealed class InteractiveBreakpointHandlerTests
         var firstRequest = NewRequest("https://example.com/first");
         var secondRequest = NewRequest("https://example.com/second");
         var secondModifiedRequest = NewRequest("https://example.com/second-modified");
+        var firstPauseAdded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        inbox.PauseAdded += _ => firstPauseAdded.TrySetResult();
 
         var firstTask = handler.ResolveRequestAsync(firstRequest, CancellationToken.None);
-        await WaitForPendingCountAsync(inbox, expectedCount: 1);
+        await firstPauseAdded.Task.WaitAsync(TimeSpan.FromSeconds(1));
         var secondTask = handler.ResolveRequestAsync(secondRequest, CancellationToken.None);
 
         var firstDecision = await firstTask.ConfigureAwait(false);
@@ -263,18 +267,4 @@ public sealed class InteractiveBreakpointHandlerTests
         return new HypertextTransferProtocolResponseData(parameters);
     }
 
-    private static async Task WaitForPendingCountAsync(BreakpointPauseInbox inbox, int expectedCount)
-    {
-        for (var index = 0; index < 100; index++)
-        {
-            if (inbox.PendingCount == expectedCount)
-            {
-                return;
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(10), TimeProvider.System, CancellationToken.None);
-        }
-
-        throw new InvalidOperationException($"Expected pending count {expectedCount}, but observed {inbox.PendingCount}.");
-    }
 }

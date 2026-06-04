@@ -145,7 +145,7 @@ public sealed class InteractiveBreakpointHandler : IBreakpointHandler
             }, pause);
 
             var decisionTask = pause.WaitForDecisionAsync(cancellationToken);
-            var timeoutTask = Task.Delay(_configuration.PauseTimeout, CancellationToken.None);
+            var timeoutTask = Task.Delay(_configuration.PauseTimeout, cancellationToken);
             var winner = await Task.WhenAny(decisionTask, timeoutTask).ConfigureAwait(false);
             if (ReferenceEquals(winner, timeoutTask))
             {
