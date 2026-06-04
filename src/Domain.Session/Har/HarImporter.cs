@@ -102,6 +102,12 @@ public sealed class HarImporter : IHarImporter
                 "The .har.gz file could not be decompressed. The gzip data is corrupt or truncated.",
                 ex);
         }
+        catch (IOException ex)
+        {
+            throw new InvalidDataException(
+                "The .har.gz file could not be decompressed. The gzip data is corrupt or truncated.",
+                ex);
+        }
     }
 
     private sealed class HarImportEntryStreamReader

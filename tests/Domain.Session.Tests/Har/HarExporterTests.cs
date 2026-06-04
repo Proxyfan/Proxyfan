@@ -387,7 +387,8 @@ public sealed class HarExporterTests
 
         output.Position = 0;
         var firstTwoBytes = new byte[2];
-        await output.ReadAsync(firstTwoBytes.AsMemory());
+        var headerBytesRead = await output.ReadAsync(firstTwoBytes.AsMemory());
+        await Assert.That(headerBytesRead).IsEqualTo(2);
         await Assert.That(firstTwoBytes[0]).IsEqualTo((byte)0x1F);
         await Assert.That(firstTwoBytes[1]).IsEqualTo((byte)0x8B);
 
