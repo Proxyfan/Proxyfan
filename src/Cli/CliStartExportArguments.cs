@@ -15,6 +15,11 @@ public sealed class CliStartExportArguments
     public required IHost Host { get; init; }
 
     /// <summary>
+    ///     Gets a value indicating whether the start command should emit JSON status events.
+    /// </summary>
+    public required bool IsJsonOutput { get; init; }
+
+    /// <summary>
     ///     Gets the standard-error writer used to report export failures.
     /// </summary>
     public required TextWriter StandardError { get; init; }

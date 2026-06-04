@@ -27,24 +27,80 @@ public static class CliHarStatsHandler
         TextWriter standardError,
         CancellationToken cancellationToken)
     {
+        var validationExitCode = await ValidateCommandAsync(command, standardError, cancellationToken).ConfigureAwait(false);
+        if (validationExitCode.HasValue)
+        {
+            return validationExitCode.Value;
+        }
+
+        var importer = new HarImporter();
+        await using var stream = File.OpenRead(command.PathArgument!);
+        var flows = await importer.ImportAsync(stream, cancellationToken).ConfigureAwait(false);
+
+        var report = command.IsJsonOutput
+            ? HarStatsFormatter.BuildJsonReport(flows)
+            : HarStatsFormatter.BuildReport(flows);
+        await standardOut.WriteAsync(report.AsMemory(), cancellationToken).ConfigureAwait(false);
+        return 0;
+    }
+
+    private static async Task<int?> ValidateCommandAsync(CliCommand command, TextWriter standardError, CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(command.PathArgument))
         {
-            await standardError.WriteAsync("har-stats requires a file path argument.".AsMemory(), cancellationToken).ConfigureAwait(false);
+            var error = new HarStatsHandlerError
+            {
+                ExitCode = 11,
+                Message = "har-stats requires a file path argument.",
+            };
+            await WriteErrorAsync(command, standardError, error, cancellationToken).ConfigureAwait(false);
             return 11;
         }
 
         if (!File.Exists(command.PathArgument))
         {
-            await standardError.WriteAsync(("File not found: " + command.PathArgument).AsMemory(), cancellationToken).ConfigureAwait(false);
+            var error = new HarStatsHandlerError
+            {
+                ExitCode = 12,
+                Message = "File not found: " + command.PathArgument,
+            };
+            await WriteErrorAsync(command, standardError, error, cancellationToken).ConfigureAwait(false);
             return 12;
         }
 
-        var importer = new HarImporter();
-        await using var stream = File.OpenRead(command.PathArgument);
-        var flows = await importer.ImportAsync(stream, cancellationToken).ConfigureAwait(false);
+        return null;
+    }
 
-        var report = HarStatsFormatter.BuildReport(flows);
-        await standardOut.WriteAsync(report.AsMemory(), cancellationToken).ConfigureAwait(false);
-        return 0;
+    private static Task WriteErrorAsync(
+        CliCommand command,
+        TextWriter standardError,
+        HarStatsHandlerError error,
+        CancellationToken cancellationToken)
+    {
+        if (!command.IsJsonOutput)
+        {
+            return standardError.WriteAsync(error.Message.AsMemory(), cancellationToken);
+        }
+
+        var payload = new
+        {
+            exitCode = error.ExitCode,
+            status = "error",
+            error = error.Message,
+        };
+        return CliJsonWriter.WriteLineAsync(standardError, payload, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Small parameter object for a validation failure reported by the har-stats handler.
+    /// </summary>
+    private sealed class HarStatsHandlerError
+    {
+        public required int ExitCode { get; init; }
+
+        /// <summary>
+        ///     Gets the error message to write to stderr (or the JSON error payload).
+        /// </summary>
+        public required string Message { get; init; }
     }
 }

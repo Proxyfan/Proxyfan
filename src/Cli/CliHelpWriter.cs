@@ -23,6 +23,7 @@ public static class CliHelpWriter
             [--bind-address IP]   and optionally override the bind address (default: 127.0.0.1)
             [--output <path>]     and optionally export captured flows to a HAR file when
             [--duration N]        the proxy stops, or auto-stop after N seconds
+            [--json]              and emit newline-delimited JSON status events
           har-summary <path>    Print a human-readable summary of a HAR file
           har-to-curl <path>    Print a curl command for every request in a HAR file
           har-filter            Filter a HAR file by URL pattern, writing matching entries
@@ -31,6 +32,7 @@ public static class CliHelpWriter
             --pattern <glob>
           har-stats <path>      Print aggregated statistics for a HAR file (status
                                 distribution, methods, body bytes, duration min/median/max)
+            [--json]              or emit the same metrics as a single JSON object
           send --url <url>      Print a composed HTTP/1.1 request to stdout
             [--method M]
             [--header "K: V"]
@@ -42,6 +44,7 @@ public static class CliHelpWriter
           --input <path>        Alternative way to specify the HAR file path
           --output <path>       Output HAR file path (har-filter, start)
           --duration N          Auto-stop the proxy after N seconds (start)
+          --json                Emit machine-readable JSON output (start, har-stats)
           --pattern <glob>      Wildcard URL pattern (har-filter, e.g. "*.example.com/api/*")
           --method M            HTTP method (default: GET)
           --url URL             Target URL (required for send)
@@ -51,8 +54,9 @@ public static class CliHelpWriter
         Examples:
           proxyfan-cli start --port 8888
           proxyfan-cli start --port 8888 --bind-address 127.0.0.1
-          proxyfan-cli start --port 8888 --output capture.har --duration 60
+          proxyfan-cli start --port 8888 --output capture.har --duration 60 --json
           proxyfan-cli har-summary capture.har
+          proxyfan-cli har-stats capture.har --json
           proxyfan-cli har-filter --input capture.har --output api.har --pattern "*.example.com/api/*"
           proxyfan-cli send --method POST --url https://api.example.com --header "Accept: application/json" --body "hello"
 

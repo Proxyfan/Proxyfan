@@ -12,6 +12,11 @@ public sealed class CliCommand
     public CliHarFilterOptions? HarFilterOptions { get; init; }
 
     /// <summary>
+    ///     Gets a value indicating whether the command should emit machine-readable JSON output.
+    /// </summary>
+    public bool IsJsonOutput { get; init; }
+
+    /// <summary>
     ///     Gets the parsed command kind.
     /// </summary>
     public CliCommandKind Kind { get; }

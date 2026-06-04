@@ -13,114 +13,135 @@ namespace Proxyfan.Cli;
 public static class HarStatsFormatter
 {
     /// <summary>
+    ///     Builds the machine-readable JSON report from the supplied flows.
+    /// </summary>
+    /// <param name="flows">The flows to summarise.</param>
+    /// <returns>The JSON report.</returns>
+    public static string BuildJsonReport(IReadOnlyList<TrafficFlow> flows)
+    {
+        var report = BuildStructuredReport(flows);
+        return CliJsonWriter.Serialize(report) + "\n";
+    }
+
+    /// <summary>
     ///     Builds the multi-line text report from the supplied flows.
     /// </summary>
     /// <param name="flows">The flows to summarise.</param>
     /// <returns>The text report.</returns>
     public static string BuildReport(IReadOnlyList<TrafficFlow> flows)
     {
+        var report = BuildStructuredReport(flows);
         var builder = new StringBuilder();
-        builder.AppendLine(CultureInfo.InvariantCulture, $"Total flows: {flows.Count}");
+        builder.AppendLine(CultureInfo.InvariantCulture, $"Total flows: {report.TotalFlows}");
 
-        if (flows.Count == 0)
+        if (report.TotalFlows == 0)
         {
             return builder.ToString();
         }
 
-        AppendStatusDistribution(builder, flows);
-        AppendMethodDistribution(builder, flows);
-        AppendByteTotals(builder, flows);
-        AppendDurationStats(builder, flows);
+        AppendStatusDistribution(builder, report);
+        AppendMethodDistribution(builder, report);
+        AppendByteTotals(builder, report);
+        AppendDurationStats(builder, report);
         return builder.ToString();
     }
 
-    private static void AppendByteTotals(StringBuilder builder, IReadOnlyList<TrafficFlow> flows)
+    /// <summary>
+    ///     Builds the structured report from the supplied flows.
+    /// </summary>
+    /// <param name="flows">The flows to summarise.</param>
+    /// <returns>The structured report.</returns>
+    public static HarStatsReport BuildStructuredReport(IReadOnlyList<TrafficFlow> flows)
     {
         long requestBytes = 0;
         long responseBytes = 0;
+        var byMethod = new SortedDictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+        var byStatusClass = new SortedDictionary<string, int>(System.StringComparer.Ordinal);
+        var durations = new List<double>(flows.Count);
 
         foreach (var flow in flows)
         {
             requestBytes += flow.Request?.Body.Length ?? 0;
             responseBytes += flow.Response?.Body.Length ?? 0;
-        }
+            AddCount(byMethod, flow.Request?.Method ?? "-");
+            AddCount(byStatusClass, ClassifyStatus(flow));
 
-        builder.AppendLine(CultureInfo.InvariantCulture, $"Request body bytes:  {requestBytes:N0}");
-        builder.AppendLine(CultureInfo.InvariantCulture, $"Response body bytes: {responseBytes:N0}");
-    }
-
-    private static void AppendDurationStats(StringBuilder builder, IReadOnlyList<TrafficFlow> flows)
-    {
-        var durations = new List<double>(flows.Count);
-
-        foreach (var flow in flows)
-        {
             if (flow.Timings.RequestStartedAt.HasValue && flow.Timings.RequestCompletedAt.HasValue)
             {
                 durations.Add((flow.Timings.RequestCompletedAt.Value - flow.Timings.RequestStartedAt.Value).TotalMilliseconds);
             }
         }
 
-        if (durations.Count == 0)
+        durations.Sort();
+        HarStatsDurationSummary? durationSummary = null;
+        if (durations.Count > 0)
+        {
+            var medianIndex = durations.Count / 2;
+            var report = new HarStatsDurationSummary
+            {
+                Max = durations[^1],
+                Median = durations[medianIndex],
+                Min = durations[0],
+                Samples = durations.Count,
+            };
+            durationSummary = report;
+        }
+
+        return new HarStatsReport
+        {
+            DurationMilliseconds = durationSummary,
+            Methods = byMethod,
+            RequestBodyBytes = requestBytes,
+            ResponseBodyBytes = responseBytes,
+            StatusClasses = byStatusClass,
+            TotalFlows = flows.Count,
+        };
+    }
+
+    private static void AddCount(SortedDictionary<string, int> counts, string key)
+    {
+        if (counts.TryGetValue(key, out var existing))
+        {
+            counts[key] = existing + 1;
+            return;
+        }
+
+        counts[key] = 1;
+    }
+
+    private static void AppendByteTotals(StringBuilder builder, HarStatsReport report)
+    {
+        builder.AppendLine(CultureInfo.InvariantCulture, $"Request body bytes:  {report.RequestBodyBytes:N0}");
+        builder.AppendLine(CultureInfo.InvariantCulture, $"Response body bytes: {report.ResponseBodyBytes:N0}");
+    }
+
+    private static void AppendDurationStats(StringBuilder builder, HarStatsReport report)
+    {
+        if (report.DurationMilliseconds is null)
         {
             return;
         }
 
-        durations.Sort();
-        var min = durations[0];
-        var max = durations[^1];
-        var medianIndex = durations.Count / 2;
-        var median = durations[medianIndex];
-        builder.AppendLine(CultureInfo.InvariantCulture, $"Duration (ms): min={min:F0} median={median:F0} max={max:F0} samples={durations.Count}");
+        builder.AppendLine(
+            CultureInfo.InvariantCulture,
+            $"Duration (ms): min={report.DurationMilliseconds.Min:F0} median={report.DurationMilliseconds.Median:F0} max={report.DurationMilliseconds.Max:F0} samples={report.DurationMilliseconds.Samples}");
     }
 
-    private static void AppendMethodDistribution(StringBuilder builder, IReadOnlyList<TrafficFlow> flows)
+    private static void AppendMethodDistribution(StringBuilder builder, HarStatsReport report)
     {
-        var byMethod = new SortedDictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
-
-        foreach (var flow in flows)
-        {
-            var method = flow.Request?.Method ?? "-";
-
-            if (byMethod.TryGetValue(method, out var existing))
-            {
-                byMethod[method] = existing + 1;
-            }
-            else
-            {
-                byMethod[method] = 1;
-            }
-        }
-
         builder.AppendLine("Methods:");
 
-        foreach (var entry in byMethod)
+        foreach (var entry in report.Methods)
         {
             builder.AppendLine(CultureInfo.InvariantCulture, $"  {entry.Key,-8} {entry.Value}");
         }
     }
 
-    private static void AppendStatusDistribution(StringBuilder builder, IReadOnlyList<TrafficFlow> flows)
+    private static void AppendStatusDistribution(StringBuilder builder, HarStatsReport report)
     {
-        var byClass = new SortedDictionary<string, int>(System.StringComparer.Ordinal);
-
-        foreach (var flow in flows)
-        {
-            var classification = ClassifyStatus(flow);
-
-            if (byClass.TryGetValue(classification, out var existing))
-            {
-                byClass[classification] = existing + 1;
-            }
-            else
-            {
-                byClass[classification] = 1;
-            }
-        }
-
         builder.AppendLine("Status classes:");
 
-        foreach (var entry in byClass)
+        foreach (var entry in report.StatusClasses)
         {
             builder.AppendLine(CultureInfo.InvariantCulture, $"  {entry.Key,-5} {entry.Value}");
         }

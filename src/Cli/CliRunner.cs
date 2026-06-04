@@ -43,6 +43,27 @@ public sealed class CliRunner
                     return await CliStartHandler.RunAsync(command, standardOut, standardError, cancellationToken).ConfigureAwait(false);
                 }
 
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return 0;
+                }
+
+                if (command.IsJsonOutput)
+                {
+                    var payload = new
+                    {
+                        exitCode = 5,
+                        status = "error",
+                        error = "The 'start' command requires Windows.",
+                    };
+                    await CliJsonWriter.WriteLineAsync(
+                            standardError,
+                            payload,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    return 5;
+                }
+
                 await standardError.WriteAsync("The 'start' command requires Windows.".AsMemory(), cancellationToken).ConfigureAwait(false);
                 return 5;
 
