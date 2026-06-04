@@ -26,7 +26,7 @@ public sealed class WindowsCertificateStoreTests
     ///     the Root store from being cleaned up.
     /// </summary>
     [After(Class)]
-    public static async Task CleanupSharedAuthority(CancellationToken cancellationToken)
+    public static async Task CleanupSharedAuthority()
     {
         if (_sharedAuthority is null || _sharedStore is null)
         {
@@ -119,6 +119,7 @@ public sealed class WindowsCertificateStoreTests
         }
 
         await Assert.That(caughtException).IsNotNull();
+        await Assert.That(caughtException!.Message).IsEqualTo("Simulated test-body failure.");
         await Assert.That(await store.IsInstalledAsync(authority, CancellationToken.None)).IsFalse();
     }
 
