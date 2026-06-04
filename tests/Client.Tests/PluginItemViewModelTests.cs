@@ -150,16 +150,21 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task RemoveCommand_WithSourceDirectory_DeleteFails_DoesNotDisableOrNotify()
     {
-        var path = Path.Combine(Path.GetTempPath(), "proxyfan-pivm-" + Path.GetRandomFileName());
-        File.WriteAllText(path, "content");
+        var directory = Path.Combine(Path.GetTempPath(), "proxyfan-pivm-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
         try
         {
             var metadata = new PluginMetadata("p.removefail", "P", "1", "A", "D", "1.0");
-            var loaded = new LoadedPlugin(metadata, null, true, null, path);
+            var loaded = new LoadedPlugin(metadata, null, true, null, directory);
             var store = new InMemoryStore();
             var opener = new RecordingOpener();
             var callbackCount = 0;
-            var viewModel = new PluginItemViewModel(loaded, store, opener, () => callbackCount++);
+            var viewModel = new PluginItemViewModel(
+                loaded,
+                store,
+                opener,
+                () => callbackCount++,
+                (_, _) => throw new IOException("locked"));
 
             viewModel.RemoveCommand.Execute(null);
 
@@ -170,7 +175,7 @@ public sealed class PluginItemViewModelTests
         }
         finally
         {
-            try { File.Delete(path); } catch (Exception ex) { _ = ex; }
+            try { Directory.Delete(directory, recursive: true); } catch (Exception ex) { _ = ex; }
         }
     }
 
