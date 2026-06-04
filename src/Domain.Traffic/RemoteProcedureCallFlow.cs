@@ -23,9 +23,13 @@ public sealed class RemoteProcedureCallFlow
     /// </summary>
     public event RemoteProcedureCallFlowMessageRecordedHandler? MessageRecorded;
 
+    private const int DefaultMessageCapacity = StreamingCaptureBudgets.WebSocketAndRemoteProcedureCallMessageCapacity;
     private readonly Lock _gate;
+    private readonly int _messageCapacity;
     private readonly List<RemoteProcedureCallCapturedMessage> _messages;
+    private readonly StreamingCaptureBudget _streamingCaptureBudget;
     private DateTimeOffset? _closedAt;
+    private int _droppedMessagesCount;
 
     /// <summary>
     ///     Gets the wall-clock instant the stream was observed to close, or null while open.
@@ -37,6 +41,20 @@ public sealed class RemoteProcedureCallFlow
             lock (_gate)
             {
                 return _closedAt;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Gets the total number of captured messages dropped by capacity or global budget limits.
+    /// </summary>
+    public int DroppedMessagesCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _droppedMessagesCount;
             }
         }
     }
@@ -100,7 +118,20 @@ public sealed class RemoteProcedureCallFlow
     /// </summary>
     /// <param name="flow">The HTTP/2 traffic flow underlying this gRPC call.</param>
     public RemoteProcedureCallFlow(TrafficFlow flow)
+        : this(flow, DefaultMessageCapacity, StreamingCaptureBudgets.Shared)
     {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="RemoteProcedureCallFlow" />.
+    /// </summary>
+    /// <param name="flow">The HTTP/2 traffic flow underlying this gRPC call.</param>
+    /// <param name="messageCapacity">The maximum number of retained messages for this flow.</param>
+    /// <param name="streamingCaptureBudget">The shared streaming capture budget.</param>
+    public RemoteProcedureCallFlow(TrafficFlow flow, int messageCapacity, StreamingCaptureBudget streamingCaptureBudget)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(messageCapacity);
+
         var gate = new Lock();
         _gate = gate;
         var messages = new List<RemoteProcedureCallCapturedMessage>();
@@ -109,6 +140,9 @@ public sealed class RemoteProcedureCallFlow
         Messages = readOnly;
         Flow = flow;
         _closedAt = null;
+        _droppedMessagesCount = 0;
+        _messageCapacity = messageCapacity;
+        _streamingCaptureBudget = streamingCaptureBudget;
     }
 
     /// <summary>
@@ -143,11 +177,49 @@ public sealed class RemoteProcedureCallFlow
     /// <param name="message">The message to record.</param>
     public void RecordMessage(RemoteProcedureCallCapturedMessage message)
     {
+        bool messageRecorded;
         lock (_gate)
         {
-            _messages.Add(message);
+            messageRecorded = CanAppendMessageCore(message);
         }
 
-        MessageRecorded?.Invoke(message);
+        if (messageRecorded)
+        {
+            MessageRecorded?.Invoke(message);
+        }
+    }
+
+    private bool CanAppendMessageCore(RemoteProcedureCallCapturedMessage message)
+    {
+        var incomingMessageSizeBytes = GetMessageSizeBytes(message);
+        if (_messages.Count < _messageCapacity)
+        {
+            if (!_streamingCaptureBudget.CanReserve(incomingMessageSizeBytes))
+            {
+                _droppedMessagesCount++;
+                return false;
+            }
+
+            _messages.Add(message);
+            return true;
+        }
+
+        var oldestMessage = _messages[0];
+        var oldestMessageSizeBytes = GetMessageSizeBytes(oldestMessage);
+        if (!_streamingCaptureBudget.CanReplaceReservation(oldestMessageSizeBytes, incomingMessageSizeBytes))
+        {
+            _droppedMessagesCount++;
+            return false;
+        }
+
+        _messages.RemoveAt(0);
+        _messages.Add(message);
+        _droppedMessagesCount++;
+        return true;
+    }
+
+    private int GetMessageSizeBytes(RemoteProcedureCallCapturedMessage message)
+    {
+        return message.Payload.Length;
     }
 }

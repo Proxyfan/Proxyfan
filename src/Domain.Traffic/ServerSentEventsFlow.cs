@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Threading;
 
 namespace Proxyfan.Domain.Traffic;
@@ -22,9 +23,13 @@ public sealed class ServerSentEventsFlow
     /// </summary>
     public event ServerSentEventsFlowEventRecordedHandler? EventRecorded;
 
+    private const int DefaultEventCapacity = StreamingCaptureBudgets.ServerSentEventsEventCapacity;
+    private readonly int _eventCapacity;
     private readonly List<ServerSentEvent> _events;
     private readonly Lock _gate;
+    private readonly StreamingCaptureBudget _streamingCaptureBudget;
     private DateTimeOffset? _closedAt;
+    private int _droppedMessagesCount;
 
     /// <summary>
     ///     Gets the wall-clock instant the stream was observed to close (or null while still open).
@@ -36,6 +41,20 @@ public sealed class ServerSentEventsFlow
             lock (_gate)
             {
                 return _closedAt;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Gets the total number of captured events dropped by capacity or global budget limits.
+    /// </summary>
+    public int DroppedMessagesCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _droppedMessagesCount;
             }
         }
     }
@@ -74,7 +93,20 @@ public sealed class ServerSentEventsFlow
     /// </summary>
     /// <param name="flow">The HTTP traffic flow whose response is an SSE stream.</param>
     public ServerSentEventsFlow(TrafficFlow flow)
+        : this(flow, DefaultEventCapacity, StreamingCaptureBudgets.Shared)
     {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="ServerSentEventsFlow" />.
+    /// </summary>
+    /// <param name="flow">The HTTP traffic flow whose response is an SSE stream.</param>
+    /// <param name="eventCapacity">The maximum number of retained events for this flow.</param>
+    /// <param name="streamingCaptureBudget">The shared streaming capture budget.</param>
+    public ServerSentEventsFlow(TrafficFlow flow, int eventCapacity, StreamingCaptureBudget streamingCaptureBudget)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(eventCapacity);
+
         var gate = new Lock();
         _gate = gate;
         var events = new List<ServerSentEvent>();
@@ -83,6 +115,9 @@ public sealed class ServerSentEventsFlow
         Events = readOnlyEvents;
         Flow = flow;
         _closedAt = null;
+        _droppedMessagesCount = 0;
+        _eventCapacity = eventCapacity;
+        _streamingCaptureBudget = streamingCaptureBudget;
     }
 
     /// <summary>
@@ -117,11 +152,66 @@ public sealed class ServerSentEventsFlow
     /// <param name="serverSentEvent">The event to record.</param>
     public void RecordEvent(ServerSentEvent serverSentEvent)
     {
+        bool eventRecorded;
         lock (_gate)
         {
-            _events.Add(serverSentEvent);
+            eventRecorded = CanAppendEventCore(serverSentEvent);
         }
 
-        EventRecorded?.Invoke(serverSentEvent);
+        if (eventRecorded)
+        {
+            EventRecorded?.Invoke(serverSentEvent);
+        }
+    }
+
+    private bool CanAppendEventCore(ServerSentEvent serverSentEvent)
+    {
+        var incomingEventSizeBytes = GetEventSizeBytes(serverSentEvent);
+        if (_events.Count < _eventCapacity)
+        {
+            if (!_streamingCaptureBudget.CanReserve(incomingEventSizeBytes))
+            {
+                _droppedMessagesCount++;
+                return false;
+            }
+
+            _events.Add(serverSentEvent);
+            return true;
+        }
+
+        var oldestEvent = _events[0];
+        var oldestEventSizeBytes = GetEventSizeBytes(oldestEvent);
+        if (!_streamingCaptureBudget.CanReplaceReservation(oldestEventSizeBytes, incomingEventSizeBytes))
+        {
+            _droppedMessagesCount++;
+            return false;
+        }
+
+        _events.RemoveAt(0);
+        _events.Add(serverSentEvent);
+        _droppedMessagesCount++;
+        return true;
+    }
+
+    private int GetEventSizeBytes(ServerSentEvent serverSentEvent)
+    {
+        var byteCount = Encoding.UTF8.GetByteCount(serverSentEvent.Data);
+
+        if (serverSentEvent.EventType is not null)
+        {
+            byteCount += Encoding.UTF8.GetByteCount(serverSentEvent.EventType);
+        }
+
+        if (serverSentEvent.Id is not null)
+        {
+            byteCount += Encoding.UTF8.GetByteCount(serverSentEvent.Id);
+        }
+
+        if (serverSentEvent.RetryMilliseconds.HasValue)
+        {
+            byteCount += sizeof(int);
+        }
+
+        return byteCount;
     }
 }

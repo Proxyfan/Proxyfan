@@ -56,6 +56,52 @@ public sealed class WebSocketFlowTests
     }
 
     /// <summary>
+    ///     Verifies that appending past the per-flow capacity evicts the oldest message and
+    ///     increments the dropped counter.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_WebSocketBeyondCapacity_EvictsOldest()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var budget = new StreamingCaptureBudget(1024);
+        var webSocketFlow = new WebSocketFlow(underlying, 2, budget);
+        var first = new WebSocketMessage(WebSocketDirection.Outbound, WebSocketOpcode.Text, new byte[] { 1 }, DateTimeOffset.UtcNow);
+        var second = new WebSocketMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text, new byte[] { 2 }, DateTimeOffset.UtcNow);
+        var third = new WebSocketMessage(WebSocketDirection.Outbound, WebSocketOpcode.Text, new byte[] { 3 }, DateTimeOffset.UtcNow);
+
+        webSocketFlow.RecordMessage(first);
+        webSocketFlow.RecordMessage(second);
+        webSocketFlow.RecordMessage(third);
+
+        await Assert.That(webSocketFlow.Messages.Count).IsEqualTo(2);
+        await Assert.That(webSocketFlow.Messages[0]).IsSameReferenceAs(second);
+        await Assert.That(webSocketFlow.Messages[1]).IsSameReferenceAs(third);
+        await Assert.That(webSocketFlow.DroppedMessagesCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that a shared global streaming budget drops new captures once exhausted.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_GlobalStreamingBudgetExceeded_DropsMessage()
+    {
+        var firstUnderlying = CreateUnderlyingFlow(out _);
+        var secondUnderlying = CreateUnderlyingFlow(out _);
+        var budget = new StreamingCaptureBudget(3);
+        var firstFlow = new WebSocketFlow(firstUnderlying, 2, budget);
+        var secondFlow = new WebSocketFlow(secondUnderlying, 2, budget);
+        var firstMessage = new WebSocketMessage(WebSocketDirection.Outbound, WebSocketOpcode.Text, new byte[] { 1, 2, 3 }, DateTimeOffset.UtcNow);
+        var secondMessage = new WebSocketMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text, new byte[] { 4 }, DateTimeOffset.UtcNow);
+
+        firstFlow.RecordMessage(firstMessage);
+        secondFlow.RecordMessage(secondMessage);
+
+        await Assert.That(firstFlow.Messages.Count).IsEqualTo(1);
+        await Assert.That(secondFlow.Messages.Count).IsEqualTo(0);
+        await Assert.That(secondFlow.DroppedMessagesCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Verifies that the first <see cref="WebSocketFlow.MarkClosed" /> wins and
     ///     subsequent calls are no-ops.
     /// </summary>

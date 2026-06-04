@@ -87,6 +87,42 @@ public sealed class RemoteProcedureCallFlowTests
     }
 
     /// <summary>
+    ///     Appending beyond capacity evicts the oldest captured message and increments
+    ///     <see cref="RemoteProcedureCallFlow.DroppedMessagesCount" />.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_RemoteProcedureCallBeyondCapacity_EvictsOldest()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var budget = new StreamingCaptureBudget(1024);
+        var rpcFlow = new RemoteProcedureCallFlow(flow, 2, budget);
+        var first = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Outbound,
+            false,
+            new byte[] { 0x01 },
+            DateTimeOffset.UtcNow);
+        var second = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Inbound,
+            false,
+            new byte[] { 0x02 },
+            DateTimeOffset.UtcNow);
+        var third = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Outbound,
+            false,
+            new byte[] { 0x03 },
+            DateTimeOffset.UtcNow);
+
+        rpcFlow.RecordMessage(first);
+        rpcFlow.RecordMessage(second);
+        rpcFlow.RecordMessage(third);
+
+        await Assert.That(rpcFlow.Messages.Count).IsEqualTo(2);
+        await Assert.That(rpcFlow.Messages[0]).IsSameReferenceAs(second);
+        await Assert.That(rpcFlow.Messages[1]).IsSameReferenceAs(third);
+        await Assert.That(rpcFlow.DroppedMessagesCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     <see cref="RemoteProcedureCallFlow.Closed" /> fires exactly once on the first close
     ///     observation and never again.
     /// </summary>

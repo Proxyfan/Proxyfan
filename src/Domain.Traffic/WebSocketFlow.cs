@@ -28,9 +28,13 @@ public sealed class WebSocketFlow
     /// </summary>
     public event WebSocketMessageRecordedHandler? MessageRecorded;
 
+    private const int DefaultMessageCapacity = StreamingCaptureBudgets.WebSocketAndRemoteProcedureCallMessageCapacity;
     private readonly Lock _gate;
+    private readonly int _messageCapacity;
     private readonly List<WebSocketMessage> _messages;
+    private readonly StreamingCaptureBudget _streamingCaptureBudget;
     private DateTimeOffset? _closedAt;
+    private int _droppedMessagesCount;
 
     /// <summary>
     ///     Gets the wall-clock instant the connection was closed, or null when still open.
@@ -42,6 +46,20 @@ public sealed class WebSocketFlow
             lock (_gate)
             {
                 return _closedAt;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Gets the total number of captured messages dropped by capacity or global budget limits.
+    /// </summary>
+    public int DroppedMessagesCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _droppedMessagesCount;
             }
         }
     }
@@ -83,7 +101,22 @@ public sealed class WebSocketFlow
     ///     The HTTP traffic flow whose response upgraded to WebSocket.
     /// </param>
     public WebSocketFlow(TrafficFlow flow)
+        : this(flow, DefaultMessageCapacity, StreamingCaptureBudgets.Shared)
     {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="WebSocketFlow" /> wrapping the supplied HTTP flow.
+    /// </summary>
+    /// <param name="flow">
+    ///     The HTTP traffic flow whose response upgraded to WebSocket.
+    /// </param>
+    /// <param name="messageCapacity">The maximum number of retained messages for this flow.</param>
+    /// <param name="streamingCaptureBudget">The shared streaming capture budget.</param>
+    public WebSocketFlow(TrafficFlow flow, int messageCapacity, StreamingCaptureBudget streamingCaptureBudget)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(messageCapacity);
+
         var gate = new Lock();
         _gate = gate;
         var messages = new List<WebSocketMessage>();
@@ -92,6 +125,9 @@ public sealed class WebSocketFlow
         Messages = readOnlyMessages;
         Flow = flow;
         _closedAt = null;
+        _droppedMessagesCount = 0;
+        _messageCapacity = messageCapacity;
+        _streamingCaptureBudget = streamingCaptureBudget;
     }
 
     /// <summary>
@@ -125,12 +161,50 @@ public sealed class WebSocketFlow
     /// <param name="message">The message to record.</param>
     public void RecordMessage(WebSocketMessage message)
     {
+        bool messageRecorded;
         lock (_gate)
         {
-            _messages.Add(message);
+            messageRecorded = CanAppendMessageCore(message);
         }
 
-        RaiseMessageRecorded(message);
+        if (messageRecorded)
+        {
+            RaiseMessageRecorded(message);
+        }
+    }
+
+    private bool CanAppendMessageCore(WebSocketMessage message)
+    {
+        var incomingMessageSizeBytes = GetMessageSizeBytes(message);
+        if (_messages.Count < _messageCapacity)
+        {
+            if (!_streamingCaptureBudget.CanReserve(incomingMessageSizeBytes))
+            {
+                _droppedMessagesCount++;
+                return false;
+            }
+
+            _messages.Add(message);
+            return true;
+        }
+
+        var oldestMessage = _messages[0];
+        var oldestMessageSizeBytes = GetMessageSizeBytes(oldestMessage);
+        if (!_streamingCaptureBudget.CanReplaceReservation(oldestMessageSizeBytes, incomingMessageSizeBytes))
+        {
+            _droppedMessagesCount++;
+            return false;
+        }
+
+        _messages.RemoveAt(0);
+        _messages.Add(message);
+        _droppedMessagesCount++;
+        return true;
+    }
+
+    private int GetMessageSizeBytes(WebSocketMessage message)
+    {
+        return message.Payload.Length;
     }
 
     private void RaiseClosed()
