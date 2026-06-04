@@ -35,6 +35,18 @@ public sealed class TrafficFlow
     public Guid Id { get; }
 
     /// <summary>
+    ///     Gets a value indicating whether the captured request body was truncated to satisfy
+    ///     configured limits.
+    /// </summary>
+    public bool IsRequestBodyTruncated { get; private set; }
+
+    /// <summary>
+    ///     Gets a value indicating whether the captured response body was truncated to satisfy
+    ///     configured limits.
+    /// </summary>
+    public bool IsResponseBodyTruncated { get; private set; }
+
+    /// <summary>
     ///     Gets the origin of this flow, indicating whether it was captured live, repeated
     ///     from a previous flow, or composed manually.
     /// </summary>
@@ -46,9 +58,21 @@ public sealed class TrafficFlow
     public HypertextTransferProtocolRequestData? Request { get; private set; }
 
     /// <summary>
+    ///     Gets the on-disk spill path for the request body when the capture was externalized
+    ///     from memory; otherwise <see langword="null" />.
+    /// </summary>
+    public string? RequestBodySpillFilePath { get; private set; }
+
+    /// <summary>
     ///     Gets the captured HTTP response, when available.
     /// </summary>
     public HypertextTransferProtocolResponseData? Response { get; private set; }
+
+    /// <summary>
+    ///     Gets the on-disk spill path for the response body when the capture was externalized
+    ///     from memory; otherwise <see langword="null" />.
+    /// </summary>
+    public string? ResponseBodySpillFilePath { get; private set; }
 
     /// <summary>
     ///     Gets the UTC instant at which this flow was created.
@@ -294,6 +318,62 @@ public sealed class TrafficFlow
         var responseStartedAt = Timings.ResponseStartedAt ?? timestamp;
         var flowTimings = new FlowTimings(Timings.RequestStartedAt, requestCompletedAt, responseStartedAt, Timings.ResponseCompletedAt);
         Timings = flowTimings;
+    }
+
+    /// <summary>
+    ///     Rewrites only the stored request body representation for retention, preserving
+    ///     request metadata and flow lifecycle state.
+    /// </summary>
+    /// <param name="body">The replacement stored request body bytes.</param>
+    /// <param name="spillFilePath">The spill path when body bytes are externalized.</param>
+    /// <param name="isTruncated">Whether the original body exceeded retention limits.</param>
+    public void UpdateRequestBodyForStorage(ReadOnlyMemory<byte> body, string? spillFilePath, bool isTruncated)
+    {
+        if (Request is null)
+        {
+            return;
+        }
+
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = body,
+            Headers = Request.Headers,
+            Method = Request.Method,
+            RequestUri = Request.RequestUri,
+            Version = Request.Version,
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+        Request = request;
+        RequestBodySpillFilePath = spillFilePath;
+        IsRequestBodyTruncated = isTruncated;
+    }
+
+    /// <summary>
+    ///     Rewrites only the stored response body representation for retention, preserving
+    ///     response metadata and flow lifecycle state.
+    /// </summary>
+    /// <param name="body">The replacement stored response body bytes.</param>
+    /// <param name="spillFilePath">The spill path when body bytes are externalized.</param>
+    /// <param name="isTruncated">Whether the original body exceeded retention limits.</param>
+    public void UpdateResponseBodyForStorage(ReadOnlyMemory<byte> body, string? spillFilePath, bool isTruncated)
+    {
+        if (Response is null)
+        {
+            return;
+        }
+
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = body,
+            Headers = Response.Headers,
+            ReasonPhrase = Response.ReasonPhrase,
+            StatusCode = Response.StatusCode,
+            Version = Response.Version,
+        };
+        var response = new HypertextTransferProtocolResponseData(parameters);
+        Response = response;
+        ResponseBodySpillFilePath = spillFilePath;
+        IsResponseBodyTruncated = isTruncated;
     }
 
     private bool HasReachedTerminalStatus()
