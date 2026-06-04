@@ -51,7 +51,7 @@ public sealed class TrafficListViewModelCopyTests
         await viewModel.CopySelectedAsCurlCommand.ExecuteAsync(null);
 
         await Assert.That(clipboard.CopiedTexts.Count).IsEqualTo(1);
-        await Assert.That(clipboard.CopiedTexts[0]).StartsWith("curl -X POST");
+        await Assert.That(clipboard.CopiedTexts[0]).StartsWith("curl -X 'POST'");
     }
 
     /// <summary>
