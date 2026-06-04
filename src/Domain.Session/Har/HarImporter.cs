@@ -103,6 +103,7 @@ public sealed class HarImporter : IHarImporter
             var flows = new List<TrafficFlow>();
             var bytesInBuffer = 0;
             var bytesReadTotal = 0L;
+            var hasSkippedByteOrderMark = false;
             var buffer = ArrayPool<byte>.Shared.Rent(BufferSizeInBytes);
 
             try
@@ -122,6 +123,12 @@ public sealed class HarImporter : IHarImporter
                     if (bytesReadTotal > _maxHarBytes)
                     {
                         throw new InvalidDataException($"HAR file exceeds the configured {_maxHarBytes} byte import limit.");
+                    }
+
+                    if (!hasSkippedByteOrderMark && bytesInBuffer >= 3)
+                    {
+                        bytesInBuffer = SkipUtf8ByteOrderMark(buffer, bytesInBuffer);
+                        hasSkippedByteOrderMark = true;
                     }
 
                     var parseBufferResult = ParseTokens(buffer, bytesInBuffer, isFinalBlock, flows);
@@ -268,6 +275,22 @@ public sealed class HarImporter : IHarImporter
         private async Task<int> ReadChunkAsync(Stream input, byte[] buffer, int bytesInBuffer, CancellationToken cancellationToken)
         {
             return await input.ReadAsync(buffer.AsMemory(bytesInBuffer), cancellationToken).ConfigureAwait(false);
+        }
+
+        private int SkipUtf8ByteOrderMark(byte[] buffer, int bytesInBuffer)
+        {
+            if (bytesInBuffer < 3 || buffer[0] != 0xEF || buffer[1] != 0xBB || buffer[2] != 0xBF)
+            {
+                return bytesInBuffer;
+            }
+
+            var remaining = bytesInBuffer - 3;
+            if (remaining > 0)
+            {
+                Buffer.BlockCopy(buffer, 3, buffer, 0, remaining);
+            }
+
+            return remaining;
         }
 
         private enum ParseBufferResult
