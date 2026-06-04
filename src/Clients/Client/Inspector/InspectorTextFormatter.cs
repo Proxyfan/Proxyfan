@@ -11,7 +11,7 @@ public static class InspectorTextFormatter
 {
     /// <summary>
     ///     Renders a body for display by applying Content-Encoding decompression, charset
-    ///     decoding, and media-type-aware pretty-printing.
+    ///     decoding, and media-type-aware pretty-printing, using the default decompression limits.
     /// </summary>
     /// <param name="body">
     ///     The raw body bytes.
@@ -22,9 +22,38 @@ public static class InspectorTextFormatter
     /// <returns>
     ///     The decoded, decoded-and-pretty-printed display text, or an empty string when the body is empty.
     /// </returns>
+    /// <exception cref="Proxyfan.Framework.Serialization.DecompressionLimitExceededException">
+    ///     Thrown when the decompressed output exceeds the safety limits.
+    /// </exception>
     public static string FormatBody(ReadOnlyMemory<byte> body, HeaderCollection headers)
     {
         return InspectorBodyRenderer.Render(body, headers);
+    }
+
+    /// <summary>
+    ///     Renders a body for display by applying Content-Encoding decompression, charset
+    ///     decoding, and media-type-aware pretty-printing.
+    /// </summary>
+    /// <param name="body">
+    ///     The raw body bytes.
+    /// </param>
+    /// <param name="headers">
+    ///     The headers used to determine Content-Type and Content-Encoding.
+    /// </param>
+    /// <param name="forceDecodeBody">
+    ///     When <see langword="true" />, bypasses decompression-size and ratio limits. Use only
+    ///     when the user has explicitly requested it.
+    /// </param>
+    /// <returns>
+    ///     The decoded, decoded-and-pretty-printed display text, or an empty string when the body is empty.
+    /// </returns>
+    /// <exception cref="Proxyfan.Framework.Serialization.DecompressionLimitExceededException">
+    ///     Thrown when <paramref name="forceDecodeBody" /> is <see langword="false" /> and the
+    ///     decompressed output exceeds the safety limits.
+    /// </exception>
+    public static string FormatBody(ReadOnlyMemory<byte> body, HeaderCollection headers, bool forceDecodeBody)
+    {
+        return InspectorBodyRenderer.Render(body, headers, forceDecodeBody);
     }
 
     /// <summary>

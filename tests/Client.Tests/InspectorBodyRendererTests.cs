@@ -258,6 +258,20 @@ public sealed class InspectorBodyRendererTests
         await Assert.That(result.StartsWith("[Binary: video/mp4, 4 bytes]", StringComparison.Ordinal)).IsTrue();
     }
 
+    [Test]
+    public async Task Render_GzipBodyWithForceFlag_DecompressesWithoutLimit()
+    {
+        var original = Encoding.UTF8.GetBytes("compressed payload");
+        var compressed = Gzip(original);
+        var headers = HeaderCollection.Empty
+            .Add("Content-Type", "text/plain")
+            .Add("Content-Encoding", "gzip");
+
+        var result = InspectorBodyRenderer.Render(compressed, headers, forceDecodeBody: true);
+
+        await Assert.That(result).IsEqualTo("compressed payload");
+    }
+
     private static byte[] Gzip(byte[] data)
     {
         using var output = new MemoryStream();

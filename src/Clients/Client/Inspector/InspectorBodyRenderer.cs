@@ -21,19 +21,42 @@ public static class InspectorBodyRenderer
     }
 
     /// <summary>
-    ///     Renders the body for display.
+    ///     Renders the body for display, using the default decompression safety limits.
     /// </summary>
     /// <param name="body">The raw body bytes.</param>
     /// <param name="headers">The message headers (used for Content-Type and Content-Encoding).</param>
     /// <returns>The display text.</returns>
+    /// <exception cref="DecompressionLimitExceededException">
+    ///     Thrown when the decompressed output exceeds the safety limits in
+    ///     <see cref="ContentEncodingDecoder" />.
+    /// </exception>
     public static string Render(ReadOnlyMemory<byte> body, HeaderCollection headers)
+    {
+        return Render(body, headers, forceDecodeBody: false);
+    }
+
+    /// <summary>
+    ///     Renders the body for display.
+    /// </summary>
+    /// <param name="body">The raw body bytes.</param>
+    /// <param name="headers">The message headers (used for Content-Type and Content-Encoding).</param>
+    /// <param name="forceDecodeBody">
+    ///     When <see langword="true" />, bypasses the decompression-size and ratio limits so the
+    ///     full body is always decoded. Use only when the user has explicitly requested it.
+    /// </param>
+    /// <returns>The display text.</returns>
+    /// <exception cref="DecompressionLimitExceededException">
+    ///     Thrown when <paramref name="forceDecodeBody" /> is <see langword="false" /> and the
+    ///     decompressed output exceeds the safety limits in <see cref="ContentEncodingDecoder" />.
+    /// </exception>
+    public static string Render(ReadOnlyMemory<byte> body, HeaderCollection headers, bool forceDecodeBody)
     {
         if (body.IsEmpty)
         {
             return string.Empty;
         }
 
-        var decoded = DecodeContentEncoding(body, headers);
+        var decoded = DecodeContentEncoding(body, headers, forceDecodeBody);
         var contentType = ParseContentType(headers);
 
         if (HasProtobufMediaType(contentType))
@@ -63,7 +86,7 @@ public static class InspectorBodyRenderer
         return PrettyPrintByMediaType(text, contentType);
     }
 
-    private static byte[] DecodeContentEncoding(ReadOnlyMemory<byte> body, HeaderCollection headers)
+    private static byte[] DecodeContentEncoding(ReadOnlyMemory<byte> body, HeaderCollection headers, bool forceDecodeBody)
     {
         var contentEncoding = headers.Get("Content-Encoding");
 
@@ -74,7 +97,9 @@ public static class InspectorBodyRenderer
 
         try
         {
-            return ContentEncodingDecoder.Decode(contentEncoding, body.ToArray());
+            var maxDecompressedBytes = forceDecodeBody ? long.MaxValue : ContentEncodingDecoder.DefaultMaxDecompressedBytes;
+            var maxDecompressionRatio = forceDecodeBody ? double.MaxValue : ContentEncodingDecoder.DefaultMaxDecompressionRatio;
+            return ContentEncodingDecoder.Decode(contentEncoding, body.ToArray(), maxDecompressedBytes, maxDecompressionRatio);
         }
         catch (NotSupportedException)
         {

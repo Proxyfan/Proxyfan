@@ -176,6 +176,32 @@ public sealed class ContentEncodingDecoderTests
         await Assert.That(Encoding.UTF8.GetString(decoded)).IsEqualTo(original);
     }
 
+    /// <summary>
+    ///     Verifies that decoding throws when the decompressed output exceeds the byte-count ceiling.
+    /// </summary>
+    [Test]
+    public async Task Decode_DecompressedBytesExceedCap_Throws()
+    {
+        var payload = new byte[200];
+        var compressed = Encode(payload, source => new GZipStream(source, CompressionMode.Compress));
+
+        await Assert.That(() => ContentEncodingDecoder.Decode("gzip", compressed, maxDecompressedBytes: 100, maxDecompressionRatio: ContentEncodingDecoder.DefaultMaxDecompressionRatio))
+            .Throws<DecompressionLimitExceededException>();
+    }
+
+    /// <summary>
+    ///     Verifies that decoding throws when the decompressed-to-compressed ratio exceeds the ceiling.
+    /// </summary>
+    [Test]
+    public async Task Decode_RatioExceedsCap_Throws()
+    {
+        var payload = new byte[1000];
+        var compressed = Encode(payload, source => new GZipStream(source, CompressionMode.Compress));
+
+        await Assert.That(() => ContentEncodingDecoder.Decode("gzip", compressed, maxDecompressedBytes: ContentEncodingDecoder.DefaultMaxDecompressedBytes, maxDecompressionRatio: 1.0))
+            .Throws<DecompressionLimitExceededException>();
+    }
+
     private static byte[] Encode(string text, EncodeFactory wrapperFactory)
     {
         return Encode(Encoding.UTF8.GetBytes(text), wrapperFactory);

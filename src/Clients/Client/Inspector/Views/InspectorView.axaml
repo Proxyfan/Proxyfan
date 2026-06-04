@@ -27,19 +27,34 @@
                              TextWrapping="NoWrap" />
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Body}">
-                    <Grid>
-                        <TextBox AcceptsReturn="True"
-                                 FontFamily="Consolas,Menlo,monospace"
-                                 IsReadOnly="True"
-                                 IsVisible="{Binding RequestBodyImageBytes, Converter={x:Static ObjectConverters.IsNull}}"
-                                 Text="{Binding RequestBodyText}"
-                                 TextWrapping="NoWrap" />
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                      IsVisible="{Binding RequestBodyImageBytes, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                      VerticalScrollBarVisibility="Auto">
-                            <Image Source="{Binding RequestBodyImageBytes, Converter={StaticResource ImageBytesToBitmapConverter}}"
-                                   Stretch="None" />
-                        </ScrollViewer>
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0"
+                                Background="#20FF8C00"
+                                IsVisible="{Binding IsRequestBodyDecompressionLimitExceeded}"
+                                Margin="2,2,2,0">
+                            <DockPanel Margin="4">
+                                <Button Command="{Binding ForceDecodeRequestBodyCommand}"
+                                        Content="{localization:Localize Key=Inspector_Body_ForceDecodeButton}"
+                                        DockPanel.Dock="Right"
+                                        Margin="8,0,0,0" />
+                                <TextBlock Text="{localization:Localize Key=Inspector_Body_DecompressionLimitBanner}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                        <Grid Grid.Row="1">
+                            <TextBox AcceptsReturn="True"
+                                     FontFamily="Consolas,Menlo,monospace"
+                                     IsReadOnly="True"
+                                     IsVisible="{Binding RequestBodyImageBytes, Converter={x:Static ObjectConverters.IsNull}}"
+                                     Text="{Binding RequestBodyText}"
+                                     TextWrapping="NoWrap" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                          IsVisible="{Binding RequestBodyImageBytes, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                          VerticalScrollBarVisibility="Auto">
+                                <Image Source="{Binding RequestBodyImageBytes, Converter={StaticResource ImageBytesToBitmapConverter}}"
+                                       Stretch="None" />
+                            </ScrollViewer>
+                        </Grid>
                     </Grid>
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Query}">
@@ -137,19 +152,34 @@
                              TextWrapping="NoWrap" />
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Body}">
-                    <Grid>
-                        <TextBox AcceptsReturn="True"
-                                 FontFamily="Consolas,Menlo,monospace"
-                                 IsReadOnly="True"
-                                 IsVisible="{Binding ResponseBodyImageBytes, Converter={x:Static ObjectConverters.IsNull}}"
-                                 Text="{Binding ResponseBodyText}"
-                                 TextWrapping="NoWrap" />
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                      IsVisible="{Binding ResponseBodyImageBytes, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                      VerticalScrollBarVisibility="Auto">
-                            <Image Source="{Binding ResponseBodyImageBytes, Converter={StaticResource ImageBytesToBitmapConverter}}"
-                                   Stretch="None" />
-                        </ScrollViewer>
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0"
+                                Background="#20FF8C00"
+                                IsVisible="{Binding IsResponseBodyDecompressionLimitExceeded}"
+                                Margin="2,2,2,0">
+                            <DockPanel Margin="4">
+                                <Button Command="{Binding ForceDecodeResponseBodyCommand}"
+                                        Content="{localization:Localize Key=Inspector_Body_ForceDecodeButton}"
+                                        DockPanel.Dock="Right"
+                                        Margin="8,0,0,0" />
+                                <TextBlock Text="{localization:Localize Key=Inspector_Body_DecompressionLimitBanner}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                        <Grid Grid.Row="1">
+                            <TextBox AcceptsReturn="True"
+                                     FontFamily="Consolas,Menlo,monospace"
+                                     IsReadOnly="True"
+                                     IsVisible="{Binding ResponseBodyImageBytes, Converter={x:Static ObjectConverters.IsNull}}"
+                                     Text="{Binding ResponseBodyText}"
+                                     TextWrapping="NoWrap" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                          IsVisible="{Binding ResponseBodyImageBytes, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                          VerticalScrollBarVisibility="Auto">
+                                <Image Source="{Binding ResponseBodyImageBytes, Converter={StaticResource ImageBytesToBitmapConverter}}"
+                                       Stretch="None" />
+                            </ScrollViewer>
+                        </Grid>
                     </Grid>
                 </TabItem>
                 <TabItem Header="{localization:Localize Key=Inspector_Tab_Cookies}">
