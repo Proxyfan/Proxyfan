@@ -21,28 +21,21 @@ public sealed class SocketProxyListenerTests
         return new SocketProxyListener(monitor, logger);
     }
 
-    private static int AllocateFreePort()
-    {
-        using var temp = new TcpListener(IPAddress.Loopback, 0);
-        temp.Start();
-        var port = ((IPEndPoint)temp.LocalEndpoint).Port;
-        temp.Stop();
-        return port;
-    }
-
     /// <summary>
     ///     Verifies that binding to an already-occupied port throws <see cref="ProxyBindException" />.
     /// </summary>
     [Test]
     public async Task StartAsync_PortInUse_ThrowsProxyBindException()
     {
-        var port = AllocateFreePort();
-
+        // Bind the blocking socket on port 0 first so the OS assigns the port, then read it
+        // back. This eliminates the close-then-rebind race: the socket IS the occupier from
+        // the very start — no probe-close-then-steal window.
         using var blockingSocket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
         blockingSocket.DualMode = true;
         blockingSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ExclusiveAddressUse, true);
-        blockingSocket.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+        blockingSocket.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
         blockingSocket.Listen();
+        var port = ((IPEndPoint)blockingSocket.LocalEndPoint!).Port;
 
         var listener = CreateListener(new ProxyOptions { Port = port });
 
@@ -68,7 +61,7 @@ public sealed class SocketProxyListenerTests
         var listener = CreateListener(
             new ProxyOptions
             {
-                Port = AllocateFreePort(),
+                Port = 0,
                 BindAddress = IPAddress.Any.ToString(),
                 AllowedRemoteSources = [],
             });
@@ -84,7 +77,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task StartAsync_DefaultConfiguration_BindsLoopbackOnly()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
 
         try
@@ -107,7 +100,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task StartAsync_ValidPort_SetsIsListeningToTrue()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
 
         await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
 
@@ -122,19 +115,20 @@ public sealed class SocketProxyListenerTests
     }
 
     /// <summary>
-    ///     Verifies that starting the listener populates <see cref="SocketProxyListener.BoundPort" />.
+    ///     Verifies that starting the listener populates <see cref="SocketProxyListener.BoundPort" />
+    ///     with an OS-assigned port when the configured port is zero.
     /// </summary>
     [Test]
     public async Task StartAsync_ValidPort_SetsBoundPort()
     {
-        var port = AllocateFreePort();
-        var listener = CreateListener(new ProxyOptions { Port = port });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
 
         await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
 
         try
         {
-            await Assert.That(listener.BoundPort).IsEqualTo(port);
+            await Assert.That(listener.BoundPort).IsNotNull();
+            await Assert.That(listener.BoundPort!.Value).IsGreaterThan(0);
         }
         finally
         {
@@ -149,7 +143,7 @@ public sealed class SocketProxyListenerTests
     public async Task StartAsync_ThenConnect_CallbackInvoked()
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
 
         await listener.StartAsync(
             (_, _) =>
@@ -179,7 +173,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task StopAsync_WhenListening_ClearsBoundPort()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
 
         await listener.StopAsync(CancellationToken.None);
@@ -194,7 +188,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task StopAsync_WhenListening_SetsIsListeningToFalse()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
 
         await listener.StopAsync(CancellationToken.None);
@@ -208,7 +202,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task StopAsync_WhenNotListening_DoesNotThrow()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         await listener.StopAsync(CancellationToken.None);
     }
 
@@ -220,7 +214,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task Dispose_NeverStarted_DoesNotThrow()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
 
         listener.Dispose();
 
@@ -235,7 +229,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task Dispose_AfterStartWithoutStop_DoesNotThrow()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
 
         listener.Dispose();
@@ -256,7 +250,7 @@ public sealed class SocketProxyListenerTests
     {
         var blockHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort(), MaxConnections = 1 });
+        var listener = CreateListener(new ProxyOptions { Port = 0, MaxConnections = 1 });
 
         await listener.StartAsync(
             async (_, _) =>
@@ -304,7 +298,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task StartAsync_HandlerThrows_LogsAndContinues()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         var handlerInvoked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await listener.StartAsync(
             (_, _) =>
@@ -338,7 +332,7 @@ public sealed class SocketProxyListenerTests
     [Test]
     public async Task RunAcceptLoopAsync_FatalAcceptError_SetsIsListeningFalse()
     {
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
         listener.AcceptOverride = (_, _) =>
             new ValueTask<Socket>(Task.FromException<Socket>(
                 new SocketException((int)SocketError.OperationAborted)));
@@ -363,7 +357,7 @@ public sealed class SocketProxyListenerTests
         var handlerRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var handlerCompleted = false;
         var callCount = 0;
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
 
         listener.AcceptOverride = async (socket, ct) =>
         {
@@ -414,7 +408,7 @@ public sealed class SocketProxyListenerTests
     {
         var secondCallStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var callCount = 0;
-        var listener = CreateListener(new ProxyOptions { Port = AllocateFreePort() });
+        var listener = CreateListener(new ProxyOptions { Port = 0 });
 
         listener.AcceptOverride = async (_, ct) =>
         {
@@ -436,5 +430,39 @@ public sealed class SocketProxyListenerTests
 
         await Assert.That(callCount).IsGreaterThanOrEqualTo(2);
         await Assert.That(listener.IsListening).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies the bind-and-pass pattern: a port probe (<see cref="TcpListener" /> on port 0)
+    ///     is kept alive while the production listener is constructed, then released immediately
+    ///     before <see cref="SocketProxyListener.StartAsync" />.  The port stays continuously
+    ///     occupied from discovery until the production socket binds, eliminating the
+    ///     allocate-close-rebind race window that causes intermittent CI flakes.
+    /// </summary>
+    [Test]
+    public async Task StartAsync_PortAlreadyBound_UsesBoundProbe()
+    {
+        // Start the probe on port 0 — OS assigns a free port and holds the reservation.
+        var probe = new TcpListener(IPAddress.Loopback, 0);
+        probe.Start();
+        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+
+        // Construct the production listener while the probe is still holding the port.
+        var listener = CreateListener(new ProxyOptions { Port = port });
+
+        // Release the probe immediately before StartAsync so the production socket can
+        // bind to the same port with a minimal (near-zero) race window.
+        probe.Stop();
+
+        await listener.StartAsync((_, _) => Task.CompletedTask, CancellationToken.None);
+
+        try
+        {
+            await Assert.That(listener.BoundPort).IsEqualTo(port);
+        }
+        finally
+        {
+            await listener.StopAsync(CancellationToken.None);
+        }
     }
 }

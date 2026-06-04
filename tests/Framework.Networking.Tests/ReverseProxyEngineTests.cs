@@ -1,6 +1,7 @@
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,9 +33,8 @@ public sealed class ReverseProxyEngineTests
     public async Task StartRouteAsync_ValidRoute_ReportsHealthyAndBindsListener()
     {
         await using var engine = CreateEngine(new StubBackendHealthProbe());
-        var route = CreateRoute("api", listenPort: 0);
 
-        var started = await engine.StartRouteAsync(route, CancellationToken.None);
+        var started = await StartRouteWithRetryAsync(engine, "api");
 
         await Assert.That(started).IsTrue();
         var states = engine.GetStates();
@@ -49,10 +49,9 @@ public sealed class ReverseProxyEngineTests
     public async Task StartRouteAsync_DuplicateIdentifier_ReturnsFalse()
     {
         await using var engine = CreateEngine(new StubBackendHealthProbe());
-        var route = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(route, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
 
-        var startedAgain = await engine.StartRouteAsync(route, CancellationToken.None);
+        var startedAgain = await StartRouteWithRetryAsync(engine, "api");
 
         await Assert.That(startedAgain).IsFalse();
     }
@@ -64,8 +63,7 @@ public sealed class ReverseProxyEngineTests
     public async Task StopRouteAsync_RunningRoute_ReturnsTrueAndClearsListener()
     {
         await using var engine = CreateEngine(new StubBackendHealthProbe());
-        var route = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(route, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
 
         var stopped = await engine.StopRouteAsync("api", CancellationToken.None);
 
@@ -94,8 +92,7 @@ public sealed class ReverseProxyEngineTests
     {
         var probe = new StubBackendHealthProbe { ResponseHealthy = true };
         await using var engine = CreateEngine(probe);
-        var route = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(route, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
 
         var status = await engine.ProbeAsync("api", CancellationToken.None);
 
@@ -111,8 +108,7 @@ public sealed class ReverseProxyEngineTests
     {
         var probe = new StubBackendHealthProbe { ResponseHealthy = false };
         await using var engine = CreateEngine(probe);
-        var route = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(route, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
 
         var status = await engine.ProbeAsync("api", CancellationToken.None);
 
@@ -141,10 +137,8 @@ public sealed class ReverseProxyEngineTests
     public async Task DisposeAsync_WithStartedRoutes_StopsAllListenersAndIsIdempotent()
     {
         var engine = CreateEngine(new StubBackendHealthProbe());
-        var route1 = CreateRoute("api1", listenPort: 0);
-        var route2 = CreateRoute("api2", listenPort: 0);
-        await engine.StartRouteAsync(route1, CancellationToken.None);
-        await engine.StartRouteAsync(route2, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api1");
+        await StartRouteWithRetryAsync(engine, "api2");
 
         await engine.DisposeAsync();
         await engine.DisposeAsync();
@@ -182,8 +176,7 @@ public sealed class ReverseProxyEngineTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var probe = new StubBackendHealthProbe { ResponseHealthy = true, ProbeGate = gate.Task };
         await using var engine = CreateEngine(probe);
-        var route = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(route, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
         var statusChanges = new List<ReverseProxyRouteStatus>();
         engine.StatusChanged += (_, status) => statusChanges.Add(status);
 
@@ -208,14 +201,12 @@ public sealed class ReverseProxyEngineTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var probe = new StubBackendHealthProbe { ResponseHealthy = false, ProbeGate = gate.Task };
         await using var engine = CreateEngine(probe);
-        var route = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(route, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
 
         var probeTask = engine.ProbeAsync("api", CancellationToken.None);
         await probe.ProbeStarted;
         await engine.StopRouteAsync("api", CancellationToken.None);
-        var restarted = CreateRoute("api", listenPort: 0);
-        await engine.StartRouteAsync(restarted, CancellationToken.None);
+        await StartRouteWithRetryAsync(engine, "api");
         gate.SetResult();
         _ = await probeTask;
 
@@ -237,18 +228,53 @@ public sealed class ReverseProxyEngineTests
         return new ReverseProxyRoute(
             identifier,
             $"Route {identifier}",
-            listenPort: listenPort == 0 ? GetFreePort() : listenPort,
+            listenPort,
             "127.0.0.1",
             65500,
             ReverseProxyTransportLayerSecurityMode.None);
     }
 
-    private static int GetFreePort()
+    /// <summary>
+    ///     Starts a route in the engine on a free port, using the bind-probe-and-retry pattern:
+    ///     a <see cref="System.Net.Sockets.TcpListener" /> probe on port 0 holds the OS port
+    ///     reservation while the route is constructed, is then released immediately before
+    ///     <see cref="ReverseProxyEngine.StartRouteAsync" />, and the whole attempt is retried
+    ///     up to five times if <see cref="ReverseProxyEngine.StartRouteAsync" /> returns
+    ///     <see langword="false" /> due to a bind conflict rather than a duplicate identifier.
+    /// </summary>
+    /// <returns>
+    ///     <see langword="true" /> when the route started successfully;
+    ///     <see langword="false" /> when the identifier was already registered.
+    /// </returns>
+    private static async Task<bool> StartRouteWithRetryAsync(
+        ReverseProxyEngine engine,
+        string identifier,
+        CancellationToken cancellationToken = default)
     {
-        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            // Hold the probe alive while constructing the route to keep the OS port
+            // reservation continuous up to the moment the engine's listener binds.
+            var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+            var route = CreateRoute(identifier, port);
+            probe.Stop(); // Release port; engine.StartRouteAsync binds next.
+
+            if (await engine.StartRouteAsync(route, cancellationToken))
+            {
+                return true;
+            }
+
+            // StartRouteAsync returns false for two reasons:
+            // 1. Identifier already running → route appears in GetStates(); stop retrying.
+            // 2. Bind failed (port conflict) → route is Faulted and absent from GetStates(); retry.
+            if (engine.GetStates().Any(s => s.Route.Identifier == identifier))
+            {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

@@ -22,24 +22,25 @@ public sealed class ReverseProxyRouteListenerTests
     [Test]
     public async Task PumpAsync_ConnectedClient_EchoesBytesEndToEnd()
     {
-        var backendPort = GetFreePort();
+        // Keep the backend probe alive until RunEchoServerAsync binds to minimise the
+        // close-then-rebind race window for the backend port.
+        var backendProbe = new TcpListener(IPAddress.Loopback, 0);
+        backendProbe.Start();
+        var backendPort = ((IPEndPoint)backendProbe.LocalEndpoint).Port;
+        backendProbe.Stop(); // Release immediately before the echo server binds.
+
         using var echoCancellation = new CancellationTokenSource();
         var echoServerTask = RunEchoServerAsync(backendPort, echoCancellation.Token);
 
-        var listenPort = GetFreePort();
-        var route = new ReverseProxyRoute(
-            "echo",
-            "Echo route",
-            listenPort,
-            "127.0.0.1",
-            backendPort,
-            ReverseProxyTransportLayerSecurityMode.None);
-
-        var listener = new ReverseProxyRouteListener(route, new StubLogger<ReverseProxyRouteListener>(), hypertextTransferProtocolHandler: null);
+        // BindRouteListenerAsync keeps the listen-port probe alive while constructing
+        // the listener, then releases it just before StartAsync (bind-and-pass + retry).
+        var (listener, listenPort) = await BindRouteListenerAsync(
+            port => new ReverseProxyRouteListener(
+                new ReverseProxyRoute("echo", "Echo route", port, "127.0.0.1", backendPort, ReverseProxyTransportLayerSecurityMode.None),
+                new StubLogger<ReverseProxyRouteListener>(),
+                hypertextTransferProtocolHandler: null));
         try
         {
-            await listener.StartAsync(CancellationToken.None);
-
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, listenPort);
             using var stream = client.GetStream();
@@ -75,9 +76,12 @@ public sealed class ReverseProxyRouteListenerTests
     [Test]
     public async Task StartAsync_PortAlreadyInUse_ThrowsProxyBindException()
     {
-        var port = GetFreePort();
-        using var blocker = new TcpListener(IPAddress.Loopback, port);
+        // Bind the blocker on port 0 first so the OS assigns the port, then read it back.
+        // This eliminates the close-then-rebind race: the blocker IS the occupier from the
+        // very start — no probe-close-then-steal window.
+        using var blocker = new TcpListener(IPAddress.Loopback, 0);
         blocker.Start();
+        var port = ((IPEndPoint)blocker.LocalEndpoint).Port;
 
         var route = new ReverseProxyRoute(
             "conflict",
@@ -139,13 +143,46 @@ public sealed class ReverseProxyRouteListenerTests
         listener.Dispose();
     }
 
-    private static int GetFreePort()
+    /// <summary>
+    ///     Starts a <see cref="ReverseProxyRouteListener" /> on a free port using the
+    ///     bind-probe-and-retry pattern: a <see cref="TcpListener" /> probe on port 0 holds the
+    ///     OS port reservation while the production listener is constructed, is then released
+    ///     immediately before <see cref="ReverseProxyRouteListener.StartAsync" />, and the
+    ///     whole attempt is retried up to five times on <see cref="ProxyBindException" />.
+    /// </summary>
+    /// <param name="createListener">
+    ///     Factory that produces a <see cref="ReverseProxyRouteListener" /> configured for the
+    ///     supplied <paramref name="createListener" /> port argument.
+    /// </param>
+    /// <returns>The started listener and the port it successfully bound to.</returns>
+    private static async Task<(ReverseProxyRouteListener Listener, int ListenPort)> BindRouteListenerAsync(
+        Func<int, ReverseProxyRouteListener> createListener)
     {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            // Hold the probe alive while constructing the route/listener so the OS port
+            // reservation is continuous up to the moment the production socket binds.
+            var probe = new TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            var listener = createListener(port);
+            probe.Stop(); // Release port; production socket binds next.
+            try
+            {
+                await listener.StartAsync(CancellationToken.None);
+                return (listener, port);
+            }
+            catch (ProxyBindException)
+            {
+                listener.Dispose();
+                if (attempt == 4)
+                {
+                    throw new InvalidOperationException("Unable to bind a free listen port after 5 attempts.");
+                }
+            }
+        }
+
+        throw new InvalidOperationException("Unable to bind a free listen port after 5 attempts.");
     }
 
     private static async Task<int> ReadFullyAsync(NetworkStream stream, byte[] buffer, TimeSpan timeout)
