@@ -1,5 +1,4 @@
 using Proxyfan.Client.Tools.ViewModels;
-using Proxyfan.Framework.Extensibility;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -43,7 +42,7 @@ public sealed class PluginUpdateAvailabilityViewModelTests
     [Test]
     public async Task Construct_PopulatedAvailability_ExposesAllFields()
     {
-        var availability = new PluginUpdateAvailability
+        var availability = new PluginUpdateAvailabilitySnapshot
         {
             Identifier = "com.x",
             Name = "X plugin",
@@ -64,9 +63,9 @@ public sealed class PluginUpdateAvailabilityViewModelTests
         await Assert.That(viewModel.DownloadUrl).IsEqualTo("https://example.com/x.zip");
     }
 
-    private static PluginUpdateAvailability BuildAvailability(string current, string latest, bool isCompatible)
+    private static PluginUpdateAvailabilitySnapshot BuildAvailability(string current, string latest, bool isCompatible)
     {
-        var availability = new PluginUpdateAvailability
+        var availability = new PluginUpdateAvailabilitySnapshot
         {
             Identifier = "com.x",
             Name = "X",
