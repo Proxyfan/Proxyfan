@@ -90,20 +90,17 @@ public sealed class HarImporter : IHarImporter
 
     private async Task<IReadOnlyList<TrafficFlow>> ImportGzipAsync(Stream input, CancellationToken cancellationToken)
     {
-        var gzipStream = new GZipStream(input, CompressionMode.Decompress, leaveOpen: true);
-        await using (gzipStream.ConfigureAwait(false))
+        await using var gzipStream = new GZipStream(input, CompressionMode.Decompress, leaveOpen: true);
+        try
         {
-            try
-            {
-                var reader = new HarImportEntryStreamReader(_maxHarBytes, _maxEntries, _maxEntryBodyBytes);
-                return await reader.ReadAsync(gzipStream, cancellationToken).ConfigureAwait(false);
-            }
-            catch (InvalidDataException ex)
-            {
-                throw new InvalidDataException(
-                    "The .har.gz file could not be decompressed. The gzip data is corrupt or truncated.",
-                    ex);
-            }
+            var reader = new HarImportEntryStreamReader(_maxHarBytes, _maxEntries, _maxEntryBodyBytes);
+            return await reader.ReadAsync(gzipStream, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new InvalidDataException(
+                "The .har.gz file could not be decompressed. The gzip data is corrupt or truncated.",
+                ex);
         }
     }
 

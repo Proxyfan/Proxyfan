@@ -41,11 +41,8 @@ public sealed class HarExporter : IHarExporter
     {
         if (_isGzipCompressed)
         {
-            var gzipStream = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true);
-            await using (gzipStream.ConfigureAwait(false))
-            {
-                await WriteJsonAsync(gzipStream, flows, cancellationToken).ConfigureAwait(false);
-            }
+            await using var gzipStream = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true);
+            await WriteJsonAsync(gzipStream, flows, cancellationToken).ConfigureAwait(false);
         }
         else
         {
