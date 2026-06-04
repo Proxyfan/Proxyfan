@@ -193,6 +193,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         _requestReceivedSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
         _responseReceivedSubscription = eventBus.Subscribe<ResponseReceived>(OnResponseReceived);
         _flowCompletedSubscription = eventBus.Subscribe<TrafficFlowCompleted>(OnFlowCompleted);
+        UpdateSourceHostsSnapshotOnUiThread();
     }
 
     /// <inheritdoc />
@@ -387,6 +388,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
         }
+
+        _coordinator.NotifyFlowsChanged();
     }
 
     private void OnCoordinatorHostFilterRequested(string host)
@@ -411,6 +414,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
+        UpdateSourceHostsSnapshotOnUiThread();
         RebuildVisibleFlowsOnUiThread();
     }
 
@@ -536,5 +540,16 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private void ToggleCapture()
     {
         IsCapturing = !IsCapturing;
+    }
+
+    private void UpdateSourceHostsSnapshotOnUiThread()
+    {
+        var hosts = new List<string>();
+        foreach (var flow in Flows)
+        {
+            hosts.Add(flow.Host);
+        }
+
+        _coordinator.UpdateSourceHostsSnapshot(hosts);
     }
 }

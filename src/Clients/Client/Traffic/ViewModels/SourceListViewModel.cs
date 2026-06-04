@@ -61,6 +61,7 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _groupsByHost[AllGroupSentinel] = allGroup;
         _selectedSource = allGroup;
 
+        _coordinator.FlowsChanged += OnFlowsChanged;
         _coordinator.FlowsCleared += OnFlowsCleared;
         _requestSubscription = eventBus.Subscribe<RequestReceived>(OnRequestReceived);
     }
@@ -68,6 +69,7 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        _coordinator.FlowsChanged -= OnFlowsChanged;
         _coordinator.FlowsCleared -= OnFlowsCleared;
         _requestSubscription.Dispose();
     }
@@ -79,6 +81,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
     public void Rebuild()
     {
         _userInterfaceScheduler.Post(RebuildOnUiThread);
+    }
+
+    private void OnFlowsChanged()
+    {
+        Rebuild();
     }
 
     private void OnFlowsCleared()
@@ -113,6 +120,11 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         Sources.Clear();
         Sources.Add(allGroup);
         SelectedSource = allGroup;
+
+        foreach (var host in _coordinator.GetSourceHostsSnapshot())
+        {
+            RegisterHostOnUiThread(host);
+        }
     }
 
     private void RegisterHostOnUiThread(string host)
