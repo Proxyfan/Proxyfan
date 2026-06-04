@@ -151,8 +151,8 @@ public sealed class ReverseProxyRouteListenerTests
     ///     whole attempt is retried up to five times on <see cref="ProxyBindException" />.
     /// </summary>
     /// <param name="createListener">
-    ///     Factory that produces a <see cref="ReverseProxyRouteListener" /> configured for the
-    ///     supplied <paramref name="createListener" /> port argument.
+    ///     Factory that receives the probed free port and produces a
+    ///     <see cref="ReverseProxyRouteListener" /> configured to listen on that port.
     /// </param>
     /// <returns>The started listener and the port it successfully bound to.</returns>
     private static async Task<(ReverseProxyRouteListener Listener, int ListenPort)> BindRouteListenerAsync(
