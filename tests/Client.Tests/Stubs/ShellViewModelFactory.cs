@@ -159,7 +159,8 @@ public static class ShellViewModelFactory
         MutableUpdateNotification updateNotification,
         MutableNoCachingRule noCachingRule,
         MutableBreakpointConfiguration breakpointConfiguration,
-        string? bindAddress = null)
+        string? bindAddress = null,
+        IBreakpointPauseInbox? breakpointPauseInbox = null)
     {
         var options = new ProxyOptions { Port = port };
         if (!string.IsNullOrWhiteSpace(bindAddress))
@@ -173,6 +174,7 @@ public static class ShellViewModelFactory
         var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
         var sourceList = new SourceListViewModel(eventBus, coordinator, InlineUserInterfaceScheduler.Instance);
         var tabHost = new TabHostViewModel(trafficList);
+        var inbox = breakpointPauseInbox ?? new BreakpointPauseInbox();
         return new ShellViewModel(
             systemProxy,
             optionsMonitor,
@@ -185,7 +187,8 @@ public static class ShellViewModelFactory
             updateNotification,
             InlineUserInterfaceScheduler.Instance,
             noCachingRule,
-            breakpointConfiguration);
+            breakpointConfiguration,
+            inbox);
     }
 
     /// <summary>

@@ -20,6 +20,11 @@ public interface IBreakpointPauseInbox
     event BreakpointPauseInboxChanged? PauseResolved;
 
     /// <summary>
+    ///     Gets the current number of pending pauses.
+    /// </summary>
+    int PendingCount { get; }
+
+    /// <summary>
     ///     Aborts the supplied pause, removes it from the inbox, and raises <see cref="PauseResolved" />.
     /// </summary>
     /// <param name="pause">The pause being aborted.</param>

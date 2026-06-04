@@ -86,6 +86,11 @@ internal sealed class TestShellEnvironment : IDisposable
     public MutableBreakpointConfiguration BreakpointConfiguration { get; }
 
     /// <summary>
+    ///     Breakpoint pause inbox shared with the shell for status-bar queue-depth updates.
+    /// </summary>
+    public BreakpointPauseInbox BreakpointPauseInbox { get; }
+
+    /// <summary>
     ///     Builds the test environment and synchronously shows the
     ///     <see cref="ShellWindow" /> on the headless dispatcher. Must be called from
     ///     inside <see cref="EndToEndTestBase.RunOnUiThreadAsync(System.Func{System.Threading.Tasks.Task})" />.
@@ -104,12 +109,14 @@ internal sealed class TestShellEnvironment : IDisposable
         var updateNotification = new MutableUpdateNotification();
         var noCachingRule = new MutableNoCachingRule(priority: 400, isEnabled: false);
         var breakpointConfiguration = new MutableBreakpointConfiguration(isEnabled: false);
+        var breakpointPauseInbox = new BreakpointPauseInbox();
         HarExporter = harExporter;
         HarImporter = harImporter;
         FilePicker = filePicker;
         UpdateNotification = updateNotification;
         NoCachingRule = noCachingRule;
         BreakpointConfiguration = breakpointConfiguration;
+        BreakpointPauseInbox = breakpointPauseInbox;
 
         var shellViewModel = ShellViewModelFactory.Create(
             systemProxy,
@@ -120,7 +127,8 @@ internal sealed class TestShellEnvironment : IDisposable
             toolWindowOpener,
             updateNotification,
             noCachingRule,
-            breakpointConfiguration);
+            breakpointConfiguration,
+            breakpointPauseInbox: breakpointPauseInbox);
         ShellViewModel = shellViewModel;
 
         var services = new ServiceCollection();

@@ -32,6 +32,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private const string OpenSessionTitle = "Open HAR Session";
     private const string SaveSessionTitle = "Save Captured Session as HAR";
     private readonly MutableBreakpointConfiguration _breakpointConfiguration;
+    private readonly IBreakpointPauseInbox _breakpointPauseInbox;
     private readonly IFilePickerService _filePicker;
     private readonly IHarExporter _harExporter;
     private readonly IHarImporter _harImporter;
@@ -41,6 +42,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IToolWindowOpener _toolWindowOpener;
     private readonly MutableUpdateNotification _updateNotification;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
+    [ObservableProperty]
+    private int _breakpointPendingPauses;
     [ObservableProperty]
     private bool _isBreakpointEnabled;
     [ObservableProperty]
@@ -100,6 +103,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <param name="userInterfaceScheduler">Scheduler used to marshal banner updates onto the UI thread.</param>
     /// <param name="noCachingRule">Toggleable global No-Caching rule.</param>
     /// <param name="breakpointConfiguration">Toggleable global breakpoint configuration.</param>
+    /// <param name="breakpointPauseInbox">Global breakpoint pause inbox used for status-bar queue depth.</param>
     public ShellViewModel(
         ISystemProxy systemProxy,
         IOptionsMonitor<ProxyOptions> optionsMonitor,
@@ -112,7 +116,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         MutableUpdateNotification updateNotification,
         IUserInterfaceScheduler userInterfaceScheduler,
         MutableNoCachingRule noCachingRule,
-        MutableBreakpointConfiguration breakpointConfiguration)
+        MutableBreakpointConfiguration breakpointConfiguration,
+        IBreakpointPauseInbox breakpointPauseInbox)
     {
         _systemProxy = systemProxy;
         _optionsMonitor = optionsMonitor;
@@ -124,6 +129,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _userInterfaceScheduler = userInterfaceScheduler;
         _noCachingRule = noCachingRule;
         _breakpointConfiguration = breakpointConfiguration;
+        _breakpointPauseInbox = breakpointPauseInbox;
+        _breakpointPendingPauses = breakpointPauseInbox.PendingCount;
         _isSystemProxyEnabled = false;
         _isUpdateBannerVisible = false;
         _isNoCachingEnabled = noCachingRule.IsEnabled;
@@ -132,6 +139,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         TabHost = tabHost;
         SourceList = sourceListViewModel;
         _updateNotification.Changed += OnUpdateNotificationChanged;
+        _breakpointPauseInbox.PauseAdded += OnBreakpointPauseChanged;
+        _breakpointPauseInbox.PauseResolved += OnBreakpointPauseChanged;
         ApplyUpdate(_updateNotification.Latest);
     }
 
@@ -139,6 +148,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _updateNotification.Changed -= OnUpdateNotificationChanged;
+        _breakpointPauseInbox.PauseAdded -= OnBreakpointPauseChanged;
+        _breakpointPauseInbox.PauseResolved -= OnBreakpointPauseChanged;
     }
 
     private void ApplyUpdate(UpdateInfo? update)
@@ -187,6 +198,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             desktop.Shutdown();
         }
+    }
+
+    private void OnBreakpointPauseChanged(BreakpointPause pause)
+    {
+        _ = pause;
+        if (_userInterfaceScheduler.HasAccess())
+        {
+            RefreshBreakpointPendingPauses();
+            return;
+        }
+
+        _userInterfaceScheduler.Post(RefreshBreakpointPendingPauses);
     }
 
     private void OnUpdateNotificationChanged(UpdateInfo? update)
@@ -344,6 +367,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void OpenThrottle()
     {
         _toolWindowOpener.OpenThrottle();
+    }
+
+    private void RefreshBreakpointPendingPauses()
+    {
+        BreakpointPendingPauses = _breakpointPauseInbox.PendingCount;
     }
 
     [RelayCommand]

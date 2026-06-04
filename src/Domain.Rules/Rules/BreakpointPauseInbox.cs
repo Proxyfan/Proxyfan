@@ -61,6 +61,18 @@ public sealed class BreakpointPauseInbox : IBreakpointPauseInbox
     }
 
     /// <inheritdoc />
+    public int PendingCount
+    {
+        get
+        {
+            lock (_mutationLock)
+            {
+                return _pending.Count;
+            }
+        }
+    }
+
+    /// <inheritdoc />
     public void Resolve(BreakpointPause pause, BreakpointDecision decision)
     {
         var removed = HasRemovedPending(pause);

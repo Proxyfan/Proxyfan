@@ -196,6 +196,16 @@
                            VerticalAlignment="Center" />
                 <TextBlock DockPanel.Dock="Left"
                            HorizontalAlignment="Left"
+                           Margin="16,0,4,0"
+                           Text="{localization:Localize Key=Shell_StatusBar_BreakpointQueue}"
+                           VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
+                           Margin="0,0,8,0"
+                           Text="{Binding BreakpointPendingPauses}"
+                           VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left"
+                           HorizontalAlignment="Left"
                            IsVisible="{Binding IsRemoteBindingWarningVisible}"
                            Margin="16,0,4,0"
                            Text="{localization:Localize Key=Shell_StatusBar_RemoteBindWarning}"

@@ -28,6 +28,23 @@ public sealed class BreakpointPauseInboxTests
     }
 
     /// <summary>
+    ///     PendingCount reflects adds and removals.
+    /// </summary>
+    [Test]
+    public async Task PendingCount_AfterAddAndResolve_TracksQueueDepth()
+    {
+        var inbox = new BreakpointPauseInbox();
+        var pause = NewPause();
+        inbox.Add(pause);
+
+        await Assert.That(inbox.PendingCount).IsEqualTo(1);
+
+        inbox.Resolve(pause, BreakpointDecisions.ResumeRequest(pause.Request));
+
+        await Assert.That(inbox.PendingCount).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     Resolve calls ResumeWith, removes the pause, and raises PauseResolved.
     /// </summary>
     [Test]

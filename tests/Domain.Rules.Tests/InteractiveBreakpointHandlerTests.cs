@@ -122,6 +122,85 @@ public sealed class InteractiveBreakpointHandlerTests
     }
 
     /// <summary>
+    ///     When back-pressure is enabled and the queue is full, new matches bypass the breakpoint.
+    /// </summary>
+    [Test]
+    public async Task ResolveRequestAsync_BackPressureEnabled_QueueFull_SkipsBreakpoint()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.SetMaxPendingPauses(1);
+        configuration.SetBackPressureEnabled(isBackPressureEnabled: true);
+        configuration.AddPattern(new MatchingRule("*", MatchingRuleKind.Wildcard));
+        var inbox = new BreakpointPauseInbox();
+        var handler = new InteractiveBreakpointHandler(configuration, inbox);
+        var firstRequest = NewRequest("https://example.com/first");
+        var secondRequest = NewRequest("https://example.com/second");
+        var secondModifiedRequest = NewRequest("https://example.com/second-modified");
+        var firstTask = handler.ResolveRequestAsync(firstRequest, CancellationToken.None);
+        await WaitForPendingCountAsync(inbox, expectedCount: 1);
+
+        var secondDecision = await handler.ResolveRequestAsync(secondRequest, CancellationToken.None);
+
+        await Assert.That(secondDecision.ModifiedRequest).IsSameReferenceAs(secondRequest);
+        await Assert.That(inbox.PendingCount).IsEqualTo(1);
+
+        var pending = inbox.GetPending();
+        await Assert.That(pending.Count).IsEqualTo(1);
+        inbox.Resolve(pending[0], BreakpointDecisions.ResumeRequest(secondModifiedRequest));
+        _ = await firstTask.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     When pending pauses reach the cap and back-pressure is disabled, the oldest
+    ///     pause is auto-resumed to make room for a new pause.
+    /// </summary>
+    [Test]
+    public async Task ResolveRequestAsync_QueueFull_DropsOldestAndResumes()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.SetMaxPendingPauses(1);
+        configuration.SetBackPressureEnabled(isBackPressureEnabled: false);
+        configuration.AddPattern(new MatchingRule("*", MatchingRuleKind.Wildcard));
+        var inbox = new BreakpointPauseInbox();
+        var handler = new InteractiveBreakpointHandler(configuration, inbox);
+        var firstRequest = NewRequest("https://example.com/first");
+        var secondRequest = NewRequest("https://example.com/second");
+        var secondModifiedRequest = NewRequest("https://example.com/second-modified");
+
+        var firstTask = handler.ResolveRequestAsync(firstRequest, CancellationToken.None);
+        await WaitForPendingCountAsync(inbox, expectedCount: 1);
+        var secondTask = handler.ResolveRequestAsync(secondRequest, CancellationToken.None);
+
+        var firstDecision = await firstTask.ConfigureAwait(false);
+        await Assert.That(firstDecision.ModifiedRequest).IsSameReferenceAs(firstRequest);
+
+        var pending = inbox.GetPending();
+        await Assert.That(pending.Count).IsEqualTo(1);
+        inbox.Resolve(pending[0], BreakpointDecisions.ResumeRequest(secondModifiedRequest));
+        var secondDecision = await secondTask.ConfigureAwait(false);
+        await Assert.That(secondDecision.ModifiedRequest).IsSameReferenceAs(secondModifiedRequest);
+    }
+
+    /// <summary>
+    ///     Unresolved pauses are automatically resumed after the configured timeout.
+    /// </summary>
+    [Test]
+    public async Task ResolveRequestAsync_TimeoutElapsed_AutoResumes()
+    {
+        var configuration = new MutableBreakpointConfiguration(isEnabled: true);
+        configuration.SetPauseTimeout(TimeSpan.FromMilliseconds(30));
+        configuration.AddPattern(new MatchingRule("*", MatchingRuleKind.Wildcard));
+        var inbox = new BreakpointPauseInbox();
+        var handler = new InteractiveBreakpointHandler(configuration, inbox);
+        var request = NewRequest("https://example.com/timeout");
+
+        var decision = await handler.ResolveRequestAsync(request, CancellationToken.None);
+
+        await Assert.That(decision.ModifiedRequest).IsSameReferenceAs(request);
+        await Assert.That(inbox.PendingCount).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     Response-phase resolution resumes immediately when the configuration is disabled.
     /// </summary>
     [Test]
@@ -182,5 +261,20 @@ public sealed class InteractiveBreakpointHandlerTests
             Version = "HTTP/1.1",
         };
         return new HypertextTransferProtocolResponseData(parameters);
+    }
+
+    private static async Task WaitForPendingCountAsync(BreakpointPauseInbox inbox, int expectedCount)
+    {
+        for (var index = 0; index < 100; index++)
+        {
+            if (inbox.PendingCount == expectedCount)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(10), TimeProvider.System, CancellationToken.None);
+        }
+
+        throw new InvalidOperationException($"Expected pending count {expectedCount}, but observed {inbox.PendingCount}.");
     }
 }

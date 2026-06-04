@@ -97,6 +97,9 @@
   <data name="Shell_StatusBar_CapturePaused" xml:space="preserve">
     <value>Capture paused</value>
   </data>
+  <data name="Shell_StatusBar_BreakpointQueue" xml:space="preserve">
+    <value>Breakpoints:</value>
+  </data>
   <data name="Shell_SourcePanel_Header" xml:space="preserve">
     <value>Sources</value>
   </data>
