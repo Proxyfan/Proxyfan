@@ -1,4 +1,6 @@
 using Proxyfan.Framework.Extensibility;
+using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +23,7 @@ public sealed class HypertextTransferProtocolPluginUpdateFeed : IPluginUpdateFee
     /// </summary>
     public const int ManifestSizeLimitInBytes = 1024 * 1024;
     private readonly HttpClient _hypertextTransferProtocolClient;
+    private readonly HashSet<string> _trustedManifestHostNames;
     private readonly PluginUpdateManifestUrlProvider _urlProvider;
 
     /// <summary>
@@ -31,6 +34,12 @@ public sealed class HypertextTransferProtocolPluginUpdateFeed : IPluginUpdateFee
     public HypertextTransferProtocolPluginUpdateFeed(HttpClient hypertextTransferProtocolClient, PluginUpdateManifestUrlProvider urlProvider)
     {
         _hypertextTransferProtocolClient = hypertextTransferProtocolClient;
+        var trustedManifestHostNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "localhost",
+            "plugins.proxyfan.dev",
+        };
+        _trustedManifestHostNames = trustedManifestHostNames;
         _urlProvider = urlProvider;
     }
 
@@ -43,9 +52,14 @@ public sealed class HypertextTransferProtocolPluginUpdateFeed : IPluginUpdateFee
         }
 
         var manifestUrl = _urlProvider.GetManifestUrl();
+        if (!CanUseManifestUrl(manifestUrl, out var manifestUri))
+        {
+            return null;
+        }
+
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, manifestUrl);
+            using var request = new HttpRequestMessage(HttpMethod.Get, manifestUri);
             request.Headers.UserAgent.ParseAdd("Proxyfan/1.0 (+https://github.com/Proxyfan/Proxyfan)");
             request.Headers.Accept.ParseAdd("application/json");
             using var response = await _hypertextTransferProtocolClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
@@ -75,5 +89,32 @@ public sealed class HypertextTransferProtocolPluginUpdateFeed : IPluginUpdateFee
         {
             return null;
         }
+    }
+
+    private bool CanUseManifestUrl(string manifestUrl, out Uri? manifestUri)
+    {
+        manifestUri = null;
+        if (!Uri.TryCreate(manifestUrl, UriKind.Absolute, out var parsedManifestUri))
+        {
+            return false;
+        }
+
+        if (!string.Equals(parsedManifestUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!HasTrustedManifestHost(parsedManifestUri.Host))
+        {
+            return false;
+        }
+
+        manifestUri = parsedManifestUri;
+        return true;
+    }
+
+    private bool HasTrustedManifestHost(string host)
+    {
+        return _trustedManifestHostNames.Contains(host);
     }
 }

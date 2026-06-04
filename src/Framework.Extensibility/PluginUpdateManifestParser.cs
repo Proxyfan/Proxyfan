@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.Json;
 
 namespace Proxyfan.Framework.Extensibility;
@@ -8,13 +9,14 @@ namespace Proxyfan.Framework.Extensibility;
 ///     schema is:
 ///     <code>
 ///     {
+///       "signature": "base64-encoded detached signature over the plugins array JSON",
 ///       "plugins": [
-///         { "id": "string", "latestVersion": "string", "downloadUrl": "string", "minApiVersion": "string" }
+///         { "id": "string", "latestVersion": "string", "downloadUrl": "https://...", "sha256": "64 hex chars", "minApiVersion": "string" }
 ///       ]
 ///     }
 ///     </code>
 ///     Malformed input (invalid JSON, wrong shape, or entries missing any of
-///     <c>id</c>, <c>latestVersion</c>, <c>downloadUrl</c>, or <c>minApiVersion</c>)
+///     <c>id</c>, <c>latestVersion</c>, <c>downloadUrl</c>, <c>sha256</c>, or <c>minApiVersion</c>)
 ///     returns <see langword="null" /> or, for individual entries, skips the entry.
 /// </summary>
 public static class PluginUpdateManifestParser
@@ -52,11 +54,23 @@ public static class PluginUpdateManifestParser
         var identifier = ReadString(element, "id");
         var latestVersion = ReadString(element, "latestVersion");
         var downloadUrl = ReadString(element, "downloadUrl");
+        var artifactSha256 = ReadString(element, "sha256");
         var minimumApiVersion = ReadString(element, "minApiVersion");
         if (string.IsNullOrWhiteSpace(identifier)
             || string.IsNullOrWhiteSpace(latestVersion)
             || string.IsNullOrWhiteSpace(downloadUrl)
+            || string.IsNullOrWhiteSpace(artifactSha256)
             || string.IsNullOrWhiteSpace(minimumApiVersion))
+        {
+            return null;
+        }
+
+        if (!HasHttpsUrl(downloadUrl))
+        {
+            return null;
+        }
+
+        if (!HasValidSha256(artifactSha256))
         {
             return null;
         }
@@ -74,6 +88,11 @@ public static class PluginUpdateManifestParser
     private static PluginUpdateManifest? BuildManifest(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!PluginUpdateManifestSignatureVerifier.HasValidSignature(root))
         {
             return null;
         }
@@ -105,6 +124,34 @@ public static class PluginUpdateManifestParser
             Plugins = entries,
         };
         return manifest;
+    }
+
+    private static bool HasHttpsUrl(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasValidSha256(string value)
+    {
+        if (value.Length != 64)
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = Convert.FromHexString(value);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static string? ReadString(JsonElement element, string propertyName)
