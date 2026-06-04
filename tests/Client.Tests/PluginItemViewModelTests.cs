@@ -148,6 +148,33 @@ public sealed class PluginItemViewModelTests
     }
 
     [Test]
+    public async Task RemoveCommand_WithSourceDirectory_DeleteFails_DoesNotDisableOrNotify()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "proxyfan-pivm-" + Path.GetRandomFileName());
+        File.WriteAllText(path, "content");
+        try
+        {
+            var metadata = new PluginMetadata("p.removefail", "P", "1", "A", "D", "1.0");
+            var loaded = new LoadedPlugin(metadata, null, true, null, path);
+            var store = new InMemoryStore();
+            var opener = new RecordingOpener();
+            var callbackCount = 0;
+            var viewModel = new PluginItemViewModel(loaded, store, opener, () => callbackCount++);
+
+            viewModel.RemoveCommand.Execute(null);
+
+            await Assert.That(store.IsDisabled("p.removefail")).IsFalse();
+            await Assert.That(callbackCount).IsEqualTo(0);
+            await Assert.That(viewModel.ErrorMessage).IsNotNull();
+            await Assert.That(viewModel.ErrorMessage).Contains("Failed to remove plugin folder:");
+        }
+        finally
+        {
+            try { File.Delete(path); } catch (Exception ex) { _ = ex; }
+        }
+    }
+
+    [Test]
     public async Task RemoveCommand_WithoutSourceDirectory_DisablesOnly()
     {
         var metadata = new PluginMetadata("p.removeonly", "P", "1", "A", "D", "1.0");

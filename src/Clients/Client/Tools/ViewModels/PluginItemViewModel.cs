@@ -18,6 +18,8 @@ public sealed partial class PluginItemViewModel : ObservableObject
     private readonly IPluginFolderOpener _folderOpener;
     private readonly PluginStateChangedCallback _onStateChanged;
     [ObservableProperty]
+    private string? _errorMessage;
+    [ObservableProperty]
     private bool _isEnabled;
 
     /// <summary>
@@ -34,11 +36,6 @@ public sealed partial class PluginItemViewModel : ObservableObject
     ///     Gets the plugin description.
     /// </summary>
     public string Description { get; }
-
-    /// <summary>
-    ///     Gets the human-readable error message when load failed, or null on success.
-    /// </summary>
-    public string? ErrorMessage { get; }
 
     /// <summary>
     ///     Gets the plugin identifier.
@@ -137,7 +134,6 @@ public sealed partial class PluginItemViewModel : ObservableObject
     [RelayCommand]
     private void Remove()
     {
-        _enabledStateStore.SetEnabled(Identifier, false);
         if (SourceDirectory is not null)
         {
             try
@@ -146,10 +142,12 @@ public sealed partial class PluginItemViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                _ = ex;
+                ErrorMessage = $"Failed to remove plugin folder: {ex.Message}";
+                return;
             }
         }
 
+        _enabledStateStore.SetEnabled(Identifier, false);
         _onStateChanged();
     }
 }
