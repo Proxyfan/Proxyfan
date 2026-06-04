@@ -73,13 +73,22 @@ public static class StartupConfigurationMigration
     private static void TryRenameLegacyConfigurationFile(string configurationDirectory, string configurationFilePath)
     {
         var legacyConfigurationFilePath = Path.Combine(configurationDirectory, LegacyConfigurationFileName);
-        if (!string.Equals(configurationFilePath, legacyConfigurationFilePath, StringComparison.OrdinalIgnoreCase))
+        var isLegacyConfigurationFilePath = string.Equals(
+            configurationFilePath,
+            legacyConfigurationFilePath,
+            StringComparison.OrdinalIgnoreCase);
+        if (!isLegacyConfigurationFilePath)
         {
             return;
         }
 
         var currentConfigurationFilePath = Path.Combine(configurationDirectory, ConfigurationFileName);
-        if (File.Exists(currentConfigurationFilePath) || !File.Exists(legacyConfigurationFilePath))
+        if (File.Exists(currentConfigurationFilePath))
+        {
+            return;
+        }
+
+        if (!File.Exists(legacyConfigurationFilePath))
         {
             return;
         }
