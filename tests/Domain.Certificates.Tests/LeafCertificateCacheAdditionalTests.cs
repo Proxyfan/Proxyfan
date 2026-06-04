@@ -89,6 +89,21 @@ public sealed class LeafCertificateCacheAdditionalTests
     }
 
     /// <summary>
+    ///     Verifies that evicting via a differently-cased host name removes the canonical cache entry.
+    /// </summary>
+    [Test]
+    public async Task Evict_HostnameDiffersByCase_RemovesCanonicalEntry()
+    {
+        var cache = new LeafCertificateCache(2);
+        var certificate = CertificateTestFactory.Create("example.com");
+        cache.GetOrAdd("example.com", _ => certificate);
+
+        cache.Evict("Example.COM");
+
+        await Assert.That(cache.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="LeafCertificateCache.Clear" /> removes every cached entry.
     /// </summary>
     [Test]
@@ -125,5 +140,21 @@ public sealed class LeafCertificateCacheAdditionalTests
 
         await Assert.That(() => cache.GetOrAdd("   ", _ => CertificateTestFactory.Create("unused")))
             .Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    ///     Verifies that the cache treats host names that differ only in case as the same entry.
+    /// </summary>
+    [Test]
+    public async Task GetOrAdd_HostnameDiffersByCase_ReusesCertificate()
+    {
+        var cache = new LeafCertificateCache(2);
+        var certificate = CertificateTestFactory.Create("example.com");
+
+        var first = cache.GetOrAdd("example.com", _ => certificate);
+        var second = cache.GetOrAdd("Example.COM", _ => CertificateTestFactory.Create("Example.COM"));
+
+        await Assert.That(second).IsSameReferenceAs(first);
+        await Assert.That(cache.Count).IsEqualTo(1);
     }
 }
