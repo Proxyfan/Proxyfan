@@ -1,5 +1,9 @@
+using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.Exceptions;
+using FlaUI.Core.Tools;
 using Proxyfan.Client.UiAutomationTests.Infrastructure;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -21,16 +25,18 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
     {
         await using var app = ProxyfanApp.Launch();
         var shell = new ShellPage(app);
+        Window preferencesWindow;
 
         using (var preferences = shell.OpenToolWindow("File", "Preferences...", "Preferences"))
         {
             await Assert.That(preferences.GetTitle()).IsEqualTo("Preferences");
+            preferencesWindow = preferences.Window;
             preferences.Close();
         }
 
+        EnsureWindowClosed(preferencesWindow, "Preferences");
         // After dispose only the main shell window may remain as a child of
         // the desktop owned by this process.
-        System.Threading.Thread.Sleep(400);
         var pid = shell.Window.Properties.ProcessId.Value;
         var children = app.Automation.GetDesktop().FindAllChildren(cf =>
             cf.ByControlType(ControlType.Window).And(cf.ByProcessId(pid)));
@@ -44,14 +50,16 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
     {
         await using var app = ProxyfanApp.Launch();
         var shell = new ShellPage(app);
+        Window blockListWindow;
 
         using (var blockList = shell.OpenToolWindow("Tools", "Block List...", "Block List"))
         {
             await Assert.That(blockList.GetTitle()).IsEqualTo("Block List");
+            blockListWindow = blockList.Window;
             blockList.Close();
         }
 
-        System.Threading.Thread.Sleep(400);
+        EnsureWindowClosed(blockListWindow, "Block List");
         var pid = shell.Window.Properties.ProcessId.Value;
         var children = app.Automation.GetDesktop().FindAllChildren(cf =>
             cf.ByControlType(ControlType.Window).And(cf.ByProcessId(pid)));
@@ -65,19 +73,49 @@ public sealed class ShellPageToolWindowCloseUiTests : UiAutomationTestBase
     {
         await using var app = ProxyfanApp.Launch();
         var shell = new ShellPage(app);
+        Window themeWindow;
 
         using (var theme = shell.OpenToolWindow("View", "Theme...", "Theme"))
         {
             await Assert.That(theme.GetTitle()).IsEqualTo("Theme");
+            themeWindow = theme.Window;
             theme.Close();
         }
 
-        System.Threading.Thread.Sleep(400);
+        EnsureWindowClosed(themeWindow, "Theme");
         var pid = shell.Window.Properties.ProcessId.Value;
         var children = app.Automation.GetDesktop().FindAllChildren(cf =>
             cf.ByControlType(ControlType.Window).And(cf.ByProcessId(pid)));
         var names = children.Select(c => c.Name ?? string.Empty).ToArray();
         await Assert.That(names.Length).IsEqualTo(1);
         await Assert.That(names[0]).IsEqualTo("Proxyfan");
+    }
+
+    private static void EnsureWindowClosed(Window window, string windowDescription)
+    {
+        var waitResult = Retry.WhileTrue(
+            () =>
+            {
+                try
+                {
+                    return window.IsAvailable;
+                }
+                catch (ElementNotAvailableException)
+                {
+                    return false;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return false;
+                }
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            interval: TimeSpan.FromMilliseconds(100),
+            throwOnTimeout: false);
+
+        if (!waitResult.Success)
+        {
+            throw new TimeoutException($"Window '{windowDescription}' was still available after waiting for it to close.");
+        }
     }
 }
