@@ -236,7 +236,15 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        RequestBodyText = InspectorTextFormatter.FormatBody(request.Body, request.Headers, forceDecodeBody: true);
+        try
+        {
+            RequestBodyText = InspectorTextFormatter.FormatBody(request.Body, request.Headers, forceDecodeBody: true);
+        }
+        catch (Exception ex)
+        {
+            RequestBodyText = "[Decoding failed: " + ex.Message + "]";
+        }
+
         IsRequestBodyDecompressionLimitExceeded = false;
     }
 
@@ -250,7 +258,15 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        ResponseBodyText = InspectorTextFormatter.FormatBody(response.Body, response.Headers, forceDecodeBody: true);
+        try
+        {
+            ResponseBodyText = InspectorTextFormatter.FormatBody(response.Body, response.Headers, forceDecodeBody: true);
+        }
+        catch (Exception ex)
+        {
+            ResponseBodyText = "[Decoding failed: " + ex.Message + "]";
+        }
+
         IsResponseBodyDecompressionLimitExceeded = false;
     }
 

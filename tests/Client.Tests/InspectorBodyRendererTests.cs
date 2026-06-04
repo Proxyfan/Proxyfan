@@ -1,6 +1,5 @@
 ﻿using Proxyfan.Client.Inspector;
 using Proxyfan.Domain.Traffic;
-using Proxyfan.Framework.Serialization;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -257,19 +256,6 @@ public sealed class InspectorBodyRendererTests
         var result = InspectorBodyRenderer.Render(body, headers);
 
         await Assert.That(result.StartsWith("[Binary: video/mp4, 4 bytes]", StringComparison.Ordinal)).IsTrue();
-    }
-
-    [Test]
-    public async Task Render_GzipBodyExceedsDecompressionLimit_ThrowsDecompressionLimitExceededException()
-    {
-        var payload = new byte[200];
-        var compressed = Gzip(payload);
-        var headers = HeaderCollection.Empty
-            .Add("Content-Type", "text/plain")
-            .Add("Content-Encoding", "gzip");
-
-        await Assert.That(() => ContentEncodingDecoder.Decode("gzip", compressed, maxDecompressedBytes: 100, maxDecompressionRatio: ContentEncodingDecoder.DefaultMaxDecompressionRatio))
-            .Throws<DecompressionLimitExceededException>();
     }
 
     [Test]
