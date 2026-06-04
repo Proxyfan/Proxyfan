@@ -12,6 +12,26 @@ namespace Proxyfan.Domain.Scripting;
 /// </summary>
 public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
 {
+    private readonly ScriptSandboxOptions _sandboxOptions;
+
+    /// <summary>
+    ///     Initializes a new <see cref="RoslynUserScriptCompiler" /> with the default sandbox
+    ///     limits (<see cref="ScriptSandboxOptions.Default" />).
+    /// </summary>
+    public RoslynUserScriptCompiler() : this(ScriptSandboxOptions.Default)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new <see cref="RoslynUserScriptCompiler" /> with the supplied
+    ///     <paramref name="sandboxOptions" />.
+    /// </summary>
+    /// <param name="sandboxOptions">Resource limits to bake into every compiled script.</param>
+    public RoslynUserScriptCompiler(ScriptSandboxOptions sandboxOptions)
+    {
+        _sandboxOptions = sandboxOptions;
+    }
+
     /// <inheritdoc />
     public ScriptCompilationResult Compile(string displayName, string requestScript, string responseScript)
     {
@@ -55,7 +75,7 @@ public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
             return ScriptCompilationResults.Failure(diagnostics);
         }
 
-        var script = new RoslynUserScript(displayName, compiledRequest, compiledResponse);
+        var script = new RoslynUserScript(displayName, compiledRequest, compiledResponse, _sandboxOptions);
         return ScriptCompilationResults.Success(script, diagnostics);
     }
 }

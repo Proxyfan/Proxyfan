@@ -19,7 +19,7 @@ public sealed class RoslynUserScriptTests
     [Test]
     public async Task Constructor_BothPhasesNull_DisablesBothPhases()
     {
-        var script = new RoslynUserScript("disabled", requestScript: null, responseScript: null);
+        var script = new RoslynUserScript("disabled", requestScript: null, responseScript: null, ScriptSandboxOptions.Default);
 
         await Assert.That(script.IsRequestPhaseEnabled).IsFalse();
         await Assert.That(script.IsResponsePhaseEnabled).IsFalse();
@@ -33,7 +33,7 @@ public sealed class RoslynUserScriptTests
     [Test]
     public async Task OnRequestAsync_NullRequestScript_CompletesWithoutThrowing()
     {
-        var script = new RoslynUserScript("noop", requestScript: null, responseScript: null);
+        var script = new RoslynUserScript("noop", requestScript: null, responseScript: null, ScriptSandboxOptions.Default);
         var request = BuildScriptableRequest();
         var sharedState = new Dictionary<string, object?>();
 
@@ -49,7 +49,7 @@ public sealed class RoslynUserScriptTests
     [Test]
     public async Task OnResponseAsync_NullResponseScript_CompletesWithoutThrowing()
     {
-        var script = new RoslynUserScript("noop", requestScript: null, responseScript: null);
+        var script = new RoslynUserScript("noop", requestScript: null, responseScript: null, ScriptSandboxOptions.Default);
         var request = BuildScriptableRequest();
         var response = BuildScriptableResponse();
         var sharedState = new Dictionary<string, object?>();

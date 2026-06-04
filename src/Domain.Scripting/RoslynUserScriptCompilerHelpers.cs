@@ -64,8 +64,6 @@ public static class RoslynUserScriptCompilerHelpers
             typeof(object).Assembly,
             typeof(List<>).Assembly,
             typeof(System.Linq.Enumerable).Assembly,
-            typeof(System.Threading.Tasks.Task).Assembly,
-            typeof(System.Net.Http.HttpClient).Assembly,
             typeof(ScriptableRequest).Assembly,
         };
         var imports = new[]
@@ -74,8 +72,6 @@ public static class RoslynUserScriptCompilerHelpers
             "System.Collections.Generic",
             "System.Linq",
             "System.Text",
-            "System.Threading",
-            "System.Threading.Tasks",
             "Proxyfan.Domain.Scripting",
         };
         var options = ScriptOptions.Default
