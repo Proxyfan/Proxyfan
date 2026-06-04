@@ -156,7 +156,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IsUpdateBannerVisible = true;
     }
 
-    private bool CanUseRemoteBindingWarning(string bindAddress)
+    private bool CanShowRemoteBindingWarning(string bindAddress)
     {
         if (!IPAddress.TryParse(bindAddress, out var parsedAddress))
         {
@@ -169,7 +169,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void ConfigureRemoteBindingWarning()
     {
         var bindAddress = _optionsMonitor.CurrentValue.BindAddress;
-        var isRemoteBinding = CanUseRemoteBindingWarning(bindAddress);
+        var isRemoteBinding = CanShowRemoteBindingWarning(bindAddress);
         IsRemoteBindingWarningVisible = isRemoteBinding;
         RemoteBindingWarningAddress = isRemoteBinding ? bindAddress : null;
     }

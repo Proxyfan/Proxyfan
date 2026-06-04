@@ -144,7 +144,10 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
     private bool CanProcessAcceptedSocket(Socket acceptedSocket)
     {
         var remoteEndPoint = acceptedSocket.RemoteEndPoint;
-        if (remoteEndPoint is null || (_accessPolicy is not null && !_accessPolicy.CanAllowRemoteEndpoint(remoteEndPoint)))
+        var isPolicyDenied = remoteEndPoint is not null
+            && _accessPolicy is not null
+            && !_accessPolicy.CanAllowRemoteEndpoint(remoteEndPoint);
+        if (remoteEndPoint is null || isPolicyDenied)
         {
             var unknownEndPoint = new IPEndPoint(IPAddress.None, 0);
             var logEndPoint = remoteEndPoint ?? unknownEndPoint;
