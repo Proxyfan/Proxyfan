@@ -393,7 +393,14 @@ public static class HarEntryParser
 
         var truncatedBody = new byte[maxEntryBodyBytes];
         var encoder = Encoding.UTF8.GetEncoder();
-        encoder.Convert(bodyText.AsSpan(), truncatedBody.AsSpan(), flush: true, out _, out _, out _);
+        encoder.Convert(bodyText.AsSpan(), truncatedBody.AsSpan(), flush: true, out _, out var bytesUsed, out _);
+        if (bytesUsed < truncatedBody.Length)
+        {
+            var resizedBody = new byte[bytesUsed];
+            Array.Copy(truncatedBody, resizedBody, bytesUsed);
+            truncatedBody = resizedBody;
+        }
+
         hasBodyBeenTruncated = true;
         return truncatedBody;
     }

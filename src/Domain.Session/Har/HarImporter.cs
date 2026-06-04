@@ -235,14 +235,14 @@ public sealed class HarImporter : IHarImporter
 
                     using (entryDocument)
                     {
-                        _entriesRead++;
-                        if (_entriesRead > _maxEntries)
+                        if (_entriesRead >= _maxEntries)
                         {
                             _bytesConsumed = (int)reader.BytesConsumed;
                             _jsonReaderState = reader.CurrentState;
                             return ParseBufferResult.StopImport;
                         }
 
+                        _entriesRead++;
                         var flow = HarEntryParser.ParseEntry(entryDocument.RootElement, _maxEntryBodyBytes);
                         if (flow is not null)
                         {
