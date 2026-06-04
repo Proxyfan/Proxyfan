@@ -16,6 +16,12 @@ namespace Proxyfan.Client.Traffic.ViewModels;
 public sealed class TrafficListCoordinator
 {
     /// <summary>
+    ///     Raised when the traffic list flow collection changes and the source
+    ///     list should rebuild from the latest host snapshot.
+    /// </summary>
+    public event TrafficListFlowsClearedHandler? FlowsChanged;
+
+    /// <summary>
     ///     Raised when the traffic list clears its flow collection. The
     ///     source list rebuilds its host groups in response.
     /// </summary>
@@ -53,6 +59,14 @@ public sealed class TrafficListCoordinator
         }
 
         return snapshot;
+    }
+
+    /// <summary>
+    ///     Publishes a flows-changed notification to subscribers.
+    /// </summary>
+    public void NotifyFlowsChanged()
+    {
+        FlowsChanged?.Invoke();
     }
 
     /// <summary>

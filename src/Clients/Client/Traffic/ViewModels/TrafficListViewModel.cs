@@ -391,7 +391,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             Flows.Add(viewModel);
         }
 
-        _coordinator.NotifyFlowsCleared();
+        _coordinator.NotifyFlowsChanged();
     }
 
     private void OnCoordinatorHostFilterRequested(string host)
