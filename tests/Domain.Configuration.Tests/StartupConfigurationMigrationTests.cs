@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Proxyfan.Domain.Configuration.Migration;
 
@@ -13,7 +12,7 @@ namespace Proxyfan.Domain.Configuration.Tests;
 public sealed class StartupConfigurationMigrationTests
 {
     /// <summary>
-    ///     Verifies that running the migration when no <c>config.yaml</c> exists returns an
+    ///     Verifies that running the migration when no <c>config.kv</c> exists returns an
     ///     empty result that does not write any file.
     /// </summary>
     [Test]
@@ -28,7 +27,7 @@ public sealed class StartupConfigurationMigrationTests
             var result = StartupConfigurationMigration.Run(directory, migrators, targetVersion);
 
             await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
-            await Assert.That(File.Exists(Path.Combine(directory, "config.yaml"))).IsFalse();
+            await Assert.That(File.Exists(Path.Combine(directory, StartupConfigurationMigration.ConfigurationFileName))).IsFalse();
         }
         finally
         {
@@ -46,7 +45,7 @@ public sealed class StartupConfigurationMigrationTests
         var directory = CreateTempDirectory();
         try
         {
-            var configPath = Path.Combine(directory, "config.yaml");
+            var configPath = Path.Combine(directory, StartupConfigurationMigration.ConfigurationFileName);
             File.WriteAllText(configPath, "version=1.0\nproxy.port=8080\n");
             var migrators = Array.Empty<IConfigurationMigrator>();
             var targetVersion = new ConfigurationVersion(1, 0);
@@ -73,7 +72,7 @@ public sealed class StartupConfigurationMigrationTests
         var directory = CreateTempDirectory();
         try
         {
-            var configPath = Path.Combine(directory, "config.yaml");
+            var configPath = Path.Combine(directory, StartupConfigurationMigration.ConfigurationFileName);
             File.WriteAllText(configPath, "version=1.0\nold.key=value\n");
             var migrator = new ConfigurationMigrator
             {
@@ -96,6 +95,36 @@ public sealed class StartupConfigurationMigrationTests
             var rewritten = File.ReadAllText(configPath);
             await Assert.That(rewritten).Contains("new.key=value");
             await Assert.That(rewritten).Contains("version=2.0");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that when only a legacy <c>config.yaml</c> file exists, it is loaded and
+    ///     renamed to <c>config.kv</c>.
+    /// </summary>
+    [Test]
+    public async Task Run_LegacyYamlFile_RenamesToKeyValueFileName()
+    {
+        var directory = CreateTempDirectory();
+        try
+        {
+            var legacyPath = Path.Combine(directory, StartupConfigurationMigration.LegacyConfigurationFileName);
+            var currentPath = Path.Combine(directory, StartupConfigurationMigration.ConfigurationFileName);
+            File.WriteAllText(legacyPath, "version=1.0\nproxy.port=8080\n");
+            var migrators = Array.Empty<IConfigurationMigrator>();
+            var targetVersion = new ConfigurationVersion(1, 0);
+
+            var result = StartupConfigurationMigration.Run(directory, migrators, targetVersion);
+
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(File.Exists(legacyPath)).IsFalse();
+            await Assert.That(File.Exists(currentPath)).IsTrue();
+            var rewritten = File.ReadAllText(currentPath);
+            await Assert.That(rewritten).Contains("proxy.port=8080");
         }
         finally
         {

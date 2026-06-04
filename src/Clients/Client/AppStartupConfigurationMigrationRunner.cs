@@ -10,7 +10,7 @@ namespace Proxyfan.Client;
 /// <summary>
 ///     Static helper invoked from <see cref="App" /> during construction to apply the
 ///     persisted configuration migration pipeline against the user's
-///     <c>%LOCALAPPDATA%/Proxyfan/config.yaml</c> before the host builder reads it. Lives
+///     <c>%LOCALAPPDATA%/Proxyfan/config.kv</c> before the host builder reads it. Lives
 ///     in its own type so that the analyzer's static-in-non-static-class rule (ATXCS011)
 ///     is satisfied and so the helper can be unit-tested in isolation.
 /// </summary>

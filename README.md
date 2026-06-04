@@ -91,7 +91,7 @@ network conditions, replay requests, and capture everything to disk.
 
 - **Plugin system** — drop-in C# plugins loaded into isolated `AssemblyLoadContext` instances with hot reload, marketplace update checks, enable/disable per plugin
 - **Auto-update** — periodic GitHub Releases poll, in-app banner with version + changelog
-- **Configuration migration** — older `config.yaml` files are migrated forward at startup with backups
+- **Configuration migration** — older `config.yaml` files are migrated to `config.kv` at startup with backups
 - **Internationalization** — all user-visible text in `.resx`; locale follows Windows by default
 - **Themes** — Light, Dark, follow-System with runtime switching
 - **Accessibility** — `AutomationProperties.Name` on every interactive control; screen-reader friendly
