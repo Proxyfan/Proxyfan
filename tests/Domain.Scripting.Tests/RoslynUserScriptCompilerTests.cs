@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Scripting.Tests;
@@ -91,5 +92,39 @@ public sealed class RoslynUserScriptCompilerTests
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Script!.IsRequestPhaseEnabled).IsFalse();
         await Assert.That(result.Script!.IsResponsePhaseEnabled).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that a script referencing <c>System.Net.Http.HttpClient</c> fails to compile
+    ///     because the <c>System.Net.Http</c> assembly is not included in the curated reference
+    ///     set exposed to user scripts.
+    /// </summary>
+    [Test]
+    public async Task Compile_ScriptReferencesForbiddenAssembly_ReturnsErrors()
+    {
+        var compiler = new RoslynUserScriptCompiler();
+        const string source = "_ = new System.Net.Http.HttpClient();";
+
+        var result = compiler.Compile("forbidden", source, string.Empty);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Diagnostics.Any(d => d.Severity == ScriptDiagnosticSeverity.Error)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that a script calling <c>System.Diagnostics.Process.Start</c> fails to compile
+    ///     because <c>System.Diagnostics</c> process-related types are not exposed in the curated
+    ///     reference set.
+    /// </summary>
+    [Test]
+    public async Task Compile_ScriptUsesProcessStart_ReturnsErrors()
+    {
+        var compiler = new RoslynUserScriptCompiler();
+        const string source = "System.Diagnostics.Process.Start(\"cmd\");";
+
+        var result = compiler.Compile("process-start", source, string.Empty);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Diagnostics.Any(d => d.Severity == ScriptDiagnosticSeverity.Error)).IsTrue();
     }
 }
