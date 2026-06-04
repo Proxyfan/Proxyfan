@@ -60,7 +60,7 @@ public static class CurlCommandConverter
         {
             CurlCommandShellFlavor.Bash => value.Replace("'", "'\\''", StringComparison.Ordinal),
             CurlCommandShellFlavor.PowerShell => value.Replace("'", "''", StringComparison.Ordinal),
-            _ => value,
+            _ => throw new ArgumentOutOfRangeException(nameof(shellFlavor), shellFlavor, "Unsupported cURL shell flavor."),
         };
         return "'" + escapedValue + "'";
     }

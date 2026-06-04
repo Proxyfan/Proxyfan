@@ -60,7 +60,7 @@ public sealed class CurlCommandConverterTests
 
         var command = CurlCommandConverter.ToCurl(request);
 
-        await Assert.That(command).Contains("'https://example.com/$(Start-Process calc)'");
+        await Assert.That(command).IsEqualTo("curl -X 'GET' 'https://example.com/$(Start-Process calc)'");
     }
 
     /// <summary>
@@ -74,7 +74,7 @@ public sealed class CurlCommandConverterTests
 
         var command = CurlCommandConverter.ToCurl(request, CurlCommandShellFlavor.Bash);
 
-        await Assert.That(command).Contains("-H 'X-Echo: $(uname) \"quoted\"'");
+        await Assert.That(command).IsEqualTo("curl -X 'GET' 'https://example.com/' -H 'X-Echo: $(uname) \"quoted\"'");
     }
 
     /// <summary>
