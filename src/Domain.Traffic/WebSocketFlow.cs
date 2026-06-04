@@ -164,7 +164,7 @@ public sealed class WebSocketFlow
         bool messageRecorded;
         lock (_gate)
         {
-            messageRecorded = CanAppendMessageCore(message);
+            AppendMessageCore(message, out messageRecorded);
         }
 
         if (messageRecorded)
@@ -173,7 +173,7 @@ public sealed class WebSocketFlow
         }
     }
 
-    private bool CanAppendMessageCore(WebSocketMessage message)
+    private void AppendMessageCore(WebSocketMessage message, out bool messageRecorded)
     {
         var incomingMessageSizeBytes = GetMessageSizeBytes(message);
         if (_messages.Count < _messageCapacity)
@@ -181,11 +181,13 @@ public sealed class WebSocketFlow
             if (!_streamingCaptureBudget.CanReserve(incomingMessageSizeBytes))
             {
                 _droppedMessagesCount++;
-                return false;
+                messageRecorded = false;
+                return;
             }
 
             _messages.Add(message);
-            return true;
+            messageRecorded = true;
+            return;
         }
 
         var oldestMessage = _messages[0];
@@ -193,13 +195,14 @@ public sealed class WebSocketFlow
         if (!_streamingCaptureBudget.CanReplaceReservation(oldestMessageSizeBytes, incomingMessageSizeBytes))
         {
             _droppedMessagesCount++;
-            return false;
+            messageRecorded = false;
+            return;
         }
 
         _messages.RemoveAt(0);
         _messages.Add(message);
         _droppedMessagesCount++;
-        return true;
+        messageRecorded = true;
     }
 
     private int GetMessageSizeBytes(WebSocketMessage message)

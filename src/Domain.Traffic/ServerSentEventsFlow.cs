@@ -155,7 +155,7 @@ public sealed class ServerSentEventsFlow
         bool eventRecorded;
         lock (_gate)
         {
-            eventRecorded = CanAppendEventCore(serverSentEvent);
+            AppendEventCore(serverSentEvent, out eventRecorded);
         }
 
         if (eventRecorded)
@@ -164,7 +164,7 @@ public sealed class ServerSentEventsFlow
         }
     }
 
-    private bool CanAppendEventCore(ServerSentEvent serverSentEvent)
+    private void AppendEventCore(ServerSentEvent serverSentEvent, out bool eventRecorded)
     {
         var incomingEventSizeBytes = GetEventSizeBytes(serverSentEvent);
         if (_events.Count < _eventCapacity)
@@ -172,11 +172,13 @@ public sealed class ServerSentEventsFlow
             if (!_streamingCaptureBudget.CanReserve(incomingEventSizeBytes))
             {
                 _droppedMessagesCount++;
-                return false;
+                eventRecorded = false;
+                return;
             }
 
             _events.Add(serverSentEvent);
-            return true;
+            eventRecorded = true;
+            return;
         }
 
         var oldestEvent = _events[0];
@@ -184,13 +186,14 @@ public sealed class ServerSentEventsFlow
         if (!_streamingCaptureBudget.CanReplaceReservation(oldestEventSizeBytes, incomingEventSizeBytes))
         {
             _droppedMessagesCount++;
-            return false;
+            eventRecorded = false;
+            return;
         }
 
         _events.RemoveAt(0);
         _events.Add(serverSentEvent);
         _droppedMessagesCount++;
-        return true;
+        eventRecorded = true;
     }
 
     private int GetEventSizeBytes(ServerSentEvent serverSentEvent)
