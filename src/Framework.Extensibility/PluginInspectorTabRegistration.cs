@@ -1,3 +1,5 @@
+using Proxyfan.Plugin.Abstractions;
+
 namespace Proxyfan.Framework.Extensibility;
 
 /// <summary>
@@ -7,16 +9,16 @@ namespace Proxyfan.Framework.Extensibility;
 public sealed class PluginInspectorTabRegistration
 {
     /// <summary>
-    ///     Gets the display name of the inspector tab.
+    ///     Gets the inspector implementation contributed by the plugin.
     /// </summary>
-    public string TabName { get; }
+    public ITrafficInspector Inspector { get; }
 
     /// <summary>
     ///     Initializes a new <see cref="PluginInspectorTabRegistration" />.
     /// </summary>
-    /// <param name="tabName">The display name of the tab.</param>
-    public PluginInspectorTabRegistration(string tabName)
+    /// <param name="inspector">The inspector implementation.</param>
+    public PluginInspectorTabRegistration(ITrafficInspector inspector)
     {
-        TabName = tabName;
+        Inspector = inspector;
     }
 }
