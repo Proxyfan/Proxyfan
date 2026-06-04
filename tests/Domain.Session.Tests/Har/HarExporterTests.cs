@@ -3,6 +3,7 @@ using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -368,6 +369,36 @@ public sealed class HarExporterTests
             .Throws<OperationCanceledException>();
         await Assert.That(baseline.Length).IsGreaterThan(10_000);
         await Assert.That(output.Length).IsLessThan(baseline.Length / 100);
+    }
+
+    /// <summary>
+    ///     Verifies that exporting with gzip compression enabled produces a valid gzip stream
+    ///     that can be re-imported and yields the same flows as the original.
+    /// </summary>
+    [Test]
+    public async Task ExportAsync_GzipHarRequested_RoundTripsImportedFlows()
+    {
+        var flow = CreateCompletedFlow();
+        var exporter = new HarExporter(compressWithGzip: true);
+        var importer = new HarImporter();
+        using var output = new MemoryStream();
+
+        await exporter.ExportAsync(new[] { flow }, output, CancellationToken.None);
+
+        output.Position = 0;
+        var firstTwoBytes = new byte[2];
+        await output.ReadAsync(firstTwoBytes.AsMemory());
+        await Assert.That(firstTwoBytes[0]).IsEqualTo((byte)0x1F);
+        await Assert.That(firstTwoBytes[1]).IsEqualTo((byte)0x8B);
+
+        output.Position = 0;
+        var importedFlows = await importer.ImportAsync(output, CancellationToken.None);
+
+        await Assert.That(importedFlows.Count).IsEqualTo(1);
+        await Assert.That(importedFlows[0].Request!.Method).IsEqualTo("GET");
+        await Assert.That(importedFlows[0].Request!.RequestUri.ToString()).IsEqualTo("https://example.com/api/users");
+        await Assert.That(importedFlows[0].Response!.StatusCode).IsEqualTo(200);
+        await Assert.That(Encoding.UTF8.GetString(importedFlows[0].Response!.Body.Span)).IsEqualTo("hello");
     }
 
     private static TrafficFlow CreateCompletedFlow()

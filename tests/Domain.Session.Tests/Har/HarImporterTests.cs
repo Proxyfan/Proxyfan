@@ -199,6 +199,22 @@ public sealed class HarImporterTests
     }
 
     /// <summary>
+    ///     Verifies that a stream with gzip magic bytes followed by corrupt or truncated gzip
+    ///     data raises an <see cref="InvalidDataException" /> with an actionable message.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_GzipHarMissingTrailer_RaisesActionableError()
+    {
+        var corruptGzip = new byte[] { 0x1F, 0x8B, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03 };
+        var importer = new HarImporter();
+        using var input = new MemoryStream(corruptGzip);
+
+        var exception = await Assert.That(async () => await importer.ImportAsync(input, CancellationToken.None))
+            .Throws<InvalidDataException>();
+        await Assert.That(exception!.Message).Contains(".har.gz");
+    }
+
+    /// <summary>
     ///     Verifies that oversized response bodies are truncated and marked as truncated on the flow.
     /// </summary>
     [Test]

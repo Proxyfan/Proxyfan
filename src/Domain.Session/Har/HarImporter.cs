@@ -3,6 +3,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,6 +51,11 @@ public sealed class HarImporter : IHarImporter
     public async Task<IReadOnlyList<TrafficFlow>> ImportAsync(Stream input, CancellationToken cancellationToken)
     {
         EnsureInputSizeWithinLimit(input);
+        if (await HasGzipMagicBytesAsync(input, cancellationToken).ConfigureAwait(false))
+        {
+            return await ImportGzipAsync(input, cancellationToken).ConfigureAwait(false);
+        }
+
         var reader = new HarImportEntryStreamReader(_maxHarBytes, _maxEntries, _maxEntryBodyBytes);
         return await reader.ReadAsync(input, cancellationToken).ConfigureAwait(false);
     }
@@ -65,6 +71,39 @@ public sealed class HarImporter : IHarImporter
         if (remainingLength > _maxHarBytes)
         {
             throw new InvalidDataException($"HAR file exceeds the configured {_maxHarBytes} byte import limit.");
+        }
+    }
+
+    private async Task<bool> HasGzipMagicBytesAsync(Stream input, CancellationToken cancellationToken)
+    {
+        if (!input.CanSeek || input.Length - input.Position < 2)
+        {
+            return false;
+        }
+
+        var savedPosition = input.Position;
+        var magic = new byte[2];
+        var bytesRead = await input.ReadAsync(magic.AsMemory(), cancellationToken).ConfigureAwait(false);
+        input.Position = savedPosition;
+        return bytesRead == 2 && magic[0] == 0x1F && magic[1] == 0x8B;
+    }
+
+    private async Task<IReadOnlyList<TrafficFlow>> ImportGzipAsync(Stream input, CancellationToken cancellationToken)
+    {
+        var gzipStream = new GZipStream(input, CompressionMode.Decompress, leaveOpen: true);
+        await using (gzipStream.ConfigureAwait(false))
+        {
+            try
+            {
+                var reader = new HarImportEntryStreamReader(_maxHarBytes, _maxEntries, _maxEntryBodyBytes);
+                return await reader.ReadAsync(gzipStream, cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new InvalidDataException(
+                    "The .har.gz file could not be decompressed. The gzip data is corrupt or truncated.",
+                    ex);
+            }
         }
     }
 
