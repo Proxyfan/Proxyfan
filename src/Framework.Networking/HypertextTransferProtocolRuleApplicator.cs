@@ -163,22 +163,42 @@ public static class HypertextTransferProtocolRuleApplicator
     }
 
     /// <summary>
-    ///     Finds the first short-circuiting action (Block or ServeLocalResponse) in the supplied
-    ///     action list, or returns <see langword="null" /> when no such action is present.
+    ///     Finds the first short-circuiting action (Block, Pause, or ServeLocalResponse) in the
+    ///     supplied action list, or returns <see langword="null" /> when no such action is present.
     /// </summary>
     /// <param name="actions">The actions returned by the rule engine.</param>
-    /// <returns>The first blocking or local-response action, or null.</returns>
+    /// <returns>The first blocking, pause, or local-response action, or null.</returns>
     public static RequestPipelineAction? FindBlockingAction(IReadOnlyList<RequestPipelineAction> actions)
     {
         foreach (var action in actions)
         {
-            if (action is RequestPipelineAction.Block or RequestPipelineAction.ServeLocalResponse)
+            if (action is RequestPipelineAction.Block or RequestPipelineAction.Pause or RequestPipelineAction.ServeLocalResponse)
             {
                 return action;
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when the supplied response actions contain a
+    ///     <see cref="ResponsePipelineAction.Pause" /> action indicating the breakpoint rule
+    ///     aborted the response phase.
+    /// </summary>
+    /// <param name="actions">The actions returned by the rule engine.</param>
+    /// <returns><see langword="true" /> when a pause action is present; otherwise <see langword="false" />.</returns>
+    public static bool HasResponsePauseAction(IReadOnlyList<ResponsePipelineAction> actions)
+    {
+        foreach (var action in actions)
+        {
+            if (action is ResponsePipelineAction.Pause)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

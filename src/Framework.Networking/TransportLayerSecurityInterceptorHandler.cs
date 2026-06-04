@@ -3,8 +3,7 @@ using Proxyfan.Domain;
 using Proxyfan.Domain.DomainNameSystemSpoofing;
 using Proxyfan.Domain.Proxy;
 using Proxyfan.Domain.Rules;
-using Proxyfan.Domain.Rules.Rules;
-using Proxyfan.Domain.Scripting;
+using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using System;
@@ -42,7 +41,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private static readonly byte[] ConnectPrefix;
     private static readonly byte[] ErrorResponseBytes;
     private static readonly byte[] SuccessResponseBytes;
-    private readonly IBreakpointHandler? _breakpointHandler;
     private readonly TransportLayerSecurityInterceptionContext _context;
     private readonly TransportLayerSecurityInterceptorHandlerDependencies _dependencies;
     private readonly IDomainEventBus _eventBus;
@@ -51,7 +49,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
     private readonly PacketLossSampler _packetLossSampler;
     private readonly IRemoteProcedureCallStore? _remoteProcedureCallStore;
     private readonly IRuleEngine? _ruleEngine;
-    private readonly IScriptingHandler? _scriptingHandler;
     private readonly IServerSentEventsStore? _serverSentEventsStore;
     private readonly MutableThrottleProfile? _throttleProfile;
     private readonly TimeProvider _timeProvider;
@@ -80,8 +77,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         _logger = dependencies.Logger;
         _trafficStore = dependencies.TrafficStore;
         _ruleEngine = dependencies.RuleEngine;
-        _breakpointHandler = dependencies.BreakpointHandler;
-        _scriptingHandler = dependencies.ScriptingHandler;
         _timeProvider = dependencies.TimeProvider ?? TimeProvider.System;
         _serverSentEventsStore = dependencies.ServerSentEventsStore;
         _remoteProcedureCallStore = dependencies.RemoteProcedureCallStore;
@@ -137,22 +132,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
                 LogTunnelError(ex, target.Host, target.Port);
             }
         }
-    }
-
-    private async Task<HypertextTransferProtocolRequestData> ApplyRequestScriptingAsync(
-        TrafficFlow flow,
-        HypertextTransferProtocolRequestData effectiveRequest,
-        CancellationToken cancellationToken)
-    {
-        var bundle = new TransportLayerSecurityInterceptedScriptingRequestRequest
-        {
-            EffectiveRequest = effectiveRequest,
-            Flow = flow,
-            Handler = _scriptingHandler,
-            Logger = _logger,
-        };
-        var projected = await TransportLayerSecurityInterceptedScripting.ApplyRequestAsync(bundle, cancellationToken).ConfigureAwait(false);
-        return projected;
     }
 
     private async Task<bool> CompleteInterceptedResponseAsync(
@@ -392,20 +371,20 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         flow.SetRequest(requestExchange.Request);
         TransportLayerSecurityInterceptorEvents.PublishRequestReceived(_eventBus, flow, requestExchange.Request);
 
-        var requestActions = _ruleEngine?.EvaluateRequest(requestExchange.Request) ?? [];
+        var flowId = flow.Id.ToString();
+        var requestActions = _ruleEngine is not null
+            ? await _ruleEngine.EvaluateRequestAsync(requestExchange.Request, flowId, cancellationToken).ConfigureAwait(false)
+            : [];
         var effectiveRequest = HypertextTransferProtocolRuleApplicator.ApplyRequestModifications(requestExchange.Request, requestActions);
         var blockingAction = HypertextTransferProtocolRuleApplicator.FindBlockingAction(requestActions);
-        var breakResult = await ResolveRequestBreakpointAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
-        if (breakResult.IsAborting)
+        if (blockingAction is RequestPipelineAction.Block or RequestPipelineAction.Pause)
         {
             flow.Fail();
             TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
             return false;
         }
-        effectiveRequest = breakResult.ModifiedRequest ?? effectiveRequest;
-        effectiveRequest = await ApplyRequestScriptingAsync(flow, effectiveRequest, cancellationToken).ConfigureAwait(false);
 
-        var serveLocal = blockingAction as Domain.Rules.Pipeline.RequestPipelineAction.ServeLocalResponse;
+        var serveLocal = blockingAction as RequestPipelineAction.ServeLocalResponse;
         if (serveLocal is null && WebSocketUpgradeDetector.HasWebSocketUpgradeRequest(effectiveRequest))
         {
             var upgradeRequest = new TransportLayerSecurityInterceptedUpgradeRequest
@@ -485,17 +464,18 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         TransportLayerSecurityResponsePhaseContext context,
         CancellationToken cancellationToken)
     {
-        var responseActions = _ruleEngine?.EvaluateResponse(context.EffectiveRequest, context.ResponseExchange.Response) ?? [];
-        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(context.ResponseExchange.Response, responseActions);
-        var scriptingResponseRequest = new TransportLayerSecurityInterceptedScriptingResponseRequest
+        var flowId = context.Flow.Id.ToString();
+        var responseActions = _ruleEngine is not null
+            ? await _ruleEngine.EvaluateResponseAsync(context.EffectiveRequest, context.ResponseExchange.Response, flowId, cancellationToken).ConfigureAwait(false)
+            : [];
+        if (HypertextTransferProtocolRuleApplicator.HasResponsePauseAction(responseActions))
         {
-            EffectiveRequest = context.EffectiveRequest,
-            FinalResponse = finalResponse,
-            Flow = context.Flow,
-            Handler = _scriptingHandler,
-            Logger = _logger,
-        };
-        finalResponse = await TransportLayerSecurityInterceptedScripting.ApplyResponseAsync(scriptingResponseRequest, cancellationToken).ConfigureAwait(false);
+            context.Flow.Fail();
+            TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, context.Flow);
+            return false;
+        }
+
+        var finalResponse = HypertextTransferProtocolRuleApplicator.ApplyResponseModifications(context.ResponseExchange.Response, responseActions);
         finalResponse = ForwardedResponseRewriter.Rewrite(finalResponse);
         var finalExchange = HypertextTransferProtocolRuleApplicator.BuildResponseExchangeWith(context.ResponseExchange, finalResponse);
 
@@ -519,19 +499,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         var forward = CopyAndSignalAsync(connection.Transport.Input, serverWriter, relayCancellationSource, relayToken);
         var backward = CopyAndSignalAsync(serverReader, connection.Transport.Output, relayCancellationSource, relayToken);
         await Task.WhenAll(forward, backward).ConfigureAwait(false);
-    }
-
-    private async Task<Domain.Rules.Rules.BreakpointDecision> ResolveRequestBreakpointAsync(
-        HypertextTransferProtocolRequestData request,
-        CancellationToken cancellationToken)
-    {
-        if (_breakpointHandler is null)
-        {
-            return BreakpointDecisions.ResumeRequest(request);
-        }
-
-        var decision = await _breakpointHandler.ResolveRequestAsync(request, cancellationToken).ConfigureAwait(false);
-        return decision;
     }
 
     private async Task RunHypertextTransferProtocolLoopAsync(

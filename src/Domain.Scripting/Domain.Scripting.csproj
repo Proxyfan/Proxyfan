@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Domain\Domain.csproj" />
+        <ProjectReference Include="..\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
     </ItemGroup>
 

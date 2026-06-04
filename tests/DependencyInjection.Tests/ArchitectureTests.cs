@@ -1,5 +1,7 @@
 ﻿using Architecture = ArchUnitNET.Domain.Architecture;
+using ArchUnitNET.Fluent;
 using ArchUnitNET.Loader;
+using ArchUnitNET.TUnit;
 using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Certificates;
@@ -20,6 +22,7 @@ namespace Proxyfan.DependencyInjection.Tests;
 /// </summary>
 public sealed class ArchitectureTests
 {
+    private static readonly Architecture NetworkingArchitecture;
     private static readonly Architecture TestArchitecture;
 
     static ArchitectureTests()
@@ -28,6 +31,28 @@ public sealed class ArchitectureTests
         TestArchitecture = loader
             .LoadAssemblies(typeof(ServiceCollectionExtensions).Assembly)
             .Build();
+        var networkingLoader = new ArchLoader();
+        NetworkingArchitecture = networkingLoader
+            .LoadAssemblies(typeof(ConnectionDispatcher).Assembly)
+            .Build();
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="IConnectionHandler" /> implementations in
+    ///     <c>Framework.Networking</c> do not directly depend on
+    ///     <c>IBreakpointHandler</c> or <c>IScriptingHandler</c>. These handlers
+    ///     must now be invoked exclusively through <see cref="Proxyfan.Domain.Rules.IRuleEngine" />,
+    ///     which routes traffic through <c>BreakpointRule</c> and <c>ScriptingRule</c>.
+    /// </summary>
+    [Test]
+    public void ConnectionHandlers_WhenLoaded_DoNotDirectlyDependOnBreakpointOrScriptingHandlers()
+    {
+        var rule = ArchRuleDefinition.Classes()
+            .That().ImplementInterface(typeof(IConnectionHandler))
+            .Should().NotDependOnAnyTypesThat().HaveName("IBreakpointHandler")
+            .AndShould().NotDependOnAnyTypesThat().HaveName("IScriptingHandler");
+
+        NetworkingArchitecture.CheckRule(rule);
     }
 
     /// <summary>

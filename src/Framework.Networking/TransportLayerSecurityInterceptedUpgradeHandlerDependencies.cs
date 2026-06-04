@@ -1,8 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Rules;
-using Proxyfan.Domain.Rules.Rules;
-using Proxyfan.Domain.Scripting;
 using Proxyfan.Domain.Traffic;
 using System;
 
@@ -10,18 +8,12 @@ namespace Proxyfan.Framework.Networking;
 
 /// <summary>
 ///     Dependency bundle for <see cref="TransportLayerSecurityInterceptedUpgradeHandler" />.
-///     Bundling lets the handler accept the rule engine, scripting handler, and breakpoint
-///     handler that drive response-phase policy for intercepted HTTP/1.1 Upgrade exchanges
+///     Bundling lets the handler accept the rule engine and event bus that drive
+///     response-phase policy for intercepted HTTP/1.1 Upgrade exchanges
 ///     without exceeding the analyzer-enforced constructor parameter limit (ATXCS022).
 /// </summary>
 public sealed class TransportLayerSecurityInterceptedUpgradeHandlerDependencies
 {
-    /// <summary>
-    ///     Gets the optional breakpoint handler used to pause the upstream upgrade response
-    ///     before it is forwarded to the client.
-    /// </summary>
-    public IBreakpointHandler? BreakpointHandler { get; init; }
-
     /// <summary>
     ///     Gets the domain event bus used to publish captured flow events.
     /// </summary>
@@ -37,12 +29,6 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerDependencies
     ///     upstream upgrade response (Modify Response, No Caching, ...).
     /// </summary>
     public IRuleEngine? RuleEngine { get; init; }
-
-    /// <summary>
-    ///     Gets the optional scripting handler used to invoke user scripts on the upstream
-    ///     upgrade response.
-    /// </summary>
-    public IScriptingHandler? ScriptingHandler { get; init; }
 
     /// <summary>
     ///     Gets the time provider used for WebSocket message timestamps.

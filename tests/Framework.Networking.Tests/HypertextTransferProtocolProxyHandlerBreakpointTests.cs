@@ -108,14 +108,20 @@ public sealed class HypertextTransferProtocolProxyHandlerBreakpointTests
 
     private static HypertextTransferProtocolProxyHandler CreateHandler(StubBreakpointHandler? breakpointHandler, ITrafficStore trafficStore)
     {
-        var ruleEngine = new RuleEngine(System.Array.Empty<IRequestPhaseRule>(), System.Array.Empty<IResponsePhaseRule>());
+        var registry = new RuleRegistry();
+        if (breakpointHandler is not null)
+        {
+            var breakpointRule = new BreakpointRule(breakpointHandler);
+            registry.RegisterAsyncRequestPhaseRule(breakpointRule);
+            registry.RegisterAsyncResponsePhaseRule(breakpointRule);
+        }
+        var ruleEngine = new RuleEngine(registry);
         var handler = new HypertextTransferProtocolProxyHandler(new HypertextTransferProtocolProxyHandlerDependencies
         {
             TrafficStore = trafficStore,
             EventBus = new StubDomainEventBus(),
             RuleEngine = ruleEngine,
             Logger = NullLogger<HypertextTransferProtocolProxyHandler>.Instance,
-            BreakpointHandler = breakpointHandler,
         });
         return handler;
     }

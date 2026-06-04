@@ -11,9 +11,8 @@ public static class TransportLayerSecurityInterceptedUpgradeHandlerDependenciesB
 {
     /// <summary>
     ///     Builds a dependency bundle for the upgrade handler from the broader interceptor
-    ///     dependencies. Forwards rule engine, scripting handler, and breakpoint handler so
-    ///     intercepted Upgrade responses go through the same response-phase pipeline as
-    ///     normal intercepted HTTPS responses.
+    ///     dependencies. Forwards the rule engine so intercepted Upgrade responses go through
+    ///     the same response-phase pipeline as normal intercepted HTTPS responses.
     /// </summary>
     /// <param name="dependencies">The broader interceptor dependencies.</param>
     /// <returns>The upgrade-handler dependency bundle.</returns>
@@ -22,11 +21,9 @@ public static class TransportLayerSecurityInterceptedUpgradeHandlerDependenciesB
     {
         return new TransportLayerSecurityInterceptedUpgradeHandlerDependencies
         {
-            BreakpointHandler = dependencies.BreakpointHandler,
             EventBus = dependencies.EventBus,
             Logger = dependencies.Logger,
             RuleEngine = dependencies.RuleEngine,
-            ScriptingHandler = dependencies.ScriptingHandler,
             TimeProvider = dependencies.TimeProvider ?? System.TimeProvider.System,
             TrafficStore = dependencies.TrafficStore,
             WebSocketStore = dependencies.WebSocketStore,

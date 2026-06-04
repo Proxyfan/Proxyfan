@@ -16,6 +16,20 @@ public interface IRuleRegistry
     event RuleRegistryChanged? Changed;
 
     /// <summary>
+    ///     Gets a snapshot of the current async request-phase rules, sorted by
+    ///     ascending <see cref="IAsyncRequestPhaseRule.Priority" />.
+    /// </summary>
+    /// <returns>The ordered async request-phase rule list.</returns>
+    IReadOnlyList<IAsyncRequestPhaseRule> GetAsyncRequestPhaseRules();
+
+    /// <summary>
+    ///     Gets a snapshot of the current async response-phase rules, sorted by
+    ///     ascending <see cref="IAsyncResponsePhaseRule.Priority" />.
+    /// </summary>
+    /// <returns>The ordered async response-phase rule list.</returns>
+    IReadOnlyList<IAsyncResponsePhaseRule> GetAsyncResponsePhaseRules();
+
+    /// <summary>
     ///     Gets a snapshot of the current request-phase rules, sorted by
     ///     ascending <see cref="IRequestPhaseRule.Priority" />.
     /// </summary>
@@ -30,6 +44,18 @@ public interface IRuleRegistry
     IReadOnlyList<IResponsePhaseRule> GetResponsePhaseRules();
 
     /// <summary>
+    ///     Registers an additional async request-phase rule with the registry.
+    /// </summary>
+    /// <param name="rule">The rule to register.</param>
+    void RegisterAsyncRequestPhaseRule(IAsyncRequestPhaseRule rule);
+
+    /// <summary>
+    ///     Registers an additional async response-phase rule with the registry.
+    /// </summary>
+    /// <param name="rule">The rule to register.</param>
+    void RegisterAsyncResponsePhaseRule(IAsyncResponsePhaseRule rule);
+
+    /// <summary>
     ///     Registers an additional request-phase rule with the registry.
     /// </summary>
     /// <param name="rule">The rule to register.</param>
@@ -40,6 +66,20 @@ public interface IRuleRegistry
     /// </summary>
     /// <param name="rule">The rule to register.</param>
     void RegisterResponsePhaseRule(IResponsePhaseRule rule);
+
+    /// <summary>
+    ///     Removes a previously registered async request-phase rule from the registry.
+    ///     No-op when the rule was not present.
+    /// </summary>
+    /// <param name="rule">The rule to remove.</param>
+    void UnregisterAsyncRequestPhaseRule(IAsyncRequestPhaseRule rule);
+
+    /// <summary>
+    ///     Removes a previously registered async response-phase rule from the registry.
+    ///     No-op when the rule was not present.
+    /// </summary>
+    /// <param name="rule">The rule to remove.</param>
+    void UnregisterAsyncResponsePhaseRule(IAsyncResponsePhaseRule rule);
 
     /// <summary>
     ///     Removes a previously registered request-phase rule from the registry.
