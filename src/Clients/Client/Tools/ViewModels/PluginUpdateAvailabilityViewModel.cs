@@ -1,11 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Proxyfan.Framework.Extensibility;
 
 namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
 ///     A single available plugin update row displayed in the Plugin Manager updates panel.
-///     Wraps a <see cref="PluginUpdateAvailability" /> with bindable string properties and
+///     Wraps a <see cref="PluginUpdateAvailabilityModel" /> with bindable string properties and
 ///     a derived label suitable for direct binding.
 /// </summary>
 public sealed partial class PluginUpdateAvailabilityViewModel : ObservableObject
@@ -56,7 +55,7 @@ public sealed partial class PluginUpdateAvailabilityViewModel : ObservableObject
     ///     Initializes a new <see cref="PluginUpdateAvailabilityViewModel" />.
     /// </summary>
     /// <param name="availability">The availability entry to wrap.</param>
-    public PluginUpdateAvailabilityViewModel(PluginUpdateAvailability availability)
+    public PluginUpdateAvailabilityViewModel(PluginUpdateAvailabilityModel availability)
     {
         Identifier = availability.Identifier;
         Name = availability.Name;
