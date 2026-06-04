@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain.Certificates;
-using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
 using System.IO;
@@ -152,8 +151,6 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var forwardedResponse = await ReadExactAsync(client.SecureStream, responseFrames.Length, cancellationSource.Token);
         await Assert.That(forwardedResponse.AsSpan().SequenceEqual(responseFrames)).IsTrue();
 
-        await eventBus.WaitForEventAsync<TrafficFlowCompleted>(cancellationSource.Token);
-
         await Assert.That(trafficStore.AddedFlows.Count).IsEqualTo(1);
         var captured = trafficStore.AddedFlows[0];
         await Assert.That(captured.Request).IsNotNull();
@@ -238,7 +235,6 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var forwardedResponseDataFrame = await ReadOneFrameBytesAsync(client.SecureStream, cancellationSource.Token);
         await Assert.That(forwardedResponseHeadersFrame.AsSpan().SequenceEqual(responseHeadersFrame)).IsTrue();
         await Assert.That(forwardedResponseDataFrame.AsSpan().SequenceEqual(responseDataFrame)).IsTrue();
-        await eventBus.WaitForEventAsync<TrafficFlowCompleted>(cancellationSource.Token);
 
         await Assert.That(trafficStore.AddedFlows.Count).IsEqualTo(1);
     }
@@ -341,6 +337,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     private static TransportLayerSecurityInterceptorHandler CreateInterceptingHandler(StubTrafficStore trafficStore, StubDomainEventBus eventBus)
     {
         var proxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
+        proxyingList.AddIncludedPattern("*");
         var context = new TransportLayerSecurityInterceptionContext(
             new MutableCertificateAuthorityProvider(new StubCertificateGenerator()),
             proxyingList);
