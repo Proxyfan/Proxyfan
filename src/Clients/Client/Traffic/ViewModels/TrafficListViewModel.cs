@@ -369,21 +369,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         var hosts = new List<string>(Flows.Count);
         foreach (var flow in Flows)
         {
-            var request = flow.Source.Request;
-            if (request is null)
-            {
-                hosts.Add(flow.Host);
-                continue;
-            }
-
-            var headerHost = request.Headers.Get("Host");
-            if (!string.IsNullOrWhiteSpace(headerHost))
-            {
-                hosts.Add(headerHost);
-                continue;
-            }
-
-            hosts.Add(request.RequestUri.Host);
+            var host = SourceHostExtractor.Extract(flow.Source.Request, flow.Host);
+            hosts.Add(host);
         }
 
         return hosts;
