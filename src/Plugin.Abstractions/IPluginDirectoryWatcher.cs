@@ -1,6 +1,6 @@
 using System;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Abstraction over a filesystem watcher for the plugins root. Implementations raise

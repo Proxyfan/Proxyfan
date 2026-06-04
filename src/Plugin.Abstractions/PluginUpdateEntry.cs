@@ -1,4 +1,4 @@
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     A single entry in a remote plugin update manifest. Identifies one plugin by its

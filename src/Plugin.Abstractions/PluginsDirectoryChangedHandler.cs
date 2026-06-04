@@ -1,4 +1,4 @@
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Notification raised by <see cref="IPluginDirectoryWatcher" /> when the plugins root

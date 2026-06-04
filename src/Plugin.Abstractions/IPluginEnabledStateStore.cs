@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Persists the list of plugin identifiers that the user has explicitly disabled.

@@ -1,4 +1,5 @@
 using Proxyfan.Framework.Extensibility;
+using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;

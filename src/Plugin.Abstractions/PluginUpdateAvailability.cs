@@ -1,7 +1,7 @@
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
-///     One available plugin update, computed by joining a <see cref="LoadedPlugin" /> in
+///     One available plugin update, computed by joining an <see cref="IPluginLoadState" /> in
 ///     the registry with the matching <see cref="PluginUpdateEntry" /> in a remote manifest.
 ///     <para>
 ///         The resolver only emits an entry when the manifest version is strictly newer

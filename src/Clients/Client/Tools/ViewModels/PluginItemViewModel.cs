@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
 using System;
 using System.IO;

@@ -1,6 +1,6 @@
 using System;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Compares plugin-declared API version requirements against the host's actual API version.

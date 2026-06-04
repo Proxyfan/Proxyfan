@@ -13,6 +13,7 @@
         <ProjectReference Include="..\Domain.Proxy\Domain.Proxy.csproj" />
         <ProjectReference Include="..\Domain.Updates\Domain.Updates.csproj" />
         <ProjectReference Include="..\Framework.Extensibility\Framework.Extensibility.csproj" />
+        <ProjectReference Include="..\Plugin.Abstractions\Plugin.Abstractions.csproj" />
     </ItemGroup>
 
 </Project>

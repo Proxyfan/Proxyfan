@@ -1,8 +1,7 @@
-using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Joins an <see cref="IPluginRegistry" /> snapshot against a fetched

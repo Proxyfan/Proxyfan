@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Proxyfan.Framework.Extensibility;
+namespace Proxyfan.Plugin.Abstractions;
 
 /// <summary>
 ///     Pure parser for SemVer-style "major.minor" strings used by
