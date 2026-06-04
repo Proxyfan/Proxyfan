@@ -3,10 +3,12 @@ using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
+using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
@@ -74,6 +76,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         await Assert.That((int)response.StatusCode).IsEqualTo(200);
         await Assert.That(responseText).IsEqualTo("hello");
     }
+
 
     private static bool AcceptInterceptorLeafCertificate(
         HttpRequestMessage request,
