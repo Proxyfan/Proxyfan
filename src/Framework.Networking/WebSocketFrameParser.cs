@@ -63,14 +63,14 @@ public static class WebSocketFrameParser
             throw new System.IO.InvalidDataException("Control frames must not exceed 125 bytes of payload.");
         }
 
-        if (header.PayloadLength > MaxFramePayloadBytes)
-        {
-            throw new System.IO.InvalidDataException("WebSocket payload exceeds maximum.");
-        }
-
         if (header.PayloadLength > int.MaxValue)
         {
             throw new System.IO.InvalidDataException("WebSocket payload exceeds supported size.");
+        }
+
+        if (header.PayloadLength > MaxFramePayloadBytes)
+        {
+            throw new System.IO.InvalidDataException("WebSocket payload exceeds maximum.");
         }
 
         var payloadLength = (int)header.PayloadLength;
@@ -133,7 +133,7 @@ public static class WebSocketFrameParser
             var extendedPayloadLength = BinaryPrimitives.ReadUInt64BigEndian(span.Slice(headerLength, 8));
             if ((extendedPayloadLength & 0x8000000000000000UL) != 0)
             {
-                throw new System.IO.InvalidDataException("WebSocket 64-bit payload length must not have the high bit set.");
+                throw new System.IO.InvalidDataException("WebSocket 64-bit payload length must not have the high bit set (RFC 6455 §5.2).");
             }
 
             payloadLength = (long)extendedPayloadLength;
