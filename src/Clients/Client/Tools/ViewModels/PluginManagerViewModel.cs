@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading;
@@ -24,9 +25,11 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     private readonly IPluginDirectoryWatcher _directoryWatcher;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
+    private readonly Lock _lifecycleLock;
     private readonly IPluginHost _pluginHost;
     private readonly PluginRegistry _registry;
     private readonly IPluginUpdateFeed _updateFeed;
+    private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private bool _isAnyUpdateAvailable;
     [ObservableProperty]
@@ -64,6 +67,7 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     /// <param name="updateFeed">The remote update feed consulted by Check for Updates.</param>
     /// <param name="pluginHost">The plugin host (used for API version compatibility checks against advertised updates).</param>
     /// <param name="directoryWatcher">The plugin directory watcher that fires when subdirectories are added/removed.</param>
+    /// <param name="userInterfaceScheduler">Scheduler used to marshal bound-state updates onto the UI thread.</param>
     public PluginManagerViewModel(
         PluginRegistry registry,
         IPluginEnabledStateStore enabledStateStore,
@@ -71,7 +75,8 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         PluginActivationService activationService,
         IPluginUpdateFeed updateFeed,
         IPluginHost pluginHost,
-        IPluginDirectoryWatcher directoryWatcher)
+        IPluginDirectoryWatcher directoryWatcher,
+        IUserInterfaceScheduler userInterfaceScheduler)
     {
         _registry = registry;
         _enabledStateStore = enabledStateStore;
@@ -80,6 +85,9 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         _updateFeed = updateFeed;
         _pluginHost = pluginHost;
         _directoryWatcher = directoryWatcher;
+        var lifecycleLock = new Lock();
+        _lifecycleLock = lifecycleLock;
+        _userInterfaceScheduler = userInterfaceScheduler;
         _summary = string.Empty;
         _updateCheckStatus = string.Empty;
         _isRestartRequired = false;
@@ -95,13 +103,30 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     /// <inheritdoc />
     public void Dispose()
     {
-        if (_isDisposed)
+        lock (_lifecycleLock)
         {
-            return;
-        }
+            if (_isDisposed)
+            {
+                return;
+            }
 
-        _isDisposed = true;
-        _directoryWatcher.PluginsDirectoryChanged -= OnDirectoryChanged;
+            _isDisposed = true;
+            _directoryWatcher.PluginsDirectoryChanged -= OnDirectoryChanged;
+        }
+    }
+
+    private void ApplyDirectoryChangedUpdate()
+    {
+        lock (_lifecycleLock)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            IsRestartRequired = true;
+            UpdateCheckStatus = "Plugins folder changed — reload to pick up changes.";
+        }
     }
 
     [RelayCommand]
@@ -156,8 +181,15 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
 
     private void OnDirectoryChanged()
     {
-        IsRestartRequired = true;
-        UpdateCheckStatus = "Plugins folder changed — reload to pick up changes.";
+        lock (_lifecycleLock)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+        }
+
+        _userInterfaceScheduler.Post(ApplyDirectoryChangedUpdate);
     }
 
     private void OnPluginStateChanged()
