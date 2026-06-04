@@ -14,7 +14,7 @@ namespace Proxyfan.Domain.Session.Har;
 public static class HarDocumentWriter
 {
     private const string CreatorName = "Proxyfan";
-    private const string CreatorVersion = "1.0";
+    private const string CreatorVersion = "1.1";
     private const string HarVersion = "1.2";
 
     /// <summary>
@@ -66,9 +66,17 @@ public static class HarDocumentWriter
         var mimeType = response.Headers.Get("Content-Type") ?? string.Empty;
         writer.WriteString("mimeType", mimeType);
 
-        if (response.Body.Length > 0 && HasTextLikeMimeType(mimeType))
+        if (response.Body.Length > 0)
         {
-            writer.WriteString("text", Encoding.UTF8.GetString(response.Body.Span));
+            if (HasTextLikeMimeType(mimeType))
+            {
+                writer.WriteString("text", Encoding.UTF8.GetString(response.Body.Span));
+            }
+            else
+            {
+                writer.WriteString("text", Convert.ToBase64String(response.Body.Span));
+                writer.WriteString("encoding", "base64");
+            }
         }
 
         writer.WriteEndObject();
@@ -222,6 +230,25 @@ public static class HarDocumentWriter
         writer.WriteEndArray();
     }
 
+    private static void WritePostData(Utf8JsonWriter writer, HypertextTransferProtocolRequestData request)
+    {
+        writer.WriteStartObject("postData");
+        var mimeType = request.Headers.Get("Content-Type") ?? string.Empty;
+        writer.WriteString("mimeType", mimeType);
+
+        if (HasTextLikeMimeType(mimeType))
+        {
+            writer.WriteString("text", Encoding.UTF8.GetString(request.Body.Span));
+        }
+        else
+        {
+            writer.WriteString("text", Convert.ToBase64String(request.Body.Span));
+            writer.WriteString("encoding", "base64");
+        }
+
+        writer.WriteEndObject();
+    }
+
     private static void WriteQueryString(Utf8JsonWriter writer, Uri requestUri)
     {
         writer.WriteStartArray("queryString");
@@ -265,6 +292,12 @@ public static class HarDocumentWriter
         WriteQueryString(writer, request.RequestUri);
         writer.WriteNumber("headersSize", -1);
         writer.WriteNumber("bodySize", request.Body.Length);
+
+        if (request.Body.Length > 0)
+        {
+            WritePostData(writer, request);
+        }
+
         writer.WriteEndObject();
     }
 

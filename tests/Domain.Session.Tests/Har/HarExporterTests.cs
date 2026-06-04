@@ -210,10 +210,11 @@ public sealed class HarExporterTests
     }
 
     /// <summary>
-    ///     Verifies that a binary (non-text) response body is omitted from the content.text field.
+    ///     Verifies that a binary (non-text) response body is serialised as base64 text with
+    ///     the encoding field set, so the body is preserved losslessly.
     /// </summary>
     [Test]
-    public async Task ExportAsync_BinaryResponse_OmitsTextField()
+    public async Task ExportAsync_BinaryResponse_WritesBase64TextField()
     {
         var exporter = new HarExporter();
         var flow = CreateBinaryResponseFlow();
@@ -224,7 +225,8 @@ public sealed class HarExporterTests
         using var document = await JsonDocument.ParseAsync(output, cancellationToken: CancellationToken.None);
         var content = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("response").GetProperty("content");
 
-        await Assert.That(content.TryGetProperty("text", out _)).IsFalse();
+        await Assert.That(content.GetProperty("text").GetString()).IsEqualTo(Convert.ToBase64String(new byte[] { 0x89, 0x50, 0x4E, 0x47 }));
+        await Assert.That(content.GetProperty("encoding").GetString()).IsEqualTo("base64");
         await Assert.That(content.GetProperty("size").GetInt32()).IsEqualTo(4);
     }
 
@@ -262,7 +264,7 @@ public sealed class HarExporterTests
         var content = document.RootElement.GetProperty("log").GetProperty("entries")[0].GetProperty("response").GetProperty("content");
 
         await Assert.That(content.GetProperty("mimeType").GetString()).IsEqualTo(string.Empty);
-        await Assert.That(content.TryGetProperty("text", out _)).IsFalse();
+        await Assert.That(content.TryGetProperty("text", out _)).IsTrue();
     }
 
     /// <summary>

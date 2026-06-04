@@ -520,6 +520,45 @@ public sealed class HarImporterEdgeCaseTests
         await Assert.That(flows[0].Response).IsNull();
     }
 
+    /// <summary>
+    ///     Verifies that a legacy HAR without a postData block loads with an empty request body
+    ///     (regression guard for v1 files).
+    /// </summary>
+    [Test]
+    public async Task Import_LegacyV1HarMissingRequestBody_LoadsAsEmpty()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"POST","url":"https://example.com/","headers":[]},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        await Assert.That(flows[0].Request!.Body.Length).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a postData block with a params array (as produced by browser DevTools)
+    ///     is reconstructed into a URL-encoded request body.
+    /// </summary>
+    [Test]
+    public async Task ImportAsync_PostDataWithParams_ReconstructsUrlEncodedBody()
+    {
+        const string harJson = """
+            {"log":{"entries":[
+                {"request":{"method":"POST","url":"https://example.com/","headers":[],
+                  "postData":{"mimeType":"application/x-www-form-urlencoded",
+                    "params":[{"name":"key1","value":"hello"},{"name":"key2","value":"world"}]}},
+                 "response":{"status":200,"statusText":"OK","headers":[],"content":{}}}
+            ]}}
+            """;
+        var flows = await ImportAsync(harJson);
+
+        var body = Encoding.UTF8.GetString(flows[0].Request!.Body.Span);
+        await Assert.That(body).IsEqualTo("key1=hello&key2=world");
+    }
+
     private static async Task<System.Collections.Generic.IReadOnlyList<Proxyfan.Domain.Traffic.TrafficFlow>> ImportAsync(string harJson)
     {
         var importer = new HarImporter();

@@ -191,15 +191,92 @@ public static class HarEntryParser
 
         var version = ExtractStringOrDefault(requestElement, "httpVersion", "HTTP/1.1");
         var headers = ParseHeaders(requestElement);
+        var body = ParseRequestBody(requestElement);
         var parameters = new HypertextTransferProtocolRequestDataParameters
         {
-            Body = Array.Empty<byte>(),
+            Body = body,
             Headers = headers,
             Method = method,
             RequestUri = requestUri,
             Version = version,
         };
         return new HypertextTransferProtocolRequestData(parameters);
+    }
+
+    private static byte[] ParseRequestBody(JsonElement requestElement)
+    {
+        if (!requestElement.TryGetProperty("postData", out var postData))
+        {
+            return [];
+        }
+
+        if (postData.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String)
+        {
+            return ParseRequestBodyFromPostDataText(postData, textElement.GetString());
+        }
+
+        if (postData.TryGetProperty("params", out var paramsArray) && paramsArray.ValueKind == JsonValueKind.Array)
+        {
+            return ParseRequestBodyFromParams(paramsArray);
+        }
+
+        return [];
+    }
+
+    private static byte[] ParseRequestBodyFromParams(JsonElement paramsArray)
+    {
+        var urlBuilder = new StringBuilder();
+
+        foreach (var param in paramsArray.EnumerateArray())
+        {
+            if (!param.TryGetProperty("name", out var nameElement) || nameElement.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var name = nameElement.GetString() ?? string.Empty;
+            var value = string.Empty;
+
+            if (param.TryGetProperty("value", out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
+            {
+                value = valueElement.GetString() ?? string.Empty;
+            }
+
+            if (urlBuilder.Length > 0)
+            {
+                urlBuilder.Append('&');
+            }
+
+            urlBuilder.Append(Uri.EscapeDataString(name));
+            urlBuilder.Append('=');
+            urlBuilder.Append(Uri.EscapeDataString(value));
+        }
+
+        return urlBuilder.Length > 0 ? Encoding.UTF8.GetBytes(urlBuilder.ToString()) : [];
+    }
+
+    private static byte[] ParseRequestBodyFromPostDataText(JsonElement postData, string? bodyText)
+    {
+        if (string.IsNullOrEmpty(bodyText))
+        {
+            return [];
+        }
+
+        if (postData.TryGetProperty("encoding", out var encodingElement)
+            && encodingElement.ValueKind == JsonValueKind.String
+            && string.Equals(encodingElement.GetString(), "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                return Convert.FromBase64String(bodyText);
+            }
+            catch (FormatException)
+            {
+                return [];
+            }
+        }
+
+        return Encoding.UTF8.GetBytes(bodyText);
     }
 
     private static HypertextTransferProtocolResponseData? ParseResponse(JsonElement responseElement)
