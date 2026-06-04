@@ -52,7 +52,7 @@ public sealed class PluginLoaderTests
             var host = new RecordingPluginHost("1.0");
             var loader = new PluginLoader(
                 new PluginDirectoryScanner(),
-                new StubInstanceFactory(c => PluginInstantiationResults.Success(new StubPlugin(c.Manifest!.Metadata, h => h.RegisterInspectorTab("t1")), null)),
+                new StubInstanceFactory(c => PluginInstantiationResults.Success(                new StubPlugin(c.Manifest!.Metadata, h => h.RegisterInspectorTab(new StubTrafficInspector("t1"))), null)),
                 registry,
                 new StubEnabledStateStore());
 
@@ -181,7 +181,7 @@ public sealed class PluginLoaderTests
             var spoofedMetadata = new PluginMetadata("runtime-id", "runtime", "1", "A", "D", "1.0");
             var loader = new PluginLoader(
                 new PluginDirectoryScanner(),
-                new StubInstanceFactory(_ => PluginInstantiationResults.Success(new StubPlugin(spoofedMetadata, h => h.RegisterInspectorTab("should-not-register")), null)),
+                new StubInstanceFactory(_ => PluginInstantiationResults.Success(new StubPlugin(spoofedMetadata, h => h.RegisterInspectorTab(new StubTrafficInspector("should-not-register"))), null)),
                 registry,
                 new StubEnabledStateStore("runtime-id"));
 
@@ -269,6 +269,18 @@ public sealed class PluginLoaderTests
         finally
         {
             Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private sealed class StubTrafficInspector : ITrafficInspector
+    {
+        public string DisplayName { get; }
+        public int Order { get; }
+
+        public StubTrafficInspector(string displayName)
+        {
+            DisplayName = displayName;
+            Order = 0;
         }
     }
 

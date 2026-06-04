@@ -1,5 +1,4 @@
 using Proxyfan.Plugin.Abstractions;
-using System;
 using System.Collections.Generic;
 
 namespace Proxyfan.Framework.Extensibility;
@@ -8,19 +7,25 @@ namespace Proxyfan.Framework.Extensibility;
 ///     Default in-process <see cref="IPluginHost" /> used by the application at startup.
 ///     The host records every extension-point registration via internal collections so
 ///     that the plugin manager UI can surface what each plugin contributed. Live wiring
-///     into the inspector / decoder / column / rule registries is performed by adapters
-///     in the presentation/framework layers reading <see cref="ContentDecoderRegistrations" />
-///     and <see cref="InspectorTabRegistrations" />.
+///     into the inspector / decoder / formatter registries is performed by adapters in the
+///     presentation/framework layers reading <see cref="ContentDecoderRegistrations" />,
+///     <see cref="InspectorTabRegistrations" />, and <see cref="ExportFormatterRegistrations" />.
 /// </summary>
 public sealed class DefaultPluginHost : IPluginHost
 {
     private readonly List<PluginContentDecoderRegistration> _contentDecoderRegistrations;
+    private readonly List<PluginExportFormatterRegistration> _exportFormatterRegistrations;
     private readonly List<PluginInspectorTabRegistration> _inspectorTabRegistrations;
 
     /// <summary>
     ///     Gets the snapshot of content decoder registrations contributed by plugins.
     /// </summary>
     public IReadOnlyList<PluginContentDecoderRegistration> ContentDecoderRegistrations => _contentDecoderRegistrations;
+
+    /// <summary>
+    ///     Gets the snapshot of export formatter registrations contributed by plugins.
+    /// </summary>
+    public IReadOnlyList<PluginExportFormatterRegistration> ExportFormatterRegistrations => _exportFormatterRegistrations;
 
     /// <summary>
     ///     Gets the snapshot of inspector tab registrations contributed by plugins.
@@ -34,6 +39,7 @@ public sealed class DefaultPluginHost : IPluginHost
     {
         ApiVersion = PluginHostApiVersion.Current;
         _contentDecoderRegistrations = [];
+        _exportFormatterRegistrations = [];
         _inspectorTabRegistrations = [];
     }
 
@@ -41,19 +47,23 @@ public sealed class DefaultPluginHost : IPluginHost
     public string ApiVersion { get; }
 
     /// <inheritdoc />
-    public void RegisterContentDecoder(string contentTypePattern, string decoderName)
+    public void RegisterContentDecoder(IContentDecoder decoder)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(contentTypePattern);
-        ArgumentException.ThrowIfNullOrWhiteSpace(decoderName);
-        var registration = new PluginContentDecoderRegistration(contentTypePattern, decoderName);
+        var registration = new PluginContentDecoderRegistration(decoder);
         _contentDecoderRegistrations.Add(registration);
     }
 
     /// <inheritdoc />
-    public void RegisterInspectorTab(string tabName)
+    public void RegisterExportFormatter(IExportFormatter formatter)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(tabName);
-        var registration = new PluginInspectorTabRegistration(tabName);
+        var registration = new PluginExportFormatterRegistration(formatter);
+        _exportFormatterRegistrations.Add(registration);
+    }
+
+    /// <inheritdoc />
+    public void RegisterInspectorTab(ITrafficInspector inspector)
+    {
+        var registration = new PluginInspectorTabRegistration(inspector);
         _inspectorTabRegistrations.Add(registration);
     }
 }

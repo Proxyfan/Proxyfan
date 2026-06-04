@@ -3,7 +3,7 @@ namespace Proxyfan.Plugin.Abstractions;
 /// <summary>
 ///     The host API surface exposed to plugins. Plugins receive this object via
 ///     <see cref="IProxyfanPlugin.Initialize" /> and use it to register their extension points
-///     (inspector tabs, content decoders, columns, rules).
+///     (inspector tabs, content decoders, export formatters).
 /// </summary>
 public interface IPluginHost
 {
@@ -14,15 +14,20 @@ public interface IPluginHost
     string ApiVersion { get; }
 
     /// <summary>
-    ///     Registers a custom content decoder for a particular content-type (or subtype).
+    ///     Registers a custom content decoder with the host.
     /// </summary>
-    /// <param name="contentTypePattern">The content-type pattern (e.g. <c>"application/json"</c>).</param>
-    /// <param name="decoderName">A short human-readable decoder name shown in the UI.</param>
-    void RegisterContentDecoder(string contentTypePattern, string decoderName);
+    /// <param name="decoder">The decoder implementation to register.</param>
+    void RegisterContentDecoder(IContentDecoder decoder);
+
+    /// <summary>
+    ///     Registers a custom export formatter with the host.
+    /// </summary>
+    /// <param name="formatter">The export formatter implementation to register.</param>
+    void RegisterExportFormatter(IExportFormatter formatter);
 
     /// <summary>
     ///     Registers a custom inspector tab to be shown in the request/response inspector panel.
     /// </summary>
-    /// <param name="tabName">The tab display name.</param>
-    void RegisterInspectorTab(string tabName);
+    /// <param name="inspector">The inspector implementation to register.</param>
+    void RegisterInspectorTab(ITrafficInspector inspector);
 }

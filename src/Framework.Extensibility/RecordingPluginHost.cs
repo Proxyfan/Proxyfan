@@ -1,5 +1,4 @@
 using Proxyfan.Plugin.Abstractions;
-using System;
 using System.Collections.Generic;
 
 namespace Proxyfan.Framework.Extensibility;
@@ -10,19 +9,24 @@ namespace Proxyfan.Framework.Extensibility;
 /// </summary>
 public sealed class RecordingPluginHost : IPluginHost
 {
-    private readonly List<string> _contentDecoders;
-    private readonly List<string> _inspectorTabs;
+    private readonly List<IContentDecoder> _contentDecoders;
+    private readonly List<IExportFormatter> _exportFormatters;
+    private readonly List<ITrafficInspector> _inspectorTabs;
 
     /// <summary>
-    ///     Gets the list of registered content-type patterns with their decoder names, in
-    ///     registration order. Each entry is formatted "pattern => decoderName".
+    ///     Gets the list of registered content decoders in registration order.
     /// </summary>
-    public IReadOnlyList<string> ContentDecoders => _contentDecoders;
+    public IReadOnlyList<IContentDecoder> ContentDecoders => _contentDecoders;
 
     /// <summary>
-    ///     Gets the list of registered inspector tab names in registration order.
+    ///     Gets the list of registered export formatters in registration order.
     /// </summary>
-    public IReadOnlyList<string> InspectorTabs => _inspectorTabs;
+    public IReadOnlyList<IExportFormatter> ExportFormatters => _exportFormatters;
+
+    /// <summary>
+    ///     Gets the list of registered inspector tabs in registration order.
+    /// </summary>
+    public IReadOnlyList<ITrafficInspector> InspectorTabs => _inspectorTabs;
 
     /// <summary>
     ///     Initializes a new <see cref="RecordingPluginHost" /> with the supplied API version.
@@ -31,27 +35,29 @@ public sealed class RecordingPluginHost : IPluginHost
     public RecordingPluginHost(string apiVersion)
     {
         ApiVersion = apiVersion;
-        var contentDecoders = new List<string>();
-        var inspectorTabs = new List<string>();
-        _contentDecoders = contentDecoders;
-        _inspectorTabs = inspectorTabs;
+        _contentDecoders = [];
+        _exportFormatters = [];
+        _inspectorTabs = [];
     }
 
     /// <inheritdoc />
     public string ApiVersion { get; }
 
     /// <inheritdoc />
-    public void RegisterContentDecoder(string contentTypePattern, string decoderName)
+    public void RegisterContentDecoder(IContentDecoder decoder)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(contentTypePattern);
-        ArgumentException.ThrowIfNullOrWhiteSpace(decoderName);
-        _contentDecoders.Add($"{contentTypePattern} => {decoderName}");
+        _contentDecoders.Add(decoder);
     }
 
     /// <inheritdoc />
-    public void RegisterInspectorTab(string tabName)
+    public void RegisterExportFormatter(IExportFormatter formatter)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(tabName);
-        _inspectorTabs.Add(tabName);
+        _exportFormatters.Add(formatter);
+    }
+
+    /// <inheritdoc />
+    public void RegisterInspectorTab(ITrafficInspector inspector)
+    {
+        _inspectorTabs.Add(inspector);
     }
 }

@@ -1,3 +1,5 @@
+using Proxyfan.Plugin.Abstractions;
+
 namespace Proxyfan.Framework.Extensibility;
 
 /// <summary>
@@ -7,23 +9,16 @@ namespace Proxyfan.Framework.Extensibility;
 public sealed class PluginContentDecoderRegistration
 {
     /// <summary>
-    ///     Gets the content-type pattern (e.g. <c>"application/json"</c>) the decoder matches.
+    ///     Gets the decoder implementation contributed by the plugin.
     /// </summary>
-    public string ContentTypePattern { get; }
-
-    /// <summary>
-    ///     Gets the display name of the decoder.
-    /// </summary>
-    public string DecoderName { get; }
+    public IContentDecoder Decoder { get; }
 
     /// <summary>
     ///     Initializes a new <see cref="PluginContentDecoderRegistration" />.
     /// </summary>
-    /// <param name="contentTypePattern">The content-type pattern.</param>
-    /// <param name="decoderName">The decoder display name.</param>
-    public PluginContentDecoderRegistration(string contentTypePattern, string decoderName)
+    /// <param name="decoder">The decoder implementation.</param>
+    public PluginContentDecoderRegistration(IContentDecoder decoder)
     {
-        ContentTypePattern = contentTypePattern;
-        DecoderName = decoderName;
+        Decoder = decoder;
     }
 }

@@ -29,7 +29,7 @@ public sealed class PluginRegistryTests
     {
         var registry = new PluginRegistry();
         var host = new RecordingPluginHost("1.0");
-        var plugin = new StubPlugin("1.0", () => host.RegisterInspectorTab("Stub"));
+        var plugin = new StubPlugin("1.0", h => h.RegisterInspectorTab(new StubTrafficInspector("Stub")));
 
         var loaded = registry.TryInitialize(plugin, host, null);
 
@@ -48,7 +48,7 @@ public sealed class PluginRegistryTests
     {
         var registry = new PluginRegistry();
         var host = new RecordingPluginHost("1.0");
-        var plugin = new StubPlugin("2.0", () => host.RegisterInspectorTab("ShouldNotRun"));
+        var plugin = new StubPlugin("2.0", h => h.RegisterInspectorTab(new StubTrafficInspector("ShouldNotRun")));
 
         var loaded = registry.TryInitialize(plugin, host, null);
 
@@ -66,7 +66,7 @@ public sealed class PluginRegistryTests
     {
         var registry = new PluginRegistry();
         var host = new RecordingPluginHost("1.0");
-        var plugin = new StubPlugin("1.0", () => throw new InvalidOperationException("boom"));
+        var plugin = new StubPlugin("1.0", _ => throw new InvalidOperationException("boom"));
 
         var loaded = registry.TryInitialize(plugin, host, null);
 
@@ -93,13 +93,25 @@ public sealed class PluginRegistryTests
         await Assert.That(snapshot is System.Collections.Generic.List<LoadedPlugin>).IsFalse();
     }
 
+    private sealed class StubTrafficInspector : ITrafficInspector
+    {
+        public string DisplayName { get; }
+        public int Order { get; }
+
+        public StubTrafficInspector(string displayName)
+        {
+            DisplayName = displayName;
+            Order = 0;
+        }
+    }
+
     private sealed class StubPlugin : IProxyfanPlugin
     {
-        private readonly Action _initAction;
+        private readonly Action<IPluginHost> _initAction;
 
         public PluginMetadata Metadata { get; }
 
-        public StubPlugin(string apiVersion, Action initAction)
+        public StubPlugin(string apiVersion, Action<IPluginHost> initAction)
         {
             _initAction = initAction;
             Metadata = new PluginMetadata("stub", "Stub", "1.0", "Test", "Stub plugin", apiVersion);
@@ -107,7 +119,7 @@ public sealed class PluginRegistryTests
 
         public void Initialize(IPluginHost host)
         {
-            _initAction();
+            _initAction(host);
         }
     }
 }
