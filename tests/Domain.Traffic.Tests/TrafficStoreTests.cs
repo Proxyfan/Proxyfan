@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -62,6 +63,66 @@ public sealed class TrafficStoreTests
         await Assert.That(store.Count).IsEqualTo(2);
         await Assert.That(store.GetById(firstFlow.Id)).IsNull();
         await Assert.That(store.GetById(thirdFlow.Id)).IsNotNull();
+    }
+
+    /// <summary>
+    ///     Verifies that responses above the large-body threshold spill to disk.
+    /// </summary>
+    [Test]
+    public async Task Add_ResponseBodyExceedsThreshold_SpillsToDisk()
+    {
+        var spillDirectoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new TrafficStore(4, 8, 128, GetLowMemoryUsageRatio, spillDirectoryPath);
+            var body = new byte[16];
+            var flow = CreateCompletedFlowWithResponseBody(body);
+
+            store.Add(flow);
+
+            var stored = store.GetById(flow.Id);
+            await Assert.That(stored).IsNotNull();
+            await Assert.That(stored!.ResponseBodySpillFilePath).IsNotNull();
+            await Assert.That(stored.Response!.Body.Length).IsEqualTo(0);
+            await Assert.That(File.Exists(stored.ResponseBodySpillFilePath!)).IsTrue();
+            var persistedBytes = await File.ReadAllBytesAsync(stored.ResponseBodySpillFilePath!);
+            await Assert.That(persistedBytes).IsEquivalentTo(body);
+
+            store.Clear();
+            await Assert.That(File.Exists(stored.ResponseBodySpillFilePath!)).IsFalse();
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(spillDirectoryPath);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that responses larger than the configured cap are truncated.
+    /// </summary>
+    [Test]
+    public async Task Add_ResponseBodyExceedsMaxBytes_Truncates()
+    {
+        var spillDirectoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new TrafficStore(4, 8, 12, GetLowMemoryUsageRatio, spillDirectoryPath);
+            var body = new byte[20];
+            var flow = CreateCompletedFlowWithResponseBody(body);
+
+            store.Add(flow);
+
+            var stored = store.GetById(flow.Id);
+            await Assert.That(stored).IsNotNull();
+            await Assert.That(stored!.IsResponseBodyTruncated).IsTrue();
+            await Assert.That(stored.ResponseBodySpillFilePath).IsNotNull();
+            var persistedBytes = await File.ReadAllBytesAsync(stored.ResponseBodySpillFilePath!);
+            await Assert.That(persistedBytes.Length).IsEqualTo(12);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(spillDirectoryPath);
+        }
     }
 
     /// <summary>
@@ -169,10 +230,82 @@ public sealed class TrafficStoreTests
         await Assert.That(store.GetAll().Count).IsEqualTo(2);
     }
 
+    /// <summary>
+    ///     Verifies that high memory pressure evicts the oldest ten percent of flows.
+    /// </summary>
+    [Test]
+    public async Task Add_MemoryPressureHigh_EvictsOldestTenPercent()
+    {
+        var memoryUsageRatio = 0.0D;
+        var spillDirectoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new TrafficStore(10, 1024, 1024, () => memoryUsageRatio, spillDirectoryPath);
+            var firstFlow = CreateFlow();
+            for (var index = 0; index < 10; index++)
+            {
+                var flow = index == 0 ? firstFlow : CreateFlow();
+                store.Add(flow);
+            }
+
+            memoryUsageRatio = 0.95D;
+            var eleventhFlow = CreateFlow();
+            store.Add(eleventhFlow);
+
+            await Assert.That(store.Count).IsEqualTo(10);
+            await Assert.That(store.GetById(firstFlow.Id)).IsNull();
+            await Assert.That(store.GetById(eleventhFlow.Id)).IsNotNull();
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(spillDirectoryPath);
+        }
+    }
+
+    private TrafficFlow CreateCompletedFlowWithResponseBody(byte[] responseBody)
+    {
+        var flow = CreateFlow();
+        var requestParameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = ReadOnlyMemory<byte>.Empty,
+            Headers = HeaderCollection.Empty,
+            Method = "GET",
+            RequestUri = new Uri("https://example.com"),
+            Version = "HTTP/1.1",
+        };
+        flow.SetRequest(new HypertextTransferProtocolRequestData(requestParameters));
+        var responseParameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = responseBody,
+            Headers = HeaderCollection.Empty,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        };
+        flow.SetResponse(new HypertextTransferProtocolResponseData(responseParameters));
+        flow.Complete();
+        return flow;
+    }
+
     private TrafficFlow CreateFlow()
     {
         var flow = new TrafficFlow(Guid.NewGuid(), "127.0.0.1:8080", DateTimeOffset.UtcNow);
         return flow;
+    }
+
+    private void DeleteDirectoryIfExists(string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        Directory.Delete(directoryPath, true);
+    }
+
+    private double GetLowMemoryUsageRatio()
+    {
+        return 0.1D;
     }
 
     private void ReadFlows(TrafficStore store, ManualResetEventSlim startSignal, int iterations)
