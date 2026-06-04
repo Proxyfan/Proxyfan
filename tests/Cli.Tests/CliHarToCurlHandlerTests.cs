@@ -35,7 +35,7 @@ public sealed class CliHarToCurlHandlerTests
             var exitCode = await CliHarToCurlHandler.RunAsync(command, output, error, CancellationToken.None);
 
             await Assert.That(exitCode).IsEqualTo(0);
-            await Assert.That(output.ToString()).StartsWith("curl -X GET");
+            await Assert.That(output.ToString()).StartsWith("curl -X 'GET'");
             await Assert.That(output.ToString()).Contains("Accept: application/json");
         }
         finally

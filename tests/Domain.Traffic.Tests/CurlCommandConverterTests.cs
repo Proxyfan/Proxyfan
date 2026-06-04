@@ -19,7 +19,7 @@ public sealed class CurlCommandConverterTests
 
         var command = CurlCommandConverter.ToCurl(request);
 
-        await Assert.That(command).StartsWith("curl -X GET \"https://example.com/api\"");
+        await Assert.That(command).StartsWith("curl -X 'GET' 'https://example.com/api'");
     }
 
     /// <summary>
@@ -33,8 +33,8 @@ public sealed class CurlCommandConverterTests
 
         var command = CurlCommandConverter.ToCurl(request);
 
-        await Assert.That(command).Contains("-H \"Accept: application/json\"");
-        await Assert.That(command).Contains("-H \"X-Custom: value\"");
+        await Assert.That(command).Contains("-H 'Accept: application/json'");
+        await Assert.That(command).Contains("-H 'X-Custom: value'");
     }
 
     /// <summary>
@@ -51,30 +51,57 @@ public sealed class CurlCommandConverterTests
     }
 
     /// <summary>
-    ///     Verifies that single quotes in the body are properly escaped.
+    ///     Verifies that command substitution stays inside a shell-safe quoted URL argument.
     /// </summary>
     [Test]
-    public async Task ToCurl_BodyWithSingleQuote_EscapesIt()
+    public async Task ToCurl_UrlContainsCommandSubstitution_QuotesAreShellSafe()
+    {
+        var request = BuildRequest("GET", "https://example.com/$(Start-Process calc)", null);
+
+        var command = CurlCommandConverter.ToCurl(request);
+
+        await Assert.That(command).IsEqualTo("curl -X 'GET' 'https://example.com/$(Start-Process calc)'");
+    }
+
+    /// <summary>
+    ///     Verifies that Bash quoting safely wraps headers in single quotes.
+    /// </summary>
+    [Test]
+    public async Task ToCurl_BashFlavour_HeadersAreSingleQuoted()
+    {
+        var headers = HeaderCollection.Empty.Add("X-Echo", "$(uname) \"quoted\"");
+        var request = BuildRequest("GET", "https://example.com/", null, headers);
+
+        var command = CurlCommandConverter.ToCurl(request, CurlCommandShellFlavor.Bash);
+
+        await Assert.That(command).IsEqualTo("curl -X 'GET' 'https://example.com/' -H 'X-Echo: $(uname) \"quoted\"'");
+    }
+
+    /// <summary>
+    ///     Verifies that Bash escapes embedded single quotes in the body safely.
+    /// </summary>
+    [Test]
+    public async Task ToCurl_BashFlavour_BodyWithSingleQuote_EscapesIt()
     {
         var request = BuildRequest("POST", "https://example.com/", Encoding.UTF8.GetBytes("it's a test"));
 
-        var command = CurlCommandConverter.ToCurl(request);
+        var command = CurlCommandConverter.ToCurl(request, CurlCommandShellFlavor.Bash);
 
         await Assert.That(command).Contains("it'\\''s a test");
     }
 
     /// <summary>
-    ///     Verifies that double quotes in header values are escaped.
+    ///     Verifies that PowerShell single quotes prevent variable expansion in the body.
     /// </summary>
     [Test]
-    public async Task ToCurl_HeaderValueWithDoubleQuote_EscapesIt()
+    public async Task ToCurl_PowerShellFlavour_NoVariableExpansion()
     {
-        var headers = HeaderCollection.Empty.Add("X-Echo", "value \"with quotes\"");
-        var request = BuildRequest("GET", "https://example.com/", null, headers);
+        var request = BuildRequest("POST", "https://example.com/${env:TEMP}", Encoding.UTF8.GetBytes("it's $env:TEMP"));
 
-        var command = CurlCommandConverter.ToCurl(request);
+        var command = CurlCommandConverter.ToCurl(request, CurlCommandShellFlavor.PowerShell);
 
-        await Assert.That(command).Contains("\\\"with quotes\\\"");
+        await Assert.That(command).Contains("'https://example.com/${env:TEMP}'");
+        await Assert.That(command).Contains("--data 'it''s $env:TEMP'");
     }
 
     private static HypertextTransferProtocolRequestData BuildRequest(string method, string url, byte[]? body, HeaderCollection? headers = null)
