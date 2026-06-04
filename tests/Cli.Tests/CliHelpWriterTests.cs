@@ -28,5 +28,6 @@ public sealed class CliHelpWriterTests
         await Assert.That(text).Contains("--port");
         await Assert.That(text).Contains("--bind-address");
         await Assert.That(text).Contains("--input");
+        await Assert.That(text).Contains("--json");
     }
 }

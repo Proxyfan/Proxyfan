@@ -106,6 +106,19 @@ public static class CliArgumentParser
         return null;
     }
 
+    private static bool HasFlag(string[] args, string optionName)
+    {
+        for (var index = 1; index < args.Length; index++)
+        {
+            if (string.Equals(args[index], optionName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool HasHelpToken(string token)
     {
         return string.Equals(token, "--help", StringComparison.OrdinalIgnoreCase)
@@ -120,54 +133,80 @@ public static class CliArgumentParser
             || string.Equals(token, "version", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static CliCommand ParseHarFilterCommand(string[] args)
+    {
+        var options = CliHarFilterArgumentParser.Parse(args);
+        return new CliCommand(CliCommandKind.HarFilter, DefaultPort, options?.InputPath)
+        {
+            HarFilterOptions = options,
+            IsJsonOutput = HasFlag(args, "--json"),
+        };
+    }
+
+    private static CliCommand ParsePathCommand(CliCommandKind kind, string[] args)
+    {
+        var path = ExtractPath(args);
+        return new CliCommand(kind, DefaultPort, path)
+        {
+            IsJsonOutput = HasFlag(args, "--json"),
+        };
+    }
+
+    private static CliCommand ParseSendCommand(string[] args)
+    {
+        var sendRequest = CliSendArgumentParser.Parse(args);
+        return new CliCommand(CliCommandKind.Send, DefaultPort, null, sendRequest)
+        {
+            IsJsonOutput = HasFlag(args, "--json"),
+        };
+    }
+
+    private static CliCommand ParseStartCommand(string[] args)
+    {
+        var port = ExtractPort(args);
+        var startOptions = new CliStartOptions
+        {
+            BindAddress = ExtractStringOption(args, "--bind-address"),
+            OutputPath = ExtractStringOption(args, "--output"),
+            DurationSeconds = ExtractPositiveInt(args, "--duration"),
+        };
+        return new CliCommand(CliCommandKind.Start, port, null)
+        {
+            IsJsonOutput = HasFlag(args, "--json"),
+            StartOptions = startOptions,
+        };
+    }
+
     private static CliCommand? TryParseTypedCommand(string command, string[] args)
     {
         if (string.Equals(command, "start", StringComparison.OrdinalIgnoreCase))
         {
-            var port = ExtractPort(args);
-            var startOptions = new CliStartOptions
-            {
-                BindAddress = ExtractStringOption(args, "--bind-address"),
-                OutputPath = ExtractStringOption(args, "--output"),
-                DurationSeconds = ExtractPositiveInt(args, "--duration"),
-            };
-            return new CliCommand(CliCommandKind.Start, port, null)
-            {
-                StartOptions = startOptions,
-            };
+            return ParseStartCommand(args);
         }
 
         if (string.Equals(command, "har-summary", StringComparison.OrdinalIgnoreCase))
         {
-            var path = ExtractPath(args);
-            return new CliCommand(CliCommandKind.HarSummary, DefaultPort, path);
+            return ParsePathCommand(CliCommandKind.HarSummary, args);
         }
 
         if (string.Equals(command, "har-to-curl", StringComparison.OrdinalIgnoreCase))
         {
-            var path = ExtractPath(args);
-            return new CliCommand(CliCommandKind.HarToCurl, DefaultPort, path);
+            return ParsePathCommand(CliCommandKind.HarToCurl, args);
         }
 
         if (string.Equals(command, "har-filter", StringComparison.OrdinalIgnoreCase))
         {
-            var options = CliHarFilterArgumentParser.Parse(args);
-            return new CliCommand(CliCommandKind.HarFilter, DefaultPort, options?.InputPath)
-            {
-                HarFilterOptions = options,
-            };
+            return ParseHarFilterCommand(args);
         }
 
         if (string.Equals(command, "har-stats", StringComparison.OrdinalIgnoreCase))
         {
-            var path = ExtractPath(args);
-            return new CliCommand(CliCommandKind.HarStats, DefaultPort, path);
+            return ParsePathCommand(CliCommandKind.HarStats, args);
         }
 
         if (string.Equals(command, "send", StringComparison.OrdinalIgnoreCase))
         {
-            var sendRequest = CliSendArgumentParser.Parse(args);
-            return new CliCommand(CliCommandKind.Send, DefaultPort, null, sendRequest);
+            return ParseSendCommand(args);
         }
 
         return null;

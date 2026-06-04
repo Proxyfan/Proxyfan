@@ -1,9 +1,11 @@
+using System;
 using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Traffic;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -147,6 +149,102 @@ public sealed class CliRunnerTests
     }
 
     /// <summary>
+    ///     Verifies that the HarStats command is dispatched through <see cref="CliRunner" />
+    ///     and renders the handler output for a valid HAR file.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_HarStatsCommand_RoutesThroughRunner()
+    {
+        var temporaryFile = Path.Combine(Path.GetTempPath(), "proxyfan_cli_stats_" + System.Guid.NewGuid() + ".har");
+        const string harJson = """
+            {"log":{"version":"1.2","creator":{"name":"Test","version":"1"},"entries":[
+                {"startedDateTime":"2025-01-01T00:00:00Z","time":120,"request":{"method":"GET","url":"https://api.example.com/v1/users","httpVersion":"HTTP/1.1","headers":[],"bodySize":0},
+                 "response":{"status":200,"statusText":"OK","httpVersion":"HTTP/1.1","headers":[],"content":{"size":1024}}},
+                {"startedDateTime":"2025-01-01T00:00:01Z","time":50,"request":{"method":"POST","url":"https://api.example.com/v1/login","httpVersion":"HTTP/1.1","headers":[],"postData":{"text":"a=1","mimeType":"text/plain"}},
+                 "response":{"status":404,"statusText":"Not Found","httpVersion":"HTTP/1.1","headers":[],"content":{"size":256}}},
+                {"startedDateTime":"2025-01-01T00:00:02Z","time":200,"request":{"method":"GET","url":"https://api.example.com/v1/products","httpVersion":"HTTP/1.1","headers":[]},
+                 "response":{"status":500,"statusText":"Internal Server Error","httpVersion":"HTTP/1.1","headers":[],"content":{"size":512}}}
+            ]}}
+            """;
+        await File.WriteAllTextAsync(temporaryFile, harJson, Encoding.UTF8, CancellationToken.None);
+
+        try
+        {
+            var runner = new CliRunner();
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var command = CliArgumentParser.Parse(["har-stats", temporaryFile]);
+
+            var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output.ToString()).Contains("Total flows: 3");
+            await Assert.That(output.ToString()).Contains("Methods:");
+            await Assert.That(error.ToString()).IsEmpty();
+        }
+        finally
+        {
+            File.Delete(temporaryFile);
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that the HarStats command emits the expected machine-readable JSON schema
+    ///     when the <c>--json</c> flag is supplied.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_HarStatsCommand_JsonOutputMatchesSchema()
+    {
+        var temporaryFile = Path.Combine(Path.GetTempPath(), "proxyfan_cli_stats_json_" + System.Guid.NewGuid() + ".har");
+        const string harJson = """
+            {"log":{"version":"1.2","creator":{"name":"Test","version":"1"},"entries":[
+                {"startedDateTime":"2025-01-01T00:00:00Z","time":120,"request":{"method":"GET","url":"https://api.example.com/v1/users","httpVersion":"HTTP/1.1","headers":[],"bodySize":0},
+                 "response":{"status":200,"statusText":"OK","httpVersion":"HTTP/1.1","headers":[],"content":{"size":1024}}},
+                {"startedDateTime":"2025-01-01T00:00:01Z","time":50,"request":{"method":"POST","url":"https://api.example.com/v1/login","httpVersion":"HTTP/1.1","headers":[],"postData":{"text":"a=1","mimeType":"text/plain"}},
+                 "response":{"status":404,"statusText":"Not Found","httpVersion":"HTTP/1.1","headers":[],"content":{"size":256}}},
+                {"startedDateTime":"2025-01-01T00:00:02Z","time":200,"request":{"method":"GET","url":"https://api.example.com/v1/products","httpVersion":"HTTP/1.1","headers":[]},
+                 "response":{"status":500,"statusText":"Internal Server Error","httpVersion":"HTTP/1.1","headers":[],"content":{"size":512}}}
+            ]}}
+            """;
+        await File.WriteAllTextAsync(temporaryFile, harJson, Encoding.UTF8, CancellationToken.None);
+
+        try
+        {
+            var runner = new CliRunner();
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var command = CliArgumentParser.Parse(["har-stats", temporaryFile, "--json"]);
+
+            var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(error.ToString()).IsEmpty();
+
+            using var document = JsonDocument.Parse(output.ToString());
+            var root = document.RootElement;
+            await Assert.That(root.GetProperty("totalFlows").GetInt32()).IsEqualTo(3);
+            await Assert.That(root.GetProperty("statusClasses").GetProperty("2xx").GetInt32()).IsEqualTo(1);
+            await Assert.That(root.GetProperty("statusClasses").GetProperty("4xx").GetInt32()).IsEqualTo(1);
+            await Assert.That(root.GetProperty("statusClasses").GetProperty("5xx").GetInt32()).IsEqualTo(1);
+            await Assert.That(root.GetProperty("methods").GetProperty("GET").GetInt32()).IsEqualTo(2);
+            await Assert.That(root.GetProperty("methods").GetProperty("POST").GetInt32()).IsEqualTo(1);
+            await Assert.That(root.GetProperty("requestBodyBytes").GetInt64()).IsEqualTo(3);
+            await Assert.That(root.GetProperty("responseBodyBytes").GetInt64()).IsEqualTo(0);
+            var duration = root.GetProperty("durationMilliseconds");
+            var min = duration.GetProperty("min").GetDouble();
+            var median = duration.GetProperty("median").GetDouble();
+            var max = duration.GetProperty("max").GetDouble();
+            await Assert.That(duration.GetProperty("samples").GetInt32()).IsEqualTo(3);
+            await Assert.That(min <= median).IsTrue();
+            await Assert.That(median <= max).IsTrue();
+        }
+        finally
+        {
+            File.Delete(temporaryFile);
+        }
+    }
+
+    /// <summary>
     ///     Verifies that the Send command routes through CliSendHandler.
     /// </summary>
     [Test]
@@ -245,5 +343,50 @@ public sealed class CliRunnerTests
 
         await Assert.That(exitCode).IsEqualTo(9);
         await Assert.That(error.ToString()).Contains("har-filter requires");
+    }
+
+    /// <summary>
+    ///     Verifies that <c>start --json</c> preserves a machine-readable automation contract
+    ///     through the runner. On Windows it reports a listening event; on other platforms it
+    ///     reports the existing unsupported-platform error as JSON.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_StartCommandJsonOutput_ExitCodeAndOutputMatchAutomationContract()
+    {
+        var runner = new CliRunner();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        if (OperatingSystem.IsWindows())
+        {
+            var command = CliArgumentParser.Parse(["start", "--port", "9999", "--duration", "1", "--json"]);
+
+            var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(error.ToString()).IsEmpty();
+
+            var lines = output.ToString()
+                .Split(['\r', '\n'], System.StringSplitOptions.RemoveEmptyEntries);
+            using var document = JsonDocument.Parse(lines[0]);
+            var root = document.RootElement;
+            await Assert.That(root.GetProperty("status").GetString()).IsEqualTo("listening");
+            await Assert.That(root.GetProperty("port").GetInt32()).IsEqualTo(9999);
+        }
+        else
+        {
+            var command = CliArgumentParser.Parse(["start", "--port", "9999", "--json"]);
+
+            var exitCode = await runner.RunAsync(command, output, error, CancellationToken.None);
+
+            await Assert.That(exitCode).IsEqualTo(5);
+            await Assert.That(output.ToString()).IsEmpty();
+
+            using var document = JsonDocument.Parse(error.ToString());
+            var root = document.RootElement;
+            await Assert.That(root.GetProperty("exitCode").GetInt32()).IsEqualTo(5);
+            await Assert.That(root.GetProperty("status").GetString()).IsEqualTo("error");
+            await Assert.That(root.GetProperty("error").GetString()).IsEqualTo("The 'start' command requires Windows.");
+        }
     }
 }

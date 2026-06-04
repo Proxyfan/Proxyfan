@@ -43,41 +43,32 @@ public static class CliStartHandler
         var fallbackStartOptions = new CliStartOptions();
         var startOptions = command.StartOptions ?? fallbackStartOptions;
         var host = BuildHost(command.Port, startOptions.BindAddress);
-        try
+        var wasCancelled = await TryStartHostAsync(host, cancellationToken).ConfigureAwait(false);
+        if (wasCancelled)
         {
-            await host.StartAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
+            host.Dispose();
             return 0;
         }
 
         var proxyServer = host.Services.GetRequiredService<ProxyServer>();
-        var startResult = await proxyServer.StartAsync(cancellationToken).ConfigureAwait(false);
-        if (!startResult.IsSuccess)
+        var executionArguments = new StartExecutionArguments
         {
-            var errorMessage = startResult.Error is null ? "unknown error" : startResult.Error.Message;
-            await standardError.WriteAsync($"Failed to start proxy: {errorMessage}".AsMemory(), cancellationToken).ConfigureAwait(false);
-            await host.StopAsync(CancellationToken.None).ConfigureAwait(false);
-            host.Dispose();
-            return 4;
-        }
-
-        await standardOut.WriteAsync($"Proxy server listening on port {command.Port.ToString(CultureInfo.InvariantCulture)}. Press Ctrl+C to stop.{Environment.NewLine}".AsMemory(), cancellationToken).ConfigureAwait(false);
-
-        await WaitForShutdownAsync(startOptions, cancellationToken).ConfigureAwait(false);
-
-        await proxyServer.StopAsync(CancellationToken.None).ConfigureAwait(false);
-        var exportArguments = new CliStartExportArguments
-        {
+            Command = command,
             Host = host,
+            ProxyServer = proxyServer,
             StandardError = standardError,
             StandardOut = standardOut,
             StartOptions = startOptions,
         };
-        await ExportCapturedFlowsAsync(exportArguments, CancellationToken.None).ConfigureAwait(false);
-        await host.StopAsync(CancellationToken.None).ConfigureAwait(false);
-        host.Dispose();
+        var startExitCode = await TryStartProxyAsync(executionArguments, cancellationToken).ConfigureAwait(false);
+        if (startExitCode.HasValue)
+        {
+            return startExitCode.Value;
+        }
+
+        await WriteListeningAsync(executionArguments, cancellationToken).ConfigureAwait(false);
+        await WaitForShutdownAsync(startOptions, cancellationToken).ConfigureAwait(false);
+        await ShutdownAsync(executionArguments, cancellationToken).ConfigureAwait(false);
         return 0;
     }
 
@@ -128,16 +119,78 @@ public static class CliStartHandler
                 await harExporter.ExportAsync(flows, fileStream, cancellationToken).ConfigureAwait(false);
             }
 
-            await arguments.StandardOut.WriteAsync($"Exported {flows.Count.ToString(CultureInfo.InvariantCulture)} flow(s) to {arguments.StartOptions.OutputPath}{Environment.NewLine}".AsMemory(), cancellationToken).ConfigureAwait(false);
+            if (arguments.IsJsonOutput)
+            {
+                var payload = new
+                {
+                    status = "exported",
+                    flowCount = flows.Count,
+                    path = arguments.StartOptions.OutputPath,
+                };
+                await CliJsonWriter.WriteLineAsync(
+                        arguments.StandardOut,
+                        payload,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await arguments.StandardOut.WriteAsync($"Exported {flows.Count.ToString(CultureInfo.InvariantCulture)} flow(s) to {arguments.StartOptions.OutputPath}{Environment.NewLine}".AsMemory(), cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (IOException ex)
         {
-            await arguments.StandardError.WriteAsync($"Failed to write HAR output: {ex.Message}".AsMemory(), cancellationToken).ConfigureAwait(false);
+            await WriteExportErrorAsync(arguments, ex.Message, cancellationToken).ConfigureAwait(false);
         }
         catch (UnauthorizedAccessException ex)
         {
-            await arguments.StandardError.WriteAsync($"Failed to write HAR output: {ex.Message}".AsMemory(), cancellationToken).ConfigureAwait(false);
+            await WriteExportErrorAsync(arguments, ex.Message, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private static async Task ShutdownAsync(StartExecutionArguments arguments, CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+        await arguments.ProxyServer.StopAsync(CancellationToken.None).ConfigureAwait(false);
+        var exportArguments = new CliStartExportArguments
+        {
+            Host = arguments.Host,
+            IsJsonOutput = arguments.Command.IsJsonOutput,
+            StandardError = arguments.StandardError,
+            StandardOut = arguments.StandardOut,
+            StartOptions = arguments.StartOptions,
+        };
+        await ExportCapturedFlowsAsync(exportArguments, CancellationToken.None).ConfigureAwait(false);
+        await arguments.Host.StopAsync(CancellationToken.None).ConfigureAwait(false);
+        arguments.Host.Dispose();
+    }
+
+    private static async Task<bool> TryStartHostAsync(IHost host, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await host.StartAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            return true;
+        }
+    }
+
+    private static async Task<int?> TryStartProxyAsync(StartExecutionArguments arguments, CancellationToken cancellationToken)
+    {
+        var startResult = await arguments.ProxyServer.StartAsync(cancellationToken).ConfigureAwait(false);
+        if (startResult.IsSuccess)
+        {
+            return null;
+        }
+
+        var errorMessage = startResult.Error is null ? "unknown error" : startResult.Error.Message;
+        await WriteStartFailureAsync(arguments, errorMessage, cancellationToken).ConfigureAwait(false);
+        await arguments.Host.StopAsync(CancellationToken.None).ConfigureAwait(false);
+        arguments.Host.Dispose();
+        return 4;
     }
 
     private static async Task WaitForShutdownAsync(CliStartOptions startOptions, CancellationToken cancellationToken)
@@ -169,5 +222,77 @@ public static class CliStartHandler
         {
             _ = cancellationToken;
         }
+    }
+
+    private static Task WriteExportErrorAsync(
+        CliStartExportArguments arguments,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.IsJsonOutput)
+        {
+            var payload = new
+            {
+                status = "error",
+                error = $"Failed to write HAR output: {message}",
+            };
+            return CliJsonWriter.WriteLineAsync(
+                arguments.StandardError,
+                payload,
+                cancellationToken);
+        }
+
+        return arguments.StandardError.WriteAsync($"Failed to write HAR output: {message}".AsMemory(), cancellationToken);
+    }
+
+    private static Task WriteListeningAsync(StartExecutionArguments arguments, CancellationToken cancellationToken)
+    {
+        if (!arguments.Command.IsJsonOutput)
+        {
+            return arguments.StandardOut.WriteAsync(
+                $"Proxy server listening on port {arguments.Command.Port.ToString(CultureInfo.InvariantCulture)}. Press Ctrl+C to stop.{Environment.NewLine}".AsMemory(),
+                cancellationToken);
+        }
+
+        var payload = new
+        {
+            status = "listening",
+            port = arguments.Command.Port,
+        };
+        return CliJsonWriter.WriteLineAsync(arguments.StandardOut, payload, cancellationToken);
+    }
+
+    private static Task WriteStartFailureAsync(
+        StartExecutionArguments arguments,
+        string errorMessage,
+        CancellationToken cancellationToken)
+    {
+        if (!arguments.Command.IsJsonOutput)
+        {
+            return arguments.StandardError.WriteAsync($"Failed to start proxy: {errorMessage}".AsMemory(), cancellationToken);
+        }
+
+        var payload = new
+        {
+            exitCode = 4,
+            status = "error",
+            error = $"Failed to start proxy: {errorMessage}",
+        };
+        return CliJsonWriter.WriteLineAsync(arguments.StandardError, payload, cancellationToken);
+    }
+
+    private sealed class StartExecutionArguments
+    {
+        public required CliCommand Command { get; init; }
+
+        public required IHost Host { get; init; }
+
+        public required ProxyServer ProxyServer { get; init; }
+
+        public required TextWriter StandardError { get; init; }
+
+        public required TextWriter StandardOut { get; init; }
+
+        public required CliStartOptions StartOptions { get; init; }
     }
 }
