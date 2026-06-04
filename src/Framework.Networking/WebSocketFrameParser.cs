@@ -10,6 +10,8 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public static class WebSocketFrameParser
 {
+    private const long MaxFramePayloadBytes = 1024L * 1024L;
+
     /// <summary>
     ///     Attempts to parse one frame from the supplied buffer. Returns null when the buffer
     ///     does not contain at least one complete frame (caller must wait for more bytes).
@@ -61,14 +63,25 @@ public static class WebSocketFrameParser
             throw new System.IO.InvalidDataException("Control frames must not exceed 125 bytes of payload.");
         }
 
-        var totalLength = header.HeaderLength + (int)header.PayloadLength;
+        if (header.PayloadLength > int.MaxValue)
+        {
+            throw new System.IO.InvalidDataException("WebSocket payload exceeds supported size.");
+        }
+
+        if (header.PayloadLength > MaxFramePayloadBytes)
+        {
+            throw new System.IO.InvalidDataException("WebSocket payload exceeds maximum.");
+        }
+
+        var payloadLength = (int)header.PayloadLength;
+        var totalLength = checked(header.HeaderLength + payloadLength);
 
         if (span.Length < totalLength)
         {
             return null;
         }
 
-        var payload = ExtractPayload(span.Slice(header.HeaderLength, (int)header.PayloadLength), header.MaskingKey);
+        var payload = ExtractPayload(span.Slice(header.HeaderLength, payloadLength), header.MaskingKey);
         var frame = new WebSocketFrame(isFinalFragment, opcode, payload, totalLength);
         return frame;
     }
@@ -117,7 +130,13 @@ public static class WebSocketFrameParser
                 return null;
             }
 
-            payloadLength = (long)BinaryPrimitives.ReadUInt64BigEndian(span.Slice(headerLength, 8));
+            var extendedPayloadLength = BinaryPrimitives.ReadUInt64BigEndian(span.Slice(headerLength, 8));
+            if ((extendedPayloadLength & 0x8000000000000000UL) != 0)
+            {
+                throw new System.IO.InvalidDataException("WebSocket 64-bit payload length must not have the high bit set (RFC 6455 §5.2).");
+            }
+
+            payloadLength = (long)extendedPayloadLength;
             headerLength += 8;
         }
 

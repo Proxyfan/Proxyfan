@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -131,6 +132,39 @@ public sealed class WebSocketFrameParserTests
 
         await Assert.That(frame).IsNotNull();
         await Assert.That(frame!.Payload.Length).IsEqualTo(payloadLength);
+    }
+
+    [Test]
+    public async Task TryParse_PayloadLengthAboveIntMaxValue_RejectsFrame()
+    {
+        var bytes = new byte[10];
+        bytes[0] = 0x82;
+        bytes[1] = 127;
+        BinaryPrimitives.WriteUInt64BigEndian(bytes.AsSpan(2, 8), (ulong)int.MaxValue + 1);
+
+        await Assert.That(() => WebSocketFrameParser.TryParse(bytes)).Throws<InvalidDataException>();
+    }
+
+    [Test]
+    public async Task TryParse_PayloadLengthAboveConfiguredMaximum_RejectsFrame()
+    {
+        var bytes = new byte[10];
+        bytes[0] = 0x82;
+        bytes[1] = 127;
+        BinaryPrimitives.WriteUInt64BigEndian(bytes.AsSpan(2, 8), 1024UL * 1024UL + 1);
+
+        await Assert.That(() => WebSocketFrameParser.TryParse(bytes)).Throws<InvalidDataException>();
+    }
+
+    [Test]
+    public async Task TryParse_PayloadLengthHighBitSet_RejectsFrame()
+    {
+        var bytes = new byte[10];
+        bytes[0] = 0x82;
+        bytes[1] = 127;
+        BinaryPrimitives.WriteUInt64BigEndian(bytes.AsSpan(2, 8), 0x8000000000000001UL);
+
+        await Assert.That(() => WebSocketFrameParser.TryParse(bytes)).Throws<InvalidDataException>();
     }
 
     /// <summary>
