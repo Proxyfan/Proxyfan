@@ -211,6 +211,12 @@
   <data name="Inspector_Tab_Body" xml:space="preserve">
     <value>Body</value>
   </data>
+  <data name="Inspector_Body_DecompressionLimitBanner" xml:space="preserve">
+    <value>Body too large: decompression limit exceeded. Click 'Force Decode' to render anyway.</value>
+  </data>
+  <data name="Inspector_Body_ForceDecodeButton" xml:space="preserve">
+    <value>Force Decode</value>
+  </data>
   <data name="Inspector_Tab_Query" xml:space="preserve">
     <value>Query</value>
   </data>

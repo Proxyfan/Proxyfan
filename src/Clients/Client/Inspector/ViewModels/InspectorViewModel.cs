@@ -1,6 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Framework.Serialization;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -20,6 +22,10 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private string _authorizationText;
     [ObservableProperty]
     private string _graphQueryLanguageText;
+    [ObservableProperty]
+    private bool _isRequestBodyDecompressionLimitExceeded;
+    [ObservableProperty]
+    private bool _isResponseBodyDecompressionLimitExceeded;
     [ObservableProperty]
     private string _queryParametersText;
     [ObservableProperty]
@@ -96,6 +102,8 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _trafficListViewModel = trafficListViewModel;
         _authorizationText = string.Empty;
         _graphQueryLanguageText = string.Empty;
+        _isRequestBodyDecompressionLimitExceeded = false;
+        _isResponseBodyDecompressionLimitExceeded = false;
         _queryParametersText = string.Empty;
         _rawRequestText = string.Empty;
         _rawResponseText = string.Empty;
@@ -132,7 +140,18 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private void ApplyRequest(HypertextTransferProtocolRequestData request)
     {
         RequestHeadersText = InspectorTextFormatter.FormatHeaders(request.Headers);
-        RequestBodyText = InspectorTextFormatter.FormatBody(request.Body, request.Headers);
+
+        try
+        {
+            RequestBodyText = InspectorTextFormatter.FormatBody(request.Body, request.Headers);
+            IsRequestBodyDecompressionLimitExceeded = false;
+        }
+        catch (DecompressionLimitExceededException)
+        {
+            RequestBodyText = string.Empty;
+            IsRequestBodyDecompressionLimitExceeded = true;
+        }
+
         RequestBodyImageBytes = InspectorImageExtractor.TryExtract(request.Body, request.Headers);
         QueryParametersText = QueryStringFormatter.Format(QueryStringParser.Parse(request.RequestUri));
         RequestCookiesText = InspectorCookieFormatter.FormatRequest(request);
@@ -144,7 +163,18 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private void ApplyResponse(HypertextTransferProtocolResponseData response)
     {
         ResponseHeadersText = InspectorTextFormatter.FormatHeaders(response.Headers);
-        ResponseBodyText = InspectorTextFormatter.FormatBody(response.Body, response.Headers);
+
+        try
+        {
+            ResponseBodyText = InspectorTextFormatter.FormatBody(response.Body, response.Headers);
+            IsResponseBodyDecompressionLimitExceeded = false;
+        }
+        catch (DecompressionLimitExceededException)
+        {
+            ResponseBodyText = string.Empty;
+            IsResponseBodyDecompressionLimitExceeded = true;
+        }
+
         ResponseBodyImageBytes = InspectorImageExtractor.TryExtract(response.Body, response.Headers);
         ResponseCookiesText = InspectorCookieFormatter.FormatResponse(response);
         RawResponseText = RawHypertextTransferProtocolMessageFormatter.FormatResponse(response);
@@ -158,10 +188,12 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         RawRequestText = string.Empty;
         RawResponseText = string.Empty;
         RequestHeadersText = string.Empty;
+        IsRequestBodyDecompressionLimitExceeded = false;
         RequestBodyImageBytes = null;
         RequestBodyText = string.Empty;
         RequestCookiesText = string.Empty;
         ResponseHeadersText = string.Empty;
+        IsResponseBodyDecompressionLimitExceeded = false;
         ResponseBodyImageBytes = null;
         ResponseBodyText = string.Empty;
         ResponseCookiesText = string.Empty;
@@ -177,6 +209,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         GraphQueryLanguageText = string.Empty;
         QueryParametersText = string.Empty;
         RawRequestText = string.Empty;
+        IsRequestBodyDecompressionLimitExceeded = false;
         RequestHeadersText = string.Empty;
         RequestBodyImageBytes = null;
         RequestBodyText = string.Empty;
@@ -186,10 +219,39 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private void ClearResponseSections()
     {
         RawResponseText = string.Empty;
+        IsResponseBodyDecompressionLimitExceeded = false;
         ResponseHeadersText = string.Empty;
         ResponseBodyImageBytes = null;
         ResponseBodyText = string.Empty;
         ResponseCookiesText = string.Empty;
+    }
+
+    [RelayCommand]
+    private void ForceDecodeRequestBody()
+    {
+        var request = _trafficListViewModel.SelectedFlow?.Request;
+
+        if (request is null)
+        {
+            return;
+        }
+
+        RequestBodyText = InspectorTextFormatter.FormatBody(request.Body, request.Headers, forceDecodeBody: true);
+        IsRequestBodyDecompressionLimitExceeded = false;
+    }
+
+    [RelayCommand]
+    private void ForceDecodeResponseBody()
+    {
+        var response = _trafficListViewModel.SelectedFlow?.Response;
+
+        if (response is null)
+        {
+            return;
+        }
+
+        ResponseBodyText = InspectorTextFormatter.FormatBody(response.Body, response.Headers, forceDecodeBody: true);
+        IsResponseBodyDecompressionLimitExceeded = false;
     }
 
     private void OnTrafficListPropertyChanged(object? sender, PropertyChangedEventArgs propertyChangedEventArgs)
