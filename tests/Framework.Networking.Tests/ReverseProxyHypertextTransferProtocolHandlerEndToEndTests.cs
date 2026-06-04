@@ -34,22 +34,28 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
     [Test]
     public async Task HandleAsync_GetRequest_RoundTripsResponseAndCapturesFlow()
     {
-        var backendPort = GetFreePort();
+        // Keep the backend probe alive until RunRawBackendAsync binds to minimise the race window.
+        var backendProbe = new TcpListener(IPAddress.Loopback, 0);
+        backendProbe.Start();
+        var backendPort = ((IPEndPoint)backendProbe.LocalEndpoint).Port;
+        backendProbe.Stop(); // Release immediately before the backend binds.
+
         using var backendCancellation = new CancellationTokenSource();
         var capturedHost = new TaskCompletionSource<string>();
         var backendTask = RunRawBackendAsync(backendPort, "hello-backend", capturedHost, backendCancellation.Token);
 
-        var listenPort = GetFreePort();
         var trafficStore = new TrafficStore();
         var eventBus = new DomainEventBus(NullLogger<DomainEventBus>.Instance);
         var ruleEngine = new RuleEngine([], []);
         var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
-        var listener = CreateListener(listenPort, backendPort, handler);
+
+        // BindRouteListenerAsync keeps the listen-port probe alive while constructing the
+        // listener, then releases it just before StartAsync (bind-and-pass + retry).
+        var (listener, listenPort) = await BindRouteListenerAsync(
+            port => CreateListener(port, backendPort, handler));
 
         try
         {
-            await listener.StartAsync(CancellationToken.None);
-
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, listenPort);
             var stream = client.GetStream();
@@ -99,18 +105,23 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
     [Test]
     public async Task HandleAsync_BlockedRequest_Returns403AndCapturesBlockedFlow()
     {
-        var backendPort = GetFreePort();
-        var listenPort = GetFreePort();
+        // backendPort is intentionally never bound (block list fires before forwarding).
+        var backendProbe = new TcpListener(IPAddress.Loopback, 0);
+        backendProbe.Start();
+        var backendPort = ((IPEndPoint)backendProbe.LocalEndpoint).Port;
+        backendProbe.Stop();
+
         var trafficStore = new TrafficStore();
         var eventBus = new DomainEventBus(NullLogger<DomainEventBus>.Instance);
         var matcher = new MatchingRule("/blocked", MatchingRuleKind.Exact);
         var ruleEngine = new RuleEngine([new BlockListRule([matcher], isEnabled: true, priority: 0)], []);
         var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
-        var listener = CreateListener(listenPort, backendPort, handler);
+
+        var (listener, listenPort) = await BindRouteListenerAsync(
+            port => CreateListener(port, backendPort, handler));
 
         try
         {
-            await listener.StartAsync(CancellationToken.None);
             using var httpClient = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{listenPort}/") };
 
             var response = await httpClient.GetAsync("/blocked");
@@ -136,20 +147,24 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
     [Test]
     public async Task HandleAsync_NonHttpTraffic_FallsThroughToRawForwarding()
     {
-        var backendPort = GetFreePort();
+        var backendProbe = new TcpListener(IPAddress.Loopback, 0);
+        backendProbe.Start();
+        var backendPort = ((IPEndPoint)backendProbe.LocalEndpoint).Port;
+        backendProbe.Stop();
+
         using var echoCancellation = new CancellationTokenSource();
         var echoTask = RunEchoServerAsync(backendPort, echoCancellation.Token);
 
-        var listenPort = GetFreePort();
         var trafficStore = new TrafficStore();
         var eventBus = new DomainEventBus(NullLogger<DomainEventBus>.Instance);
         var ruleEngine = new RuleEngine([], []);
         var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
-        var listener = CreateListener(listenPort, backendPort, handler);
+
+        var (listener, listenPort) = await BindRouteListenerAsync(
+            port => CreateListener(port, backendPort, handler));
 
         try
         {
-            await listener.StartAsync(CancellationToken.None);
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, listenPort);
             using var stream = client.GetStream();
@@ -206,17 +221,22 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
     [Test]
     public async Task HandleAsync_BackendUnreachable_FailsFlowAndPublishesCompletedEvent()
     {
-        var backendPort = GetFreePort();
-        var listenPort = GetFreePort();
+        // backendPort is intentionally never bound (testing unreachable backend behavior).
+        var backendProbe = new TcpListener(IPAddress.Loopback, 0);
+        backendProbe.Start();
+        var backendPort = ((IPEndPoint)backendProbe.LocalEndpoint).Port;
+        backendProbe.Stop();
+
         var trafficStore = new TrafficStore();
         var eventBus = new RecordingDomainEventBus();
         var ruleEngine = new RuleEngine([], []);
         var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
-        var listener = CreateListener(listenPort, backendPort, handler);
+
+        var (listener, listenPort) = await BindRouteListenerAsync(
+            port => CreateListener(port, backendPort, handler));
 
         try
         {
-            await listener.StartAsync(CancellationToken.None);
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, listenPort);
             var stream = client.GetStream();
@@ -253,21 +273,25 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
     [Test]
     public async Task HandleAsync_Http10Request_ClosesConnectionAfterResponse()
     {
-        var backendPort = GetFreePort();
+        var backendProbe = new TcpListener(IPAddress.Loopback, 0);
+        backendProbe.Start();
+        var backendPort = ((IPEndPoint)backendProbe.LocalEndpoint).Port;
+        backendProbe.Stop();
+
         using var backendCancellation = new CancellationTokenSource();
         var capturedHost = new TaskCompletionSource<string>();
         var backendTask = RunRawBackendAsync(backendPort, "ten-body", capturedHost, backendCancellation.Token);
 
-        var listenPort = GetFreePort();
         var trafficStore = new TrafficStore();
         var eventBus = new DomainEventBus(NullLogger<DomainEventBus>.Instance);
         var ruleEngine = new RuleEngine([], []);
         var handler = CreateHandler(eventBus, ruleEngine, trafficStore);
-        var listener = CreateListener(listenPort, backendPort, handler);
+
+        var (listener, listenPort) = await BindRouteListenerAsync(
+            port => CreateListener(port, backendPort, handler));
 
         try
         {
-            await listener.StartAsync(CancellationToken.None);
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, listenPort);
             var stream = client.GetStream();
@@ -329,13 +353,46 @@ public sealed class ReverseProxyHypertextTransferProtocolHandlerEndToEndTests
         return listener;
     }
 
-    private static int GetFreePort()
+    /// <summary>
+    ///     Starts a <see cref="ReverseProxyRouteListener" /> on a free port using the
+    ///     bind-probe-and-retry pattern: a <see cref="TcpListener" /> probe on port 0 holds the
+    ///     OS port reservation while the production listener is constructed, is then released
+    ///     immediately before <see cref="ReverseProxyRouteListener.StartAsync" />, and the
+    ///     whole attempt is retried up to five times on <see cref="ProxyBindException" />.
+    /// </summary>
+    /// <param name="createListener">
+    ///     Factory that produces a <see cref="ReverseProxyRouteListener" /> configured for the
+    ///     supplied port argument.
+    /// </param>
+    /// <returns>The started listener and the port it successfully bound to.</returns>
+    private static async Task<(ReverseProxyRouteListener Listener, int ListenPort)> BindRouteListenerAsync(
+        Func<int, ReverseProxyRouteListener> createListener)
     {
-        using var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            // Hold the probe alive while constructing the route/listener so the OS port
+            // reservation is continuous up to the moment the production socket binds.
+            var probe = new TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            var listener = createListener(port);
+            probe.Stop(); // Release port; production socket binds next.
+            try
+            {
+                await listener.StartAsync(CancellationToken.None);
+                return (listener, port);
+            }
+            catch (ProxyBindException)
+            {
+                listener.Dispose();
+                if (attempt == 4)
+                {
+                    throw new InvalidOperationException("Unable to bind a free listen port after 5 attempts.");
+                }
+            }
+        }
+
+        throw new InvalidOperationException("Unable to bind a free listen port after 5 attempts.");
     }
 
     private static async Task<TrafficFlow?> PollForFirstFlowAsync(TrafficStore store, TimeSpan timeout)
