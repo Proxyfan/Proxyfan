@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Files;
+using Proxyfan.Presentation.RemoteProcedureCall;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.ObjectModel;
@@ -20,7 +20,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
     private readonly IFilePickerService _filePickerService;
-    private readonly IRemoteProcedureCallDescriptorLibrary _library;
+    private readonly IRemoteProcedureCallDescriptorFileLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private string? _selectedFilePath;
@@ -40,7 +40,7 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
     /// <param name="filePickerService">The file picker used to choose <c>.pb</c> files.</param>
     /// <param name="userInterfaceScheduler">The UI-thread scheduler.</param>
     public RemoteProcedureCallDescriptorsViewModel(
-        IRemoteProcedureCallDescriptorLibrary library,
+        IRemoteProcedureCallDescriptorFileLibrary library,
         IFilePickerService filePickerService,
         IUserInterfaceScheduler userInterfaceScheduler)
     {
