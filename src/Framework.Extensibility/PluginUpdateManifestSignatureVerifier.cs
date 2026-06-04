@@ -10,6 +10,11 @@ namespace Proxyfan.Framework.Extensibility;
 /// </summary>
 public static class PluginUpdateManifestSignatureVerifier
 {
+    /// <summary>
+    ///     SubjectPublicKeyInfo (DER, base64) for the trusted plugin update manifest signer.
+    ///     Rotate this value only when introducing a new signing key and coordinating manifest
+    ///     generation to use the matching private key.
+    /// </summary>
     private const string ManifestSigningPublicKeySubjectPublicKeyInfoBase64 = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEs9Mbiyk07V9A+u11gJ/+61+byvkJBTy0u4ZxBegXSW+5jvrpXtmZMD2RVUcxyh+1PlaMyfm3o4CNmYbxOmrM3Q==";
 
     /// <summary>

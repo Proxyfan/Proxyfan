@@ -36,7 +36,6 @@ public sealed class HypertextTransferProtocolPluginUpdateFeed : IPluginUpdateFee
         _hypertextTransferProtocolClient = hypertextTransferProtocolClient;
         var trustedManifestHostNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "localhost",
             "plugins.proxyfan.dev",
         };
         _trustedManifestHostNames = trustedManifestHostNames;

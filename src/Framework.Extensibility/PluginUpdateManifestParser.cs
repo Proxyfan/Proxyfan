@@ -143,15 +143,18 @@ public static class PluginUpdateManifestParser
             return false;
         }
 
-        try
+        foreach (var character in value)
         {
-            _ = Convert.FromHexString(value);
-            return true;
+            var isDigit = character is >= '0' and <= '9';
+            var isUpperHex = character is >= 'A' and <= 'F';
+            var isLowerHex = character is >= 'a' and <= 'f';
+            if (!isDigit && !isUpperHex && !isLowerHex)
+            {
+                return false;
+            }
         }
-        catch (FormatException)
-        {
-            return false;
-        }
+
+        return true;
     }
 
     private static string? ReadString(JsonElement element, string propertyName)
