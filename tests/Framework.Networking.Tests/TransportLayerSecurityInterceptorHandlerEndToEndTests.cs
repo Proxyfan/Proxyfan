@@ -80,7 +80,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     public async Task HandleAsync_Http2AlpnNegotiated_DispatchesVersionTwoOrchestrator()
     {
         using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        using var trustedUpstreamCertificate = CreateTrustedUpstreamServerCertificate("localhost");
+        using var trustedUpstreamCertificate = await CreateTrustedUpstreamServerCertificateAsync("localhost");
 
         var requestHeaders = new[]
         {
@@ -100,6 +100,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var requestEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
         var responseEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
         var requestFrames = CombineBytes(
+        [
             BuildFrame(
                 requestEncoder.Encode(requestHeaders),
                 HypertextTransferProtocolVersion2FrameType.Headers,
@@ -109,8 +110,10 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
                 requestBody,
                 HypertextTransferProtocolVersion2FrameType.Data,
                 HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge,
-                1));
+                1),
+        ]);
         var responseFrames = CombineBytes(
+        [
             BuildFrame(
                 responseEncoder.Encode(responseHeaders),
                 HypertextTransferProtocolVersion2FrameType.Headers,
@@ -120,7 +123,8 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
                 responseBody,
                 HypertextTransferProtocolVersion2FrameType.Data,
                 HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge,
-                1));
+                1),
+        ]);
 
         using var upstreamListener = StartHttp2TlsUpstreamServer(
             trustedUpstreamCertificate.ServerCertificate,
@@ -170,7 +174,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     public async Task HandleAsync_Http2AlpnNegotiated_FrameByFrameForwardingPreserved()
     {
         using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        using var trustedUpstreamCertificate = CreateTrustedUpstreamServerCertificate("localhost");
+        using var trustedUpstreamCertificate = await CreateTrustedUpstreamServerCertificateAsync("localhost");
 
         var requestEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
         var responseEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
@@ -203,7 +207,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
             HypertextTransferProtocolVersion2FrameType.Data,
             HypertextTransferProtocolVersion2FrameFlag.EndStreamOrAcknowledge,
             1);
-        var responseFrames = CombineBytes(responseHeadersFrame, responseDataFrame);
+        var responseFrames = CombineBytes([responseHeadersFrame, responseDataFrame]);
 
         using var upstreamListener = StartHttp2TlsUpstreamServer(
             trustedUpstreamCertificate.ServerCertificate,
@@ -259,6 +263,8 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         X509Chain? chain,
         SslPolicyErrors sslPolicyErrors)
     {
+        // Test-only: these end-to-end tests generate ephemeral interception certificates at
+        // runtime, so the client callback intentionally accepts any presented proxy leaf.
         _ = sender;
         _ = chain;
         _ = sslPolicyErrors;
@@ -266,21 +272,21 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         return certificate is not null;
     }
 
-    private static byte[] BuildFrame(byte[] payload, HypertextTransferProtocolVersion2FrameType type, HypertextTransferProtocolVersion2FrameFlag flags, uint streamId)
+    private static byte[] BuildFrame(byte[] payload, HypertextTransferProtocolVersion2FrameType type, HypertextTransferProtocolVersion2FrameFlag flags, uint streamIdentifier)
     {
         var buffer = new byte[HypertextTransferProtocolVersion2FrameParser.HeaderLength + payload.Length];
         var descriptor = new HypertextTransferProtocolVersion2FrameDescriptor
         {
             Flags = flags,
             PayloadLength = payload.Length,
-            StreamIdentifier = streamId,
+            StreamIdentifier = streamIdentifier,
             Type = type,
         };
         HypertextTransferProtocolVersion2FrameWriter.WriteFrame(buffer, descriptor, payload);
         return buffer;
     }
 
-    private static byte[] CombineBytes(params byte[][] segments)
+    private static byte[] CombineBytes(byte[][] segments)
     {
         var totalLength = 0;
         foreach (var segment in segments)
@@ -371,10 +377,10 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         return loadedCertificate;
     }
 
-    private static TrustedServerCertificate CreateTrustedUpstreamServerCertificate(string commonName)
+    private static async Task<TrustedServerCertificate> CreateTrustedUpstreamServerCertificateAsync(string commonName)
     {
         var generator = new StubCertificateGenerator();
-        var authority = generator.GenerateRootCertificateAuthorityAsync(CancellationToken.None).GetAwaiter().GetResult();
+        var authority = await generator.GenerateRootCertificateAuthorityAsync(CancellationToken.None);
         var serverCertificate = authority.Sign(commonName);
         var rootStore = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
         rootStore.Open(OpenFlags.ReadWrite);
@@ -385,16 +391,16 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     private static async Task<byte[]> ReadConnectResponseAsync(Stream stream, CancellationToken cancellationToken)
     {
         using var buffer = new MemoryStream();
+        var readBuffer = new byte[256];
         while (true)
         {
-            var nextByte = new byte[1];
-            var read = await stream.ReadAsync(nextByte, cancellationToken);
+            var read = await stream.ReadAsync(readBuffer, cancellationToken);
             if (read == 0)
             {
                 throw new IOException("Unexpected end of stream while reading CONNECT response.");
             }
 
-            buffer.WriteByte(nextByte[0]);
+            await buffer.WriteAsync(readBuffer.AsMemory(0, read), cancellationToken);
             if (buffer.Length >= 4)
             {
                 var bytes = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
@@ -427,14 +433,15 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     private static async Task<byte[]> ReadOneFrameBytesAsync(Stream stream, CancellationToken cancellationToken)
     {
         var headerBytes = await ReadExactAsync(stream, HypertextTransferProtocolVersion2FrameParser.HeaderLength, cancellationToken);
-        var header = HypertextTransferProtocolVersion2FrameParser.TryParseHeader(headerBytes);
-        if (header is null)
+        var frameHeader = HypertextTransferProtocolVersion2FrameParser.TryParseHeader(headerBytes);
+        if (frameHeader is null)
         {
             throw new IOException("Failed to parse forwarded HTTP/2 frame header.");
         }
 
-        var payloadBytes = await ReadExactAsync(stream, header.Length, cancellationToken);
-        return CombineBytes(headerBytes, payloadBytes);
+        var payloadLength = frameHeader.Length;
+        var payloadBytes = await ReadExactAsync(stream, payloadLength, cancellationToken);
+        return CombineBytes([headerBytes, payloadBytes]);
     }
 
     private static Http2TlsUpstreamListener StartHttp2TlsUpstreamServer(
@@ -483,7 +490,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         {
             using var client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
             await using var networkStream = client.GetStream();
-            var sslStream = new SslStream(networkStream, leaveInnerStreamOpen: false);
+            await using var sslStream = new SslStream(networkStream, leaveInnerStreamOpen: false);
             var serverOptions = new SslServerAuthenticationOptions
             {
                 ApplicationProtocols =
@@ -500,7 +507,6 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
             requestBytesSource.TrySetResult(requestBytes);
             await sslStream.WriteAsync(responseBytes, cancellationToken).ConfigureAwait(false);
             await sslStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            sslStream.Dispose();
         }
         catch (Exception ex)
         {
