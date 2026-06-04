@@ -34,6 +34,14 @@ public abstract record RequestPipelineAction
     }
 
     /// <summary>
+    ///     Indicates that a breakpoint rule aborted the request; the proxy closes the connection
+    ///     without sending a response. Semantically distinct from <see cref="Block" /> (which
+    ///     returns a 403 to the client) because a breakpoint abort is an operator-driven decision
+    ///     rather than a policy-driven rejection.
+    /// </summary>
+    public sealed record Pause : RequestPipelineAction;
+
+    /// <summary>
     ///     Indicates that the request URL has been rewritten and the pipeline should forward
     ///     the modified request.
     /// </summary>

@@ -26,4 +26,11 @@ public abstract record ResponsePipelineAction
             ModifiedResponse = modifiedResponse;
         }
     }
+
+    /// <summary>
+    ///     Indicates that a breakpoint rule aborted the response phase; the proxy closes the
+    ///     connection without delivering the response to the client. Semantically distinct from
+    ///     a response modification because no data is forwarded.
+    /// </summary>
+    public sealed record Pause : ResponsePipelineAction;
 }
