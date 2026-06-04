@@ -20,7 +20,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 public sealed partial class RemoteProcedureCallDescriptorsViewModel : ObservableObject
 {
     private const int MaxDescriptorFileSizeInBytes = 10 * 1024 * 1024;
-    private const int ReadBufferSizeInBytes = 81920;
+    private const int ReadBufferSizeInBytes = 8192;
     private readonly IFilePickerService _filePickerService;
     private readonly IRemoteProcedureCallDescriptorLibrary _library;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
@@ -154,7 +154,8 @@ public sealed partial class RemoteProcedureCallDescriptorsViewModel : Observable
             var remaining = payload.Length - total;
             if (remaining == 0)
             {
-                var overflowProbeBuffer = new Memory<byte>(payload, 0, 1);
+                var overflowProbe = new byte[1];
+                var overflowProbeBuffer = new Memory<byte>(overflowProbe, 0, 1);
                 var extra = await stream.ReadAsync(overflowProbeBuffer, cancellationToken).ConfigureAwait(true);
                 return extra == 0 ? payload : null;
             }
