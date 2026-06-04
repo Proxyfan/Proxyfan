@@ -80,7 +80,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     public async Task HandleAsync_Http2AlpnNegotiated_DispatchesVersionTwoOrchestrator()
     {
         using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        using var upstreamCertificate = CreateSelfSignedServerCertificate("localhost");
+        using var trustedUpstreamCertificate = CreateTrustedUpstreamServerCertificate("localhost");
 
         var requestHeaders = new[]
         {
@@ -123,7 +123,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
                 1));
 
         using var upstreamListener = StartHttp2TlsUpstreamServer(
-            upstreamCertificate,
+            trustedUpstreamCertificate.ServerCertificate,
             requestFrames.Length,
             responseFrames,
             cancellationSource.Token);
@@ -170,7 +170,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
     public async Task HandleAsync_Http2AlpnNegotiated_FrameByFrameForwardingPreserved()
     {
         using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        using var upstreamCertificate = CreateSelfSignedServerCertificate("localhost");
+        using var trustedUpstreamCertificate = CreateTrustedUpstreamServerCertificate("localhost");
 
         var requestEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
         var responseEncoder = new HypertextTransferProtocolVersion2HpackEncoder();
@@ -206,7 +206,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var responseFrames = CombineBytes(responseHeadersFrame, responseDataFrame);
 
         using var upstreamListener = StartHttp2TlsUpstreamServer(
-            upstreamCertificate,
+            trustedUpstreamCertificate.ServerCertificate,
             requestHeadersFrame.Length + requestDataFrame.Length,
             responseFrames,
             cancellationSource.Token);
@@ -369,6 +369,17 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         var pfxBytes = selfSigned.Export(X509ContentType.Pfx);
         var loadedCertificate = X509CertificateLoader.LoadPkcs12(pfxBytes, string.Empty, X509KeyStorageFlags.Exportable);
         return loadedCertificate;
+    }
+
+    private static TrustedServerCertificate CreateTrustedUpstreamServerCertificate(string commonName)
+    {
+        var generator = new StubCertificateGenerator();
+        var authority = generator.GenerateRootCertificateAuthorityAsync(CancellationToken.None).GetAwaiter().GetResult();
+        var serverCertificate = authority.Sign(commonName);
+        var rootStore = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+        rootStore.Open(OpenFlags.ReadWrite);
+        rootStore.Add(authority.Certificate);
+        return new TrustedServerCertificate(authority.Certificate, rootStore, serverCertificate);
     }
 
     private static async Task<byte[]> ReadConnectResponseAsync(Stream stream, CancellationToken cancellationToken)
@@ -604,6 +615,37 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         {
             SecureStream.Dispose();
             _client.Dispose();
+        }
+    }
+
+    private sealed class TrustedServerCertificate : IDisposable
+    {
+        private readonly X509Certificate2 _authorityCertificate;
+        private readonly X509Store _rootStore;
+
+        public TrustedServerCertificate(X509Certificate2 authorityCertificate, X509Store rootStore, X509Certificate2 serverCertificate)
+        {
+            _authorityCertificate = authorityCertificate;
+            _rootStore = rootStore;
+            ServerCertificate = serverCertificate;
+        }
+
+        public X509Certificate2 ServerCertificate { get; }
+
+        public void Dispose()
+        {
+            try
+            {
+                _rootStore.Remove(_authorityCertificate);
+            }
+            catch (CryptographicException)
+            {
+                // Ignore store cleanup failures in test teardown.
+            }
+
+            _rootStore.Dispose();
+            ServerCertificate.Dispose();
+            _authorityCertificate.Dispose();
         }
     }
 
