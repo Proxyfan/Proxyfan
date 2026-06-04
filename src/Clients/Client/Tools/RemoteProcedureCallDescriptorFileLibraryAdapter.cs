@@ -21,9 +21,6 @@ public sealed class RemoteProcedureCallDescriptorFileLibraryAdapter : IRemotePro
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<string> LoadedFilePaths => _library.LoadedFilePaths;
-
-    /// <inheritdoc />
     public void Clear()
     {
         _library.Clear();
@@ -34,6 +31,9 @@ public sealed class RemoteProcedureCallDescriptorFileLibraryAdapter : IRemotePro
     {
         _library.Load(sourcePath, payload);
     }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> LoadedFilePaths => _library.LoadedFilePaths;
 
     /// <inheritdoc />
     public void Unload(string sourcePath)
