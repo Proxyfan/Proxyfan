@@ -313,16 +313,19 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Clear()
     {
-        _userInterfaceScheduler.Post(ClearOnUiThread);
+        _userInterfaceScheduler.Post(() => ClearOnUiThread(true));
     }
 
-    private void ClearOnUiThread()
+    private void ClearOnUiThread(bool notifyCoordinator)
     {
         _flowById.Clear();
         Flows.Clear();
         SelectedFlow = null;
         Interlocked.Exchange(ref _nextNumber, 0);
-        _coordinator.NotifyFlowsCleared();
+        if (notifyCoordinator)
+        {
+            _coordinator.NotifyFlowsCleared();
+        }
     }
 
     [RelayCommand]
@@ -376,7 +379,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void LoadFlowsOnUiThread(IReadOnlyList<TrafficFlow> importedFlows)
     {
-        ClearOnUiThread();
+        ClearOnUiThread(false);
 
         var number = 0;
         foreach (var flow in importedFlows)
@@ -387,6 +390,8 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             _flowById.TryAdd(flow.Id, viewModel);
             Flows.Add(viewModel);
         }
+
+        _coordinator.NotifyFlowsCleared();
     }
 
     private void OnCoordinatorHostFilterRequested(string host)
@@ -411,6 +416,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
 
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
+        _coordinator.UpdateSourceHosts(Flows);
         RebuildVisibleFlowsOnUiThread();
     }
 

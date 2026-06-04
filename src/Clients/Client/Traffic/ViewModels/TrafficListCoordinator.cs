@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+
 namespace Proxyfan.Client.Traffic.ViewModels;
 
 /// <summary>
@@ -24,6 +28,33 @@ public sealed class TrafficListCoordinator
     /// </summary>
     public event TrafficListHostFilterRequestedHandler? HostFilterRequested;
 
+    private readonly Dictionary<string, int> _sourceHosts;
+
+    /// <summary>
+    ///     Initializes a new <see cref="TrafficListCoordinator" />.
+    /// </summary>
+    public TrafficListCoordinator()
+    {
+        var sourceHosts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        _sourceHosts = sourceHosts;
+    }
+
+    /// <summary>
+    ///     Returns a copy of the current host-to-count snapshot derived from
+    ///     the traffic list's current flow collection.
+    /// </summary>
+    /// <returns>A host-to-count snapshot copy.</returns>
+    public Dictionary<string, int> GetSourceHostsSnapshot()
+    {
+        var snapshot = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in _sourceHosts)
+        {
+            snapshot[pair.Key] = pair.Value;
+        }
+
+        return snapshot;
+    }
+
     /// <summary>
     ///     Publishes a flows-cleared notification to subscribers.
     /// </summary>
@@ -43,5 +74,26 @@ public sealed class TrafficListCoordinator
     public void RequestHostFilter(string? host)
     {
         HostFilterRequested?.Invoke(host ?? string.Empty);
+    }
+
+    /// <summary>
+    ///     Recomputes the host snapshot from the provided flow collection.
+    /// </summary>
+    /// <param name="flows">The current traffic-list flow collection.</param>
+    public void UpdateSourceHosts(ObservableCollection<TrafficFlowViewModel> flows)
+    {
+        _sourceHosts.Clear();
+
+        foreach (var flow in flows)
+        {
+            var host = flow.Host;
+            if (_sourceHosts.TryGetValue(host, out var count))
+            {
+                _sourceHosts[host] = count + 1;
+                continue;
+            }
+
+            _sourceHosts[host] = 1;
+        }
     }
 }

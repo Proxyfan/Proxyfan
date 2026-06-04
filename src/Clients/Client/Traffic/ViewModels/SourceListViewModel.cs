@@ -112,6 +112,19 @@ public sealed partial class SourceListViewModel : ObservableObject, IDisposable
         _groupsByHost[AllGroupSentinel] = allGroup;
         Sources.Clear();
         Sources.Add(allGroup);
+
+        var sourceHosts = _coordinator.GetSourceHostsSnapshot();
+        foreach (var pair in sourceHosts)
+        {
+            var group = new SourceGroupViewModel(pair.Key, false)
+            {
+                Count = pair.Value,
+            };
+            _groupsByHost[pair.Key] = group;
+            Sources.Add(group);
+            allGroup.Count += pair.Value;
+        }
+
         SelectedSource = allGroup;
     }
 
