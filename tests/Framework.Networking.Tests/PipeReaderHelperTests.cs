@@ -60,19 +60,12 @@ public sealed class PipeReaderHelperTests
         const string part1 = "GET / HTTP/1.1\r\n";
         const string part2 = "Host: example.com\r\n\r\n";
 
-        var writeTask = Task.Run(async () =>
-        {
-            await pipe.Writer.WriteAsync(Encoding.ASCII.GetBytes(part1));
-            await pipe.Writer.FlushAsync();
-            await Task.Delay(TimeSpan.FromMilliseconds(10), TimeProvider.System, CancellationToken.None);
-            await pipe.Writer.WriteAsync(Encoding.ASCII.GetBytes(part2));
-            await pipe.Writer.FlushAsync();
-        });
+        await pipe.Writer.WriteAsync(Encoding.ASCII.GetBytes(part1));
+        await pipe.Writer.WriteAsync(Encoding.ASCII.GetBytes(part2));
+        await pipe.Writer.CompleteAsync();
 
         var result = await PipeReaderHelper.ReadUntilEndOfHeadersAsync(
             pipe.Reader, 65536, CancellationToken.None);
-
-        await writeTask;
 
         await Assert.That(result).IsNotNull();
         var expectedLength = Encoding.ASCII.GetByteCount(part1 + part2);

@@ -299,8 +299,9 @@ public sealed class ConnectionDispatcherTests
     ///     the dispatcher waits and correctly routes once enough bytes are available.
     /// </summary>
     [Test]
-    public async Task DispatchAsync_WhenDataArrivesInTwoWrites_RoutesToMatchingHandler()
+    public async Task DispatchAsync_DataArrivesInChunks_RoutesWithoutDelay()
     {
+        var dispatchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var handler = MatchesFirstByteHandler(0x04);
         var dispatcher = CreateDispatcher([handler]);
         var connection = new StubProxyConnection();
@@ -308,11 +309,13 @@ public sealed class ConnectionDispatcherTests
         var writeTask = Task.Run(async () =>
         {
             await connection.Writer.WriteAsync(new byte[] { 0x04, 0x01 });
-            await Task.Delay(TimeSpan.FromMilliseconds(20), TimeProvider.System, CancellationToken.None);
+            await dispatchStarted.Task;
             await connection.Writer.WriteAsync(new byte[] { 0x00, 0x50, 0x7F, 0x00, 0x00, 0x01 });
         });
 
-        await dispatcher.DispatchAsync(connection, CancellationToken.None);
+        var dispatchTask = dispatcher.DispatchAsync(connection, CancellationToken.None);
+        dispatchStarted.SetResult();
+        await dispatchTask;
         await writeTask;
 
         await Assert.That(handler.HandleCount).IsEqualTo(1);
