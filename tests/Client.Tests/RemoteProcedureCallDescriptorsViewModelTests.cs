@@ -1,6 +1,8 @@
+using Proxyfan.Client.Tools;
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Framework.Serialization;
 using Proxyfan.Presentation.Files;
+using Proxyfan.Presentation.RemoteProcedureCall;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.IO;
@@ -22,8 +24,9 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task Construct_Empty_HasNoLoadedFiles()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
         var picker = new StubPickerService();
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(viewModel.LoadedFilePaths.Count).IsEqualTo(0);
         await Assert.That(viewModel.StatusText).IsEqualTo(string.Empty);
@@ -36,13 +39,14 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task LoadFromFile_ValidDescriptorSet_AppearsInFileList()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
         var setBytes = BuildEmptyDescriptorSet("test.proto", "demo");
         var picker = new StubPickerService
         {
             Stream = new MemoryStream(setBytes),
             DisplayName = "test.pb",
         };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
@@ -58,8 +62,9 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task LoadFromFile_CancelledPicker_NoChangeToLibrary()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
         var picker = new StubPickerService { Stream = null };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
@@ -74,12 +79,13 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task LoadFromFile_MalformedPayload_ReportsParseFailure()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
         var picker = new StubPickerService
         {
             Stream = new MemoryStream(new byte[] { 0x80 }),
             DisplayName = "broken.pb",
         };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, picker, Stubs.InlineUserInterfaceScheduler.Instance);
 
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
@@ -94,9 +100,10 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task UnloadSelected_AfterLoad_RemovesEntry()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
         var setBytes = BuildEmptyDescriptorSet("a.proto", "a");
         var picker = new StubPickerService { Stream = new MemoryStream(setBytes), DisplayName = "a.pb" };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, picker, Stubs.InlineUserInterfaceScheduler.Instance);
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
         viewModel.SelectedFilePath = "a.pb";
 
@@ -113,7 +120,8 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task UnloadSelected_NoSelection_NoOp()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, new StubPickerService(), Stubs.InlineUserInterfaceScheduler.Instance);
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, new StubPickerService(), Stubs.InlineUserInterfaceScheduler.Instance);
 
         viewModel.UnloadSelectedCommand.Execute(null);
 
@@ -127,9 +135,10 @@ public sealed class RemoteProcedureCallDescriptorsViewModelTests
     public async Task Clear_AfterLoad_EmptiesLibrary()
     {
         var library = new RemoteProcedureCallDescriptorLibrary();
+        var adapter = new RemoteProcedureCallDescriptorFileLibraryAdapter(library);
         var setBytes = BuildEmptyDescriptorSet("a.proto", "a");
         var picker = new StubPickerService { Stream = new MemoryStream(setBytes), DisplayName = "a.pb" };
-        var viewModel = new RemoteProcedureCallDescriptorsViewModel(library, picker, Stubs.InlineUserInterfaceScheduler.Instance);
+        var viewModel = new RemoteProcedureCallDescriptorsViewModel(adapter, picker, Stubs.InlineUserInterfaceScheduler.Instance);
         await viewModel.LoadFromFileCommand.ExecuteAsync(null);
 
         viewModel.ClearCommand.Execute(null);
