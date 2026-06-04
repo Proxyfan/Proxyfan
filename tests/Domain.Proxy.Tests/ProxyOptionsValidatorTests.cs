@@ -45,6 +45,46 @@ public sealed class ProxyOptionsValidatorTests
     }
 
     /// <summary>
+    ///     Verifies that an invalid bind address fails validation.
+    /// </summary>
+    [Test]
+    public async Task Validate_InvalidBindAddress_ReturnsFail()
+    {
+        var result = Validate(new ProxyOptions { BindAddress = "not-an-ip" });
+        await Assert.That(result.Failed).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that non-loopback binds require an explicit source allow-list.
+    /// </summary>
+    [Test]
+    public async Task Validate_NonLoopbackBindWithoutAllowList_ReturnsFail()
+    {
+        var result = Validate(
+            new ProxyOptions
+            {
+                BindAddress = "0.0.0.0",
+                AllowedRemoteSources = [],
+            });
+        await Assert.That(result.Failed).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that non-loopback binds pass when an allow-list is configured.
+    /// </summary>
+    [Test]
+    public async Task Validate_NonLoopbackBindWithAllowList_ReturnsSuccess()
+    {
+        var result = Validate(
+            new ProxyOptions
+            {
+                BindAddress = "0.0.0.0",
+                AllowedRemoteSources = ["192.168.1.0/24"],
+            });
+        await Assert.That(result.Succeeded).IsTrue();
+    }
+
+    /// <summary>
     ///     Verifies that port 0 fails validation.
     /// </summary>
     [Test]

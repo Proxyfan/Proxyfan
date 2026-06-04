@@ -9,6 +9,16 @@ namespace Proxyfan.Domain.Proxy.Tests;
 public sealed class ProxyOptionsTests
 {
     /// <summary>
+    ///     Verifies the default value of <see cref="ProxyOptions.BindAddress" />.
+    /// </summary>
+    [Test]
+    public async Task BindAddress_Default_IsEqualToLoopback()
+    {
+        var options = new ProxyOptions();
+        await Assert.That(options.BindAddress).IsEqualTo("127.0.0.1");
+    }
+
+    /// <summary>
     ///     Verifies the default value of <see cref="ProxyOptions.IsAutoStart" />.
     /// </summary>
     [Test]

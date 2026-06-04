@@ -26,6 +26,30 @@ public sealed class ShellViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that loopback bind configuration does not show the remote-bind warning.
+    /// </summary>
+    [Test]
+    public async Task RemoteBindingWarning_DefaultLoopback_IsHidden()
+    {
+        var viewModel = CreateViewModel(new StubSystemProxy(), 8080);
+
+        await Assert.That(viewModel.IsRemoteBindingWarningVisible).IsFalse();
+        await Assert.That(viewModel.RemoteBindingWarningAddress).IsNull();
+    }
+
+    /// <summary>
+    ///     Verifies that non-loopback bind configuration shows the remote-bind warning.
+    /// </summary>
+    [Test]
+    public async Task RemoteBindingWarning_NonLoopback_IsVisible()
+    {
+        var viewModel = ShellViewModelFactory.Create(new StubSystemProxy(), 8080, "0.0.0.0");
+
+        await Assert.That(viewModel.IsRemoteBindingWarningVisible).IsTrue();
+        await Assert.That(viewModel.RemoteBindingWarningAddress).IsEqualTo("0.0.0.0");
+    }
+
+    /// <summary>
     ///     Verifies that toggling with proxy disabled calls RegisterAsync with the configured port.
     /// </summary>
     [Test]

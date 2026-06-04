@@ -21,6 +21,7 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
     private readonly IOptionsMonitor<ProxyOptions> _optionsMonitor;
     private CancellationTokenSource? _acceptLoopCancellationSource;
     private Task? _acceptLoopTask;
+    private ProxyListenerAccessPolicy? _accessPolicy;
     private SemaphoreSlim? _connectionSemaphore;
     private Socket? _listenSocket;
 
@@ -63,14 +64,14 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
     {
         var options = _optionsMonitor.CurrentValue;
         var port = options.Port;
+        var accessPolicy = new ProxyListenerAccessPolicy(options);
 
-        var socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+        var socket = new Socket(accessPolicy.BindAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
         try
         {
-            socket.DualMode = true;
             socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            var bindEndPoint = new IPEndPoint(IPAddress.IPv6Any, port);
+            var bindEndPoint = new IPEndPoint(accessPolicy.BindAddress, port);
             socket.Bind(bindEndPoint);
             socket.Listen();
         }
@@ -82,6 +83,7 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
         }
 
         _listenSocket = socket;
+        _accessPolicy = accessPolicy;
         var connectionSemaphore = new SemaphoreSlim(options.MaxConnections, options.MaxConnections);
         _connectionSemaphore = connectionSemaphore;
         var acceptLoopCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -131,11 +133,46 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
 
         _listenSocket?.Dispose();
         _listenSocket = null;
+        _accessPolicy = null;
 
         _connectionSemaphore?.Dispose();
         _connectionSemaphore = null;
 
         LogStopped(previousPort);
+    }
+
+    private bool CanProcessAcceptedSocket(Socket acceptedSocket)
+    {
+        var remoteEndPoint = acceptedSocket.RemoteEndPoint;
+        if (remoteEndPoint is null || (_accessPolicy is not null && !_accessPolicy.CanAllowRemoteEndpoint(remoteEndPoint)))
+        {
+            var unknownEndPoint = new IPEndPoint(IPAddress.None, 0);
+            var logEndPoint = remoteEndPoint ?? unknownEndPoint;
+            LogConnectionRejected(logEndPoint);
+            acceptedSocket.Dispose();
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> CanReserveConnectionSlotAsync(Socket acceptedSocket, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _connectionSemaphore!.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            acceptedSocket.Dispose();
+            return false;
+        }
+        catch (ObjectDisposedException)
+        {
+            acceptedSocket.Dispose();
+            return false;
+        }
     }
 
     private async Task HandleConnectionAsync(Socket acceptedSocket, ConnectionAcceptedHandler onConnectionAccepted, CancellationToken cancellationToken)
@@ -176,6 +213,9 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
     [LoggerMessage(Level = LogLevel.Error, Message = "Unhandled error handling connection from {RemoteEndPoint}")]
     private partial void LogConnectionError(Exception ex, EndPoint remoteEndPoint);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected connection from {RemoteEndPoint} by listener source policy")]
+    private partial void LogConnectionRejected(EndPoint remoteEndPoint);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Proxy listener started on port {Port}")]
     private partial void LogStarted(int port);
 
@@ -209,18 +249,13 @@ public sealed partial class SocketProxyListener : IProxyListener, IDisposable
                 continue;
             }
 
-            try
+            if (!CanProcessAcceptedSocket(acceptedSocket))
             {
-                await _connectionSemaphore!.WaitAsync(cancellationToken).ConfigureAwait(false);
+                continue;
             }
-            catch (OperationCanceledException)
+
+            if (!await CanReserveConnectionSlotAsync(acceptedSocket, cancellationToken).ConfigureAwait(false))
             {
-                acceptedSocket.Dispose();
-                break;
-            }
-            catch (ObjectDisposedException)
-            {
-                acceptedSocket.Dispose();
                 break;
             }
 

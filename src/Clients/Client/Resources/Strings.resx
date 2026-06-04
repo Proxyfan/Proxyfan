@@ -109,6 +109,9 @@
   <data name="Shell_StatusBar_ProxyActive" xml:space="preserve">
     <value>Proxy active on port {0}</value>
   </data>
+  <data name="Shell_StatusBar_RemoteBindWarning" xml:space="preserve">
+    <value>Warning: listener exposed on</value>
+  </data>
   <data name="Traffic_Column_Number" xml:space="preserve">
     <value>#</value>
   </data>

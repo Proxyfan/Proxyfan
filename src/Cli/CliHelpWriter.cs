@@ -20,6 +20,7 @@ public static class CliHelpWriter
           help                  Show this help text
           version               Show version information
           start [--port N]      Start the proxy server on the given port (default: 8080)
+            [--bind-address IP]   and optionally override the bind address (default: 127.0.0.1)
             [--output <path>]     and optionally export captured flows to a HAR file when
             [--duration N]        the proxy stops, or auto-stop after N seconds
           har-summary <path>    Print a human-readable summary of a HAR file
@@ -37,6 +38,7 @@ public static class CliHelpWriter
 
         Options:
           --port N              TCP port for the start command (1-65535)
+          --bind-address IP      Listener bind address for start (e.g. 127.0.0.1, 0.0.0.0, ::1)
           --input <path>        Alternative way to specify the HAR file path
           --output <path>       Output HAR file path (har-filter, start)
           --duration N          Auto-stop the proxy after N seconds (start)
@@ -48,6 +50,7 @@ public static class CliHelpWriter
 
         Examples:
           proxyfan-cli start --port 8888
+          proxyfan-cli start --port 8888 --bind-address 127.0.0.1
           proxyfan-cli start --port 8888 --output capture.har --duration 60
           proxyfan-cli har-summary capture.har
           proxyfan-cli har-filter --input capture.har --output api.har --pattern "*.example.com/api/*"

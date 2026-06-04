@@ -14,6 +14,18 @@ public sealed class ProxyOptions
     public const string SectionKey = "proxy";
 
     /// <summary>
+    ///     Gets or sets the source IP/CIDR allow-list used when binding to a non-loopback
+    ///     address. Empty means no remote clients are allowed.
+    /// </summary>
+    public string[] AllowedRemoteSources { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the IP address the proxy listener binds to. Default: 127.0.0.1.
+    ///     Use a non-loopback address only when remote clients are explicitly allow-listed.
+    /// </summary>
+    public string BindAddress { get; set; }
+
+    /// <summary>
     ///     Gets or sets a value indicating whether the proxy should start automatically on application launch.
     ///     Default: <see langword="true" />.
     /// </summary>
@@ -48,6 +60,8 @@ public sealed class ProxyOptions
     /// </summary>
     public ProxyOptions()
     {
+        AllowedRemoteSources = [];
+        BindAddress = "127.0.0.1";
         IsAutoStart = true;
         IsRegisterSystemProxy = true;
         MaxConnections = 1000;
