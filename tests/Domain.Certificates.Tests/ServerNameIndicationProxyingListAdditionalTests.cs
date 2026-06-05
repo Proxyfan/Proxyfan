@@ -1,4 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Certificates.Tests;
 
@@ -77,6 +80,72 @@ public sealed class ServerNameIndicationProxyingListAdditionalTests
         var list = new ServerNameIndicationProxyingList(true);
 
         await Assert.That(list.HasMatch("example.com")).IsFalse();
+    }
+
+    /// <summary>
+    ///     Verifies that concurrent edits do not throw while matching host names.
+    /// </summary>
+    [Test]
+    public async Task HasMatch_WhenPatternsAreEditedConcurrently_DoesNotThrow()
+    {
+        var list = new ServerNameIndicationProxyingList(true);
+        list.AddIncludedPattern("*.example.com");
+
+        var errors = new ConcurrentQueue<Exception>();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(300));
+        var cancellationToken = cancellationTokenSource.Token;
+
+        var writer = Task.Run(() =>
+        {
+            var iteration = 0;
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var pattern = $"host-{iteration}.example.com";
+
+                try
+                {
+                    list.AddIncludedPattern(pattern);
+                    list.RemoveIncludedPattern(pattern);
+                    list.AddExcludedPattern(pattern);
+                    list.RemoveExcludedPattern(pattern);
+
+                    if ((iteration & 1) == 0)
+                    {
+                        list.Enable();
+                    }
+                    else
+                    {
+                        list.Disable();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    errors.Enqueue(exception);
+                }
+
+                iteration++;
+            }
+        });
+
+        var reader = Task.Run(() =>
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    _ = list.HasMatch("api.example.com");
+                }
+                catch (Exception exception)
+                {
+                    errors.Enqueue(exception);
+                }
+            }
+        });
+
+        await Task.WhenAll(writer, reader);
+
+        await Assert.That(errors).IsEmpty();
     }
 
     /// <summary>
