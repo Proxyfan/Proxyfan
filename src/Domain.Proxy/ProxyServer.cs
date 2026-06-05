@@ -197,6 +197,9 @@ public sealed partial class ProxyServer : IAsyncDisposable
     [LoggerMessage(Level = LogLevel.Error, Message = "Proxy server failed to bind to port {Port}.")]
     private partial void LogBindFailed(Exception exception, int port);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Proxy configuration changed while proxy is {Status}; skipping restart.")]
+    private partial void LogSkipRestartForStatus(ProxyStatus status);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Proxy server started on port {Port}.")]
     private partial void LogStarted(int port);
 
@@ -247,6 +250,14 @@ public sealed partial class ProxyServer : IAsyncDisposable
     {
         _ = options;
         _ = name;
+        var status = _status;
+
+        if (status is not (ProxyStatus.Running or ProxyStatus.Faulted))
+        {
+            LogSkipRestartForStatus(status);
+            return;
+        }
+
         _logger.LogInformation("Proxy configuration changed. Scheduling restart.");
         var restartTask = RestartAsync(CancellationToken.None);
         _restartTask = restartTask;
