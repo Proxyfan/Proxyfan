@@ -128,7 +128,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
             var stream = await _filePickerService.OpenForWriteAsync(request, cancellationToken).ConfigureAwait(false);
             if (stream is null)
             {
-                StatusMessage = "Export cancelled.";
+                SetStatusMessageOnUserInterface("Export cancelled.");
                 return;
             }
 
@@ -136,7 +136,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
             {
                 var bytes = authority.Certificate.Export(X509ContentType.Cert);
                 await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-                StatusMessage = "Certificate exported.";
+                SetStatusMessageOnUserInterface("Certificate exported.");
             }
             finally
             {
@@ -145,7 +145,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         }
         finally
         {
-            IsBusy = false;
+            SetBusyOnUserInterface(false);
         }
     }
 
@@ -162,12 +162,11 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         {
             var authority = await _authorityProvider.GetAsync(cancellationToken).ConfigureAwait(false);
             await _certificateStore.InstallAsync(authority, cancellationToken).ConfigureAwait(false);
-            IsInstalled = true;
-            StatusMessage = "Certificate installed in the Windows trust store.";
+            SetStoreStateOnUserInterface(true, "Certificate installed in the Windows trust store.");
         }
         finally
         {
-            IsBusy = false;
+            SetBusyOnUserInterface(false);
         }
     }
 
@@ -205,25 +204,44 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
             ApplyAuthority(authority, installed);
             if (!wasInstalled || (previousUninstallSucceeded && newInstallSucceeded))
             {
-                StatusMessage = "Certificate regenerated.";
+                SetStatusMessageOnUserInterface("Certificate regenerated.");
             }
             else if (!previousUninstallSucceeded && !newInstallSucceeded)
             {
-                StatusMessage = "Certificate regenerated, but removing the previous certificate and installing the new certificate in the Windows trust store failed.";
+                SetStatusMessageOnUserInterface("Certificate regenerated, but removing the previous certificate and installing the new certificate in the Windows trust store failed.");
             }
             else if (!previousUninstallSucceeded)
             {
-                StatusMessage = "Certificate regenerated, but removing the previous certificate from the Windows trust store failed.";
+                SetStatusMessageOnUserInterface("Certificate regenerated, but removing the previous certificate from the Windows trust store failed.");
             }
             else
             {
-                StatusMessage = "Certificate regenerated, but installing the new certificate in the Windows trust store failed.";
+                SetStatusMessageOnUserInterface("Certificate regenerated, but installing the new certificate in the Windows trust store failed.");
             }
         }
         finally
         {
-            IsBusy = false;
+            SetBusyOnUserInterface(false);
         }
+    }
+
+    private void SetBusyOnUserInterface(bool isBusy)
+    {
+        _userInterfaceScheduler.Post(() => IsBusy = isBusy);
+    }
+
+    private void SetStatusMessageOnUserInterface(string statusMessage)
+    {
+        _userInterfaceScheduler.Post(() => StatusMessage = statusMessage);
+    }
+
+    private void SetStoreStateOnUserInterface(bool isInstalled, string statusMessage)
+    {
+        _userInterfaceScheduler.Post(() =>
+        {
+            IsInstalled = isInstalled;
+            StatusMessage = statusMessage;
+        });
     }
 
     private async Task<bool> TryInstallInStoreAsync(CertificateAuthority authority, CancellationToken cancellationToken)
@@ -273,12 +291,11 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         {
             var authority = await _authorityProvider.GetAsync(cancellationToken).ConfigureAwait(false);
             await _certificateStore.UninstallAsync(authority, cancellationToken).ConfigureAwait(false);
-            IsInstalled = false;
-            StatusMessage = "Certificate removed from the Windows trust store.";
+            SetStoreStateOnUserInterface(false, "Certificate removed from the Windows trust store.");
         }
         finally
         {
-            IsBusy = false;
+            SetBusyOnUserInterface(false);
         }
     }
 }
