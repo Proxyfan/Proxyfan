@@ -109,6 +109,10 @@ public static class InspectorBodyRenderer
         {
             return body.ToArray();
         }
+        catch (System.IO.InvalidDataException)
+        {
+            return body.ToArray();
+        }
     }
 
     private static string DecodeText(byte[] bytes, Encoding charset)
