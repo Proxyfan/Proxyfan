@@ -41,7 +41,11 @@ public sealed class MutableCertificateAuthorityProvider
     {
         lock (_syncRoot)
         {
-            _currentTask ??= _generator.GenerateRootCertificateAuthorityAsync(cancellationToken);
+            if (_currentTask is null || (_currentTask.IsCompleted && !_currentTask.IsCompletedSuccessfully))
+            {
+                _currentTask = _generator.GenerateRootCertificateAuthorityAsync(cancellationToken);
+            }
+
             return _currentTask;
         }
     }
