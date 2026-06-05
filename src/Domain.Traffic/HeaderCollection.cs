@@ -73,6 +73,7 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
     /// </returns>
     public HeaderCollection Add(string name, string value)
     {
+        EnsureHeaderNameAndValueAreValid(name, value);
         Dictionary<string, string[]> headers = CloneHeaders(_headers);
 
         if (headers.TryGetValue(name, out string[]? existingValues))
@@ -173,6 +174,31 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         return copiedValues;
     }
 
+    private void EnsureHeaderNameAndValueAreValid(string name, string value)
+    {
+        if (name.Length == 0)
+        {
+            throw new ArgumentException("Header name cannot be empty.", nameof(name));
+        }
+
+        foreach (var character in name)
+        {
+            if (!char.IsAsciiLetterOrDigit(character) &&
+                character is not '!' and not '#' and not '$' and not '%' and not '&' and not '\'' and not '*' and not '+' and not '-' and not '.' and not '^' and not '_' and not '`' and not '|' and not '~')
+            {
+                throw new ArgumentException("Header name must be a valid RFC token.", nameof(name));
+            }
+        }
+
+        foreach (var character in value)
+        {
+            if (character is '\r' or '\n' || (char.IsControl(character) && character != '\t'))
+            {
+                throw new ArgumentException("Header value cannot contain CR, LF, or control characters.", nameof(value));
+            }
+        }
+    }
+
     /// <summary>
     ///     A mutable builder that accumulates header entries in a single underlying dictionary and
     ///     produces an immutable <see cref="HeaderCollection" /> in a single allocation step. Use
@@ -201,6 +227,8 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         /// <param name="value">The header value to append.</param>
         public void Add(string name, string value)
         {
+            HeaderCollection.Empty.EnsureHeaderNameAndValueAreValid(name, value);
+
             if (_headers.TryGetValue(name, out string[]? existingValues))
             {
                 var updatedValues = new string[existingValues.Length + 1];

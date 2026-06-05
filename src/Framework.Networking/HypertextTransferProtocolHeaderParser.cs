@@ -25,6 +25,7 @@ public static class HypertextTransferProtocolHeaderParser
             return HeaderCollection.Empty;
         }
 
+
         var headerLines = headerSection.Split(["\r\n"], StringSplitOptions.None);
         var currentHeaders = HeaderCollection.Empty;
 
@@ -58,6 +59,13 @@ public static class HypertextTransferProtocolHeaderParser
             return headers;
         }
 
-        return headers.Add(name, value);
+        try
+        {
+            return headers.Add(name, value);
+        }
+        catch (ArgumentException)
+        {
+            return headers;
+        }
     }
 }
