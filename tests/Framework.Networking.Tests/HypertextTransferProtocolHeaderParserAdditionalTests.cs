@@ -48,4 +48,18 @@ public sealed class HypertextTransferProtocolHeaderParserAdditionalTests
         await Assert.That(headers.Count).IsEqualTo(1);
         await Assert.That(headers.Get("Host")).IsEqualTo("example.com");
     }
+
+    /// <summary>
+    ///     Verifies that headers with invalid token characters in the name are skipped.
+    /// </summary>
+    [Test]
+    public async Task Parse_NameContainingSpace_IsSkipped()
+    {
+        const string headerSection = "Bad Name: value\r\nHost: example.com";
+
+        var headers = HypertextTransferProtocolHeaderParser.Parse(headerSection);
+
+        await Assert.That(headers.Count).IsEqualTo(1);
+        await Assert.That(headers.Get("Host")).IsEqualTo("example.com");
+    }
 }

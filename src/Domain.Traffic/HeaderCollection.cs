@@ -73,6 +73,7 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
     /// </returns>
     public HeaderCollection Add(string name, string value)
     {
+        EnsureHeaderNameAndValueAreValid(name, value);
         Dictionary<string, string[]> headers = CloneHeaders(_headers);
 
         if (headers.TryGetValue(name, out string[]? existingValues))
@@ -153,6 +154,12 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         return updatedValues;
     }
 
+    private bool CanUseHeaderNameCharacter(char character)
+    {
+        return char.IsAsciiLetterOrDigit(character) ||
+               character is '!' or '#' or '$' or '%' or '&' or '\'' or '*' or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
+    }
+
     private Dictionary<string, string[]> CloneHeaders(Dictionary<string, string[]> headers)
     {
         var clone = new Dictionary<string, string[]>(headers.Count, StringComparer.OrdinalIgnoreCase);
@@ -171,6 +178,30 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         var copiedValues = new string[values.Length];
         Array.Copy(values, copiedValues, values.Length);
         return copiedValues;
+    }
+
+    private void EnsureHeaderNameAndValueAreValid(string name, string value)
+    {
+        if (name.Length == 0)
+        {
+            throw new ArgumentException("Header name cannot be empty.", nameof(name));
+        }
+
+        foreach (var character in name)
+        {
+            if (!CanUseHeaderNameCharacter(character))
+            {
+                throw new ArgumentException("Header name must be a valid RFC token.", nameof(name));
+            }
+        }
+
+        foreach (var character in value)
+        {
+            if (character is '\r' or '\n' || (char.IsControl(character) && character != '\t'))
+            {
+                throw new ArgumentException("Header value cannot contain CR, LF, or control characters.", nameof(value));
+            }
+        }
     }
 
     /// <summary>
@@ -201,6 +232,8 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         /// <param name="value">The header value to append.</param>
         public void Add(string name, string value)
         {
+            HeaderCollection.Empty.EnsureHeaderNameAndValueAreValid(name, value);
+
             if (_headers.TryGetValue(name, out string[]? existingValues))
             {
                 var updatedValues = new string[existingValues.Length + 1];
