@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -112,6 +113,32 @@ public sealed class RoslynUserScriptCompilerTests
     }
 
     /// <summary>
+    ///     Verifies that scripts using a <c>#load</c> directive are rejected so users cannot
+    ///     import additional source files.
+    /// </summary>
+    [Test]
+    public async Task Compile_ScriptUsesLoadDirective_ReturnsErrors()
+    {
+        var compiler = new RoslynUserScriptCompiler();
+        var tempScriptPath = Path.GetTempFileName();
+        await File.WriteAllTextAsync(tempScriptPath, "int Loaded() => 1;");
+        var escapedPath = tempScriptPath.Replace("\\", "\\\\");
+        var source = $"#load \"{escapedPath}\"\n_ = Loaded();";
+
+        try
+        {
+            var result = compiler.Compile("load-directive", source, string.Empty);
+
+            await Assert.That(result.IsSuccess).IsFalse();
+            await Assert.That(result.Diagnostics.Any(d => d.Id == ScriptForbiddenDirectiveScanner.DiagnosticId)).IsTrue();
+        }
+        finally
+        {
+            File.Delete(tempScriptPath);
+        }
+    }
+
+    /// <summary>
     ///     Verifies that a script calling <c>System.Diagnostics.Process.Start</c> fails to compile
     ///     because <c>System.Diagnostics</c> process-related types are not exposed in the curated
     ///     reference set.
@@ -126,5 +153,22 @@ public sealed class RoslynUserScriptCompilerTests
 
         await Assert.That(result.IsSuccess).IsFalse();
         await Assert.That(result.Diagnostics.Any(d => d.Severity == ScriptDiagnosticSeverity.Error)).IsTrue();
+    }
+
+    /// <summary>
+    ///     Verifies that scripts using a <c>#r</c> directive are rejected so users cannot
+    ///     extend the assembly allow-list.
+    /// </summary>
+    [Test]
+    public async Task Compile_ScriptUsesReferenceDirective_ReturnsErrors()
+    {
+        var compiler = new RoslynUserScriptCompiler();
+        var systemNetHttpPath = typeof(System.Net.Http.HttpClient).Assembly.Location.Replace("\\", "\\\\");
+        var source = $"#r \"{systemNetHttpPath}\"\n_ = new System.Net.Http.HttpClient();";
+
+        var result = compiler.Compile("reference-directive", source, string.Empty);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Diagnostics.Any(d => d.Id == ScriptForbiddenDirectiveScanner.DiagnosticId)).IsTrue();
     }
 }
