@@ -136,6 +136,33 @@ public sealed class CliStartHandlerTests
     }
 
     /// <summary>
+    ///     If writing the startup status fails after the proxy has started, shutdown cleanup
+    ///     still runs so a subsequent start can bind the same port.
+    /// </summary>
+    [Test]
+    public async Task RunAsync_WhenListeningWriteFails_CleansUpStartedProxy()
+    {
+        var port = GetFreePort();
+        var command = BuildStartCommand(port, outputPath: null, durationSeconds: 1);
+        using var disposedOutput = new StringWriter();
+        disposedOutput.Dispose();
+        using var firstError = new StringWriter();
+        using var firstCancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        await Assert.That(() => CliStartHandler.RunAsync(command, disposedOutput, firstError, firstCancellationSource.Token))
+            .Throws<ObjectDisposedException>();
+
+        using var secondOutput = new StringWriter();
+        using var secondError = new StringWriter();
+        using var secondCancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var secondExitCode = await CliStartHandler.RunAsync(command, secondOutput, secondError, secondCancellationSource.Token);
+
+        await Assert.That(secondExitCode).IsEqualTo(0);
+        await Assert.That(secondOutput.ToString()).Contains("listening");
+    }
+
+    /// <summary>
     ///     When the supplied <c>--output</c> path cannot be opened for writing (here, because
     ///     it points to a directory rather than a file), the export helper catches the
     ///     <see cref="IOException" /> and reports the failure on standard error.
