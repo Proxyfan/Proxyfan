@@ -131,6 +131,20 @@ public sealed class WebSocketFlow
     }
 
     /// <summary>
+    ///     Returns a point-in-time snapshot of captured messages in chronological order.
+    /// </summary>
+    /// <returns>
+    ///     A stable copy of captured messages at the instant the snapshot is taken.
+    /// </returns>
+    public IReadOnlyList<WebSocketMessage> GetMessageSnapshot()
+    {
+        lock (_gate)
+        {
+            return [.. _messages];
+        }
+    }
+
+    /// <summary>
     ///     Records that the connection has been closed at the supplied instant. Subsequent
     ///     calls are no-ops (the first observed close timestamp wins).
     /// </summary>

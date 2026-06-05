@@ -37,6 +37,27 @@ public sealed class WebSocketFlowTests
     }
 
     /// <summary>
+    ///     Verifies that message snapshots are point-in-time copies and are not mutated
+    ///     by later recordings.
+    /// </summary>
+    [Test]
+    public async Task GetMessageSnapshot_AfterNewRecord_RemainsStablePointInTime()
+    {
+        var underlying = CreateUnderlyingFlow(out _);
+        var webSocketFlow = new WebSocketFlow(underlying);
+        var first = new WebSocketMessage(WebSocketDirection.Outbound, WebSocketOpcode.Text, new byte[] { 1 }, DateTimeOffset.UtcNow);
+        var second = new WebSocketMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text, new byte[] { 2 }, DateTimeOffset.UtcNow);
+        webSocketFlow.RecordMessage(first);
+
+        var snapshot = webSocketFlow.GetMessageSnapshot();
+        webSocketFlow.RecordMessage(second);
+
+        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(snapshot[0]).IsSameReferenceAs(first);
+        await Assert.That(webSocketFlow.Messages.Count).IsEqualTo(2);
+    }
+
+    /// <summary>
     ///     Verifies that recorded messages appear in chronological order.
     /// </summary>
     [Test]
