@@ -150,20 +150,6 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         return keepAlive;
     }
 
-    private async Task HandleBlockedInterceptedRequestAsync(
-        TransportLayerSecurityInterceptedLoopContext loopContext,
-        TrafficFlow flow,
-        CancellationToken cancellationToken)
-    {
-        var blockedResponse = HypertextTransferProtocolRuleApplicator.CreateBlockedResponseData();
-        await HypertextTransferProtocolRuleApplicator.SendBlockedResponseAsync(loopContext.Pipes.ClientWriter, cancellationToken).ConfigureAwait(false);
-        flow.SetResponse(blockedResponse);
-        TransportLayerSecurityInterceptorEvents.PublishResponseReceived(_eventBus, flow, blockedResponse);
-        flow.Complete();
-        _trafficStore.Add(flow);
-        TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
-    }
-
     private async Task CopyAndSignalAsync(
         PipeReader source,
         PipeWriter destination,
@@ -255,6 +241,20 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
             TrafficStore = _trafficStore,
         };
         await TransportLayerSecurityInterceptedVersion2Dispatch.RunAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task HandleBlockedInterceptedRequestAsync(
+        TransportLayerSecurityInterceptedLoopContext loopContext,
+        TrafficFlow flow,
+        CancellationToken cancellationToken)
+    {
+        var blockedResponse = HypertextTransferProtocolRuleApplicator.CreateBlockedResponseData();
+        await HypertextTransferProtocolRuleApplicator.SendBlockedResponseAsync(loopContext.Pipes.ClientWriter, cancellationToken).ConfigureAwait(false);
+        flow.SetResponse(blockedResponse);
+        TransportLayerSecurityInterceptorEvents.PublishResponseReceived(_eventBus, flow, blockedResponse);
+        flow.Complete();
+        _trafficStore.Add(flow);
+        TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, flow);
     }
 
     private bool HasDroppedForPacketLoss(TrafficFlow flow)
