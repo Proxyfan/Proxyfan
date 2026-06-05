@@ -1,11 +1,10 @@
 ﻿using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
-using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
 using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -32,7 +31,7 @@ public sealed class PluginManagerViewModelTests
     public async Task Construct_RegistryWithLoadedPlugin_ExposesItemViewModel()
     {
         using var harness = new ActivationHarness();
-        harness.Registry.TryInitialize(new StubPlugin("com.example.test", "Test", "1.0.0", "Author", "Description", "1.0.0"), harness.Host, null);
+        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.test", "Test", "1.0.0", "Author", "Description", "1.0.0", isLoaded: true));
 
         var viewModel = harness.CreateViewModel();
 
@@ -49,7 +48,7 @@ public sealed class PluginManagerViewModelTests
     public async Task Construct_RegistryWithIncompatiblePlugin_ExposesFailedItem()
     {
         using var harness = new ActivationHarness();
-        harness.Registry.TryInitialize(new StubPlugin("com.example.bad", "Bad", "1.0.0", "Author", "Description", "2.0.0"), harness.Host, null);
+        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.bad", "Bad", "1.0.0", "Author", "Description", "2.0.0", isLoaded: false, errorMessage: "Incompatible API version.", sourceDirectory: null));
 
         var viewModel = harness.CreateViewModel();
 
@@ -68,7 +67,7 @@ public sealed class PluginManagerViewModelTests
         var viewModel = harness.CreateViewModel();
         await Assert.That(viewModel.Plugins).IsEmpty();
 
-        harness.Registry.TryInitialize(new StubPlugin("com.example.late", "Late", "1.0.0", "Author", "Description", "1.0.0"), harness.Host, null);
+        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.late", "Late", "1.0.0", "Author", "Description", "1.0.0", isLoaded: true));
         viewModel.RefreshCommand.Execute(null);
 
         await Assert.That(viewModel.Plugins).Count().IsEqualTo(1);
@@ -90,7 +89,7 @@ public sealed class PluginManagerViewModelTests
     public async Task PluginToggle_WhenDisabling_FlagsRestartRequired()
     {
         using var harness = new ActivationHarness();
-        harness.Registry.TryInitialize(new StubPlugin("com.example.toggle", "T", "1.0", "A", "D", "1.0.0"), harness.Host, null);
+        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.toggle", "T", "1.0", "A", "D", "1.0.0", isLoaded: true));
         var viewModel = harness.CreateViewModel();
         await Assert.That(viewModel.IsRestartRequired).IsFalse();
 
@@ -104,7 +103,7 @@ public sealed class PluginManagerViewModelTests
     public async Task PluginRemove_WhenInvoked_FlagsRestartRequired()
     {
         using var harness = new ActivationHarness();
-        harness.Registry.TryInitialize(new StubPlugin("com.example.remove", "R", "1.0", "A", "D", "1.0.0"), harness.Host, null);
+        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.remove", "R", "1.0", "A", "D", "1.0.0", isLoaded: true));
         var viewModel = harness.CreateViewModel();
 
         viewModel.Plugins[0].RemoveCommand.Execute(null);
@@ -117,7 +116,7 @@ public sealed class PluginManagerViewModelTests
     public async Task CheckForUpdates_NullManifest_FlagsFailure()
     {
         using var harness = new ActivationHarness();
-        harness.UpdateFeed.NextManifest = null;
+        harness.Coordinator.SetUpdateResult(null);
         var viewModel = harness.CreateViewModel();
 
         await viewModel.CheckForUpdatesCommand.ExecuteAsync(null);
@@ -133,15 +132,7 @@ public sealed class PluginManagerViewModelTests
     public async Task CheckForUpdates_NoUpgradeAvailable_ClearsList()
     {
         using var harness = new ActivationHarness();
-        harness.Registry.TryInitialize(new StubPlugin("com.x", "X", "1.0.0", "A", "D", "1.0.0"), harness.Host, null);
-        var entry = new PluginUpdateEntry
-        {
-            Identifier = "com.x",
-            LatestVersion = "1.0.0",
-            DownloadUrl = "https://example.com/x.zip",
-            MinimumApiVersion = "1.0",
-        };
-        harness.UpdateFeed.NextManifest = new PluginUpdateManifest { Plugins = [entry] };
+        harness.Coordinator.SetUpdateResult([]);
         var viewModel = harness.CreateViewModel();
 
         await viewModel.CheckForUpdatesCommand.ExecuteAsync(null);
@@ -156,15 +147,17 @@ public sealed class PluginManagerViewModelTests
     public async Task CheckForUpdates_NewerAvailable_PopulatesAndFlagsAvailable()
     {
         using var harness = new ActivationHarness();
-        harness.Registry.TryInitialize(new StubPlugin("com.x", "X", "1.0.0", "A", "D", "1.0.0"), harness.Host, null);
-        var entry = new PluginUpdateEntry
+        var update = new PluginUpdateAvailability
         {
             Identifier = "com.x",
+            Name = "X",
+            Author = "A",
+            CurrentVersion = "1.0.0",
             LatestVersion = "1.1.0",
             DownloadUrl = "https://example.com/x.zip",
-            MinimumApiVersion = "1.0",
+            IsCompatible = true,
         };
-        harness.UpdateFeed.NextManifest = new PluginUpdateManifest { Plugins = [entry] };
+        harness.Coordinator.SetUpdateResult([update]);
         var viewModel = harness.CreateViewModel();
 
         await viewModel.CheckForUpdatesCommand.ExecuteAsync(null);
@@ -182,7 +175,7 @@ public sealed class PluginManagerViewModelTests
         var viewModel = harness.CreateViewModel();
         await Assert.That(viewModel.IsRestartRequired).IsFalse();
 
-        harness.DirectoryWatcher.FireChange();
+        harness.Coordinator.FireChange();
 
         await Assert.That(viewModel.IsRestartRequired).IsTrue();
         await Assert.That(viewModel.UpdateCheckStatus).Contains("Plugins folder changed");
@@ -195,7 +188,7 @@ public sealed class PluginManagerViewModelTests
         using var harness = new ActivationHarness(scheduler);
         var viewModel = harness.CreateViewModel();
 
-        harness.DirectoryWatcher.FireChange();
+        harness.Coordinator.FireChange();
 
         await Assert.That(scheduler.PostCallCount).IsEqualTo(1);
         await Assert.That(viewModel.IsRestartRequired).IsTrue();
@@ -208,7 +201,7 @@ public sealed class PluginManagerViewModelTests
         using var harness = new ActivationHarness(scheduler);
         var viewModel = harness.CreateViewModel();
 
-        harness.DirectoryWatcher.FireChange();
+        harness.Coordinator.FireChange();
         viewModel.Dispose();
         scheduler.RunPending();
 
@@ -223,7 +216,7 @@ public sealed class PluginManagerViewModelTests
 
         var viewModel = harness.CreateViewModel();
 
-        await Assert.That(harness.DirectoryWatcher.IsStarted).IsTrue();
+        await Assert.That(harness.Coordinator.IsStarted).IsTrue();
         viewModel.Dispose();
     }
 
@@ -234,7 +227,7 @@ public sealed class PluginManagerViewModelTests
         var viewModel = harness.CreateViewModel();
         viewModel.Dispose();
 
-        harness.DirectoryWatcher.FireChange();
+        harness.Coordinator.FireChange();
 
         await Assert.That(viewModel.IsRestartRequired).IsFalse();
     }
@@ -247,58 +240,37 @@ public sealed class PluginManagerViewModelTests
 
         viewModel.Dispose();
         viewModel.Dispose();
-        harness.DirectoryWatcher.FireChange();
+        harness.Coordinator.FireChange();
 
         await Assert.That(viewModel.IsRestartRequired).IsFalse();
     }
 
     private sealed class ActivationHarness : IDisposable
     {
-        private readonly string _rootDirectory;
-
-        public PluginActivationService ActivationService { get; }
-
-        public StubDirectoryWatcher DirectoryWatcher { get; }
-
-        public RecordingPluginHost Host { get; }
+        public StubPluginManagerCoordinator Coordinator { get; }
 
         public RecordingOpener Opener { get; }
 
-        public PluginRegistry Registry { get; }
-
         public InMemoryStore Store { get; }
-
-        public StubUpdateFeed UpdateFeed { get; }
-
-        public ActivationHarness(IUserInterfaceScheduler? userInterfaceScheduler = null)
-        {
-            Registry = new PluginRegistry();
-            Host = new RecordingPluginHost("1.0.0");
-            Store = new InMemoryStore();
-            Opener = new RecordingOpener();
-            UpdateFeed = new StubUpdateFeed();
-            DirectoryWatcher = new StubDirectoryWatcher();
-            UserInterfaceScheduler = userInterfaceScheduler ?? InlineUserInterfaceScheduler.Instance;
-            _rootDirectory = Path.Combine(Path.GetTempPath(), "proxyfan-pmvm-" + Path.GetRandomFileName());
-            Directory.CreateDirectory(_rootDirectory);
-            var rootProvider = new PluginRootDirectoryProvider(_rootDirectory);
-            var scanner = new PluginDirectoryScanner();
-            var factory = new NeverInstantiateFactory();
-            var loader = new PluginLoader(scanner, factory, Registry, Store);
-            ActivationService = new PluginActivationService(loader, Host, rootProvider, Registry);
-        }
 
         public IUserInterfaceScheduler UserInterfaceScheduler { get; }
 
+        public ActivationHarness(IUserInterfaceScheduler? userInterfaceScheduler = null)
+        {
+            Coordinator = new StubPluginManagerCoordinator();
+            Store = new InMemoryStore();
+            Opener = new RecordingOpener();
+            UserInterfaceScheduler = userInterfaceScheduler ?? InlineUserInterfaceScheduler.Instance;
+        }
+
         public PluginManagerViewModel CreateViewModel()
         {
-            var viewModel = new PluginManagerViewModel(Registry, Store, Opener, ActivationService, UpdateFeed, Host, DirectoryWatcher, UserInterfaceScheduler);
+            var viewModel = new PluginManagerViewModel(Coordinator, Store, Opener, UserInterfaceScheduler);
             return viewModel;
         }
 
         public void Dispose()
         {
-            try { Directory.Delete(_rootDirectory, recursive: true); } catch (Exception ex) { _ = ex; }
         }
     }
 
@@ -329,64 +301,10 @@ public sealed class PluginManagerViewModelTests
         }
     }
 
-    private sealed class NeverInstantiateFactory : IPluginInstanceFactory
-    {
-        public PluginInstantiationResult Create(PluginCandidate candidate)
-        {
-            return new PluginInstantiationResult(plugin: null, loadContext: null, errorMessage: "Stub factory cannot instantiate plugins in tests.", isSuccess: false);
-        }
-    }
-
     private sealed class RecordingOpener : IPluginFolderOpener
     {
         public void Open(string directoryPath)
         {
-        }
-    }
-
-    private sealed class StubPlugin : IProxyfanPlugin
-    {
-        public StubPlugin(string id, string name, string version, string author, string description, string apiVersion)
-        {
-            Metadata = new PluginMetadata(id, name, version, author, description, apiVersion);
-        }
-
-        public PluginMetadata Metadata { get; }
-
-        public void Initialize(IPluginHost host)
-        {
-        }
-    }
-
-    private sealed class StubUpdateFeed : IPluginUpdateFeed
-    {
-        public PluginUpdateManifest? NextManifest { get; set; }
-
-        public Task<PluginUpdateManifest?> FetchAsync(System.Threading.CancellationToken cancellationToken)
-        {
-            return Task.FromResult(NextManifest);
-        }
-    }
-
-    private sealed class StubDirectoryWatcher : IPluginDirectoryWatcher
-    {
-        public event PluginsDirectoryChangedHandler? PluginsDirectoryChanged;
-
-        public bool IsStarted { get; private set; }
-
-        public void Dispose()
-        {
-            IsStarted = false;
-        }
-
-        public void FireChange()
-        {
-            PluginsDirectoryChanged?.Invoke();
-        }
-
-        public void Start()
-        {
-            IsStarted = true;
         }
     }
 
@@ -430,5 +348,63 @@ public sealed class PluginManagerViewModelTests
             _pending = null;
             action();
         }
+    }
+
+    private sealed class StubPluginLoadState : IPluginLoadState
+    {
+        public StubPluginLoadState(string id, string name, string version, string author, string description, string apiVersion, bool isLoaded)
+            : this(id, name, version, author, description, apiVersion, isLoaded, errorMessage: null, sourceDirectory: null)
+        {
+        }
+
+        public StubPluginLoadState(string id, string name, string version, string author, string description, string apiVersion, bool isLoaded, string? errorMessage, string? sourceDirectory)
+        {
+            Metadata = new PluginMetadata(id, name, version, author, description, apiVersion);
+            IsLoaded = isLoaded;
+            ErrorMessage = errorMessage;
+            SourceDirectory = sourceDirectory;
+        }
+
+        public string? ErrorMessage { get; }
+
+        public bool IsLoaded { get; }
+
+        public PluginMetadata Metadata { get; }
+
+        public string? SourceDirectory { get; }
+    }
+
+    private sealed class StubPluginManagerCoordinator : IPluginManagerCoordinator
+    {
+        private readonly List<IPluginLoadState> _plugins = [];
+        private IReadOnlyList<PluginUpdateAvailability>? _updateResult = [];
+
+        public event PluginsDirectoryChangedHandler? PluginsDirectoryChanged;
+
+        public bool IsStarted { get; private set; }
+
+        public IReadOnlyList<IPluginLoadState> Plugins => _plugins;
+
+        public void AddPlugin(IPluginLoadState plugin) => _plugins.Add(plugin);
+
+        public void Dispose()
+        {
+            IsStarted = false;
+        }
+
+        public Task<IReadOnlyList<PluginUpdateAvailability>?> FetchUpdatesAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_updateResult);
+        }
+
+        public void FireChange() => PluginsDirectoryChanged?.Invoke();
+
+        public void Reload()
+        {
+        }
+
+        public void SetUpdateResult(IReadOnlyList<PluginUpdateAvailability>? result) => _updateResult = result;
+
+        public void Start() => IsStarted = true;
     }
 }

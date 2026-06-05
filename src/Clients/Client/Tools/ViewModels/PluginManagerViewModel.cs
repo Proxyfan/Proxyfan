@@ -11,23 +11,18 @@ namespace Proxyfan.Client.Tools.ViewModels;
 
 /// <summary>
 ///     View model for the Plugin Manager tool window. Exposes the list of loaded plugins
-///     surfaced by <see cref="IPluginRegistry" />, drives <see cref="IPluginActivationService" />
-///     for reload flows, surfaces remote update availability via <see cref="IPluginUpdateFeed" />,
-///     and tracks plugins-directory changes via <see cref="IPluginDirectoryWatcher" /> so
+///     via <see cref="IPluginManagerCoordinator" />, drives reload flows, surfaces remote
+///     update availability via Check for Updates, and tracks plugins-directory changes so
 ///     that hot-added plugin folders are detected without manual refresh. Whether any user
 ///     action requires a process restart for the change to fully take effect (assembly load
 ///     contexts are sticky) is tracked via <see cref="IsRestartRequired" />.
 /// </summary>
 public sealed partial class PluginManagerViewModel : ObservableObject, IDisposable
 {
-    private readonly IPluginActivationService _activationService;
-    private readonly IPluginDirectoryWatcher _directoryWatcher;
+    private readonly IPluginManagerCoordinator _coordinator;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
     private readonly Lock _lifecycleLock;
-    private readonly IPluginHost _pluginHost;
-    private readonly IPluginRegistry _registry;
-    private readonly IPluginUpdateFeed _updateFeed;
     private readonly IUserInterfaceScheduler _userInterfaceScheduler;
     [ObservableProperty]
     private bool _isAnyUpdateAvailable;
@@ -56,34 +51,21 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
 
     /// <summary>
     ///     Initializes a new <see cref="PluginManagerViewModel" /> bound to the supplied
-    ///     plugin registry, enabled-state store, folder opener, activation service, update
-    ///     feed, plugin host, and directory watcher.
+    ///     coordinator, enabled-state store, folder opener, and UI scheduler.
     /// </summary>
-    /// <param name="registry">The plugin registry to expose.</param>
+    /// <param name="coordinator">The coordinator that wraps plugin registry, activation, update, and directory-watching services.</param>
     /// <param name="enabledStateStore">The store used by rows to read + persist the user's enable choice.</param>
     /// <param name="folderOpener">The folder opener used by rows for Open Folder commands.</param>
-    /// <param name="activationService">The activation service used by the Reload command.</param>
-    /// <param name="updateFeed">The remote update feed consulted by Check for Updates.</param>
-    /// <param name="pluginHost">The plugin host (used for API version compatibility checks against advertised updates).</param>
-    /// <param name="directoryWatcher">The plugin directory watcher that fires when subdirectories are added/removed.</param>
     /// <param name="userInterfaceScheduler">Scheduler used to marshal bound-state updates onto the UI thread.</param>
     public PluginManagerViewModel(
-        IPluginRegistry registry,
+        IPluginManagerCoordinator coordinator,
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
-        IPluginActivationService activationService,
-        IPluginUpdateFeed updateFeed,
-        IPluginHost pluginHost,
-        IPluginDirectoryWatcher directoryWatcher,
         IUserInterfaceScheduler userInterfaceScheduler)
     {
-        _registry = registry;
+        _coordinator = coordinator;
         _enabledStateStore = enabledStateStore;
         _folderOpener = folderOpener;
-        _activationService = activationService;
-        _updateFeed = updateFeed;
-        _pluginHost = pluginHost;
-        _directoryWatcher = directoryWatcher;
         var lifecycleLock = new Lock();
         _lifecycleLock = lifecycleLock;
         _userInterfaceScheduler = userInterfaceScheduler;
@@ -95,8 +77,8 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         Plugins = [];
         AvailableUpdates = [];
         RefreshSnapshot();
-        _directoryWatcher.PluginsDirectoryChanged += OnDirectoryChanged;
-        _directoryWatcher.Start();
+        _coordinator.PluginsDirectoryChanged += OnDirectoryChanged;
+        _coordinator.Start();
     }
 
     /// <inheritdoc />
@@ -110,7 +92,8 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
             }
 
             _isDisposed = true;
-            _directoryWatcher.PluginsDirectoryChanged -= OnDirectoryChanged;
+            _coordinator.PluginsDirectoryChanged -= OnDirectoryChanged;
+            _coordinator.Dispose();
         }
     }
 
@@ -136,8 +119,8 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         UpdateCheckStatus = "Checking for updates…";
         try
         {
-            var manifest = await _updateFeed.FetchAsync(cancellationToken).ConfigureAwait(true);
-            if (manifest is null)
+            var availabilities = await _coordinator.FetchUpdatesAsync(cancellationToken).ConfigureAwait(true);
+            if (availabilities is null)
             {
                 IsUpdateCheckFailed = true;
                 UpdateCheckStatus = "Update check failed or feed not configured.";
@@ -146,7 +129,6 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
                 return;
             }
 
-            var availabilities = PluginUpdateAvailabilityResolver.Resolve(_registry, manifest, _pluginHost.ApiVersion);
             AvailableUpdates.Clear();
             foreach (var availability in availabilities)
             {
@@ -208,7 +190,7 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         Plugins.Clear();
         var totalCount = 0;
         var failedCount = 0;
-        foreach (var plugin in _registry.Plugins)
+        foreach (var plugin in _coordinator.Plugins)
         {
             var snapshot = new PluginStateSnapshot(
                 plugin.Metadata.Id,
@@ -236,7 +218,7 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
     [RelayCommand]
     private void Reload()
     {
-        _activationService.Reload();
+        _coordinator.Reload();
         IsRestartRequired = true;
         RefreshSnapshot();
     }

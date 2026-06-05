@@ -108,6 +108,7 @@ public partial class App : Application
             services.AddTransient<KeyboardShortcutsViewModel>();
             services.AddTransient<MapLocalViewModel>();
             services.AddTransient<MapRemoteViewModel>();
+            services.AddTransient<IPluginManagerCoordinator, PluginManagerCoordinator>();
             services.AddTransient<PluginManagerViewModel>();
             services.AddTransient<PreferencesViewModel>();
             services.AddTransient<RemoteDevicesViewModel>();
