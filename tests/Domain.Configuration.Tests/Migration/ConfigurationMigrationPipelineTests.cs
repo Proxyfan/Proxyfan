@@ -73,7 +73,8 @@ public sealed class ConfigurationMigrationPipelineTests
         };
 
         await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
-            .Throws<InvalidOperationException>();
+            .Throws<InvalidOperationException>()
+            .WithMessage("Configuration source version 3.0 is newer than supported target version 2.0.");
         await Assert.That(source["version"]).IsEqualTo("3.0");
     }
 
