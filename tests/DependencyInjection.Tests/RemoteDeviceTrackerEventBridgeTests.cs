@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain;
@@ -9,7 +9,7 @@ using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
-namespace Proxyfan.Domain.RemoteDevices.Tests;
+namespace Proxyfan.DependencyInjection.Tests;
 
 public sealed class RemoteDeviceTrackerEventBridgeTests
 {
@@ -56,27 +56,6 @@ public sealed class RemoteDeviceTrackerEventBridgeTests
         await Assert.That(tracker.Snapshot().Count).IsEqualTo(0);
     }
 
-    [Test]
-    public async Task ExtractAddress_NullEndpoint_ReturnsEmpty()
-    {
-        var result = ClientEndPointAddress.Extract(string.Empty);
-        await Assert.That(result).IsEqualTo(string.Empty);
-    }
-
-    [Test]
-    public async Task ExtractAddress_NoColon_ReturnsInput()
-    {
-        var result = ClientEndPointAddress.Extract("10.0.0.99");
-        await Assert.That(result).IsEqualTo("10.0.0.99");
-    }
-
-    [Test]
-    public async Task ExtractAddress_WithPort_ReturnsHostOnly()
-    {
-        var result = ClientEndPointAddress.Extract("192.168.1.5:8080");
-        await Assert.That(result).IsEqualTo("192.168.1.5");
-    }
-
     private static HypertextTransferProtocolRequestData BuildRequest(string userAgent)
     {
         var headers = HeaderCollection.Empty.Add("User-Agent", userAgent);
@@ -92,4 +71,3 @@ public sealed class RemoteDeviceTrackerEventBridgeTests
         return request;
     }
 }
-

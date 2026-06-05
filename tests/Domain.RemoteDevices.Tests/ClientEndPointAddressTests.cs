@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+using System.Linq;
+using System.Threading.Tasks;
 using Proxyfan.Domain.RemoteDevices;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -60,5 +61,16 @@ public sealed class ClientEndPointAddressTests
     public async Task Extract_BareIPv6Address_ReturnsInput()
     {
         await Assert.That(ClientEndPointAddress.Extract("2001:db8::1")).IsEqualTo("2001:db8::1");
+    }
+
+    [Test]
+    public async Task Assembly_WhenLoaded_DoesNotReferenceDomainTraffic()
+    {
+        var referencedAssemblyNames = typeof(ClientEndPointAddress).Assembly
+            .GetReferencedAssemblies()
+            .Select(static assemblyName => assemblyName.Name)
+            .ToArray();
+
+        await Assert.That(referencedAssemblyNames).DoesNotContain("Domain.Traffic");
     }
 }

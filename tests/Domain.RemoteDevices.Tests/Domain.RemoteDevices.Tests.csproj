@@ -14,8 +14,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Domain.RemoteDevices\Domain.RemoteDevices.csproj" />
-        <ProjectReference Include="..\..\src\Domain\Domain.csproj" />
-        <ProjectReference Include="..\..\src\Domain.Traffic\Domain.Traffic.csproj" />
     </ItemGroup>
 
 </Project>

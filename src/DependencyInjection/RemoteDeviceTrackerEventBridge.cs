@@ -1,7 +1,9 @@
-﻿using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Domain;
+using Proxyfan.Domain.RemoteDevices;
+using Proxyfan.Domain.Traffic.Events;
 using System;
 
-namespace Proxyfan.Domain.RemoteDevices;
+namespace Proxyfan.DependencyInjection;
 
 /// <summary>
 ///     Subscribes to <see cref="RequestReceived" /> events on the domain event bus and feeds
