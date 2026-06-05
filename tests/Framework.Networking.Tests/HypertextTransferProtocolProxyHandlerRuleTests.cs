@@ -108,7 +108,7 @@ public sealed class HypertextTransferProtocolProxyHandlerRuleTests
         var scripting = new StubScriptingHandler();
         var scriptingRule = new ScriptingRule(scripting, NullLogger<ScriptingRule>.Instance);
         registry.RegisterAsyncRequestPhaseRule(scriptingRule);
-        var ruleEngine = new RuleEngine(registry);
+        var ruleEngine = new RuleEngine(registry, NullLogger<RuleEngine>.Instance);
         var handler = CreateHandler(ruleEngine, out var trafficStore);
         var connection = new StubFullDuplexProxyConnection();
 
