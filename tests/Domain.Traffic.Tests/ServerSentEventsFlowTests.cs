@@ -24,6 +24,23 @@ public sealed class ServerSentEventsFlowTests
     }
 
     /// <summary>
+    ///     <see cref="ServerSentEventsFlow.Events" /> returns a snapshot that is isolated from
+    ///     events recorded after the property is read.
+    /// </summary>
+    [Test]
+    public async Task Events_EventRecordedAfterRead_DoesNotAppearInReturnedList()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        sseFlow.RecordEvent(new ServerSentEvent("before", null, null, null, DateTimeOffset.UtcNow));
+
+        var events = sseFlow.Events;
+        sseFlow.RecordEvent(new ServerSentEvent("after", null, null, null, DateTimeOffset.UtcNow));
+
+        await Assert.That(events.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     <see cref="ServerSentEventsFlow.GetEventsSnapshot" /> after the flow is marked closed
     ///     reports <c>IsClosed = true</c> in the snapshot.
     /// </summary>

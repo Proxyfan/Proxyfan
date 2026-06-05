@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Text;
 using System.Threading;
 
@@ -62,7 +61,16 @@ public sealed class ServerSentEventsFlow
     /// <summary>
     ///     Gets the chronological list of captured events.
     /// </summary>
-    public IReadOnlyList<ServerSentEvent> Events { get; }
+    public IReadOnlyList<ServerSentEvent> Events
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _events];
+            }
+        }
+    }
 
     /// <summary>
     ///     Gets the underlying HTTP request/response flow that initiated the SSE stream.
@@ -109,10 +117,8 @@ public sealed class ServerSentEventsFlow
 
         var gate = new Lock();
         _gate = gate;
-        var events = new List<ServerSentEvent>();
+        List<ServerSentEvent> events = [];
         _events = events;
-        var readOnlyEvents = new ReadOnlyCollection<ServerSentEvent>(events);
-        Events = readOnlyEvents;
         Flow = flow;
         _closedAt = null;
         _droppedMessagesCount = 0;
