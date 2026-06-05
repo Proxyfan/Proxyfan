@@ -265,31 +265,31 @@ public sealed partial class ProxyServer : IAsyncDisposable
             return Result.Success();
         }
 
+        var previousStatus = _status;
         var options = _optionsMonitor.CurrentValue;
         LogStarting(options.Port);
 
         SetStatus(ProxyStatus.Starting);
+        CancellationTokenSource? linkedTokenSource = null;
 
         try
         {
-            var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _listenerCancellationSource = linkedTokenSource;
 
             await _listener.StartAsync(OnConnectionAcceptedAsync, _listenerCancellationSource.Token).ConfigureAwait(false);
-
-            SetStatus(ProxyStatus.Running);
-
-            var boundPort = _listener.BoundPort ?? options.Port;
-            LogStarted(boundPort);
-
-            var startedEvent = new ProxyStarted(boundPort, DateTimeOffset.UtcNow);
-            _eventBus.Publish(startedEvent);
-
-            return Result.Success();
+            return StartSucceeded(options);
+        }
+        catch (OperationCanceledException)
+        {
+            SetStatus(previousStatus);
+            TryDisposeListenerCancellationSource(linkedTokenSource);
+            throw;
         }
         catch (ProxyBindException ex)
         {
             SetStatus(ProxyStatus.Faulted);
+            TryDisposeListenerCancellationSource(linkedTokenSource);
 
             var error = new ProxyBindError(options.Port, ex);
             LogBindFailed(ex, options.Port);
@@ -302,6 +302,7 @@ public sealed partial class ProxyServer : IAsyncDisposable
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             SetStatus(ProxyStatus.Faulted);
+            TryDisposeListenerCancellationSource(linkedTokenSource);
 
             var error = new ProxyFaultedError("Start", ex);
             LogUnexpectedStartError(ex);
@@ -313,6 +314,16 @@ public sealed partial class ProxyServer : IAsyncDisposable
         }
     }
 
+    private VoidResult StartSucceeded(ProxyOptions options)
+    {
+        SetStatus(ProxyStatus.Running);
+        var boundPort = _listener.BoundPort ?? options.Port;
+        LogStarted(boundPort);
+        var startedEvent = new ProxyStarted(boundPort, DateTimeOffset.UtcNow);
+        _eventBus.Publish(startedEvent);
+        return Result.Success();
+    }
+
     private async Task<VoidResult> StopCoreAsync(CancellationToken cancellationToken)
     {
         if (_status is ProxyStatus.Stopped or ProxyStatus.Stopping)
@@ -321,6 +332,7 @@ public sealed partial class ProxyServer : IAsyncDisposable
             return Result.Success();
         }
 
+        var previousStatus = _status;
         LogStopping();
 
         SetStatus(ProxyStatus.Stopping);
@@ -336,8 +348,7 @@ public sealed partial class ProxyServer : IAsyncDisposable
 
             SetStatus(ProxyStatus.Stopped);
 
-            _listenerCancellationSource?.Dispose();
-            _listenerCancellationSource = null;
+            TryDisposeListenerCancellationSource(_listenerCancellationSource);
 
             LogStopped();
 
@@ -346,9 +357,16 @@ public sealed partial class ProxyServer : IAsyncDisposable
 
             return Result.Success();
         }
+        catch (OperationCanceledException)
+        {
+            SetStatus(previousStatus);
+            TryDisposeListenerCancellationSource(_listenerCancellationSource);
+            throw;
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             SetStatus(ProxyStatus.Faulted);
+            TryDisposeListenerCancellationSource(_listenerCancellationSource);
 
             var error = new ProxyFaultedError("Stop", ex);
             LogUnexpectedStopError(ex);
@@ -358,5 +376,20 @@ public sealed partial class ProxyServer : IAsyncDisposable
 
             return Result.Failure(error);
         }
+    }
+
+    private void TryDisposeListenerCancellationSource(CancellationTokenSource? cancellationTokenSource)
+    {
+        if (cancellationTokenSource is null)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(_listenerCancellationSource, cancellationTokenSource))
+        {
+            _listenerCancellationSource = null;
+        }
+
+        cancellationTokenSource.Dispose();
     }
 }
