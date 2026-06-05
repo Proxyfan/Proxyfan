@@ -49,6 +49,7 @@ public sealed class LeafCertificateCacheTests
         cache.GetOrAdd("third.example", _ => thirdCertificate);
 
         await Assert.That(cache.Count).IsEqualTo(2);
+        await Assert.That(firstCertificate.Handle).IsEqualTo(IntPtr.Zero);
         await Assert.That(cache.GetOrAdd("second.example", _ => CreateCertificate("unused.example"))).IsSameReferenceAs(secondCertificate);
         await Assert.That(cache.GetOrAdd("third.example", _ => CreateCertificate("unused-third.example"))).IsSameReferenceAs(thirdCertificate);
     }

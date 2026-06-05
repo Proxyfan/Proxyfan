@@ -86,6 +86,7 @@ public sealed class LeafCertificateCacheAdditionalTests
         cache.Evict("host.example");
 
         await Assert.That(cache.Count).IsEqualTo(0);
+        await Assert.That(certificate.Handle).IsEqualTo(IntPtr.Zero);
     }
 
     /// <summary>
@@ -110,12 +111,16 @@ public sealed class LeafCertificateCacheAdditionalTests
     public async Task Clear_AfterEntriesAdded_RemovesAllEntries()
     {
         var cache = new LeafCertificateCache(4);
-        cache.GetOrAdd("first.example", _ => CertificateTestFactory.Create("first.example"));
-        cache.GetOrAdd("second.example", _ => CertificateTestFactory.Create("second.example"));
+        var firstCertificate = CertificateTestFactory.Create("first.example");
+        var secondCertificate = CertificateTestFactory.Create("second.example");
+        cache.GetOrAdd("first.example", _ => firstCertificate);
+        cache.GetOrAdd("second.example", _ => secondCertificate);
 
         cache.Clear();
 
         await Assert.That(cache.Count).IsEqualTo(0);
+        await Assert.That(firstCertificate.Handle).IsEqualTo(IntPtr.Zero);
+        await Assert.That(secondCertificate.Handle).IsEqualTo(IntPtr.Zero);
     }
 
     /// <summary>
