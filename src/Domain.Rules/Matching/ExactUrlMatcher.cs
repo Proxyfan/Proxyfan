@@ -24,11 +24,11 @@ public sealed class ExactUrlMatcher : IUrlMatcher
     }
 
     /// <inheritdoc />
-    public bool HasMatch(string url)
+    public UrlMatchResult GetMatchResult(string url)
     {
         if (string.IsNullOrEmpty(url))
         {
-            return false;
+            return UrlMatchResult.NoMatch;
         }
 
         if (Uri.TryCreate(_pattern, UriKind.Absolute, out var patternUri)
@@ -39,9 +39,19 @@ public sealed class ExactUrlMatcher : IUrlMatcher
                 && patternUri.Port == candidateUri.Port
                 && string.Equals(patternUri.AbsolutePath, candidateUri.AbsolutePath, StringComparison.Ordinal)
                 && string.Equals(patternUri.Query, candidateUri.Query, StringComparison.Ordinal)
-                && string.Equals(patternUri.Fragment, candidateUri.Fragment, StringComparison.Ordinal);
+                && string.Equals(patternUri.Fragment, candidateUri.Fragment, StringComparison.Ordinal)
+                ? UrlMatchResult.Match
+                : UrlMatchResult.NoMatch;
         }
 
-        return string.Equals(_pattern, url, StringComparison.Ordinal);
+        return string.Equals(_pattern, url, StringComparison.Ordinal)
+            ? UrlMatchResult.Match
+            : UrlMatchResult.NoMatch;
+    }
+
+    /// <inheritdoc />
+    public bool HasMatch(string url)
+    {
+        return GetMatchResult(url) == UrlMatchResult.Match;
     }
 }

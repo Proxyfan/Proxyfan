@@ -258,6 +258,20 @@ public sealed class MutableBlockListRuleTests
         await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
     }
 
+    /// <summary>
+    ///     A regex timeout fails closed and still produces a block action.
+    /// </summary>
+    [Test]
+    public async Task EvaluateRequest_RegexTimeout_ReturnsBlock()
+    {
+        var rule = new MutableBlockListRule(priority: 100, isEnabled: true);
+        rule.AddPattern(new MatchingRule(@"^https://example\.com/(a+)+$", MatchingRuleKind.Regex));
+
+        var action = rule.EvaluateRequest(CreateRequest($"https://example.com/{new string('a', 30)}X"));
+
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters

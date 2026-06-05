@@ -46,7 +46,7 @@ public sealed class AllowListRule : IRequestPhaseRule
 
         foreach (var matcher in _matchers)
         {
-            if (matcher.HasMatch(url))
+            if (matcher.GetMatchResult(url) == UrlMatchResult.Match)
             {
                 return null;
             }

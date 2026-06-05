@@ -54,7 +54,8 @@ public sealed class MutableBlockListRule : IRequestPhaseRule
         var url = request.RequestUri.ToString();
         foreach (var matcher in snapshot)
         {
-            if (matcher.HasMatch(url))
+            var matchResult = matcher.GetMatchResult(url);
+            if (matchResult is UrlMatchResult.Match or UrlMatchResult.Indeterminate)
             {
                 return new RequestPipelineAction.Block();
             }

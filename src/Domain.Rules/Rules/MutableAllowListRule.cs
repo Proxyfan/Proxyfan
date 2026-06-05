@@ -55,7 +55,7 @@ public sealed class MutableAllowListRule : IRequestPhaseRule
         var url = request.RequestUri.ToString();
         foreach (var matcher in snapshot)
         {
-            if (matcher.HasMatch(url))
+            if (matcher.GetMatchResult(url) == UrlMatchResult.Match)
             {
                 return null;
             }

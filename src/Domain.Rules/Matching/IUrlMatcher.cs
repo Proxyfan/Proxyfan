@@ -6,13 +6,26 @@ namespace Proxyfan.Domain.Rules.Matching;
 public interface IUrlMatcher
 {
     /// <summary>
-    ///     Determines whether the supplied URL has a match against the underlying pattern.
+    ///     Evaluates the supplied URL against the underlying pattern.
     /// </summary>
     /// <param name="url">
     ///     The fully-qualified URL to evaluate. The matcher decides which portions to inspect.
     /// </param>
     /// <returns>
-    ///     <see langword="true" /> when the URL matches the pattern; otherwise <see langword="false" />.
+    ///     The outcome of the match attempt.
+    /// </returns>
+    UrlMatchResult GetMatchResult(string url);
+
+    /// <summary>
+    ///     Determines whether the supplied URL has a successful match against the underlying
+    ///     pattern.
+    /// </summary>
+    /// <param name="url">
+    ///     The fully-qualified URL to evaluate. The matcher decides which portions to inspect.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true" /> when the URL matches the pattern; otherwise
+    ///     <see langword="false" />.
     /// </returns>
     bool HasMatch(string url);
 }

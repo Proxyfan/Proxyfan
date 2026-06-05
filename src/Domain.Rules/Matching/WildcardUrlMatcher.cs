@@ -27,6 +27,12 @@ public sealed class WildcardUrlMatcher : IUrlMatcher
     }
 
     /// <inheritdoc />
+    public UrlMatchResult GetMatchResult(string url)
+    {
+        return _regexMatcher.GetMatchResult(url);
+    }
+
+    /// <inheritdoc />
     public bool HasMatch(string url)
     {
         return _regexMatcher.HasMatch(url);
