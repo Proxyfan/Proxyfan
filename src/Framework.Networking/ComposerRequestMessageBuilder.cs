@@ -1,4 +1,6 @@
 using Proxyfan.Domain.Traffic;
+using System;
+using System.Collections.Generic;
 using System.Net.Http;
 
 namespace Proxyfan.Framework.Networking;
@@ -12,6 +14,25 @@ namespace Proxyfan.Framework.Networking;
 /// </summary>
 public static class ComposerRequestMessageBuilder
 {
+    private static readonly HashSet<string> AlwaysStrippedHeaders;
+
+    static ComposerRequestMessageBuilder()
+    {
+        var headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Connection",
+            "Keep-Alive",
+            "Proxy-Authenticate",
+            "Proxy-Authorization",
+            "Proxy-Connection",
+            "TE",
+            "Trailer",
+            "Transfer-Encoding",
+            "Upgrade",
+        };
+        AlwaysStrippedHeaders = headers;
+    }
+
     /// <summary>
     ///     Builds an <see cref="HttpRequestMessage" /> from the supplied request data. The
     ///     caller is responsible for disposing the returned message.
@@ -22,6 +43,7 @@ public static class ComposerRequestMessageBuilder
     {
         var method = new HttpMethod(request.Method);
         var message = new HttpRequestMessage(method, request.RequestUri);
+        var connectionListedHeaders = GetConnectionListedHeaders(request.Headers);
 
         if (request.Body.Length > 0)
         {
@@ -31,6 +53,11 @@ public static class ComposerRequestMessageBuilder
 
         foreach (var header in request.Headers)
         {
+            if (HasHeaderNameToStrip(header.Key, connectionListedHeaders))
+            {
+                continue;
+            }
+
             var values = new string[header.Value.Length];
 
             for (var index = 0; index < header.Value.Length; index++)
@@ -45,5 +72,28 @@ public static class ComposerRequestMessageBuilder
         }
 
         return message;
+    }
+
+    private static HashSet<string> GetConnectionListedHeaders(HeaderCollection headers)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var connectionValues = headers.GetAll("Connection");
+
+        foreach (var connectionValue in connectionValues)
+        {
+            var tokens = connectionValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var token in tokens)
+            {
+                names.Add(token);
+            }
+        }
+
+        return names;
+    }
+
+    private static bool HasHeaderNameToStrip(string headerName, HashSet<string> connectionListedHeaders)
+    {
+        return AlwaysStrippedHeaders.Contains(headerName) || connectionListedHeaders.Contains(headerName);
     }
 }

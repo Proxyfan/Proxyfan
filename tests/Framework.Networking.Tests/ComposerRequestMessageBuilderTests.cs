@@ -99,4 +99,46 @@ public sealed class ComposerRequestMessageBuilderTests
 
         await Assert.That(message.Headers.Contains("X-Custom")).IsTrue();
     }
+
+    /// <summary>
+    ///     Verifies proxy-specific and hop-by-hop headers are stripped before replaying a request
+    ///     directly to the origin server.
+    /// </summary>
+    [Test]
+    public async Task Build_ProxyAndConnectionHeaders_StripsBeforeReplay()
+    {
+        var headers = HeaderCollection.Empty
+            .Add("Proxy-Authorization", "Basic cHJveHk6c2VjcmV0")
+            .Add("Proxy-Connection", "keep-alive")
+            .Add("Connection", "X-Remove, keep-alive")
+            .Add("Keep-Alive", "timeout=10")
+            .Add("TE", "trailers")
+            .Add("Trailer", "Expires")
+            .Add("Transfer-Encoding", "chunked")
+            .Add("Upgrade", "websocket")
+            .Add("X-Remove", "leak")
+            .Add("X-Preserved", "value");
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = headers,
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/"),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        using var message = ComposerRequestMessageBuilder.Build(request);
+
+        await Assert.That(message.Headers.Contains("Proxy-Authorization")).IsFalse();
+        await Assert.That(message.Headers.Contains("Proxy-Connection")).IsFalse();
+        await Assert.That(message.Headers.Contains("Connection")).IsFalse();
+        await Assert.That(message.Headers.Contains("Keep-Alive")).IsFalse();
+        await Assert.That(message.Headers.Contains("TE")).IsFalse();
+        await Assert.That(message.Headers.Contains("Trailer")).IsFalse();
+        await Assert.That(message.Headers.Contains("Transfer-Encoding")).IsFalse();
+        await Assert.That(message.Headers.Contains("Upgrade")).IsFalse();
+        await Assert.That(message.Headers.Contains("X-Remove")).IsFalse();
+        await Assert.That(message.Headers.Contains("X-Preserved")).IsTrue();
+    }
 }
