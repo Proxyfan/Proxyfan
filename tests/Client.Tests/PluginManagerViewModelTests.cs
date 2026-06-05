@@ -48,7 +48,7 @@ public sealed class PluginManagerViewModelTests
     public async Task Construct_RegistryWithIncompatiblePlugin_ExposesFailedItem()
     {
         using var harness = new ActivationHarness();
-        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.bad", "Bad", "1.0.0", "Author", "Description", "2.0.0", isLoaded: false, errorMessage: "Incompatible API version."));
+        harness.Coordinator.AddPlugin(new StubPluginLoadState("com.example.bad", "Bad", "1.0.0", "Author", "Description", "2.0.0", isLoaded: false, errorMessage: "Incompatible API version.", sourceDirectory: null));
 
         var viewModel = harness.CreateViewModel();
 
@@ -352,7 +352,12 @@ public sealed class PluginManagerViewModelTests
 
     private sealed class StubPluginLoadState : IPluginLoadState
     {
-        public StubPluginLoadState(string id, string name, string version, string author, string description, string apiVersion, bool isLoaded, string? errorMessage = null, string? sourceDirectory = null)
+        public StubPluginLoadState(string id, string name, string version, string author, string description, string apiVersion, bool isLoaded)
+            : this(id, name, version, author, description, apiVersion, isLoaded, errorMessage: null, sourceDirectory: null)
+        {
+        }
+
+        public StubPluginLoadState(string id, string name, string version, string author, string description, string apiVersion, bool isLoaded, string? errorMessage, string? sourceDirectory)
         {
             Metadata = new PluginMetadata(id, name, version, author, description, apiVersion);
             IsLoaded = isLoaded;
