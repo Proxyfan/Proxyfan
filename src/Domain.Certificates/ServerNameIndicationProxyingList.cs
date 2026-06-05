@@ -243,13 +243,7 @@ public sealed class ServerNameIndicationProxyingList
     private string[] CopyPatterns(HashSet<string> patterns)
     {
         var copiedPatterns = new string[patterns.Count];
-        var index = 0;
-        foreach (var pattern in patterns)
-        {
-            copiedPatterns[index] = pattern;
-            index++;
-        }
-
+        patterns.CopyTo(copiedPatterns);
         return copiedPatterns;
     }
 

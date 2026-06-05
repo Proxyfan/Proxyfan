@@ -125,6 +125,7 @@ public sealed class ServerNameIndicationProxyingListAdditionalTests
                 }
 
                 iteration++;
+                Thread.Yield();
             }
         });
 
@@ -140,6 +141,8 @@ public sealed class ServerNameIndicationProxyingListAdditionalTests
                 {
                     errors.Enqueue(exception);
                 }
+
+                Thread.Yield();
             }
         });
 
