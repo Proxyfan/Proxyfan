@@ -9,6 +9,7 @@ using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using Proxyfan.Domain.Updates;
 using Proxyfan.Presentation.Files;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -160,7 +161,8 @@ public static class ShellViewModelFactory
         MutableNoCachingRule noCachingRule,
         MutableBreakpointConfiguration breakpointConfiguration,
         string? bindAddress = null,
-        IBreakpointPauseInbox? breakpointPauseInbox = null)
+        IBreakpointPauseInbox? breakpointPauseInbox = null,
+        IUserInterfaceScheduler? userInterfaceScheduler = null)
     {
         var options = new ProxyOptions { Port = port };
         if (!string.IsNullOrWhiteSpace(bindAddress))
@@ -171,8 +173,9 @@ public static class ShellViewModelFactory
         var optionsMonitor = new StubOptionsMonitor<ProxyOptions>(options);
         var eventBus = new NoopEventBus();
         var coordinator = new TrafficListCoordinator();
-        var trafficList = new TrafficListViewModel(eventBus, InlineUserInterfaceScheduler.Instance, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
-        var sourceList = new SourceListViewModel(eventBus, coordinator, InlineUserInterfaceScheduler.Instance);
+        var scheduler = userInterfaceScheduler ?? InlineUserInterfaceScheduler.Instance;
+        var trafficList = new TrafficListViewModel(eventBus, scheduler, requestRepeater: null, diffPool: null, clipboardService: null, coordinator: coordinator);
+        var sourceList = new SourceListViewModel(eventBus, coordinator, scheduler);
         var tabHost = new TabHostViewModel(trafficList);
         var inbox = breakpointPauseInbox ?? new BreakpointPauseInbox();
         return new ShellViewModel(
@@ -185,7 +188,7 @@ public static class ShellViewModelFactory
             harImporter,
             toolWindowOpener,
             updateNotification,
-            InlineUserInterfaceScheduler.Instance,
+            scheduler,
             noCachingRule,
             breakpointConfiguration,
             inbox);

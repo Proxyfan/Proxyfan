@@ -137,4 +137,32 @@ public sealed class ShellViewModelToggleTests
         await Assert.That(shell.IsNoCachingEnabled).IsTrue();
         await Assert.That(shell.IsBreakpointEnabled).IsTrue();
     }
+
+    /// <summary>
+    ///     Verifies that proxy toggle updates are posted through the UI scheduler after async registration work.
+    /// </summary>
+    [Test]
+    public async Task ToggleSystemProxyCommand_WhenAsyncWorkCompletes_PostsBoundStateUpdateToUiScheduler()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        var shell = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            8080,
+            new ShellViewModelFactory.StubFilePickerService(),
+            new ShellViewModelFactory.StubHarExporter(),
+            new ShellViewModelFactory.StubHarImporter(),
+            new StubToolWindowOpener(),
+            new MutableUpdateNotification(),
+            new MutableNoCachingRule(priority: 400, isEnabled: false),
+            new MutableBreakpointConfiguration(isEnabled: false),
+            userInterfaceScheduler: scheduler);
+
+        await shell.ToggleSystemProxyCommand.ExecuteAsync(null);
+
+        await Assert.That(shell.IsSystemProxyEnabled).IsFalse();
+
+        scheduler.DrainQueue();
+
+        await Assert.That(shell.IsSystemProxyEnabled).IsTrue();
+    }
 }
