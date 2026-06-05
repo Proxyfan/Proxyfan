@@ -121,6 +121,24 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         };
     }
 
+    private MigratingConfigurationLoadResult BuildInvalidVersionResult(
+        ConfigurationSnapshot snapshot,
+        Dictionary<string, string> sourceValues)
+    {
+        var pipelineResult = BuildRejectedPipelineResult();
+        var malformedVersionLine = sourceValues.TryGetValue(ConfigurationMigrationConstants.VersionKey, out var text)
+            ? $"{ConfigurationMigrationConstants.VersionKey}={text}"
+            : ConfigurationMigrationConstants.VersionKey;
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            IoFailure = null,
+            MalformedLines = [malformedVersionLine],
+            PipelineResult = pipelineResult,
+            Snapshot = snapshot,
+        };
+    }
+
     /// <summary>
     ///     Builds a <see cref="MigratingConfigurationLoadResult" /> for the case where the
     ///     backup or write of the migrated configuration file failed with an IO exception.
@@ -189,32 +207,6 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         };
     }
 
-    private MigratingConfigurationLoadResult BuildInvalidVersionResult(
-        ConfigurationSnapshot snapshot,
-        Dictionary<string, string> sourceValues)
-    {
-        var rejectedValues = new Dictionary<string, string>();
-        var pipelineResult = new ConfigurationMigrationPipelineResult
-        {
-            Actions = [],
-            IsMigrated = false,
-            SourceVersion = _targetVersion,
-            TargetVersion = _targetVersion,
-            Values = rejectedValues,
-        };
-        var malformedVersionLine = sourceValues.TryGetValue(ConfigurationMigrationConstants.VersionKey, out var text)
-            ? $"{ConfigurationMigrationConstants.VersionKey}={text}"
-            : ConfigurationMigrationConstants.VersionKey;
-        return new MigratingConfigurationLoadResult
-        {
-            BackupPath = null,
-            IoFailure = null,
-            MalformedLines = [malformedVersionLine],
-            PipelineResult = pipelineResult,
-            Snapshot = snapshot,
-        };
-    }
-
     /// <summary>
     ///     Builds a <see cref="MigratingConfigurationLoadResult" /> for the case where the
     ///     configuration file contained malformed lines. Migration is not applied and the
@@ -224,15 +216,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
     /// <returns>The rejection result.</returns>
     private MigratingConfigurationLoadResult BuildMalformedResult(KeyValueConfigurationParseResult parseResult)
     {
-        var rejectedValues = new Dictionary<string, string>();
-        var pipelineResult = new ConfigurationMigrationPipelineResult
-        {
-            Actions = [],
-            IsMigrated = false,
-            SourceVersion = _targetVersion,
-            TargetVersion = _targetVersion,
-            Values = rejectedValues,
-        };
+        var pipelineResult = BuildRejectedPipelineResult();
         return new MigratingConfigurationLoadResult
         {
             BackupPath = null,
@@ -266,12 +250,7 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             pipelineResult = _pipeline.Migrate(sourceValues, _targetVersion);
             return true;
         }
-        catch (ArgumentException)
-        {
-            pipelineResult = BuildRejectedPipelineResult();
-            return false;
-        }
-        catch (FormatException)
+        catch (System.Exception exception) when (exception is System.ArgumentException or System.FormatException)
         {
             pipelineResult = BuildRejectedPipelineResult();
             return false;
