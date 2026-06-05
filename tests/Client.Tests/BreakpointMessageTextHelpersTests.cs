@@ -17,7 +17,7 @@ public sealed class BreakpointMessageTextHelpersTests
     [Test]
     public async Task DecodeBody_EmptyMemory_ReturnsEmptyString()
     {
-        var result = BreakpointMessageTextHelpers.DecodeBody(ReadOnlyMemory<byte>.Empty);
+        var result = BreakpointMessageTextHelpers.DecodeBody(ReadOnlyMemory<byte>.Empty, HeaderCollection.Empty);
 
         await Assert.That(result).IsEqualTo(string.Empty);
     }
@@ -27,15 +27,40 @@ public sealed class BreakpointMessageTextHelpersTests
     {
         var bytes = Encoding.UTF8.GetBytes("hello world");
 
-        var result = BreakpointMessageTextHelpers.DecodeBody(bytes);
+        var result = BreakpointMessageTextHelpers.DecodeBody(bytes, HeaderCollection.Empty);
 
         await Assert.That(result).IsEqualTo("hello world");
     }
 
     [Test]
+    public async Task CreateBodyEditorState_BinaryBytes_ReturnsBase64Text()
+    {
+        var body = new byte[] { 0x00, 0xFF, 0x10, 0x20 };
+        var headers = HeaderCollection.Empty.Add("Content-Type", "application/octet-stream");
+
+        var result = BreakpointMessageTextHelpers.CreateBodyEditorState(body, headers);
+
+        await Assert.That(result.IsBase64).IsTrue();
+        await Assert.That(result.Text).IsEqualTo(Convert.ToBase64String(body));
+    }
+
+    [Test]
+    public async Task CreateBodyEditorState_TextBodyWithCharset_ReturnsDecodedText()
+    {
+        var encoding = Encoding.GetEncoding("iso-8859-1");
+        var body = encoding.GetBytes("café");
+        var headers = HeaderCollection.Empty.Add("Content-Type", "text/plain; charset=iso-8859-1");
+
+        var result = BreakpointMessageTextHelpers.CreateBodyEditorState(body, headers);
+
+        await Assert.That(result.IsBase64).IsFalse();
+        await Assert.That(result.Text).IsEqualTo("café");
+    }
+
+    [Test]
     public async Task EncodeBody_NullText_ReturnsEmptyArray()
     {
-        var result = BreakpointMessageTextHelpers.EncodeBody(null!);
+        var result = BreakpointMessageTextHelpers.EncodeBody(null!, ReadOnlyMemory<byte>.Empty, HeaderCollection.Empty);
 
         await Assert.That(result.Length).IsEqualTo(0);
     }
@@ -43,19 +68,32 @@ public sealed class BreakpointMessageTextHelpersTests
     [Test]
     public async Task EncodeBody_EmptyText_ReturnsEmptyArray()
     {
-        var result = BreakpointMessageTextHelpers.EncodeBody(string.Empty);
+        var result = BreakpointMessageTextHelpers.EncodeBody(string.Empty, ReadOnlyMemory<byte>.Empty, HeaderCollection.Empty);
 
         await Assert.That(result.Length).IsEqualTo(0);
     }
 
     [Test]
-    public async Task EncodeBody_NonEmptyText_ReturnsUtf8Bytes()
+    public async Task EncodeBody_TextBodyWithCharset_ReturnsDeclaredEncodingBytes()
     {
-        var result = BreakpointMessageTextHelpers.EncodeBody("Hi");
+        var originalBody = Encoding.GetEncoding("iso-8859-1").GetBytes("café");
+        var headers = HeaderCollection.Empty.Add("Content-Type", "text/plain; charset=iso-8859-1");
 
-        await Assert.That(result.Length).IsEqualTo(2);
-        await Assert.That(result[0]).IsEqualTo((byte)'H');
-        await Assert.That(result[1]).IsEqualTo((byte)'i');
+        var result = BreakpointMessageTextHelpers.EncodeBody("olé", originalBody, headers);
+
+        await Assert.That(result).IsEquivalentTo(new byte[] { 0x6F, 0x6C, 0xE9 });
+    }
+
+    [Test]
+    public async Task EncodeBody_UnchangedBinaryText_PreservesOriginalBytes()
+    {
+        var originalBody = new byte[] { 0xFF, 0x00, 0x41 };
+        var headers = HeaderCollection.Empty.Add("Content-Type", "application/octet-stream");
+        var text = BreakpointMessageTextHelpers.DecodeBody(originalBody, headers);
+
+        var result = BreakpointMessageTextHelpers.EncodeBody(text, originalBody, headers);
+
+        await Assert.That(result).IsEquivalentTo(originalBody);
     }
 
     [Test]
