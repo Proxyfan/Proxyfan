@@ -207,6 +207,37 @@ public sealed class UserScriptingHandlerTests
     }
 
     /// <summary>
+    ///     Verifies that request-phase failures clear flow shared state so response-phase script
+    ///     execution cannot observe partially-written state from the failed request.
+    /// </summary>
+    [Test]
+    public async Task ApplyRequestAsync_ScriptThrows_ClearsSharedStateBeforeResponse()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        configuration.SetActiveScript(new StubUserScript(
+            "request-failure-clears-state",
+            onRequest: (request, state) =>
+            {
+                state["marker"] = "set-before-throw";
+                throw new InvalidOperationException("boom-request");
+            },
+            onResponse: (request, response, state) =>
+            {
+                response.Headers.Set("X-State-Present", state.ContainsKey("marker") ? "yes" : "no");
+            }));
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        var requestOutcome = await handler.ApplyRequestAsync("flow-throw", sourceRequest, CancellationToken.None);
+        var responseOutcome = await handler.ApplyResponseAsync("flow-throw", sourceRequest, sourceResponse, CancellationToken.None);
+
+        await Assert.That(requestOutcome.IsSuccess).IsFalse();
+        await Assert.That(responseOutcome.IsSuccess).IsTrue();
+        await Assert.That(responseOutcome.Value.Headers.Get("X-State-Present")).IsEqualTo("no");
+    }
+
+    /// <summary>
     ///     Verifies that a response-phase script that throws is surfaced as a
     ///     <see cref="ScriptError" /> failure result rather than escaping as a raw exception.
     /// </summary>
