@@ -213,6 +213,7 @@ public sealed class UserScriptingHandlerTests
     [Test]
     public async Task ApplyRequestAsync_ScriptThrows_ClearsSharedStateBeforeResponse()
     {
+        const string flowId = "flow-throw";
         var configuration = new MutableScriptingConfiguration(isEnabled: true);
         configuration.SetActiveScript(new StubUserScript(
             "request-failure-clears-state",
@@ -229,8 +230,8 @@ public sealed class UserScriptingHandlerTests
         var sourceRequest = BuildRequest("GET");
         var sourceResponse = BuildResponse(200);
 
-        var requestOutcome = await handler.ApplyRequestAsync("flow-throw", sourceRequest, CancellationToken.None);
-        var responseOutcome = await handler.ApplyResponseAsync("flow-throw", sourceRequest, sourceResponse, CancellationToken.None);
+        var requestOutcome = await handler.ApplyRequestAsync(flowId, sourceRequest, CancellationToken.None);
+        var responseOutcome = await handler.ApplyResponseAsync(flowId, sourceRequest, sourceResponse, CancellationToken.None);
 
         await Assert.That(requestOutcome.IsSuccess).IsFalse();
         await Assert.That(responseOutcome.IsSuccess).IsTrue();
