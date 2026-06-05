@@ -182,6 +182,7 @@ public sealed class TrafficFlowDifferTests
 
         await Assert.That(diff.IsIdentical).IsFalse();
         await HasOnlyEqual(diff.ResponseBody);
+        await Assert.That(diff.ResponseBody[0].Text).IsEqualTo("<binary body, 3 bytes>");
     }
 
     /// <summary>
@@ -201,6 +202,8 @@ public sealed class TrafficFlowDifferTests
 
         await Assert.That(diff.IsIdentical).IsFalse();
         await HasOnlyEqual(diff.ResponseBody);
+        await Assert.That(diff.ResponseBody[0].Text)
+            .IsEqualTo($"<binary or oversized body, {TrafficFlowDiffer.MaximumDiffableBodyLength + 1} bytes>");
     }
 
     /// <summary>
