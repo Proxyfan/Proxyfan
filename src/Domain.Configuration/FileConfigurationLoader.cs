@@ -75,7 +75,10 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             sourceValues[pair.Key] = pair.Value;
         }
 
-        var pipelineResult = _pipeline.Migrate(sourceValues, _targetVersion);
+        if (!CanMigrate(sourceValues, out var pipelineResult))
+        {
+            return BuildInvalidVersionResult(parseResult.Snapshot, sourceValues);
+        }
 
         if (!pipelineResult.IsMigrated)
         {
@@ -113,6 +116,24 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             BackupPath = null,
             IoFailure = null,
             MalformedLines = null,
+            PipelineResult = pipelineResult,
+            Snapshot = snapshot,
+        };
+    }
+
+    private MigratingConfigurationLoadResult BuildInvalidVersionResult(
+        ConfigurationSnapshot snapshot,
+        Dictionary<string, string> sourceValues)
+    {
+        var pipelineResult = BuildRejectedPipelineResult();
+        var malformedVersionLine = sourceValues.TryGetValue(ConfigurationMigrationConstants.VersionKey, out var text)
+            ? $"{ConfigurationMigrationConstants.VersionKey}={text}"
+            : ConfigurationMigrationConstants.VersionKey;
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            IoFailure = null,
+            MalformedLines = [malformedVersionLine],
             PipelineResult = pipelineResult,
             Snapshot = snapshot,
         };
@@ -195,6 +216,19 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
     /// <returns>The rejection result.</returns>
     private MigratingConfigurationLoadResult BuildMalformedResult(KeyValueConfigurationParseResult parseResult)
     {
+        var pipelineResult = BuildRejectedPipelineResult();
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            IoFailure = null,
+            MalformedLines = parseResult.MalformedLines,
+            PipelineResult = pipelineResult,
+            Snapshot = parseResult.Snapshot,
+        };
+    }
+
+    private ConfigurationMigrationPipelineResult BuildRejectedPipelineResult()
+    {
         var rejectedValues = new Dictionary<string, string>();
         var pipelineResult = new ConfigurationMigrationPipelineResult
         {
@@ -204,14 +238,23 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             TargetVersion = _targetVersion,
             Values = rejectedValues,
         };
-        return new MigratingConfigurationLoadResult
+        return pipelineResult;
+    }
+
+    private bool CanMigrate(
+        Dictionary<string, string> sourceValues,
+        out ConfigurationMigrationPipelineResult pipelineResult)
+    {
+        try
         {
-            BackupPath = null,
-            IoFailure = null,
-            MalformedLines = parseResult.MalformedLines,
-            PipelineResult = pipelineResult,
-            Snapshot = parseResult.Snapshot,
-        };
+            pipelineResult = _pipeline.Migrate(sourceValues, _targetVersion);
+            return true;
+        }
+        catch (System.Exception exception) when (exception is System.ArgumentException or System.FormatException)
+        {
+            pipelineResult = BuildRejectedPipelineResult();
+            return false;
+        }
     }
 
     /// <summary>

@@ -226,6 +226,47 @@ public sealed class FileConfigurationLoaderTests
     }
 
     /// <summary>
+    ///     A file containing a syntactically valid but unparsable version value is rejected:
+    ///     migration is not applied, the file is not rewritten, and the parsed snapshot is
+    ///     preserved for diagnostics.
+    /// </summary>
+    [Test]
+    public async Task Load_MalformedVersion_RejectsFileWithoutMigrationOrRewrite()
+    {
+        var path = CreateTempPath();
+
+        try
+        {
+            const string originalContent = "version=abc\nproxy.port=8080\n";
+            File.WriteAllText(path, originalContent);
+            var migrator = new ConfigurationMigrator
+            {
+                From = new ConfigurationVersion(1, 0),
+                Operations = [],
+                To = new ConfigurationVersion(1, 1),
+            };
+            var pipeline = new ConfigurationMigrationPipeline([migrator]);
+            var loader = new FileConfigurationLoader(path, pipeline, new ConfigurationVersion(1, 1));
+
+            var result = loader.Load();
+
+            await Assert.That(result.MalformedLines).IsNotNull();
+            await Assert.That(result.MalformedLines!.Count).IsEqualTo(1);
+            await Assert.That(result.MalformedLines![0]).IsEqualTo("version=abc");
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.Snapshot.Get("proxy.port", string.Empty)).IsEqualTo("8080");
+            await Assert.That(File.Exists(path + FileConfigurationLoader.BackupExtension)).IsFalse();
+            await Assert.That(File.ReadAllText(path)).IsEqualTo(originalContent);
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
+        }
+    }
+
+    /// <summary>
     ///     When backup creation fails because the backup path is occupied by a directory,
     ///     the loader returns the pre-migration snapshot and surfaces the exception via
     ///     <see cref="MigratingConfigurationLoadResult.IoFailure" /> rather than propagating
