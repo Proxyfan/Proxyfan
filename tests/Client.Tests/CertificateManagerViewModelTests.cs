@@ -1,6 +1,7 @@
 ﻿using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Domain.Certificates;
+using Proxyfan.Presentation.Threading;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -116,6 +117,27 @@ public sealed class CertificateManagerViewModelTests
     }
 
     /// <summary>
+    ///     ExportCommand defers post-await property updates until scheduled UI work runs.
+    /// </summary>
+    [Test]
+    public async Task ExportCommand_PickerCancelled_DefersBoundPropertyUpdatesUntilUiWorkRuns()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        var picker = new ShellViewModelFactory.StubFilePickerService { WriteStream = null };
+        var (viewModel, _, _, _) = Create(picker, scheduler);
+
+        await viewModel.ExportCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(viewModel.IsBusy).IsTrue();
+        await Assert.That(viewModel.StatusMessage).IsEqualTo(string.Empty);
+
+        scheduler.DrainQueue();
+
+        await Assert.That(viewModel.IsBusy).IsFalse();
+        await Assert.That(viewModel.StatusMessage).Contains("cancelled");
+    }
+
+    /// <summary>
     ///     The RegenerateCommand replaces the authority and reapplies metadata.
     /// </summary>
     [Test]
@@ -187,6 +209,79 @@ public sealed class CertificateManagerViewModelTests
     }
 
     /// <summary>
+    ///     InstallCommand defers post-await property updates until scheduled UI work runs.
+    /// </summary>
+    [Test]
+    public async Task InstallCommand_FreshAuthority_DefersBoundPropertyUpdatesUntilUiWorkRuns()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        var (viewModel, _, _, store) = Create(userInterfaceScheduler: scheduler);
+
+        await viewModel.InstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(store.InstallCallCount).IsEqualTo(1);
+        await Assert.That(viewModel.IsBusy).IsTrue();
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(viewModel.StatusMessage).IsEqualTo(string.Empty);
+
+        scheduler.DrainQueue();
+
+        await Assert.That(viewModel.IsBusy).IsFalse();
+        await Assert.That(viewModel.IsInstalled).IsTrue();
+        await Assert.That(viewModel.StatusMessage).Contains("installed");
+    }
+
+    /// <summary>
+    ///     RegenerateCommand defers post-await property updates until scheduled UI work runs.
+    /// </summary>
+    [Test]
+    public async Task RegenerateCommand_FreshProvider_DefersBoundPropertyUpdatesUntilUiWorkRuns()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        var (viewModel, _, _, _) = Create(userInterfaceScheduler: scheduler);
+        await viewModel.RefreshCommand.ExecuteAsync(null).ConfigureAwait(false);
+        scheduler.DrainQueue();
+        var originalThumbprint = viewModel.Thumbprint;
+
+        await viewModel.RegenerateCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(viewModel.IsBusy).IsTrue();
+        await Assert.That(viewModel.Thumbprint).IsEqualTo(originalThumbprint);
+        await Assert.That(viewModel.StatusMessage).IsEqualTo(string.Empty);
+
+        scheduler.DrainQueue();
+
+        await Assert.That(viewModel.IsBusy).IsFalse();
+        await Assert.That(viewModel.Thumbprint).IsNotEqualTo(originalThumbprint);
+        await Assert.That(viewModel.StatusMessage).Contains("regenerated");
+    }
+
+    /// <summary>
+    ///     UninstallCommand defers post-await property updates until scheduled UI work runs.
+    /// </summary>
+    [Test]
+    public async Task UninstallCommand_PreviouslyInstalled_DefersBoundPropertyUpdatesUntilUiWorkRuns()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        var (viewModel, _, _, store) = Create(userInterfaceScheduler: scheduler);
+        await viewModel.InstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+        scheduler.DrainQueue();
+
+        await viewModel.UninstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(store.UninstallCallCount).IsEqualTo(1);
+        await Assert.That(viewModel.IsBusy).IsTrue();
+        await Assert.That(viewModel.IsInstalled).IsTrue();
+        await Assert.That(viewModel.StatusMessage).Contains("installed");
+
+        scheduler.DrainQueue();
+
+        await Assert.That(viewModel.IsBusy).IsFalse();
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(viewModel.StatusMessage).Contains("removed");
+    }
+
+    /// <summary>
     ///     Dispose is a no-op and safe to call multiple times.
     /// </summary>
     [Test]
@@ -216,13 +311,15 @@ public sealed class CertificateManagerViewModelTests
     }
 
     private static (CertificateManagerViewModel ViewModel, StubCertificateGenerator Generator, MutableCertificateAuthorityProvider Provider, StubCertificateStore Store) Create(
-        ShellViewModelFactory.StubFilePickerService? picker = null)
+        ShellViewModelFactory.StubFilePickerService? picker = null,
+        IUserInterfaceScheduler? userInterfaceScheduler = null)
     {
         var generator = new StubCertificateGenerator();
         var provider = new MutableCertificateAuthorityProvider(generator);
         var store = new StubCertificateStore();
         var filePicker = picker ?? new ShellViewModelFactory.StubFilePickerService();
-        var viewModel = new CertificateManagerViewModel(provider, store, filePicker, InlineUserInterfaceScheduler.Instance);
+        var scheduler = userInterfaceScheduler ?? InlineUserInterfaceScheduler.Instance;
+        var viewModel = new CertificateManagerViewModel(provider, store, filePicker, scheduler);
         return (viewModel, generator, provider, store);
     }
 }
