@@ -30,6 +30,7 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
     private readonly IRemoteProcedureCallStore _store;
     private readonly TrafficListViewModel _trafficListViewModel;
     private RemoteProcedureCallFlow? _attachedFlow;
+    private int _attachmentGeneration;
     [ObservableProperty]
     private string _connectionStatusText;
     [ObservableProperty]
@@ -143,6 +144,7 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
         _attachedFlow.MessageRecorded -= OnMessageRecorded;
         _attachedFlow.Closed -= OnFlowClosed;
         _attachedFlow = null;
+        _attachmentGeneration++;
     }
 
     private bool HasMatchingFilter(RemoteProcedureCallMessageViewModel viewModel)
@@ -168,16 +170,28 @@ public sealed partial class RemoteProcedureCallInspectorViewModel : ObservableOb
 
     private void OnFlowClosed()
     {
+        var capturedGeneration = _attachmentGeneration;
         _scheduler.Post(() =>
         {
+            if (_attachmentGeneration != capturedGeneration)
+            {
+                return;
+            }
+
             ConnectionStatusText = "gRPC — closed";
         });
     }
 
     private void OnMessageRecorded(RemoteProcedureCallCapturedMessage capturedMessage)
     {
+        var capturedGeneration = _attachmentGeneration;
         _scheduler.Post(() =>
         {
+            if (_attachmentGeneration != capturedGeneration)
+            {
+                return;
+            }
+
             var viewModel = new RemoteProcedureCallMessageViewModel(capturedMessage);
             _allMessages.Add(viewModel);
             if (HasMatchingFilter(viewModel))

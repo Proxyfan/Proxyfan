@@ -503,10 +503,72 @@ public sealed class WebSocketInspectorViewModelTests
             .IsEqualTo(WebSocketContentTypeFilter.All);
     }
 
+    /// <summary>
+    ///     Verifies that a queued <c>MessageRecorded</c> callback posted by one flow is
+    ///     silently dropped when the selected flow changes before the UI-thread queue is
+    ///     drained. This guards against stale messages from a previous selection appearing
+    ///     under the newly selected flow.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_PostedCallbackDeferredAcrossFlowSwitch_DropsStaleMessage()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateDeferredHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var firstWebSocketFlow = CreateWebSocketFlow(firstFlowId, harness.WebSocketStore);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+
+        firstWebSocketFlow.RecordMessage(CreateMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text));
+
+        var secondFlowId = Guid.NewGuid();
+        CreateWebSocketFlow(secondFlowId, harness.WebSocketStore);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+        scheduler.DrainQueue();
+
+        await Assert.That(harness.WebSocketInspector.Messages.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a queued <c>Closed</c> callback posted by one flow is silently
+    ///     dropped when the selected flow changes before the UI-thread queue is drained.
+    ///     This guards against the closed status of a previous selection overwriting the
+    ///     status of the newly selected flow.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_PostedCallbackDeferredAcrossFlowSwitch_DropsStaleStatus()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateDeferredHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var firstWebSocketFlow = CreateWebSocketFlow(firstFlowId, harness.WebSocketStore);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+
+        firstWebSocketFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        var secondFlowId = Guid.NewGuid();
+        CreateWebSocketFlow(secondFlowId, harness.WebSocketStore);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+        scheduler.DrainQueue();
+
+        await Assert.That(harness.WebSocketInspector.ConnectionStatusText).IsEqualTo("WebSocket — open");
+    }
+
     private static WebSocketMessage CreateMessage(WebSocketDirection direction, WebSocketOpcode opcode)
     {
         var message = new WebSocketMessage(direction, opcode, new byte[] { 1 }, DateTimeOffset.UtcNow);
         return message;
+    }
+
+    private static Harness CreateDeferredHarness(DeferredUserInterfaceScheduler scheduler)
+    {
+        var bus = new StubDomainEventBus();
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var webSocketStore = new WebSocketStore();
+        var webSocketInspector = new WebSocketInspectorViewModel(
+            trafficListViewModel,
+            webSocketStore,
+            scheduler);
+        return new Harness(trafficListViewModel, webSocketStore, webSocketInspector);
     }
 
     private static Harness CreateHarness()

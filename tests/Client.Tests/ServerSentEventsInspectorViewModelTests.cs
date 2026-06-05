@@ -302,10 +302,72 @@ public sealed class ServerSentEventsInspectorViewModelTests
         await Assert.That(inspector.Events.Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies that a queued <c>EventRecorded</c> callback posted by one flow is silently
+    ///     dropped when the selected flow changes before the UI-thread queue is drained.
+    ///     This guards against stale events from a previous selection appearing under the
+    ///     newly selected flow.
+    /// </summary>
+    [Test]
+    public async Task RecordEvent_PostedCallbackDeferredAcrossFlowSwitch_DropsStaleEvent()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateDeferredHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var firstSseFlow = CreateServerSentEventsFlow(firstFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+
+        firstSseFlow.RecordEvent(CreateEvent("tick", "data"));
+
+        var secondFlowId = Guid.NewGuid();
+        CreateServerSentEventsFlow(secondFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+        scheduler.DrainQueue();
+
+        await Assert.That(harness.Inspector.Events.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a queued <c>Closed</c> callback posted by one flow is silently
+    ///     dropped when the selected flow changes before the UI-thread queue is drained.
+    ///     This guards against the closed status of a previous selection overwriting the
+    ///     status of the newly selected flow.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_PostedCallbackDeferredAcrossFlowSwitch_DropsStaleStatus()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateDeferredHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var firstSseFlow = CreateServerSentEventsFlow(firstFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+
+        firstSseFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        var secondFlowId = Guid.NewGuid();
+        CreateServerSentEventsFlow(secondFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+        scheduler.DrainQueue();
+
+        await Assert.That(harness.Inspector.ConnectionStatusText).IsEqualTo("Server-Sent Events — streaming");
+    }
+
     private static ServerSentEvent CreateEvent(string eventType, string data)
     {
         var serverSentEvent = new ServerSentEvent(data, eventType, id: null, retryMilliseconds: null, timestamp: DateTimeOffset.UtcNow);
         return serverSentEvent;
+    }
+
+    private static Harness CreateDeferredHarness(DeferredUserInterfaceScheduler scheduler)
+    {
+        var bus = new StubDomainEventBus();
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var store = new ServerSentEventsStore();
+        var inspector = new ServerSentEventsInspectorViewModel(
+            trafficListViewModel,
+            store,
+            scheduler);
+        return new Harness(trafficListViewModel, store, inspector);
     }
 
     private static TrafficFlowViewModel CreateFlowViewModel(Guid flowId)

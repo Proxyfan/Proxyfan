@@ -24,6 +24,7 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
     private readonly TrafficListViewModel _trafficListViewModel;
     private ServerSentEventsFlow? _attachedFlow;
     private HashSet<ServerSentEvent>? _attachedFlowSnapshotSet;
+    private int _attachmentGeneration;
     [ObservableProperty]
     private string _connectionStatusText;
     [ObservableProperty]
@@ -122,6 +123,7 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
         _attachedFlow.Closed -= OnFlowClosed;
         _attachedFlow = null;
         _attachedFlowSnapshotSet = null;
+        _attachmentGeneration++;
     }
 
     private bool HasMatchingFilter(ServerSentEventViewModel viewModel)
@@ -137,8 +139,14 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
 
     private void OnEventRecorded(ServerSentEvent serverSentEvent)
     {
+        var capturedGeneration = _attachmentGeneration;
         _scheduler.Post(() =>
         {
+            if (_attachmentGeneration != capturedGeneration)
+            {
+                return;
+            }
+
             if (_attachedFlowSnapshotSet?.Remove(serverSentEvent) == true)
             {
                 return;
@@ -161,8 +169,14 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
 
     private void OnFlowClosed()
     {
+        var capturedGeneration = _attachmentGeneration;
         _scheduler.Post(() =>
         {
+            if (_attachmentGeneration != capturedGeneration)
+            {
+                return;
+            }
+
             ConnectionStatusText = "Server-Sent Events — closed";
         });
     }
