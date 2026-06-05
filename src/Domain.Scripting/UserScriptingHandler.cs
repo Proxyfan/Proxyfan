@@ -56,10 +56,12 @@ public sealed class UserScriptingHandler : IScriptingHandler
         }
         catch (OperationCanceledException)
         {
+            _sharedStatesByFlow.TryRemove(flowId, out _);
             throw;
         }
         catch (Exception ex)
         {
+            _sharedStatesByFlow.TryRemove(flowId, out _);
             var error = new ScriptError(RequestScriptErrorCode, ex.Message);
             return Result.Failure<HypertextTransferProtocolRequestData>(error);
         }
@@ -67,6 +69,7 @@ public sealed class UserScriptingHandler : IScriptingHandler
         var projection = ScriptableProjector.Project(view, request);
         if (!projection.IsSuccess)
         {
+            _sharedStatesByFlow.TryRemove(flowId, out _);
             throw new InvalidOperationException(
                 $"Script request projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
