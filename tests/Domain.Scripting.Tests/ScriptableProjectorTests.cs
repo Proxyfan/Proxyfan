@@ -27,6 +27,39 @@ public sealed class ScriptableProjectorTests
     }
 
     /// <summary>
+    ///     Verifies that <see cref="ScriptableRequest" /> preserves all values for multi-value
+    ///     headers from the source request.
+    /// </summary>
+    [Test]
+    public async Task ScriptableRequest_Constructor_PreservesMultiValueHeaders()
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Encoding.UTF8.GetBytes("payload"),
+            Headers = HeaderCollection.Empty
+                .Add("Set-Cookie", "a=1")
+                .Add("Set-Cookie", "b=2"),
+            Method = "GET",
+            RequestUri = new Uri("https://example.com"),
+            Version = "HTTP/1.1",
+        };
+        var source = new HypertextTransferProtocolRequestData(parameters);
+
+        var view = new ScriptableRequest(source);
+
+        var valueCount = 0;
+        foreach (var header in view.Headers.Enumerate())
+        {
+            if (header.Key == "Set-Cookie")
+            {
+                valueCount++;
+            }
+        }
+
+        await Assert.That(valueCount).IsEqualTo(2);
+    }
+
+    /// <summary>
     ///     Verifies that <see cref="ScriptableResponse" /> initializes from a source response.
     /// </summary>
     [Test]
@@ -39,6 +72,39 @@ public sealed class ScriptableProjectorTests
         await Assert.That(view.StatusCode).IsEqualTo(404);
         await Assert.That(view.ReasonPhrase).IsEqualTo("Not Found");
         await Assert.That(view.Headers.Get("Content-Type")).IsEqualTo("text/plain");
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ScriptableResponse" /> preserves all values for multi-value
+    ///     headers from the source response.
+    /// </summary>
+    [Test]
+    public async Task ScriptableResponse_Constructor_PreservesMultiValueHeaders()
+    {
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = Encoding.UTF8.GetBytes("body"),
+            Headers = HeaderCollection.Empty
+                .Add("Set-Cookie", "a=1")
+                .Add("Set-Cookie", "b=2"),
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+            Version = "HTTP/1.1",
+        };
+        var source = new HypertextTransferProtocolResponseData(parameters);
+
+        var view = new ScriptableResponse(source);
+
+        var valueCount = 0;
+        foreach (var header in view.Headers.Enumerate())
+        {
+            if (header.Key == "Set-Cookie")
+            {
+                valueCount++;
+            }
+        }
+
+        await Assert.That(valueCount).IsEqualTo(2);
     }
 
     /// <summary>
@@ -61,6 +127,33 @@ public sealed class ScriptableProjectorTests
         await Assert.That(built.Value.RequestUri.ToString()).IsEqualTo("https://api.example.com/data");
         await Assert.That(built.Value.Headers.Get("X-Custom")).IsEqualTo("modified");
         await Assert.That(built.Value.Body.Length).IsEqualTo(source.Body.Length);
+    }
+
+    /// <summary>
+    ///     Verifies that projection preserves all values from a multi-value request header.
+    /// </summary>
+    [Test]
+    public async Task Project_ScriptableRequest_PreservesMultiValueHeaders()
+    {
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Encoding.UTF8.GetBytes("payload"),
+            Headers = HeaderCollection.Empty
+                .Add("Set-Cookie", "a=1")
+                .Add("Set-Cookie", "b=2"),
+            Method = "GET",
+            RequestUri = new Uri("https://example.com"),
+            Version = "HTTP/1.1",
+        };
+        var source = new HypertextTransferProtocolRequestData(parameters);
+        var view = new ScriptableRequest(source);
+
+        var built = ScriptableProjector.Project(view, source);
+
+        await Assert.That(built.IsSuccess).IsTrue();
+        await Assert.That(built.Value.Headers.GetAll("Set-Cookie").Length).IsEqualTo(2);
+        await Assert.That(built.Value.Headers.GetAll("Set-Cookie")[0]).IsEqualTo("a=1");
+        await Assert.That(built.Value.Headers.GetAll("Set-Cookie")[1]).IsEqualTo("b=2");
     }
 
     /// <summary>

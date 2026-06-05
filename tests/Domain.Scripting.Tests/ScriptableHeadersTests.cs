@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Scripting.Tests;
@@ -44,6 +45,31 @@ public sealed class ScriptableHeadersTests
         headers.Set("X-Test", "v2");
 
         await Assert.That(headers.Get("X-Test")).IsEqualTo("v2");
+    }
+
+    /// <summary>
+    ///     Verifies that Add appends multiple values under the same header name.
+    /// </summary>
+    [Test]
+    public async Task Add_TwiceWithSameName_AppendsValues()
+    {
+        var headers = new ScriptableHeaders();
+        headers.Add("Set-Cookie", "a=1");
+        headers.Add("Set-Cookie", "b=2");
+
+        var setCookieValues = new List<string>();
+        foreach (var header in headers.Enumerate())
+        {
+            if (header.Key == "Set-Cookie")
+            {
+                setCookieValues.Add(header.Value);
+            }
+        }
+
+        await Assert.That(headers.Get("Set-Cookie")).IsEqualTo("a=1");
+        await Assert.That(setCookieValues.Count).IsEqualTo(2);
+        await Assert.That(setCookieValues[0]).IsEqualTo("a=1");
+        await Assert.That(setCookieValues[1]).IsEqualTo("b=2");
     }
 
     /// <summary>
