@@ -18,6 +18,7 @@ namespace Proxyfan.Client.Inspector.ViewModels;
 public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDisposable
 {
     private readonly List<WebSocketMessageViewModel> _allMessages;
+    private readonly HashSet<WebSocketMessage> _knownMessages;
     private readonly ObservableCollection<WebSocketMessageViewModel> _messages;
     private readonly IUserInterfaceScheduler _scheduler;
     private readonly TrafficListViewModel _trafficListViewModel;
@@ -98,6 +99,8 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
         _scheduler = userInterfaceScheduler;
         var allMessageList = new List<WebSocketMessageViewModel>();
         _allMessages = allMessageList;
+        var knownMessages = new HashSet<WebSocketMessage>(ReferenceEqualityComparer.Instance);
+        _knownMessages = knownMessages;
         var messageCollection = new ObservableCollection<WebSocketMessageViewModel>();
         _messages = messageCollection;
         var readOnlyMessages = new ReadOnlyObservableCollection<WebSocketMessageViewModel>(_messages);
@@ -130,38 +133,23 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
         UpdateForSelectedFlow();
     }
 
-    private void AddMessageIfMissing(WebSocketMessage message)
+    private WebSocketMessageViewModel? AddMessageIfMissing(WebSocketMessage message)
     {
-        AddMessageIfMissing(message, null);
-    }
-
-    private void AddMessageIfMissing(
-        WebSocketMessage message,
-        HashSet<WebSocketMessage>? seededMessages)
-    {
-        if (seededMessages is not null && !seededMessages.Add(message))
+        if (!_knownMessages.Add(message))
         {
-            return;
-        }
-
-        foreach (var existing in _allMessages)
-        {
-            if (ReferenceEquals(existing.Message, message))
-            {
-                return;
-            }
+            return null;
         }
 
         var viewModel = new WebSocketMessageViewModel(message);
         _allMessages.Add(viewModel);
+        return viewModel;
     }
 
     private void AttachFlow(WebSocketFlow flow)
     {
-        var seededMessages = new HashSet<WebSocketMessage>(ReferenceEqualityComparer.Instance);
         foreach (var message in flow.GetMessageSnapshot())
         {
-            AddMessageIfMissing(message, seededMessages);
+            AddMessageIfMissing(message);
         }
 
         _attachedFlow = flow;
@@ -169,7 +157,7 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
         flow.Closed += OnFlowClosed;
         foreach (var message in flow.GetMessageSnapshot())
         {
-            AddMessageIfMissing(message, seededMessages);
+            AddMessageIfMissing(message);
         }
 
         RebuildFilteredMessages();
@@ -267,15 +255,11 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
                 return;
             }
 
-            var messageCount = _allMessages.Count;
-            AddMessageIfMissing(message);
-
-            if (_allMessages.Count == messageCount)
+            var viewModel = AddMessageIfMissing(message);
+            if (viewModel is null)
             {
                 return;
             }
-
-            var viewModel = _allMessages[messageCount];
             if (HasMatchingFilter(viewModel))
             {
                 _messages.Add(viewModel);
@@ -323,6 +307,7 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
     {
         DetachCurrentFlow();
         _allMessages.Clear();
+        _knownMessages.Clear();
         _messages.Clear();
         SelectedMessage = null;
         SelectedMessageDetailText = string.Empty;
