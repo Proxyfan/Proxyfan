@@ -134,7 +134,10 @@ public sealed class RoslynUserScriptCompilerTests
         }
         finally
         {
-            File.Delete(tempScriptPath);
+            if (File.Exists(tempScriptPath))
+            {
+                File.Delete(tempScriptPath);
+            }
         }
     }
 

@@ -69,6 +69,15 @@ public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
         return ScriptCompilationResults.Success(script, diagnostics);
     }
 
+    /// <summary>
+    ///     Compiles a single script phase and appends Roslyn diagnostics plus
+    ///     sandbox scanner findings.
+    /// </summary>
+    /// <param name="source">The source text for this phase.</param>
+    /// <param name="globalsType">The globals type exposed to the script.</param>
+    /// <param name="diagnostics">The destination diagnostic list.</param>
+    /// <param name="isRequestPhase">When true this is request-phase compilation; otherwise response-phase.</param>
+    /// <returns>The compiled Roslyn script handle.</returns>
     private Script<object> CompilePhase(
         string source,
         Type globalsType,
