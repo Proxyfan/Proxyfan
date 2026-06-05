@@ -1,3 +1,4 @@
+using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
@@ -25,6 +26,11 @@ public sealed class StubComposerRequestSender : IComposerRequestSender
     public Exception? ExceptionToThrow { get; set; }
 
     /// <summary>
+    ///     Gets or sets the error that <see cref="SendAsync" /> returns as a failure result.
+    /// </summary>
+    public DomainError? ErrorToReturn { get; set; }
+
+    /// <summary>
     ///     Gets or sets the response that <see cref="SendAsync" /> returns.
     /// </summary>
     public HypertextTransferProtocolResponseData ResponseToReturn { get; set; } =
@@ -38,7 +44,7 @@ public sealed class StubComposerRequestSender : IComposerRequestSender
         });
 
     /// <inheritdoc />
-    public Task<HypertextTransferProtocolResponseData> SendAsync(
+    public Task<Result<HypertextTransferProtocolResponseData>> SendAsync(
         HypertextTransferProtocolRequestData request,
         CancellationToken cancellationToken)
     {
@@ -49,6 +55,11 @@ public sealed class StubComposerRequestSender : IComposerRequestSender
             throw ExceptionToThrow;
         }
 
-        return Task.FromResult(ResponseToReturn);
+        if (ErrorToReturn is not null)
+        {
+            return Task.FromResult(Result.Failure<HypertextTransferProtocolResponseData>(ErrorToReturn));
+        }
+
+        return Task.FromResult(Result.Success(ResponseToReturn));
     }
 }

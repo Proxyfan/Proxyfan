@@ -124,18 +124,18 @@ public sealed class RequestRepeaterTests
     }
 
     /// <summary>
-    ///     Verifies that an upstream exception fails the repeated flow (Failed status) instead of
+    ///     Verifies that an upstream send failure result fails the repeated flow (Failed status) instead of
     ///     synthesising a blocked response, and skips response-phase rule evaluation and the
     ///     <see cref="ResponseReceived" /> event. The failed flow is still stored and a
     ///     <see cref="TrafficFlowCompleted" /> event is published so partial repeat sequences
     ///     can continue.
     /// </summary>
     [Test]
-    public async Task RepeatAsync_SenderThrows_RecordsFailedFlowWithoutResponse()
+    public async Task RepeatAsync_SenderFailure_RecordsFailedFlowWithoutResponse()
     {
         var sender = new StubComposerRequestSender
         {
-            ExceptionToThrow = new InvalidOperationException("upstream down"),
+            ErrorToReturn = new ComposerSendError("upstream down", new InvalidOperationException("upstream down")),
         };
         var responseRule = new RecordingResponsePhaseRule();
         var ruleEngine = new RuleEngine(

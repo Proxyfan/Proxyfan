@@ -1,4 +1,6 @@
-﻿using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain;
+using Proxyfan.Domain.Traffic;
+using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,28 +28,36 @@ public sealed class ComposerRequestSender : IComposerRequestSender
     }
 
     /// <inheritdoc />
-    public async Task<HypertextTransferProtocolResponseData> SendAsync(
+    public async Task<Result<HypertextTransferProtocolResponseData>> SendAsync(
         HypertextTransferProtocolRequestData request,
         CancellationToken cancellationToken)
     {
-        using var message = ComposerRequestMessageBuilder.Build(request);
-        using var response = await _hypertextTransferProtocolClient
-            .SendAsync(message, HttpCompletionOption.ResponseContentRead, cancellationToken)
-            .ConfigureAwait(false);
-        var bodyBytes = await response.Content
-            .ReadAsByteArrayAsync(cancellationToken)
-            .ConfigureAwait(false);
-        var headers = ComposerResponseHeaderProjector.Project(response);
-        var reasonPhrase = response.ReasonPhrase ?? string.Empty;
-        var parameters = new HypertextTransferProtocolResponseDataParameters
+        try
         {
-            Body = bodyBytes,
-            Headers = headers,
-            ReasonPhrase = reasonPhrase,
-            StatusCode = (int)response.StatusCode,
-            Version = "HTTP/" + response.Version,
-        };
-        var responseData = new HypertextTransferProtocolResponseData(parameters);
-        return responseData;
+            using var message = ComposerRequestMessageBuilder.Build(request);
+            using var response = await _hypertextTransferProtocolClient
+                .SendAsync(message, HttpCompletionOption.ResponseContentRead, cancellationToken)
+                .ConfigureAwait(false);
+            var bodyBytes = await response.Content
+                .ReadAsByteArrayAsync(cancellationToken)
+                .ConfigureAwait(false);
+            var headers = ComposerResponseHeaderProjector.Project(response);
+            var reasonPhrase = response.ReasonPhrase ?? string.Empty;
+            var parameters = new HypertextTransferProtocolResponseDataParameters
+            {
+                Body = bodyBytes,
+                Headers = headers,
+                ReasonPhrase = reasonPhrase,
+                StatusCode = (int)response.StatusCode,
+                Version = "HTTP/" + response.Version,
+            };
+            var responseData = new HypertextTransferProtocolResponseData(parameters);
+            return Result.Success(responseData);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var error = new ComposerSendError(ex.Message, ex);
+            return Result.Failure<HypertextTransferProtocolResponseData>(error);
+        }
     }
 }

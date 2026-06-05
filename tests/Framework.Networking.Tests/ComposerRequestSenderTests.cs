@@ -37,8 +37,9 @@ public sealed class ComposerRequestSenderTests
         };
         var request = new HypertextTransferProtocolRequestData(parameters);
 
-        await sender.SendAsync(request, CancellationToken.None);
+        var sendResult = await sender.SendAsync(request, CancellationToken.None);
 
+        await Assert.That(sendResult.IsSuccess).IsTrue();
         await Assert.That(stub.LastRequest!.Method.Method).IsEqualTo("POST");
         await Assert.That(stub.LastRequest.RequestUri!.ToString()).IsEqualTo("https://example.com/api");
         await Assert.That(stub.LastRequestBody).IsEqualTo("payload");
@@ -66,12 +67,44 @@ public sealed class ComposerRequestSenderTests
         };
         var request = new HypertextTransferProtocolRequestData(parameters);
 
-        var response = await sender.SendAsync(request, CancellationToken.None);
+        var sendResult = await sender.SendAsync(request, CancellationToken.None);
 
+        await Assert.That(sendResult.IsSuccess).IsTrue();
+        var response = sendResult.Value;
         await Assert.That(response.StatusCode).IsEqualTo(202);
         await Assert.That(Encoding.UTF8.GetString(response.Body.Span)).IsEqualTo("{\"ok\":true}");
         await Assert.That(response.Headers.Get("X-Trace-Id")).IsEqualTo("abc-123");
         await Assert.That(response.Headers.Get("Content-Type")).IsEqualTo("application/json");
+    }
+
+    /// <summary>
+    ///     Verifies that non-cancellation transport exceptions are translated into a failed
+    ///     result containing a <see cref="ComposerSendError" />.
+    /// </summary>
+    [Test]
+    public async Task SendAsync_HandlerThrows_ReturnsFailureResult()
+    {
+        var innerException = new HttpRequestException("dial failed");
+        var stub = new ThrowingHandler(innerException);
+        using var client = new HttpClient(stub);
+        var sender = new ComposerRequestSender(client);
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = Array.Empty<byte>(),
+            Headers = HeaderCollection.Empty,
+            Method = "GET",
+            RequestUri = new Uri("https://example.com/"),
+            Version = "HTTP/1.1",
+        };
+        var request = new HypertextTransferProtocolRequestData(parameters);
+
+        var sendResult = await sender.SendAsync(request, CancellationToken.None);
+
+        await Assert.That(sendResult.IsSuccess).IsFalse();
+        await Assert.That(sendResult.Error).IsTypeOf<ComposerSendError>();
+        await Assert.That(sendResult.Error!.Code).IsEqualTo("TRAFFIC_COMPOSER_SEND_FAILED");
+        await Assert.That(sendResult.Error.Message).IsEqualTo("dial failed");
+        await Assert.That(sendResult.Error.InnerException).IsSameReferenceAs(innerException);
     }
 
     private sealed class RecordingHandler : HttpMessageHandler
@@ -118,6 +151,24 @@ public sealed class ComposerRequestSenderTests
             }
 
             return response;
+        }
+
+    }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        private readonly Exception _exception;
+
+        public ThrowingHandler(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            throw _exception;
         }
     }
 }
