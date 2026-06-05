@@ -25,7 +25,6 @@ public static class HypertextTransferProtocolHeaderParser
             return HeaderCollection.Empty;
         }
 
-
         var headerLines = headerSection.Split(["\r\n"], StringSplitOptions.None);
         var currentHeaders = HeaderCollection.Empty;
 
@@ -59,13 +58,43 @@ public static class HypertextTransferProtocolHeaderParser
             return headers;
         }
 
-        try
-        {
-            return headers.Add(name, value);
-        }
-        catch (ArgumentException)
+        if (!CanUseHeaderName(name) || !CanUseHeaderValue(value))
         {
             return headers;
         }
+
+        return headers.Add(name, value);
+    }
+
+    private static bool CanUseHeaderName(string name)
+    {
+        if (name.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (var character in name)
+        {
+            if (!char.IsAsciiLetterOrDigit(character) &&
+                character is not '!' and not '#' and not '$' and not '%' and not '&' and not '\'' and not '*' and not '+' and not '-' and not '.' and not '^' and not '_' and not '`' and not '|' and not '~')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CanUseHeaderValue(string value)
+    {
+        foreach (var character in value)
+        {
+            if (character is '\r' or '\n' || (char.IsControl(character) && character != '\t'))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -154,6 +154,12 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
         return updatedValues;
     }
 
+    private bool CanUseHeaderNameCharacter(char character)
+    {
+        return char.IsAsciiLetterOrDigit(character) ||
+               character is '!' or '#' or '$' or '%' or '&' or '\'' or '*' or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
+    }
+
     private Dictionary<string, string[]> CloneHeaders(Dictionary<string, string[]> headers)
     {
         var clone = new Dictionary<string, string[]>(headers.Count, StringComparer.OrdinalIgnoreCase);
@@ -183,8 +189,7 @@ public sealed class HeaderCollection : IEnumerable<KeyValuePair<string, string[]
 
         foreach (var character in name)
         {
-            if (!char.IsAsciiLetterOrDigit(character) &&
-                character is not '!' and not '#' and not '$' and not '%' and not '&' and not '\'' and not '*' and not '+' and not '-' and not '.' and not '^' and not '_' and not '`' and not '|' and not '~')
+            if (!CanUseHeaderNameCharacter(character))
             {
                 throw new ArgumentException("Header name must be a valid RFC token.", nameof(name));
             }
