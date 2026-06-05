@@ -35,16 +35,20 @@ public static class TrafficFlowDiffer
         var status = LineDiffer.Diff(FormatStatus(oldFlow.Response), FormatStatus(newFlow.Response));
         var requestHeaders = LineDiffer.Diff(FormatHeaders(oldFlow.Request?.Headers), FormatHeaders(newFlow.Request?.Headers));
         var responseHeaders = LineDiffer.Diff(FormatHeaders(oldFlow.Response?.Headers), FormatHeaders(newFlow.Response?.Headers));
-        var requestBody = LineDiffer.Diff(FormatBody(oldFlow.Request?.Body), FormatBody(newFlow.Request?.Body));
-        var responseBody = LineDiffer.Diff(FormatBody(oldFlow.Response?.Body), FormatBody(newFlow.Response?.Body));
+        var oldRequestBody = oldFlow.Request?.Body;
+        var newRequestBody = newFlow.Request?.Body;
+        var oldResponseBody = oldFlow.Response?.Body;
+        var newResponseBody = newFlow.Response?.Body;
+        var requestBody = LineDiffer.Diff(FormatBody(oldRequestBody), FormatBody(newRequestBody));
+        var responseBody = LineDiffer.Diff(FormatBody(oldResponseBody), FormatBody(newResponseBody));
 
         var isIdentical = HasNoChanges(url)
                           && HasNoChanges(method)
                           && HasNoChanges(status)
                           && HasNoChanges(requestHeaders)
                           && HasNoChanges(responseHeaders)
-                          && HasNoChanges(requestBody)
-                          && HasNoChanges(responseBody);
+                          && HasEquivalentBodies(oldRequestBody, newRequestBody)
+                          && HasEquivalentBodies(oldResponseBody, newResponseBody);
 
         var diff = new TrafficFlowDiff
         {
@@ -127,6 +131,21 @@ public static class TrafficFlowDiffer
         }
 
         return $"{response.StatusCode} {response.ReasonPhrase}";
+    }
+
+    private static bool HasEquivalentBodies(ReadOnlyMemory<byte>? left, ReadOnlyMemory<byte>? right)
+    {
+        if (left is null or { Length: 0 })
+        {
+            return right is null or { Length: 0 };
+        }
+
+        if (right is null || left.Value.Length != right.Value.Length)
+        {
+            return false;
+        }
+
+        return left.Value.Span.SequenceEqual(right.Value.Span);
     }
 
     private static bool HasNoChanges(IReadOnlyList<LineDiffSegment> segments)

@@ -170,6 +170,40 @@ public sealed class TrafficFlowDifferTests
     }
 
     /// <summary>
+    ///     Verifies that same-length binary summaries do not incorrectly mark flows as identical.
+    /// </summary>
+    [Test]
+    public async Task Diff_DifferentBinaryBodiesWithSameLength_IsNotIdentical()
+    {
+        var flowOne = BuildFlowWithBytesBody(new byte[] { 0x00, 0x01, 0x02 });
+        var flowTwo = BuildFlowWithBytesBody(new byte[] { 0x03, 0x04, 0x05 });
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await Assert.That(diff.IsIdentical).IsFalse();
+        await HasOnlyEqual(diff.ResponseBody);
+    }
+
+    /// <summary>
+    ///     Verifies that same-length oversized summaries do not incorrectly mark flows as identical.
+    /// </summary>
+    [Test]
+    public async Task Diff_DifferentOversizedBodiesWithSameLength_IsNotIdentical()
+    {
+        var bodyOne = new byte[TrafficFlowDiffer.MaximumDiffableBodyLength + 1];
+        var bodyTwo = new byte[TrafficFlowDiffer.MaximumDiffableBodyLength + 1];
+        Array.Fill(bodyOne, (byte)'a');
+        Array.Fill(bodyTwo, (byte)'b');
+        var flowOne = BuildFlowWithBytesBody(bodyOne);
+        var flowTwo = BuildFlowWithBytesBody(bodyTwo);
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await Assert.That(diff.IsIdentical).IsFalse();
+        await HasOnlyEqual(diff.ResponseBody);
+    }
+
+    /// <summary>
     ///     Verifies that multi-value headers all appear in the diff output with newline joiners.
     /// </summary>
     [Test]
@@ -241,6 +275,21 @@ public sealed class TrafficFlowDifferTests
         }
 
         await Assert.That(hasNonEqual).IsTrue();
+    }
+
+    private static async Task HasOnlyEqual(System.Collections.Generic.IReadOnlyList<LineDiffSegment> segments)
+    {
+        var hasOnlyEqual = true;
+        for (var index = 0; index < segments.Count; index++)
+        {
+            if (segments[index].Operation != LineDiffOperation.Equal)
+            {
+                hasOnlyEqual = false;
+                break;
+            }
+        }
+
+        await Assert.That(hasOnlyEqual).IsTrue();
     }
 
     private static TrafficFlow BuildFlow(string method, string url, int status, string reason, string? bodyText)
