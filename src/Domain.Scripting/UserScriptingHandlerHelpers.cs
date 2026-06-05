@@ -10,11 +10,11 @@ public static class UserScriptingHandlerHelpers
     /// <summary>
     ///     Factory used to allocate a fresh per-flow shared state dictionary on first access.
     /// </summary>
-    /// <param name="flowId">The flow identifier (unused; required by the delegate shape).</param>
+    /// <param name="key">The composite key (unused; required by the delegate shape).</param>
     /// <returns>An empty mutable dictionary.</returns>
-    public static IDictionary<string, object?> CreateSharedState(string flowId)
+    public static IDictionary<string, object?> CreateSharedState(ScriptSharedStateKey key)
     {
-        _ = flowId;
+        _ = key;
         var sharedState = new Dictionary<string, object?>();
         return sharedState;
     }

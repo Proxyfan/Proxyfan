@@ -13,12 +13,12 @@ namespace Proxyfan.Domain.Scripting;
 ///     resulting <see cref="ScriptableRequest" />/<see cref="ScriptableResponse" /> back onto
 ///     immutable domain data.
 /// </summary>
-public sealed class UserScriptingHandler : IScriptingHandler
+public sealed class UserScriptingHandler : IScriptingHandler, IDisposable
 {
     private const string RequestScriptErrorCode = "SCRIPT_REQUEST_FAILED";
     private const string ResponseScriptErrorCode = "SCRIPT_RESPONSE_FAILED";
     private readonly MutableScriptingConfiguration _configuration;
-    private readonly ConcurrentDictionary<string, IDictionary<string, object?>> _sharedStatesByFlow;
+    private readonly ConcurrentDictionary<ScriptSharedStateKey, IDictionary<string, object?>> _sharedStatesByFlow;
 
     /// <summary>
     ///     Initializes a new <see cref="UserScriptingHandler" />.
@@ -27,8 +27,9 @@ public sealed class UserScriptingHandler : IScriptingHandler
     public UserScriptingHandler(MutableScriptingConfiguration configuration)
     {
         _configuration = configuration;
-        var sharedStatesByFlow = new ConcurrentDictionary<string, IDictionary<string, object?>>();
+        var sharedStatesByFlow = new ConcurrentDictionary<ScriptSharedStateKey, IDictionary<string, object?>>();
         _sharedStatesByFlow = sharedStatesByFlow;
+        _configuration.Changed += OnConfigurationChanged;
     }
 
     /// <inheritdoc />
@@ -49,19 +50,19 @@ public sealed class UserScriptingHandler : IScriptingHandler
         }
 
         var view = new ScriptableRequest(request);
-        var sharedState = GetOrCreateSharedState(flowId);
+        var sharedState = GetOrCreateSharedState(flowId, script);
         try
         {
             await script.OnRequestAsync(view, sharedState, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             throw;
         }
         catch (Exception ex)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             var error = new ScriptError(RequestScriptErrorCode, ex.Message);
             return Result.Failure<HypertextTransferProtocolRequestData>(error);
         }
@@ -69,7 +70,7 @@ public sealed class UserScriptingHandler : IScriptingHandler
         var projection = ScriptableProjector.Project(view, request);
         if (!projection.IsSuccess)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             throw new InvalidOperationException(
                 $"Script request projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
@@ -97,24 +98,24 @@ public sealed class UserScriptingHandler : IScriptingHandler
 
         var requestView = new ScriptableRequest(request);
         var responseView = new ScriptableResponse(response);
-        var sharedState = GetOrCreateSharedState(flowId);
+        var sharedState = GetOrCreateSharedState(flowId, script);
         try
         {
             await script.OnResponseAsync(requestView, responseView, sharedState, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             throw;
         }
         catch (Exception ex)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             var error = new ScriptError(ResponseScriptErrorCode, ex.Message);
             return Result.Failure<HypertextTransferProtocolResponseData>(error);
         }
 
-        _sharedStatesByFlow.TryRemove(flowId, out _);
+        RemoveSharedState(flowId, script);
         var projection = ScriptableProjector.Project(responseView, response);
         if (!projection.IsSuccess)
         {
@@ -125,9 +126,35 @@ public sealed class UserScriptingHandler : IScriptingHandler
         return Result.Success(projection.Value);
     }
 
-    private IDictionary<string, object?> GetOrCreateSharedState(string flowId)
+    /// <inheritdoc />
+    public void Dispose()
     {
-        var sharedState = _sharedStatesByFlow.GetOrAdd(flowId, UserScriptingHandlerHelpers.CreateSharedState);
+        _configuration.Changed -= OnConfigurationChanged;
+    }
+
+    private IDictionary<string, object?> GetOrCreateSharedState(string flowId, IUserScript script)
+    {
+        var key = new ScriptSharedStateKey
+        {
+            FlowId = flowId,
+            Script = script,
+        };
+        var sharedState = _sharedStatesByFlow.GetOrAdd(key, UserScriptingHandlerHelpers.CreateSharedState);
         return sharedState;
+    }
+
+    private void OnConfigurationChanged()
+    {
+        _sharedStatesByFlow.Clear();
+    }
+
+    private void RemoveSharedState(string flowId, IUserScript script)
+    {
+        var key = new ScriptSharedStateKey
+        {
+            FlowId = flowId,
+            Script = script,
+        };
+        _sharedStatesByFlow.TryRemove(key, out _);
     }
 }
