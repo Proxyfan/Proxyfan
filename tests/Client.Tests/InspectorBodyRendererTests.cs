@@ -140,6 +140,19 @@ public sealed class InspectorBodyRendererTests
     }
 
     [Test]
+    public async Task Render_CorruptGzipBody_FallsBackToRawBytes()
+    {
+        var body = new byte[] { 0x1F, 0x8B, 0x00, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF };
+        var headers = HeaderCollection.Empty
+            .Add("Content-Type", "text/plain")
+            .Add("Content-Encoding", "gzip");
+
+        var result = InspectorBodyRenderer.Render(body, headers);
+
+        await Assert.That(result).IsNotNull();
+    }
+
+    [Test]
     public async Task Render_UnsupportedEncoding_FallsBackToRawBytes()
     {
         var body = Encoding.UTF8.GetBytes("raw");
