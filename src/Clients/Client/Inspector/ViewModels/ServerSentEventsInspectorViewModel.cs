@@ -23,6 +23,7 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
     private readonly IServerSentEventsStore _store;
     private readonly TrafficListViewModel _trafficListViewModel;
     private ServerSentEventsFlow? _attachedFlow;
+    private HashSet<ServerSentEvent>? _attachedFlowSnapshotSet;
     [ObservableProperty]
     private string _connectionStatusText;
     [ObservableProperty]
@@ -67,6 +68,7 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
         _selectedEvent = null;
         _selectedEventDetailText = string.Empty;
         _attachedFlow = null;
+        _attachedFlowSnapshotSet = null;
         _trafficListViewModel.PropertyChanged += OnTrafficListPropertyChanged;
         Refresh();
     }
@@ -92,7 +94,11 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
         flow.EventRecorded += OnEventRecorded;
         flow.Closed += OnFlowClosed;
 
-        foreach (var serverSentEvent in flow.Events)
+        var snapshot = flow.GetEventsSnapshot();
+        var snapshotSet = new HashSet<ServerSentEvent>(snapshot.Events, ReferenceEqualityComparer.Instance);
+        _attachedFlowSnapshotSet = snapshotSet;
+
+        foreach (var serverSentEvent in snapshot.Events)
         {
             var viewModel = new ServerSentEventViewModel(serverSentEvent);
             _allEvents.Add(viewModel);
@@ -100,7 +106,7 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
 
         RebuildFilteredEvents();
 
-        ConnectionStatusText = flow.IsClosed
+        ConnectionStatusText = snapshot.IsClosed
             ? "Server-Sent Events — closed"
             : "Server-Sent Events — streaming";
     }
@@ -115,6 +121,7 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
         _attachedFlow.EventRecorded -= OnEventRecorded;
         _attachedFlow.Closed -= OnFlowClosed;
         _attachedFlow = null;
+        _attachedFlowSnapshotSet = null;
     }
 
     private bool HasMatchingFilter(ServerSentEventViewModel viewModel)
@@ -132,6 +139,11 @@ public sealed partial class ServerSentEventsInspectorViewModel : ObservableObjec
     {
         _scheduler.Post(() =>
         {
+            if (_attachedFlowSnapshotSet?.Remove(serverSentEvent) == true)
+            {
+                return;
+            }
+
             var viewModel = new ServerSentEventViewModel(serverSentEvent);
             _allEvents.Add(viewModel);
             if (HasMatchingFilter(viewModel))

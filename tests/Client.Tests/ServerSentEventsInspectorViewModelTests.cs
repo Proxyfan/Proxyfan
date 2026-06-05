@@ -16,6 +16,48 @@ namespace Proxyfan.Client.Tests;
 public sealed class ServerSentEventsInspectorViewModelTests
 {
     /// <summary>
+    ///     Verifies that attaching to a flow with multiple pre-existing events seeds the
+    ///     inspector from a stable snapshot without losing or duplicating any event row.
+    /// </summary>
+    [Test]
+    public async Task AttachFlow_MultipleEventsAlreadyRecorded_AllSeedFromSnapshotWithoutDuplicates()
+    {
+        using var harness = CreateHarness();
+        var flowId = Guid.NewGuid();
+        var sseFlow = CreateServerSentEventsFlow(flowId, harness.Store);
+        sseFlow.RecordEvent(CreateEvent("update", "1"));
+        sseFlow.RecordEvent(CreateEvent("update", "2"));
+        sseFlow.RecordEvent(CreateEvent("update", "3"));
+
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(flowId);
+
+        await Assert.That(harness.Inspector.Events.Count).IsEqualTo(3);
+    }
+
+    /// <summary>
+    ///     Verifies that if <see cref="ServerSentEventsFlow.EventRecorded" /> fires for a
+    ///     snapshot-era event after the handler is subscribed (the race that can occur because
+    ///     the event fires outside the producer lock), the deduplication set prevents a
+    ///     double entry in the inspector.
+    /// </summary>
+    [Test]
+    public async Task AttachFlow_SnapshotEventArrivingViaHandlerAfterAttach_IsDeduplicatedAndNotAdded()
+    {
+        using var harness = CreateHarness();
+        var flowId = Guid.NewGuid();
+        var sseFlow = CreateServerSentEventsFlow(flowId, harness.Store);
+        var e1 = CreateEvent("seed", "before-attach");
+        sseFlow.RecordEvent(e1);
+
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(flowId);
+        await Assert.That(harness.Inspector.Events.Count).IsEqualTo(1);
+
+        sseFlow.RecordEvent(e1);
+
+        await Assert.That(harness.Inspector.Events.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Verifies that an inspector with no selected flow starts inactive and empty.
     /// </summary>
     [Test]
