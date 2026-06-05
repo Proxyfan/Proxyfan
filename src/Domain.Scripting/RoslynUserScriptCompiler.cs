@@ -2,6 +2,8 @@
 using Microsoft.CodeAnalysis.Scripting;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Threading;
 
 namespace Proxyfan.Domain.Scripting;
 
@@ -13,6 +15,11 @@ namespace Proxyfan.Domain.Scripting;
 /// </summary>
 public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
 {
+    /// <summary>
+    ///     The diagnostic identifier surfaced when a script phase compilation exceeds the
+    ///     configured <see cref="ScriptSandboxOptions.CompilationTimeoutSeconds" /> budget.
+    /// </summary>
+    public const string CompilationTimeoutDiagnosticId = "SCRIPT_COMPILATION_TIMED_OUT";
     private readonly ScriptSandboxOptions _sandboxOptions;
 
     /// <summary>
@@ -70,15 +77,50 @@ public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
     }
 
     /// <summary>
+    ///     Appends a <see cref="CompilationTimeoutDiagnosticId" /> error diagnostic to
+    ///     <paramref name="diagnostics" /> when a phase compilation is cancelled by the timeout.
+    /// </summary>
+    /// <param name="diagnostics">The destination diagnostic list.</param>
+    /// <param name="isRequestPhase">When true the message is tagged <c>[request]</c>; otherwise <c>[response]</c>.</param>
+    private void AppendTimeoutDiagnostic(List<ScriptDiagnostic> diagnostics, bool isRequestPhase)
+    {
+        string phaseLabel;
+        if (isRequestPhase)
+        {
+            phaseLabel = "request";
+        }
+        else
+        {
+            phaseLabel = "response";
+        }
+
+        var message = string.Format(
+            CultureInfo.InvariantCulture,
+            "[{0}] Script compilation timed out after {1} second(s).",
+            phaseLabel,
+            _sandboxOptions.CompilationTimeoutSeconds);
+        var timeoutDiagnostic = new ScriptDiagnostic(
+            ScriptDiagnosticSeverity.Error,
+            CompilationTimeoutDiagnosticId,
+            message,
+            line: 0,
+            column: 0);
+        diagnostics.Add(timeoutDiagnostic);
+    }
+
+    /// <summary>
     ///     Compiles a single script phase and appends Roslyn diagnostics plus
-    ///     sandbox scanner findings.
+    ///     sandbox scanner findings.  Returns <see langword="null" /> when
+    ///     compilation is cancelled due to the timeout budget, after appending a
+    ///     <see cref="CompilationTimeoutDiagnosticId" /> error to
+    ///     <paramref name="diagnostics" />.
     /// </summary>
     /// <param name="source">The source text for this phase.</param>
     /// <param name="globalsType">The globals type exposed to the script.</param>
     /// <param name="diagnostics">The destination diagnostic list.</param>
     /// <param name="isRequestPhase">When true this is request-phase compilation; otherwise response-phase.</param>
-    /// <returns>The compiled Roslyn script handle.</returns>
-    private Script<object> CompilePhase(
+    /// <returns>The compiled Roslyn script handle, or <see langword="null" /> on timeout.</returns>
+    private Script<object>? CompilePhase(
         string source,
         Type globalsType,
         List<ScriptDiagnostic> diagnostics,
@@ -89,15 +131,27 @@ public sealed class RoslynUserScriptCompiler : IUserScriptCompiler
             source,
             options,
             globalsType);
-        var phaseDiagnostics = compiled.Compile();
-        RoslynUserScriptCompilerHelpers.AppendDiagnostics(diagnostics, phaseDiagnostics, isRequestPhase);
-        var compilation = compiled.GetCompilation();
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            ScriptForbiddenNamespaceScanner.Append(diagnostics, tree, isRequestPhase);
-            ScriptForbiddenDirectiveScanner.Append(diagnostics, tree, isRequestPhase);
-        }
 
-        return compiled;
+        var compilationTimeout = TimeSpan.FromSeconds(_sandboxOptions.CompilationTimeoutSeconds);
+        using var cancellationSource = new CancellationTokenSource(compilationTimeout);
+
+        try
+        {
+            var phaseDiagnostics = compiled.Compile(cancellationSource.Token);
+            RoslynUserScriptCompilerHelpers.AppendDiagnostics(diagnostics, phaseDiagnostics, isRequestPhase);
+            var compilation = compiled.GetCompilation();
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                ScriptForbiddenNamespaceScanner.Append(diagnostics, tree, isRequestPhase);
+                ScriptForbiddenDirectiveScanner.Append(diagnostics, tree, isRequestPhase);
+            }
+
+            return compiled;
+        }
+        catch (OperationCanceledException)
+        {
+            AppendTimeoutDiagnostic(diagnostics, isRequestPhase);
+            return null;
+        }
     }
 }

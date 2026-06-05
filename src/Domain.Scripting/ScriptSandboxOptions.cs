@@ -7,9 +7,17 @@ namespace Proxyfan.Domain.Scripting;
 public sealed class ScriptSandboxOptions
 {
     /// <summary>
-    ///     Default sandbox limits: 5-second timeout and 50 MB allocation ceiling per invocation.
+    ///     Default sandbox limits: 5-second execution timeout, 50 MB allocation ceiling per
+    ///     invocation, and a 2-second compilation timeout per phase.
     /// </summary>
     public static readonly ScriptSandboxOptions Default;
+
+    /// <summary>
+    ///     Gets the maximum wall-clock time (in seconds) allowed for compiling a single script
+    ///     phase before it is cancelled.  A value of 0 causes an immediate timeout (useful for
+    ///     testing); values greater than 0 cap the compiler at that many seconds.
+    /// </summary>
+    public int CompilationTimeoutSeconds { get; }
 
     /// <summary>
     ///     Gets the maximum number of bytes that a single script invocation may allocate on the
@@ -25,18 +33,23 @@ public sealed class ScriptSandboxOptions
 
     static ScriptSandboxOptions()
     {
-        var defaultOptions = new ScriptSandboxOptions(timeoutSeconds: 5, memoryLimitBytes: 50L * 1024L * 1024L);
+        var defaultOptions = new ScriptSandboxOptions(timeoutSeconds: 5, memoryLimitBytes: 50L * 1024L * 1024L, compilationTimeoutSeconds: 2);
         Default = defaultOptions;
     }
 
     /// <summary>
     ///     Initializes a new <see cref="ScriptSandboxOptions" />.
     /// </summary>
-    /// <param name="timeoutSeconds">Wall-clock timeout in seconds (must be &gt; 0).</param>
+    /// <param name="timeoutSeconds">Wall-clock execution timeout in seconds (must be &gt; 0).</param>
     /// <param name="memoryLimitBytes">Allocation ceiling in bytes (must be &gt; 0).</param>
-    public ScriptSandboxOptions(int timeoutSeconds, long memoryLimitBytes)
+    /// <param name="compilationTimeoutSeconds">
+    ///     Maximum seconds allowed for each compilation phase (must be &gt;= 0;
+    ///     0 causes an immediate timeout, primarily useful for testing).
+    /// </param>
+    public ScriptSandboxOptions(int timeoutSeconds, long memoryLimitBytes, int compilationTimeoutSeconds)
     {
         TimeoutSeconds = timeoutSeconds;
         MemoryLimitBytes = memoryLimitBytes;
+        CompilationTimeoutSeconds = compilationTimeoutSeconds;
     }
 }

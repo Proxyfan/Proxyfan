@@ -159,9 +159,27 @@ public sealed class RoslynUserScriptCompilerTests
     }
 
     /// <summary>
-    ///     Verifies that scripts using a <c>#r</c> directive are rejected so users cannot
-    ///     extend the assembly allow-list.
+    ///     Verifies that a script whose compilation exceeds the configured timeout budget is
+    ///     rejected with a <see cref="RoslynUserScriptCompiler.CompilationTimeoutDiagnosticId" />
+    ///     error diagnostic and returns a failed result.
     /// </summary>
+    [Test]
+    public async Task Compile_CompilationExceedsTimeout_ReturnsTimeoutDiagnostic()
+    {
+        // compilationTimeoutSeconds: 0 maps to TimeSpan.Zero, which causes the
+        // CancellationTokenSource to cancel immediately — before any compilation work begins.
+        var sandboxOptions = new ScriptSandboxOptions(timeoutSeconds: 5, memoryLimitBytes: 50L * 1024L * 1024L, compilationTimeoutSeconds: 0);
+        var compiler = new RoslynUserScriptCompiler(sandboxOptions);
+        const string source = "Request.Headers.Set(\"X-Trace\", \"yes\");";
+
+        var result = compiler.Compile("timeout-test", source, string.Empty);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Script).IsNull();
+        await Assert.That(result.Diagnostics.Any(d => d.Id == RoslynUserScriptCompiler.CompilationTimeoutDiagnosticId && d.Severity == ScriptDiagnosticSeverity.Error)).IsTrue();
+    }
+
+
     [Test]
     public async Task Compile_ScriptUsesReferenceDirective_ReturnsErrors()
     {
