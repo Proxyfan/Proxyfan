@@ -14,7 +14,6 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class PluginItemViewModel : ObservableObject
 {
-
     private readonly PluginDirectoryDeleteCallback _deleteDirectory;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
