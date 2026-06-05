@@ -45,7 +45,7 @@ public sealed class RemoteProcedureCallCapturedMessage
     {
         Direction = direction;
         IsCompressed = isCompressed;
-        Payload = payload;
+        Payload = payload.ToArray();
         Timestamp = timestamp;
     }
 }
