@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Threading;
 
 namespace Proxyfan.Domain.Traffic;
@@ -92,7 +91,7 @@ public sealed class WebSocketFlow
     /// <summary>
     ///     Gets the chronological list of captured WebSocket messages.
     /// </summary>
-    public IReadOnlyList<WebSocketMessage> Messages { get; }
+    public IReadOnlyList<WebSocketMessage> Messages => GetMessageSnapshot();
 
     /// <summary>
     ///     Initializes a new <see cref="WebSocketFlow" /> wrapping the supplied HTTP flow.
@@ -121,8 +120,6 @@ public sealed class WebSocketFlow
         _gate = gate;
         var messages = new List<WebSocketMessage>();
         _messages = messages;
-        var readOnlyMessages = new ReadOnlyCollection<WebSocketMessage>(messages);
-        Messages = readOnlyMessages;
         Flow = flow;
         _closedAt = null;
         _droppedMessagesCount = 0;
