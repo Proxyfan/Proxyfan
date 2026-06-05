@@ -277,6 +277,56 @@ public sealed class RemoteProcedureCallInspectorViewModelTests
     }
 
     /// <summary>
+    ///     Verifies that a queued <c>MessageRecorded</c> callback posted by one flow is
+    ///     silently dropped when the selected flow changes before the UI-thread queue is
+    ///     drained. This guards against stale messages from a previous selection appearing
+    ///     under the newly selected flow.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_PostedCallbackDeferredAcrossFlowSwitch_DropsStaleMessage()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateDeferredHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var firstGrpcFlow = CreateRemoteProcedureCallFlow(firstFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+
+        firstGrpcFlow.RecordMessage(CreateMessage(RemoteProcedureCallDirection.Outbound, new byte[] { 0x01 }));
+
+        var secondFlowId = Guid.NewGuid();
+        CreateRemoteProcedureCallFlow(secondFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+        scheduler.DrainQueue();
+
+        await Assert.That(harness.Inspector.Messages.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a queued <c>Closed</c> callback posted by one flow is silently
+    ///     dropped when the selected flow changes before the UI-thread queue is drained.
+    ///     This guards against the closed status of a previous selection overwriting the
+    ///     status of the newly selected flow.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_PostedCallbackDeferredAcrossFlowSwitch_DropsStaleStatus()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateDeferredHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var firstGrpcFlow = CreateRemoteProcedureCallFlow(firstFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+
+        firstGrpcFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        var secondFlowId = Guid.NewGuid();
+        CreateRemoteProcedureCallFlow(secondFlowId, harness.Store);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+        scheduler.DrainQueue();
+
+        await Assert.That(harness.Inspector.ConnectionStatusText).IsEqualTo("gRPC — streaming");
+    }
+
+    /// <summary>
     ///     When the inspector is wired with a descriptor library that knows the gRPC method
     ///     of the active flow, the SelectedMessageDetailText includes a "Schema    :" line.
     /// </summary>
@@ -433,6 +483,18 @@ public sealed class RemoteProcedureCallInspectorViewModelTests
             trafficListViewModel,
             store,
             InlineUserInterfaceScheduler.Instance);
+        return new Harness(trafficListViewModel, store, inspector);
+    }
+
+    private static Harness CreateDeferredHarness(DeferredUserInterfaceScheduler scheduler)
+    {
+        var bus = new StubDomainEventBus();
+        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var store = new RemoteProcedureCallStore();
+        var inspector = new RemoteProcedureCallInspectorViewModel(
+            trafficListViewModel,
+            store,
+            scheduler);
         return new Harness(trafficListViewModel, store, inspector);
     }
 
