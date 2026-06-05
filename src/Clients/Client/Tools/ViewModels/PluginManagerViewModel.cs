@@ -210,7 +210,17 @@ public sealed partial class PluginManagerViewModel : ObservableObject, IDisposab
         var failedCount = 0;
         foreach (var plugin in _registry.Plugins)
         {
-            var viewModel = new PluginItemViewModel(plugin, _enabledStateStore, _folderOpener, OnPluginStateChanged);
+            var snapshot = new PluginStateSnapshot(
+                plugin.Metadata.Id,
+                plugin.Metadata.Name,
+                plugin.Metadata.Version,
+                plugin.Metadata.Author,
+                plugin.Metadata.Description,
+                plugin.Metadata.ApiVersion,
+                plugin.IsLoaded,
+                plugin.ErrorMessage,
+                plugin.SourceDirectory);
+            var viewModel = new PluginItemViewModel(snapshot, _enabledStateStore, _folderOpener, OnPluginStateChanged);
             Plugins.Add(viewModel);
             totalCount++;
             if (!plugin.IsLoaded)

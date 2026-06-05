@@ -14,6 +14,7 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed partial class PluginItemViewModel : ObservableObject
 {
+
     private readonly PluginDirectoryDeleteCallback _deleteDirectory;
     private readonly IPluginEnabledStateStore _enabledStateStore;
     private readonly IPluginFolderOpener _folderOpener;
@@ -77,15 +78,15 @@ public sealed partial class PluginItemViewModel : ObservableObject
     public string Version { get; }
 
     /// <summary>
-    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied loaded
-    ///     plugin.
+    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied plugin
+    ///     state snapshot.
     /// </summary>
-    /// <param name="plugin">The loaded plugin to expose.</param>
+    /// <param name="plugin">The plugin state snapshot to expose.</param>
     /// <param name="enabledStateStore">The store used to read + persist the user's enable choice.</param>
     /// <param name="folderOpener">The folder opener invoked by the Open Folder command.</param>
     /// <param name="onStateChanged">Callback fired whenever the user toggles the enabled state or removes the plugin; the parent view model uses this to mark a restart as required and to refresh the snapshot.</param>
     public PluginItemViewModel(
-        IPluginLoadState plugin,
+        PluginStateSnapshot plugin,
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
         PluginStateChangedCallback onStateChanged)
@@ -94,16 +95,16 @@ public sealed partial class PluginItemViewModel : ObservableObject
     }
 
     /// <summary>
-    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied loaded
-    ///     plugin and delete-directory callback.
+    ///     Initializes a new <see cref="PluginItemViewModel" /> wrapping the supplied plugin
+    ///     state snapshot and delete-directory callback.
     /// </summary>
-    /// <param name="plugin">The loaded plugin to expose.</param>
+    /// <param name="plugin">The plugin state snapshot to expose.</param>
     /// <param name="enabledStateStore">The store used to read + persist the user's enable choice.</param>
     /// <param name="folderOpener">The folder opener invoked by the Open Folder command.</param>
     /// <param name="onStateChanged">Callback fired whenever the user toggles the enabled state or removes the plugin; the parent view model uses this to mark a restart as required and to refresh the snapshot.</param>
     /// <param name="deleteDirectory">The callback invoked when removing the plugin source directory.</param>
     public PluginItemViewModel(
-        IPluginLoadState plugin,
+        PluginStateSnapshot plugin,
         IPluginEnabledStateStore enabledStateStore,
         IPluginFolderOpener folderOpener,
         PluginStateChangedCallback onStateChanged,
@@ -113,12 +114,12 @@ public sealed partial class PluginItemViewModel : ObservableObject
         _enabledStateStore = enabledStateStore;
         _folderOpener = folderOpener;
         _onStateChanged = onStateChanged;
-        Identifier = plugin.Metadata.Id;
-        Name = plugin.Metadata.Name;
-        Version = plugin.Metadata.Version;
-        Author = plugin.Metadata.Author;
-        Description = plugin.Metadata.Description;
-        ApiVersion = plugin.Metadata.ApiVersion;
+        Identifier = plugin.Identifier;
+        Name = plugin.Name;
+        Version = plugin.Version;
+        Author = plugin.Author;
+        Description = plugin.Description;
+        ApiVersion = plugin.ApiVersion;
         IsLoaded = plugin.IsLoaded;
         ErrorMessage = plugin.ErrorMessage;
         SourceDirectory = plugin.SourceDirectory;

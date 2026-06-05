@@ -1,5 +1,4 @@
 ﻿using Proxyfan.Client.Tools.ViewModels;
-using Proxyfan.Framework.Extensibility;
 using Proxyfan.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
@@ -17,12 +16,11 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task Constructor_LoadedPlugin_ShowsLoadedStatus()
     {
-        var metadata = new PluginMetadata("p.id", "MyPlug", "1.0.0", "Author", "Desc", "1.0");
-        var loaded = new LoadedPlugin(metadata, null, true, null, null);
+        var snapshot = new PluginStateSnapshot("p.id", "MyPlug", "1.0.0", "Author", "Desc", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: null);
         var store = new InMemoryStore();
         var opener = new RecordingOpener();
 
-        var viewModel = new PluginItemViewModel(loaded, store, opener, () => { });
+        var viewModel = new PluginItemViewModel(snapshot, store, opener, () => { });
 
         await Assert.That(viewModel.Identifier).IsEqualTo("p.id");
         await Assert.That(viewModel.Name).IsEqualTo("MyPlug");
@@ -40,12 +38,11 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task Constructor_FailedPlugin_ShowsFailedStatusWithError()
     {
-        var metadata = new PluginMetadata("p.id", "Broken", "0.1", "Anon", "Bad", "1.0");
-        var failed = new LoadedPlugin(metadata, null, false, "boom", null);
+        var snapshot = new PluginStateSnapshot("p.id", "Broken", "0.1", "Anon", "Bad", "1.0", isLoaded: false, errorMessage: "boom", sourceDirectory: null);
         var store = new InMemoryStore();
         var opener = new RecordingOpener();
 
-        var viewModel = new PluginItemViewModel(failed, store, opener, () => { });
+        var viewModel = new PluginItemViewModel(snapshot, store, opener, () => { });
 
         await Assert.That(viewModel.IsLoaded).IsFalse();
         await Assert.That(viewModel.ErrorMessage).IsEqualTo("boom");
@@ -55,13 +52,12 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task Constructor_DisabledIdentifier_StartsDisabled()
     {
-        var metadata = new PluginMetadata("p.disabled", "P", "1", "A", "D", "1.0");
-        var loaded = new LoadedPlugin(metadata, null, true, null, null);
+        var snapshot = new PluginStateSnapshot("p.disabled", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: null);
         var store = new InMemoryStore();
         store.SetEnabled("p.disabled", isEnabled: false);
         var opener = new RecordingOpener();
 
-        var viewModel = new PluginItemViewModel(loaded, store, opener, () => { });
+        var viewModel = new PluginItemViewModel(snapshot, store, opener, () => { });
 
         await Assert.That(viewModel.IsEnabled).IsFalse();
     }
@@ -69,12 +65,11 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task IsEnabled_Set_PersistsAndFiresCallback()
     {
-        var metadata = new PluginMetadata("p.toggle", "P", "1", "A", "D", "1.0");
-        var loaded = new LoadedPlugin(metadata, null, true, null, null);
+        var snapshot = new PluginStateSnapshot("p.toggle", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: null);
         var store = new InMemoryStore();
         var opener = new RecordingOpener();
         var callbackCount = 0;
-        var viewModel = new PluginItemViewModel(loaded, store, opener, () => callbackCount++);
+        var viewModel = new PluginItemViewModel(snapshot, store, opener, () => callbackCount++);
 
         viewModel.IsEnabled = false;
 
@@ -90,11 +85,10 @@ public sealed class PluginItemViewModelTests
         Directory.CreateDirectory(directory);
         try
         {
-            var metadata = new PluginMetadata("p.open", "P", "1", "A", "D", "1.0");
-            var loaded = new LoadedPlugin(metadata, null, true, null, directory);
+            var snapshot = new PluginStateSnapshot("p.open", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: directory);
             var store = new InMemoryStore();
             var opener = new RecordingOpener();
-            var viewModel = new PluginItemViewModel(loaded, store, opener, () => { });
+            var viewModel = new PluginItemViewModel(snapshot, store, opener, () => { });
 
             await Assert.That(viewModel.IsFolderAvailable).IsTrue();
             viewModel.OpenFolderCommand.Execute(null);
@@ -110,11 +104,10 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task OpenFolderCommand_WithoutSourceDirectory_DoesNotInvoke()
     {
-        var metadata = new PluginMetadata("p.nofolder", "P", "1", "A", "D", "1.0");
-        var loaded = new LoadedPlugin(metadata, null, true, null, null);
+        var snapshot = new PluginStateSnapshot("p.nofolder", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: null);
         var store = new InMemoryStore();
         var opener = new RecordingOpener();
-        var viewModel = new PluginItemViewModel(loaded, store, opener, () => { });
+        var viewModel = new PluginItemViewModel(snapshot, store, opener, () => { });
 
         viewModel.OpenFolderCommand.Execute(null);
 
@@ -128,12 +121,11 @@ public sealed class PluginItemViewModelTests
         Directory.CreateDirectory(directory);
         try
         {
-            var metadata = new PluginMetadata("p.remove", "P", "1", "A", "D", "1.0");
-            var loaded = new LoadedPlugin(metadata, null, true, null, directory);
+            var snapshot = new PluginStateSnapshot("p.remove", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: directory);
             var store = new InMemoryStore();
             var opener = new RecordingOpener();
             var callbackCount = 0;
-            var viewModel = new PluginItemViewModel(loaded, store, opener, () => callbackCount++);
+            var viewModel = new PluginItemViewModel(snapshot, store, opener, () => callbackCount++);
 
             viewModel.RemoveCommand.Execute(null);
 
@@ -154,13 +146,12 @@ public sealed class PluginItemViewModelTests
         Directory.CreateDirectory(directory);
         try
         {
-            var metadata = new PluginMetadata("p.removefail", "P", "1", "A", "D", "1.0");
-            var loaded = new LoadedPlugin(metadata, null, true, null, directory);
+            var snapshot = new PluginStateSnapshot("p.removefail", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: directory);
             var store = new InMemoryStore();
             var opener = new RecordingOpener();
             var callbackCount = 0;
             var viewModel = new PluginItemViewModel(
-                loaded,
+                snapshot,
                 store,
                 opener,
                 () => callbackCount++,
@@ -182,12 +173,11 @@ public sealed class PluginItemViewModelTests
     [Test]
     public async Task RemoveCommand_WithoutSourceDirectory_DisablesOnly()
     {
-        var metadata = new PluginMetadata("p.removeonly", "P", "1", "A", "D", "1.0");
-        var loaded = new LoadedPlugin(metadata, null, true, null, null);
+        var snapshot = new PluginStateSnapshot("p.removeonly", "P", "1", "A", "D", "1.0", isLoaded: true, errorMessage: null, sourceDirectory: null);
         var store = new InMemoryStore();
         var opener = new RecordingOpener();
         var callbackCount = 0;
-        var viewModel = new PluginItemViewModel(loaded, store, opener, () => callbackCount++);
+        var viewModel = new PluginItemViewModel(snapshot, store, opener, () => callbackCount++);
 
         viewModel.RemoveCommand.Execute(null);
 
