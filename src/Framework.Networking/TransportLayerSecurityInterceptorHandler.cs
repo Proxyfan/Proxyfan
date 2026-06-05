@@ -503,9 +503,16 @@ public sealed partial class TransportLayerSecurityInterceptorHandler : IConnecti
         context.Flow.Complete();
         var downloadBytes = finalExchange.HeaderBytes.Length + finalExchange.Body.Length;
         await ThrottleApplier.ApplyDownloadBandwidthAsync(_throttleProfile, downloadBytes, cancellationToken).ConfigureAwait(false);
-        await HypertextTransferProtocolPipeHelpers.WriteResponseAsync(context.Pipes.ClientWriter, finalExchange, cancellationToken).ConfigureAwait(false);
-        _trafficStore.Add(context.Flow);
-        TransportLayerSecurityInterceptorEvents.PublishFlowCompleted(_eventBus, context.Flow);
+        var writeRequest = new TransportLayerSecurityResponsePhaseWriteRequest
+        {
+            Exchange = finalExchange,
+            EventBus = _eventBus,
+            Flow = context.Flow,
+            TrafficStore = _trafficStore,
+            Writer = context.Pipes.ClientWriter,
+        };
+        await TransportLayerSecurityResponsePhaseWriter.WriteAndPublishBookkeepingAsync(writeRequest, cancellationToken).ConfigureAwait(false);
+
         return TransportLayerSecurityInterceptorHelpers.HasKeepAlive(context.EffectiveRequest, finalResponse);
     }
 
