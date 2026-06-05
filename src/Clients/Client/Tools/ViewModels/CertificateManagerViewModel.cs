@@ -193,25 +193,25 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
             var previousAuthority = await _authorityProvider.GetAsync(cancellationToken).ConfigureAwait(false);
             var wasInstalled = IsInstalled;
             var authority = await _authorityProvider.RegenerateAsync(cancellationToken).ConfigureAwait(false);
-            var previousUninstallFailed = false;
-            var newInstallFailed = false;
+            var previousUninstallSucceeded = true;
+            var newInstallSucceeded = true;
             if (wasInstalled)
             {
-                previousUninstallFailed = await TryUninstallAsync(previousAuthority, cancellationToken).ConfigureAwait(false);
-                newInstallFailed = await TryInstallAsync(authority, cancellationToken).ConfigureAwait(false);
+                previousUninstallSucceeded = await TryUninstallFromStoreAsync(previousAuthority, cancellationToken).ConfigureAwait(false);
+                newInstallSucceeded = await TryInstallInStoreAsync(authority, cancellationToken).ConfigureAwait(false);
             }
 
             var installed = await _certificateStore.IsInstalledAsync(authority, cancellationToken).ConfigureAwait(false);
             ApplyAuthority(authority, installed);
-            if (!wasInstalled || (!previousUninstallFailed && !newInstallFailed))
+            if (!wasInstalled || (previousUninstallSucceeded && newInstallSucceeded))
             {
                 StatusMessage = "Certificate regenerated.";
             }
-            else if (previousUninstallFailed && newInstallFailed)
+            else if (!previousUninstallSucceeded && !newInstallSucceeded)
             {
                 StatusMessage = "Certificate regenerated, but removing the previous certificate and installing the new certificate in the Windows trust store failed.";
             }
-            else if (previousUninstallFailed)
+            else if (!previousUninstallSucceeded)
             {
                 StatusMessage = "Certificate regenerated, but removing the previous certificate from the Windows trust store failed.";
             }
@@ -226,12 +226,12 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         }
     }
 
-    private async Task<bool> TryInstallAsync(CertificateAuthority authority, CancellationToken cancellationToken)
+    private async Task<bool> TryInstallInStoreAsync(CertificateAuthority authority, CancellationToken cancellationToken)
     {
         try
         {
             await _certificateStore.InstallAsync(authority, cancellationToken).ConfigureAwait(false);
-            return false;
+            return true;
         }
         catch (OperationCanceledException)
         {
@@ -239,16 +239,16 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         }
         catch
         {
-            return true;
+            return false;
         }
     }
 
-    private async Task<bool> TryUninstallAsync(CertificateAuthority authority, CancellationToken cancellationToken)
+    private async Task<bool> TryUninstallFromStoreAsync(CertificateAuthority authority, CancellationToken cancellationToken)
     {
         try
         {
             await _certificateStore.UninstallAsync(authority, cancellationToken).ConfigureAwait(false);
-            return false;
+            return true;
         }
         catch (OperationCanceledException)
         {
@@ -256,7 +256,7 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         }
         catch
         {
-            return true;
+            return false;
         }
     }
 

@@ -1,8 +1,8 @@
-﻿using Proxyfan.Domain.Certificates;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Proxyfan.Domain.Certificates;
 
 namespace Proxyfan.Client.Tests.Stubs;
 
