@@ -13,7 +13,7 @@ namespace Proxyfan.Domain.Scripting;
 ///     resulting <see cref="ScriptableRequest" />/<see cref="ScriptableResponse" /> back onto
 ///     immutable domain data.
 /// </summary>
-public sealed class UserScriptingHandler : IScriptingHandler
+public sealed class UserScriptingHandler : IScriptingHandler, IDisposable
 {
     private const string RequestScriptErrorCode = "SCRIPT_REQUEST_FAILED";
     private const string ResponseScriptErrorCode = "SCRIPT_RESPONSE_FAILED";
@@ -57,12 +57,12 @@ public sealed class UserScriptingHandler : IScriptingHandler
         }
         catch (OperationCanceledException)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             throw;
         }
         catch (Exception ex)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             var error = new ScriptError(RequestScriptErrorCode, ex.Message);
             return Result.Failure<HypertextTransferProtocolRequestData>(error);
         }
@@ -70,7 +70,7 @@ public sealed class UserScriptingHandler : IScriptingHandler
         var projection = ScriptableProjector.Project(view, request);
         if (!projection.IsSuccess)
         {
-            _sharedStatesByFlow.TryRemove(flowId, out _);
+            RemoveSharedState(flowId, script);
             throw new InvalidOperationException(
                 $"Script request projection failed ({projection.Error!.Code}): {projection.Error!.Message}");
         }
@@ -124,6 +124,12 @@ public sealed class UserScriptingHandler : IScriptingHandler
         }
 
         return Result.Success(projection.Value);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _configuration.Changed -= OnConfigurationChanged;
     }
 
     private IDictionary<string, object?> GetOrCreateSharedState(string flowId, IUserScript script)

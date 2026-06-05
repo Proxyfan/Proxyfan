@@ -12,10 +12,10 @@ public readonly record struct ScriptSharedStateKey
     /// <summary>
     ///     Gets the proxy flow identifier.
     /// </summary>
-    public string FlowId { get; init; }
+    public required string FlowId { get; init; }
 
     /// <summary>
     ///     Gets the compiled script instance that the shared state belongs to.
     /// </summary>
-    public IUserScript Script { get; init; }
+    public required IUserScript Script { get; init; }
 }
