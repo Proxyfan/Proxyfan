@@ -20,7 +20,7 @@ namespace Proxyfan.Client.EndToEndTests;
 public sealed class ShellViewModelSessionEndToEndTests : EndToEndTestBase
 {
     [Test]
-    public async Task SaveSession_NoWriteStream_PickerCancelled_NoExport()
+    public async Task SaveSession_NoWriteStreamCancelled_NoExport()
     {
         await RunOnUiThreadAsync(async () =>
         {
@@ -74,7 +74,7 @@ public sealed class ShellViewModelSessionEndToEndTests : EndToEndTestBase
     }
 
     [Test]
-    public async Task OpenSession_NoReadStream_PickerCancelled_NoLoad()
+    public async Task OpenSession_NoReadStreamCancelled_NoLoad()
     {
         await RunOnUiThreadAsync(async () =>
         {

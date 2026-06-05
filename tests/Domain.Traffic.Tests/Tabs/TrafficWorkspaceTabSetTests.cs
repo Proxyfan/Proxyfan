@@ -239,7 +239,7 @@ public sealed class TrafficWorkspaceTabSetTests
     ///     in the second else-if).
     /// </summary>
     [Test]
-    public async Task Move_FromAfterActive_ToAlsoAfterActive_KeepsActiveIndex()
+    public async Task Move_FromAfterActiveToAlsoAfterActive_KeepsActiveIndex()
     {
         var set = new TrafficWorkspaceTabSet();
         set.Add(new TrafficWorkspaceTab("B"));
