@@ -70,7 +70,7 @@ public sealed class ArchitectureTests
             .ToArray();
 
         await Assert.That(TestArchitecture).IsNotNull();
-        await Assert.That(referencedAssemblyNames).Count().IsEqualTo(15);
+        await Assert.That(referencedAssemblyNames).Count().IsEqualTo(16);
         await Assert.That(referencedAssemblyNames).Contains("Domain");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Certificates");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Configuration");
@@ -79,6 +79,7 @@ public sealed class ArchitectureTests
         await Assert.That(referencedAssemblyNames).Contains("Domain.RemoteDevices");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Rules");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Scripting");
+        await Assert.That(referencedAssemblyNames).Contains("Domain.Session");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Throttling");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Traffic");
         await Assert.That(referencedAssemblyNames).Contains("Domain.Updates");

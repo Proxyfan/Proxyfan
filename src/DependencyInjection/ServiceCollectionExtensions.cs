@@ -11,6 +11,7 @@ using Proxyfan.Domain.RemoteDevices;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
+using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Throttling;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Diff;
@@ -93,6 +94,18 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
+    ///     Registers HAR import/export domain abstractions to framework serialization implementations.
+    /// </summary>
+    /// <param name="serviceCollection">The service collection to register services into.</param>
+    /// <returns>The service collection, for chaining.</returns>
+    public static IServiceCollection AddSessionHarServices(this IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddSingleton<IHarExporter, HarExporter>();
+        serviceCollection.AddSingleton<IHarImporter, HarImporter>();
+        return serviceCollection;
+    }
+
+    /// <summary>
     ///     Registers <paramref name="implementation" /> as a singleton against every interface it implements,
     ///     excluding <see cref="IDisposable" />.
     /// </summary>
@@ -128,6 +141,17 @@ public static class ServiceCollectionExtensions
                 serviceCollection.Add(descriptor);
             }
         }
+    }
+
+    /// <summary>
+    ///     Starts client background services that should run once the host is fully initialized.
+    /// </summary>
+    /// <param name="serviceProvider">The built service provider.</param>
+    public static void StartClientBackgroundServices(this IServiceProvider serviceProvider)
+    {
+        serviceProvider.GetRequiredService<IPluginActivationService>().EnsureLoaded();
+        serviceProvider.GetRequiredService<PeriodicUpdateChecker>().Start();
+        serviceProvider.GetRequiredService<PeriodicReverseProxyHealthChecker>().Start();
     }
 
     private static void AddAutoUpdate(IServiceCollection serviceCollection, string currentVersion)
