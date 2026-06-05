@@ -19,6 +19,13 @@ public static class TrafficFlowDiffer
     public const int MaximumDiffableBodyLength = 256 * 1024;
 
     /// <summary>
+    ///     The maximum number of lines in a text body that may be sent to line-by-line
+    ///     diffing.
+    /// </summary>
+    public const int MaximumDiffableBodyLineCount = 4096;
+    private const long MaximumDiffableBodyDiffWork = 1_000_000;
+
+    /// <summary>
     ///     Computes a section-by-section diff of <paramref name="oldFlow" /> and
     ///     <paramref name="newFlow" />. Either input may have a missing request or
     ///     response; absent sections are diffed against the empty string.
@@ -39,8 +46,8 @@ public static class TrafficFlowDiffer
         var newRequestBody = newFlow.Request?.Body;
         var oldResponseBody = oldFlow.Response?.Body;
         var newResponseBody = newFlow.Response?.Body;
-        var requestBody = LineDiffer.Diff(FormatBody(oldRequestBody), FormatBody(newRequestBody));
-        var responseBody = LineDiffer.Diff(FormatBody(oldResponseBody), FormatBody(newResponseBody));
+        var requestBody = DiffBody(oldRequestBody, newRequestBody);
+        var responseBody = DiffBody(oldResponseBody, newResponseBody);
 
         var isIdentical = HasNoChanges(url)
                           && HasNoChanges(method)
@@ -64,25 +71,88 @@ public static class TrafficFlowDiffer
         return diff;
     }
 
-    private static string FormatBody(ReadOnlyMemory<byte>? body)
+    private static int CountLines(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length == 0)
+        {
+            return 0;
+        }
+
+        var lineCount = 1;
+        for (var index = 0; index < bytes.Length; index++)
+        {
+            if (bytes[index] == '\n')
+            {
+                lineCount++;
+            }
+        }
+
+        return lineCount;
+    }
+
+    private static BodyDiffInput CreateBodyDiffInput(ReadOnlyMemory<byte>? body)
     {
         if (body is null or { Length: 0 })
         {
-            return string.Empty;
+            return new BodyDiffInput
+            {
+                ByteLength = 0,
+                IsText = true,
+                LineCount = 0,
+                Text = string.Empty,
+            };
         }
 
         var span = body.Value.Span;
         if (span.Length > MaximumDiffableBodyLength)
         {
-            return $"<binary or oversized body, {span.Length} bytes>";
+            return new BodyDiffInput
+            {
+                ByteLength = span.Length,
+                IsText = false,
+                LineCount = 1,
+                Text = $"<binary or oversized body, {span.Length} bytes>",
+            };
         }
 
         if (!HasOnlyPrintableBytes(span))
         {
-            return $"<binary body, {span.Length} bytes>";
+            return new BodyDiffInput
+            {
+                ByteLength = span.Length,
+                IsText = false,
+                LineCount = 1,
+                Text = $"<binary body, {span.Length} bytes>",
+            };
         }
 
-        return Encoding.UTF8.GetString(span);
+        return new BodyDiffInput
+        {
+            ByteLength = span.Length,
+            IsText = true,
+            LineCount = CountLines(span),
+            Text = Encoding.UTF8.GetString(span),
+        };
+    }
+
+    private static IReadOnlyList<LineDiffSegment> DiffBody(ReadOnlyMemory<byte>? oldBody, ReadOnlyMemory<byte>? newBody)
+    {
+        var oldInput = CreateBodyDiffInput(oldBody);
+        var newInput = CreateBodyDiffInput(newBody);
+
+        if (HasTooManyLinesSummary(oldInput, newInput))
+        {
+            oldInput = oldInput with
+            {
+                Text = FormatTooManyLinesBody(oldInput.ByteLength, oldInput.LineCount),
+            };
+            newInput = newInput with
+            {
+                Text = FormatTooManyLinesBody(newInput.ByteLength, newInput.LineCount),
+            };
+        }
+
+        return LineDiffer.Diff(oldInput.Text, newInput.Text);
     }
 
     private static string FormatHeaders(HeaderCollection? headers)
@@ -131,6 +201,11 @@ public static class TrafficFlowDiffer
         }
 
         return $"{response.StatusCode} {response.ReasonPhrase}";
+    }
+
+    private static string FormatTooManyLinesBody(int byteLength, int lineCount)
+    {
+        return $"<text body omitted: too many lines ({lineCount} lines, {byteLength} bytes)>";
     }
 
     private static bool HasEquivalentBodies(ReadOnlyMemory<byte>? left, ReadOnlyMemory<byte>? right)
@@ -185,8 +260,40 @@ public static class TrafficFlowDiffer
         return true;
     }
 
+    private static bool HasTooManyLinesSummary(BodyDiffInput oldInput, BodyDiffInput newInput)
+    {
+        if (oldInput.IsText && oldInput.LineCount > MaximumDiffableBodyLineCount)
+        {
+            return true;
+        }
+
+        if (newInput.IsText && newInput.LineCount > MaximumDiffableBodyLineCount)
+        {
+            return true;
+        }
+
+        if (!oldInput.IsText || !newInput.IsText)
+        {
+            return false;
+        }
+
+        var estimatedDiffWork = (long)oldInput.LineCount * newInput.LineCount;
+        return estimatedDiffWork > MaximumDiffableBodyDiffWork;
+    }
+
     private static int HeaderEntryComparer(KeyValuePair<string, string[]> left, KeyValuePair<string, string[]> right)
     {
         return StringComparer.OrdinalIgnoreCase.Compare(left.Key, right.Key);
+    }
+
+    private readonly record struct BodyDiffInput
+    {
+        public int ByteLength { get; init; }
+
+        public bool IsText { get; init; }
+
+        public int LineCount { get; init; }
+
+        public required string Text { get; init; }
     }
 }
