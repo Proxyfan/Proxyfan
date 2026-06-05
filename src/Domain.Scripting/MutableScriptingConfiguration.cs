@@ -115,6 +115,33 @@ public sealed class MutableScriptingConfiguration
     }
 
     /// <summary>
+    ///     Replaces both script sources and the active compiled script in one mutation so
+    ///     the runtime never observes source updates without the matching compiled script.
+    /// </summary>
+    /// <param name="requestSource">The request-phase script source.</param>
+    /// <param name="responseSource">The response-phase script source.</param>
+    /// <param name="script">The compiled script to activate.</param>
+    public void SetCompiledScript(string requestSource, string responseSource, IUserScript script)
+    {
+        lock (_mutationLock)
+        {
+            var requestUnchanged = string.Equals(_requestSource, requestSource, StringComparison.Ordinal);
+            var responseUnchanged = string.Equals(_responseSource, responseSource, StringComparison.Ordinal);
+            var scriptUnchanged = ReferenceEquals(_activeScript, script);
+            if (requestUnchanged && responseUnchanged && scriptUnchanged)
+            {
+                return;
+            }
+
+            _requestSource = requestSource;
+            _responseSource = responseSource;
+            _activeScript = script;
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>
     ///     Sets the enabled flag, clearing the active script reference as a side effect when
     ///     disabling so the pipeline immediately stops running it.
     /// </summary>

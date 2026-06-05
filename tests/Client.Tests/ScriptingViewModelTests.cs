@@ -70,23 +70,30 @@ public sealed class ScriptingViewModelTests
         await Assert.That(viewModel.IsCompilationSuccessful).IsTrue();
         await Assert.That(viewModel.CompilationStatus).IsEqualTo("OK");
         await Assert.That(configuration.ActiveScript).IsNotNull();
+        await Assert.That(configuration.RequestSource).IsEqualTo("// new request");
+        await Assert.That(configuration.ResponseSource).IsEqualTo("// new response");
         await Assert.That(viewModel.Diagnostics.Count).IsEqualTo(0);
     }
 
     /// <summary>
-    ///     Verifies that the Compile command surfaces diagnostics and clears the active
-    ///     script when compilation fails.
+    ///     Verifies that the Compile command surfaces diagnostics and keeps the previous
+    ///     runtime script and persisted sources unchanged when compilation fails.
     /// </summary>
     [Test]
-    public async Task CompileCommand_Failure_PublishesDiagnosticsAndClearsActiveScript()
+    public async Task CompileCommand_Failure_PublishesDiagnosticsWithoutReplacingActiveScript()
     {
         var configuration = new MutableScriptingConfiguration(true);
-        configuration.SetActiveScript(new StubCompiledScript("Prior"));
+        configuration.SetRequestSource("// prior request");
+        configuration.SetResponseSource("// prior response");
+        var priorScript = new StubCompiledScript("Prior");
+        configuration.SetActiveScript(priorScript);
         var compiler = new StubUserScriptCompiler();
         var diagnostic = new ScriptDiagnostic(ScriptDiagnosticSeverity.Error, "CS1002", "; expected", 2, 5);
         var diagnostics = ImmutableArray.Create(diagnostic);
         compiler.NextResult = new ScriptCompilationResult(false, null, diagnostics);
         var viewModel = CreateViewModel(configuration, compiler);
+        viewModel.RequestSource = "// invalid request";
+        viewModel.ResponseSource = "// invalid response";
 
         viewModel.CompileCommand.Execute(null);
 
@@ -96,7 +103,9 @@ public sealed class ScriptingViewModelTests
         await Assert.That(viewModel.Diagnostics[0].Severity).IsEqualTo("Error");
         await Assert.That(viewModel.Diagnostics[0].Location).IsEqualTo("L2:5");
         await Assert.That(viewModel.Diagnostics[0].Message).IsEqualTo("; expected");
-        await Assert.That(configuration.ActiveScript).IsNull();
+        await Assert.That(configuration.ActiveScript).IsSameReferenceAs(priorScript);
+        await Assert.That(configuration.RequestSource).IsEqualTo("// prior request");
+        await Assert.That(configuration.ResponseSource).IsEqualTo("// prior response");
     }
 
     /// <summary>
