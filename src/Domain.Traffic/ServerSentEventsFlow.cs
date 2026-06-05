@@ -121,6 +121,28 @@ public sealed class ServerSentEventsFlow
     }
 
     /// <summary>
+    ///     Returns a stable, immutable snapshot of the current event list and closed state,
+    ///     captured atomically under the producer lock. Use this when attaching an observer
+    ///     to seed initial state without racing against concurrent <see cref="RecordEvent" /> calls.
+    /// </summary>
+    /// <returns>
+    ///     A <see cref="ServerSentEventsFlowSnapshot" /> containing a read-only copy of all
+    ///     events recorded so far and a flag indicating whether the stream has already closed.
+    /// </returns>
+    public ServerSentEventsFlowSnapshot GetEventsSnapshot()
+    {
+        lock (_gate)
+        {
+            var snapshot = new List<ServerSentEvent>(_events);
+            return new ServerSentEventsFlowSnapshot
+            {
+                Events = snapshot,
+                IsClosed = _closedAt.HasValue,
+            };
+        }
+    }
+
+    /// <summary>
     ///     Records that the stream has been closed. Only the first observation is retained.
     /// </summary>
     /// <param name="closedAt">The wall-clock instant the close was observed.</param>

@@ -24,6 +24,60 @@ public sealed class ServerSentEventsFlowTests
     }
 
     /// <summary>
+    ///     <see cref="ServerSentEventsFlow.GetEventsSnapshot" /> after the flow is marked closed
+    ///     reports <c>IsClosed = true</c> in the snapshot.
+    /// </summary>
+    [Test]
+    public async Task GetEventsSnapshot_AfterMarkClosed_ReportsIsClosedTrue()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        sseFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        var snapshot = sseFlow.GetEventsSnapshot();
+
+        await Assert.That(snapshot.IsClosed).IsTrue();
+    }
+
+    /// <summary>
+    ///     <see cref="ServerSentEventsFlow.GetEventsSnapshot" /> returns the same event
+    ///     references as <see cref="ServerSentEventsFlow.Events" /> at the time of the call.
+    /// </summary>
+    [Test]
+    public async Task GetEventsSnapshot_AfterRecordEvents_ReturnsCurrentEventsInOrder()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        var first = new ServerSentEvent("a", null, null, null, DateTimeOffset.UtcNow);
+        var second = new ServerSentEvent("b", null, null, null, DateTimeOffset.UtcNow);
+        sseFlow.RecordEvent(first);
+        sseFlow.RecordEvent(second);
+
+        var snapshot = sseFlow.GetEventsSnapshot();
+
+        await Assert.That(snapshot.Events.Count).IsEqualTo(2);
+        await Assert.That(snapshot.Events[0]).IsSameReferenceAs(first);
+        await Assert.That(snapshot.Events[1]).IsSameReferenceAs(second);
+    }
+
+    /// <summary>
+    ///     <see cref="ServerSentEventsFlow.GetEventsSnapshot" /> returns an isolated copy;
+    ///     events recorded after the call do not appear in the returned list.
+    /// </summary>
+    [Test]
+    public async Task GetEventsSnapshot_EventRecordedAfterSnapshot_DoesNotAppearInSnapshotList()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        sseFlow.RecordEvent(new ServerSentEvent("before", null, null, null, DateTimeOffset.UtcNow));
+
+        var snapshot = sseFlow.GetEventsSnapshot();
+        sseFlow.RecordEvent(new ServerSentEvent("after", null, null, null, DateTimeOffset.UtcNow));
+
+        await Assert.That(snapshot.Events.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     <see cref="ServerSentEventsFlow.Id" /> mirrors the underlying flow id.
     /// </summary>
     [Test]
