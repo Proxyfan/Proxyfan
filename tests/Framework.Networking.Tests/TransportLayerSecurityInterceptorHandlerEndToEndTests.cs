@@ -1,7 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain.Certificates;
+using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Rules.Matching;
+using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -113,7 +117,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         return new UpstreamTlsListener(listener, serverTask);
     }
 
-    private static async Task UpstreamServerLoopAsync(TcpListener listener, X509Certificate2 serverCertificate, string responseText)
+    private static async Task<int> UpstreamServerLoopAsync(TcpListener listener, X509Certificate2 serverCertificate, string responseText)
     {
         try
         {
@@ -128,22 +132,30 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
             await sslStream.AuthenticateAsServerAsync(serverOptions).ConfigureAwait(false);
 
             var requestBuffer = new byte[4096];
-            await sslStream.ReadAsync(requestBuffer).ConfigureAwait(false);
+            var bytesRead = await sslStream.ReadAsync(requestBuffer).ConfigureAwait(false);
+            if (bytesRead == 0)
+            {
+                return 0;
+            }
             var responseBytes = Encoding.ASCII.GetBytes(responseText);
             await sslStream.WriteAsync(responseBytes).ConfigureAwait(false);
             await sslStream.FlushAsync().ConfigureAwait(false);
+            return bytesRead;
         }
         catch (SocketException)
         {
             // Expected when the listener is stopped.
+            return 0;
         }
         catch (ObjectDisposedException)
         {
             // Expected when the listener is disposed.
+            return 0;
         }
         catch (IOException)
         {
             // Expected on connection close.
+            return 0;
         }
     }
 
@@ -205,15 +217,17 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
 
     private sealed class UpstreamTlsListener : IDisposable
     {
-        private readonly Task _serverTask;
+        private readonly Task<int> _serverTask;
 
-        public UpstreamTlsListener(TcpListener listener, Task serverTask)
+        public UpstreamTlsListener(TcpListener listener, Task<int> serverTask)
         {
             Listener = listener;
             _serverTask = serverTask;
         }
 
         public TcpListener Listener { get; }
+
+        public Task<int> RequestByteCountTask => _serverTask;
 
         public void Dispose()
         {
