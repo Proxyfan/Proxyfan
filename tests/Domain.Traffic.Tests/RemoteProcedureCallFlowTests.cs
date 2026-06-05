@@ -171,6 +171,24 @@ public sealed class RemoteProcedureCallFlowTests
     }
 
     /// <summary>
+    ///     A throwing closed observer does not break stream-close capture.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_WhenObserverThrows_OtherObserversStillRun()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var rpcFlow = new RemoteProcedureCallFlow(flow);
+        var closeCount = 0;
+        rpcFlow.Closed += () => throw new InvalidOperationException("observer failure");
+        rpcFlow.Closed += () => closeCount++;
+
+        rpcFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        await Assert.That(rpcFlow.IsClosed).IsTrue();
+        await Assert.That(closeCount).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     <see cref="RemoteProcedureCallFlow.MessageRecorded" /> fires for every recorded message.
     /// </summary>
     [Test]
@@ -197,6 +215,31 @@ public sealed class RemoteProcedureCallFlowTests
         await Assert.That(observed.Count).IsEqualTo(2);
         await Assert.That(observed[0]).IsSameReferenceAs(first);
         await Assert.That(observed[1]).IsSameReferenceAs(second);
+    }
+
+    /// <summary>
+    ///     A throwing message observer does not break message capture.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_WhenObserverThrows_MessageIsStillCaptured()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var rpcFlow = new RemoteProcedureCallFlow(flow);
+        var observed = new List<RemoteProcedureCallCapturedMessage>();
+        var message = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Outbound,
+            false,
+            new byte[] { 0x01 },
+            DateTimeOffset.UtcNow);
+        rpcFlow.MessageRecorded += _ => throw new InvalidOperationException("observer failure");
+        rpcFlow.MessageRecorded += observed.Add;
+
+        rpcFlow.RecordMessage(message);
+
+        await Assert.That(rpcFlow.Messages.Count).IsEqualTo(1);
+        await Assert.That(rpcFlow.Messages[0]).IsSameReferenceAs(message);
+        await Assert.That(observed.Count).IsEqualTo(1);
+        await Assert.That(observed[0]).IsSameReferenceAs(message);
     }
 
     /// <summary>
