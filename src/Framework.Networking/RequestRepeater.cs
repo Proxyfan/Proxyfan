@@ -99,7 +99,12 @@ public sealed class RequestRepeater : IRequestRepeater
         try
         {
             var responseData = await _sender.SendAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
-            return responseData;
+            if (!responseData.IsSuccess)
+            {
+                return null;
+            }
+
+            return responseData.Value;
         }
         catch (OperationCanceledException)
         {

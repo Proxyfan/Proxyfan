@@ -4,7 +4,6 @@ using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -204,39 +203,39 @@ public sealed partial class ComposerViewModel : ObservableObject
             return;
         }
 
-        try
+        var sendResult = await _sender.SendAsync(request, cancellationToken).ConfigureAwait(true);
+        if (!sendResult.IsSuccess)
         {
-            var response = await _sender.SendAsync(request, cancellationToken).ConfigureAwait(true);
-            StatusText = response.StatusCode + " " + response.ReasonPhrase;
-            ResponseBody = Encoding.UTF8.GetString(response.Body.Span);
-            var headerDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var header in request.Headers)
-            {
-                if (header.Value.Length > 0)
-                {
-                    headerDictionary[header.Key] = header.Value[0];
-                }
-            }
-
-            var entry = new ComposerHistoryEntry
-            {
-                Body = request.Body,
-                Headers = headerDictionary,
-                Id = Guid.NewGuid(),
-                IsStarred = false,
-                Method = request.Method,
-                StatusCode = response.StatusCode,
-                Timestamp = DateTimeOffset.UtcNow,
-                Url = request.RequestUri.ToString(),
-            };
-            _history.Add(entry);
-            RefreshHistory();
-        }
-        catch (HttpRequestException exception)
-        {
-            StatusText = exception.Message;
+            StatusText = sendResult.Error!.Message;
             ResponseBody = string.Empty;
+            return;
         }
+
+        var response = sendResult.Value;
+        StatusText = response.StatusCode + " " + response.ReasonPhrase;
+        ResponseBody = Encoding.UTF8.GetString(response.Body.Span);
+        var headerDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var header in request.Headers)
+        {
+            if (header.Value.Length > 0)
+            {
+                headerDictionary[header.Key] = header.Value[0];
+            }
+        }
+
+        var entry = new ComposerHistoryEntry
+        {
+            Body = request.Body,
+            Headers = headerDictionary,
+            Id = Guid.NewGuid(),
+            IsStarred = false,
+            Method = request.Method,
+            StatusCode = response.StatusCode,
+            Timestamp = DateTimeOffset.UtcNow,
+            Url = request.RequestUri.ToString(),
+        };
+        _history.Add(entry);
+        RefreshHistory();
     }
 
     [RelayCommand]

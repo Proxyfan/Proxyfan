@@ -15,8 +15,11 @@ public interface IComposerRequestSender
     /// </summary>
     /// <param name="request">The request to send.</param>
     /// <param name="cancellationToken">A token to cancel the send.</param>
-    /// <returns>The response received from the upstream server.</returns>
-    Task<HypertextTransferProtocolResponseData> SendAsync(
+    /// <returns>
+    ///     A successful result containing the response received from the upstream server, or a
+    ///     failure result containing a <see cref="ComposerSendError" />.
+    /// </returns>
+    Task<Result<HypertextTransferProtocolResponseData>> SendAsync(
         HypertextTransferProtocolRequestData request,
         CancellationToken cancellationToken);
 }

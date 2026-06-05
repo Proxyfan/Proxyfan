@@ -3,7 +3,6 @@ using Proxyfan.Client.Tools.ViewModels;
 using Proxyfan.Domain.Traffic;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -211,15 +210,14 @@ public sealed class ComposerViewModelTests
     }
 
     /// <summary>
-    ///     Verifies that an <see cref="HttpRequestException" /> thrown by the sender is caught
-    ///     and surfaced as the status text.
+    ///     Verifies that a failed send result is surfaced as the status text.
     /// </summary>
     [Test]
-    public async Task SendAsync_SenderThrows_SetsStatusToMessage()
+    public async Task SendAsync_SenderFailure_SetsStatusToMessage()
     {
         var sender = new StubComposerRequestSender
         {
-            ExceptionToThrow = new HttpRequestException("boom"),
+            ErrorToReturn = new ComposerSendError("boom", new InvalidOperationException("inner")),
         };
         var viewModel = CreateViewModel(sender: sender);
         viewModel.Url = "https://example.com/";
