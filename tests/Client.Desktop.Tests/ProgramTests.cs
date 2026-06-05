@@ -39,7 +39,7 @@ public sealed class ProgramTests
         var args = new[] { "--listen", "8080" };
         var starter = new CapturingDesktopLifetimeStarter();
 
-        Program.Run(args, starter.Invoke);
+        Program.Run(starter.Invoke, args);
 
         await Assert.That(starter.AppBuilder).IsNotNull();
         await Assert.That(starter.Args).IsSameReferenceAs(args);
@@ -48,7 +48,7 @@ public sealed class ProgramTests
     [Test]
     public async Task Run_WhenLifetimeStarterIsNull_ThrowsArgumentNullException()
     {
-        await Assert.That(() => Program.Run(Array.Empty<string>(), null!))
+        await Assert.That(() => Program.Run(null!, Array.Empty<string>()))
             .Throws<ArgumentNullException>();
     }
 

@@ -27,17 +27,16 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        Run(args, StartClassicDesktopLifetime);
+        Run(StartClassicDesktopLifetime, args);
     }
 
     /// <summary>
     ///     Runs the desktop application with the provided lifetime starter.
     /// </summary>
-    /// <param name="args">Command-line arguments.</param>
     /// <param name="desktopLifetimeStarter">The desktop lifetime starter to invoke.</param>
-    public static void Run(string[]? args, DesktopLifetimeStarter? desktopLifetimeStarter)
+    /// <param name="args">Command-line arguments.</param>
+    public static void Run(DesktopLifetimeStarter? desktopLifetimeStarter, string[] args)
     {
-        ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(desktopLifetimeStarter);
         var appBuilder = BuildAppBuilder();
         desktopLifetimeStarter(appBuilder, args);
