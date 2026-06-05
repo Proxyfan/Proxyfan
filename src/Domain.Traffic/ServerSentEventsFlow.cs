@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -24,7 +25,7 @@ public sealed class ServerSentEventsFlow
 
     private const int DefaultEventCapacity = StreamingCaptureBudgets.ServerSentEventsEventCapacity;
     private readonly int _eventCapacity;
-    private readonly List<ServerSentEvent> _events;
+    private readonly EventBuffer _events;
     private readonly Lock _gate;
     private readonly StreamingCaptureBudget _streamingCaptureBudget;
     private DateTimeOffset? _closedAt;
@@ -117,7 +118,7 @@ public sealed class ServerSentEventsFlow
 
         var gate = new Lock();
         _gate = gate;
-        List<ServerSentEvent> events = [];
+        var events = new EventBuffer(eventCapacity);
         _events = events;
         Flow = flow;
         _closedAt = null;
@@ -218,8 +219,7 @@ public sealed class ServerSentEventsFlow
             return;
         }
 
-        _events.RemoveAt(0);
-        _events.Add(serverSentEvent);
+        _events.OverwriteOldest(serverSentEvent);
         _droppedMessagesCount++;
         eventRecorded = true;
     }
@@ -244,5 +244,66 @@ public sealed class ServerSentEventsFlow
         }
 
         return byteCount;
+    }
+
+    private sealed class EventBuffer : IReadOnlyList<ServerSentEvent>
+    {
+        private readonly ServerSentEvent[] _buffer;
+        private int _startIndex;
+
+        public EventBuffer(int capacity)
+        {
+            var buffer = new ServerSentEvent[capacity];
+            _buffer = buffer;
+            Count = 0;
+            _startIndex = 0;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public int Count { get; private set; }
+
+        public IEnumerator<ServerSentEvent> GetEnumerator()
+        {
+            for (var index = 0; index < Count; index++)
+            {
+                yield return this[index];
+            }
+        }
+
+        public ServerSentEvent this[int index] => _buffer[GetBufferIndex(index)];
+
+        public void Add(ServerSentEvent serverSentEvent)
+        {
+            _buffer[GetWriteIndex()] = serverSentEvent;
+            Count++;
+        }
+
+        public void OverwriteOldest(ServerSentEvent serverSentEvent)
+        {
+            _buffer[_startIndex] = serverSentEvent;
+            MoveToNextStartIndex();
+        }
+
+        private int GetBufferIndex(int index)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Count);
+
+            return (int)(((long)_startIndex + index) % _buffer.Length);
+        }
+
+        private int GetWriteIndex()
+        {
+            return (int)(((long)_startIndex + Count) % _buffer.Length);
+        }
+
+        private void MoveToNextStartIndex()
+        {
+            _startIndex = (int)(((long)_startIndex + 1) % _buffer.Length);
+        }
     }
 }
