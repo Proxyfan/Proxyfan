@@ -83,6 +83,11 @@ public partial class App : Application
             services.AddSingleton<WebSocketInspectorViewModel>();
             services.AddSingleton<ServerSentEventsInspectorViewModel>();
             services.AddSingleton<IRemoteProcedureCallDescriptorLibrary, RemoteProcedureCallDescriptorLibrary>();
+            services.AddSingleton<IRemoteProcedureCallSchemaLibrary>(static serviceProvider =>
+            {
+                var library = serviceProvider.GetRequiredService<IRemoteProcedureCallDescriptorLibrary>();
+                return new RemoteProcedureCallSchemaLibraryAdapter(library);
+            });
             services.AddSingleton<IRemoteProcedureCallDescriptorFileLibrary>(static serviceProvider =>
             {
                 var library = serviceProvider.GetRequiredService<IRemoteProcedureCallDescriptorLibrary>();
