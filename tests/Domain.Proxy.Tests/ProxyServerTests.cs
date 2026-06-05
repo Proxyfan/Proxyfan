@@ -220,6 +220,27 @@ public sealed class ProxyServerTests
     }
 
     /// <summary>
+    ///     Verifies that a cancelled start rolls the status back to stopped so a later start can succeed.
+    /// </summary>
+    [Test]
+    public async Task StartAsync_WhenListenerStartCancelled_RollsBackToStopped()
+    {
+        await using var server = CreateServer();
+        _listener.WithStartException(new OperationCanceledException("cancelled"));
+
+        await Assert.That(async () => await server.StartAsync(CancellationToken.None)).Throws<OperationCanceledException>();
+        await Assert.That(server.Status).IsEqualTo(ProxyStatus.Stopped);
+        await Assert.That(_eventBus.PublishedOf<ProxyStarted>()).IsEmpty();
+        await Assert.That(_eventBus.PublishedOf<ProxyErrorOccurred>()).IsEmpty();
+
+        _listener.WithStartException(null!);
+        var retryResult = await server.StartAsync(CancellationToken.None);
+
+        await Assert.That(retryResult.IsSuccess).IsTrue();
+        await Assert.That(server.Status).IsEqualTo(ProxyStatus.Running);
+    }
+
+    /// <summary>
     ///     Verifies that a bind failure error is a <see cref="ProxyBindError" />.
     /// </summary>
     [Test]
@@ -359,6 +380,28 @@ public sealed class ProxyServerTests
 
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(_listener.StopCallCount).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that a cancelled stop restores running status and publishes no stop event.
+    /// </summary>
+    [Test]
+    public async Task StopAsync_WhenListenerStopCancelled_RollsBackToRunning()
+    {
+        await using var server = CreateServer();
+        await server.StartAsync(CancellationToken.None);
+        _listener.WithStopException(new OperationCanceledException("cancelled"));
+
+        await Assert.That(async () => await server.StopAsync(CancellationToken.None)).Throws<OperationCanceledException>();
+        await Assert.That(server.Status).IsEqualTo(ProxyStatus.Running);
+        await Assert.That(_eventBus.PublishedOf<ProxyStopped>()).IsEmpty();
+        await Assert.That(_eventBus.PublishedOf<ProxyErrorOccurred>()).IsEmpty();
+
+        _listener.WithStopException(null!);
+        var retryResult = await server.StopAsync(CancellationToken.None);
+
+        await Assert.That(retryResult.IsSuccess).IsTrue();
+        await Assert.That(server.Status).IsEqualTo(ProxyStatus.Stopped);
     }
 
     /// <summary>
