@@ -75,7 +75,10 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             sourceValues[pair.Key] = pair.Value;
         }
 
-        var pipelineResult = _pipeline.Migrate(sourceValues, _targetVersion);
+        if (!CanMigrate(sourceValues, out var pipelineResult))
+        {
+            return BuildInvalidVersionResult(parseResult.Snapshot, sourceValues);
+        }
 
         if (!pipelineResult.IsMigrated)
         {
@@ -186,6 +189,32 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
         };
     }
 
+    private MigratingConfigurationLoadResult BuildInvalidVersionResult(
+        ConfigurationSnapshot snapshot,
+        Dictionary<string, string> sourceValues)
+    {
+        var rejectedValues = new Dictionary<string, string>();
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = rejectedValues,
+        };
+        var malformedVersionLine = sourceValues.TryGetValue(ConfigurationMigrationConstants.VersionKey, out var text)
+            ? $"{ConfigurationMigrationConstants.VersionKey}={text}"
+            : ConfigurationMigrationConstants.VersionKey;
+        return new MigratingConfigurationLoadResult
+        {
+            BackupPath = null,
+            IoFailure = null,
+            MalformedLines = [malformedVersionLine],
+            PipelineResult = pipelineResult,
+            Snapshot = snapshot,
+        };
+    }
+
     /// <summary>
     ///     Builds a <see cref="MigratingConfigurationLoadResult" /> for the case where the
     ///     configuration file contained malformed lines. Migration is not applied and the
@@ -212,6 +241,41 @@ public sealed class FileConfigurationLoader : IMigratingConfigurationLoader
             PipelineResult = pipelineResult,
             Snapshot = parseResult.Snapshot,
         };
+    }
+
+    private ConfigurationMigrationPipelineResult BuildRejectedPipelineResult()
+    {
+        var rejectedValues = new Dictionary<string, string>();
+        var pipelineResult = new ConfigurationMigrationPipelineResult
+        {
+            Actions = [],
+            IsMigrated = false,
+            SourceVersion = _targetVersion,
+            TargetVersion = _targetVersion,
+            Values = rejectedValues,
+        };
+        return pipelineResult;
+    }
+
+    private bool CanMigrate(
+        Dictionary<string, string> sourceValues,
+        out ConfigurationMigrationPipelineResult pipelineResult)
+    {
+        try
+        {
+            pipelineResult = _pipeline.Migrate(sourceValues, _targetVersion);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            pipelineResult = BuildRejectedPipelineResult();
+            return false;
+        }
+        catch (FormatException)
+        {
+            pipelineResult = BuildRejectedPipelineResult();
+            return false;
+        }
     }
 
     /// <summary>
