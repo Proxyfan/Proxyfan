@@ -64,6 +64,24 @@ public sealed class AllowListRuleTests
     }
 
     /// <summary>
+    ///     Verifies that a regex timeout does not count as an allow-list hit.
+    /// </summary>
+    [Test]
+    public async Task EvaluateRequest_RegexTimeout_ReturnsBlock()
+    {
+        var rules = new[]
+        {
+            new MatchingRule(@"^https://example\.com/(a+)+$", MatchingRuleKind.Regex),
+        };
+        var allowList = new AllowListRule(rules, isEnabled: true, priority: 0);
+        var request = CreateRequest($"https://example.com/{new string('a', 30)}X");
+
+        var action = allowList.EvaluateRequest(request);
+
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
+    /// <summary>
     ///     Verifies that the constructor stores enabled/priority.
     /// </summary>
     [Test]

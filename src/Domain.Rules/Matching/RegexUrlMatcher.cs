@@ -32,20 +32,28 @@ public sealed class RegexUrlMatcher : IUrlMatcher
     }
 
     /// <inheritdoc />
-    public bool HasMatch(string url)
+    public UrlMatchResult GetMatchResult(string url)
     {
         if (string.IsNullOrEmpty(url))
         {
-            return false;
+            return UrlMatchResult.NoMatch;
         }
 
         try
         {
-            return _compiledRegex.IsMatch(url);
+            return _compiledRegex.IsMatch(url)
+                ? UrlMatchResult.Match
+                : UrlMatchResult.NoMatch;
         }
         catch (RegexMatchTimeoutException)
         {
-            return false;
+            return UrlMatchResult.Indeterminate;
         }
+    }
+
+    /// <inheritdoc />
+    public bool HasMatch(string url)
+    {
+        return GetMatchResult(url) == UrlMatchResult.Match;
     }
 }

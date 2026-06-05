@@ -64,6 +64,24 @@ public sealed class BlockListRuleTests
     }
 
     /// <summary>
+    ///     Verifies that a regex timeout fails closed and still blocks the request.
+    /// </summary>
+    [Test]
+    public async Task EvaluateRequest_RegexTimeout_ReturnsBlock()
+    {
+        var rules = new[]
+        {
+            new MatchingRule(@"^https://example\.com/(a+)+$", MatchingRuleKind.Regex),
+        };
+        var blockList = new BlockListRule(rules, isEnabled: true, priority: 0);
+        var request = CreateRequest($"https://example.com/{new string('a', 30)}X");
+
+        var action = blockList.EvaluateRequest(request);
+
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
+    /// <summary>
     ///     Verifies that IsEnabled and Priority property values supplied at construction
     ///     are exposed via their getters.
     /// </summary>

@@ -40,7 +40,8 @@ public sealed class BlockListRule : IRequestPhaseRule
 
         foreach (var matcher in _matchers)
         {
-            if (matcher.HasMatch(url))
+            var matchResult = matcher.GetMatchResult(url);
+            if (matchResult is UrlMatchResult.Match or UrlMatchResult.Indeterminate)
             {
                 return new RequestPipelineAction.Block();
             }

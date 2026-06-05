@@ -213,6 +213,20 @@ public sealed class MutableAllowListRuleTests
         await Assert.That(rule.Priority).IsEqualTo(42);
     }
 
+    /// <summary>
+    ///     A regex timeout does not count as an allow-list hit and still blocks the request.
+    /// </summary>
+    [Test]
+    public async Task EvaluateRequest_RegexTimeout_ReturnsBlock()
+    {
+        var rule = new MutableAllowListRule(priority: 50, isEnabled: true);
+        rule.AddPattern(new MatchingRule(@"^https://example\.com/(a+)+$", MatchingRuleKind.Regex));
+
+        var action = rule.EvaluateRequest(CreateRequest($"https://example.com/{new string('a', 30)}X"));
+
+        await Assert.That(action).IsTypeOf<RequestPipelineAction.Block>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
