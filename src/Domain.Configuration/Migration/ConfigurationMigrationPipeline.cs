@@ -52,6 +52,9 @@ public sealed class ConfigurationMigrationPipeline
     /// <param name="targetVersion">The desired target schema version.</param>
     /// <returns>The migration result.</returns>
     /// <exception cref="InvalidOperationException">
+    ///     The source configuration version is newer than the supported
+    ///     <paramref name="targetVersion" /> (future-version incompatibility);
+    ///     or
     ///     A migrator was needed to transition from the current version to the target but
     ///     none was registered, leaving the pipeline unable to make progress;
     ///     or a registered migrator's <see cref="IConfigurationMigrator.To" /> version does
@@ -64,7 +67,7 @@ public sealed class ConfigurationMigrationPipeline
         ConfigurationVersion targetVersion)
     {
         var sourceVersion = ConfigurationMigrationPipelineHelpers.ReadVersion(source);
-        if (!sourceVersion.HasLowerOrderThan(targetVersion))
+        if (sourceVersion == targetVersion)
         {
             var unchangedValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
             unchangedValues[ConfigurationMigrationConstants.VersionKey] = targetVersion.ToString();
@@ -77,6 +80,12 @@ public sealed class ConfigurationMigrationPipeline
                 Values = unchangedValues,
             };
             return noopResult;
+        }
+
+        if (sourceVersion > targetVersion)
+        {
+            throw new InvalidOperationException(
+                $"Configuration source version {sourceVersion} is newer than supported target version {targetVersion}.");
         }
 
         IReadOnlyDictionary<string, string> currentValues = ConfigurationMigrationPipelineHelpers.CopyValues(source);
