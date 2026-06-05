@@ -169,6 +169,31 @@ public sealed class ServerSentEventsFlowTests
     }
 
     /// <summary>
+    ///     Repeated overflow preserves chronological order after ring wrap-around.
+    /// </summary>
+    [Test]
+    public async Task RecordEvent_ServerSentEventsBeyondCapacityMultipleTimes_TracksNewestEventsInOrder()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var budget = new StreamingCaptureBudget(1024);
+        var sseFlow = new ServerSentEventsFlow(flow, 2, budget);
+        var firstEvent = new ServerSentEvent("first", "message", "1", null, DateTimeOffset.UtcNow);
+        var secondEvent = new ServerSentEvent("second", "message", "2", null, DateTimeOffset.UtcNow);
+        var thirdEvent = new ServerSentEvent("third", "message", "3", null, DateTimeOffset.UtcNow);
+        var fourthEvent = new ServerSentEvent("fourth", "message", "4", null, DateTimeOffset.UtcNow);
+
+        sseFlow.RecordEvent(firstEvent);
+        sseFlow.RecordEvent(secondEvent);
+        sseFlow.RecordEvent(thirdEvent);
+        sseFlow.RecordEvent(fourthEvent);
+
+        await Assert.That(sseFlow.Events.Count).IsEqualTo(2);
+        await Assert.That(sseFlow.Events[0]).IsSameReferenceAs(thirdEvent);
+        await Assert.That(sseFlow.Events[1]).IsSameReferenceAs(fourthEvent);
+        await Assert.That(sseFlow.DroppedMessagesCount).IsEqualTo(2);
+    }
+
+    /// <summary>
     ///     <see cref="ServerSentEventsFlow.RecordEvent" /> raises
     ///     <see cref="ServerSentEventsFlow.EventRecorded" /> on every append.
     /// </summary>
