@@ -13,10 +13,12 @@ namespace Proxyfan.Domain.Certificates.Tests.Stubs;
 /// </summary>
 internal sealed class SequencedCertificateGenerator : ICertificateGenerator
 {
+    private readonly int _configuredRootGenerationCount;
     private readonly Queue<Func<CancellationToken, Task<CertificateAuthority>>> _rootGenerationSequence;
 
     public SequencedCertificateGenerator(params Func<CancellationToken, Task<CertificateAuthority>>[] rootGenerationSequence)
     {
+        _configuredRootGenerationCount = rootGenerationSequence.Length;
         _rootGenerationSequence = new Queue<Func<CancellationToken, Task<CertificateAuthority>>>(rootGenerationSequence);
     }
 
@@ -35,6 +37,11 @@ internal sealed class SequencedCertificateGenerator : ICertificateGenerator
     /// <inheritdoc />
     public Task<CertificateAuthority> GenerateRootCertificateAuthorityAsync(CancellationToken cancellationToken)
     {
+        if (_rootGenerationSequence.Count == 0)
+        {
+            throw new InvalidOperationException($"SequencedCertificateGenerator expected {_configuredRootGenerationCount} root generation call(s) but received {RootGenerationCount + 1}.");
+        }
+
         RootGenerationCount++;
         return _rootGenerationSequence.Dequeue().Invoke(cancellationToken);
     }
