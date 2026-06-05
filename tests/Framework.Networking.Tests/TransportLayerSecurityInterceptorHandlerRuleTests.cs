@@ -168,7 +168,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerRuleTests
 
     private static async Task<byte[]> ReadAvailableAsync(PipeReader reader)
     {
-        var collected = new List<byte>();
+        using var memoryStream = new MemoryStream();
         while (true)
         {
             if (!reader.TryRead(out var result))
@@ -186,7 +186,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerRuleTests
 
             foreach (var segment in result.Buffer)
             {
-                collected.AddRange(segment.ToArray());
+                memoryStream.Write(segment.Span);
             }
 
             reader.AdvanceTo(result.Buffer.End);
@@ -196,6 +196,6 @@ public sealed class TransportLayerSecurityInterceptorHandlerRuleTests
             }
         }
 
-        return collected.ToArray();
+        return memoryStream.ToArray();
     }
 }
