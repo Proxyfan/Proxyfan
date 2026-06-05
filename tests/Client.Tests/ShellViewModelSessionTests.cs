@@ -75,6 +75,43 @@ public sealed class ShellViewModelSessionTests
     }
 
     /// <summary>
+    ///     Verifies that OpenSessionCommand marshals imported-flow loading through the UI scheduler.
+    /// </summary>
+    [Test]
+    public async Task OpenSessionCommand_WhenImportCompletesOffThread_PostsFlowLoadingToUiScheduler()
+    {
+        using var readStream = new MemoryStream();
+        var importedFlows = new List<TrafficFlow>
+        {
+            new(Guid.NewGuid(), "127.0.0.1:9201", DateTimeOffset.UtcNow),
+        };
+        var scheduler = new DeferredUserInterfaceScheduler();
+        var picker = new ShellViewModelFactory.StubFilePickerService { ReadStream = readStream };
+        var exporter = new ShellViewModelFactory.StubHarExporter();
+        var importer = new ShellViewModelFactory.StubHarImporter { ReturnFlows = importedFlows };
+        var viewModel = ShellViewModelFactory.Create(
+            new StubSystemProxy(),
+            8080,
+            picker,
+            exporter,
+            importer,
+            new StubToolWindowOpener(),
+            new Domain.Updates.MutableUpdateNotification(),
+            new Domain.Rules.Rules.MutableNoCachingRule(priority: 400, isEnabled: false),
+            new Domain.Rules.Rules.MutableBreakpointConfiguration(isEnabled: false),
+            userInterfaceScheduler: scheduler);
+
+        await viewModel.OpenSessionCommand.ExecuteAsync(null);
+
+        await Assert.That(importer.CallCount).IsEqualTo(1);
+        await Assert.That(viewModel.TrafficList.Flows.Count).IsEqualTo(0);
+
+        scheduler.DrainQueue();
+
+        await Assert.That(viewModel.TrafficList.Flows.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
     ///     Verifies that OpenSessionCommand short-circuits when the user cancels the picker.
     /// </summary>
     [Test]

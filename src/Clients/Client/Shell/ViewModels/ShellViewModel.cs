@@ -349,7 +349,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         try
         {
             var imported = await _harImporter.ImportAsync(stream, cancellationToken).ConfigureAwait(false);
-            TrafficList.LoadFlows(imported);
+            _userInterfaceScheduler.Post(() => TrafficList.LoadFlows(imported));
         }
         finally
         {
@@ -428,13 +428,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (IsSystemProxyEnabled)
         {
             await _systemProxy.UnregisterAsync(cancellationToken).ConfigureAwait(false);
-            IsSystemProxyEnabled = false;
+            _userInterfaceScheduler.Post(() => IsSystemProxyEnabled = false);
         }
         else
         {
             var port = _optionsMonitor.CurrentValue.Port;
             await _systemProxy.RegisterAsync(port, cancellationToken).ConfigureAwait(false);
-            IsSystemProxyEnabled = true;
+            _userInterfaceScheduler.Post(() => IsSystemProxyEnabled = true);
         }
     }
 }
