@@ -7,6 +7,7 @@ using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Rules.Matching;
 using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Domain.Scripting;
+using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Rules;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Plugin.Abstractions;
@@ -52,6 +53,24 @@ public sealed class ServiceCollectionExtensionsTests
         await Assert.That(systemProxy).IsNotNull();
         await Assert.That(ruleEngine).IsNotNull();
         await Assert.That(handlers).Count().IsEqualTo(3);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ServiceCollectionExtensions.AddSessionHarServices" /> wires
+    ///     the HAR import/export abstractions.
+    /// </summary>
+    [Test]
+    public async Task AddSessionHarServices_WhenCalled_RegistersHarAbstractions()
+    {
+        var services = new ServiceCollection();
+        services.AddSessionHarServices();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        var exporter = provider.GetService<IHarExporter>();
+        var importer = provider.GetService<IHarImporter>();
+
+        await Assert.That(exporter).IsNotNull();
+        await Assert.That(importer).IsNotNull();
     }
 
     /// <summary>
@@ -409,6 +428,33 @@ public sealed class ServiceCollectionExtensionsTests
             await Assert.That(pluginHost).IsNotNull();
             await Assert.That(pluginUpdateManifestUrlProvider).IsNotNull();
             await Assert.That(healthChecker).IsNotNull();
+        }
+        finally
+        {
+            await provider.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="ServiceCollectionExtensions.StartClientBackgroundServices" />
+    ///     activates plugins via the composition-layer startup hook.
+    /// </summary>
+    [Test]
+    public async Task StartClientBackgroundServices_WhenCalled_ActivatesPlugins()
+    {
+        var services = new ServiceCollection();
+        var configurationBuilder = new ConfigurationBuilder();
+        var configuration = configurationBuilder.Build();
+        services.AddLogging();
+        services.AddSingleton<IDomainEventBus, DomainEventBus>();
+        services.AddProxyListener(configuration);
+
+        ServiceProvider provider = services.BuildServiceProvider();
+        try
+        {
+            provider.StartClientBackgroundServices();
+            var activationService = provider.GetRequiredService<IPluginActivationService>();
+            await Assert.That(activationService.IsActivated).IsTrue();
         }
         finally
         {

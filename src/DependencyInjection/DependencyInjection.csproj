@@ -20,6 +20,7 @@
         <ProjectReference Include="..\Domain.RemoteDevices\Domain.RemoteDevices.csproj" />
         <ProjectReference Include="..\Domain.Rules\Domain.Rules.csproj" />
         <ProjectReference Include="..\Domain.Scripting\Domain.Scripting.csproj" />
+        <ProjectReference Include="..\Domain.Session\Domain.Session.csproj" />
         <ProjectReference Include="..\Domain.Throttling\Domain.Throttling.csproj" />
         <ProjectReference Include="..\Domain.Traffic\Domain.Traffic.csproj" />
         <ProjectReference Include="..\Framework.Extensibility\Framework.Extensibility.csproj" />

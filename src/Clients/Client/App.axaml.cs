@@ -22,11 +22,8 @@ using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.DependencyInjection;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Proxy;
-using Proxyfan.Domain.Session.Har;
 using Proxyfan.Domain.Traffic.Columns;
-using Proxyfan.Domain.Updates;
 using Proxyfan.Framework.Serialization;
-using Proxyfan.Plugin.Abstractions;
 using Proxyfan.Presentation;
 using Proxyfan.Presentation.Dialogs;
 using Proxyfan.Presentation.Files;
@@ -126,8 +123,7 @@ public partial class App : Application
             services.AddSingleton<AvaloniaTextPromptService>();
             services.AddSingleton<ITextPromptService>(static serviceProvider => serviceProvider.GetRequiredService<AvaloniaTextPromptService>());
             services.AddSingleton<CustomColumnRegistry>();
-            services.AddSingleton<IHarExporter, HarExporter>();
-            services.AddSingleton<IHarImporter, HarImporter>();
+            services.AddSessionHarServices();
             services.AddSingleton<ThemeService>(static _ =>
             {
                 var initial = AppTheme.System;
@@ -237,9 +233,7 @@ public partial class App : Application
             themeService.ThemeChanged += (_, theme) => ApplyTheme(theme);
             host.Start();
             _ = host.Services.GetRequiredService<ProxyServer>();
-            host.Services.GetRequiredService<IPluginActivationService>().EnsureLoaded();
-            host.Services.GetRequiredService<PeriodicUpdateChecker>().Start();
-            host.Services.GetRequiredService<PeriodicReverseProxyHealthChecker>().Start();
+            host.Services.StartClientBackgroundServices();
         }
         catch (Exception ex)
         {
