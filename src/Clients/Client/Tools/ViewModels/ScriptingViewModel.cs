@@ -78,8 +78,6 @@ public sealed partial class ScriptingViewModel : ObservableObject, IDisposable
     {
         var requestSource = RequestSource;
         var responseSource = ResponseSource;
-        _configuration.SetRequestSource(requestSource);
-        _configuration.SetResponseSource(responseSource);
         var result = _compiler.Compile(ScriptDisplayName, requestSource, responseSource);
         Diagnostics.Clear();
         foreach (var diagnostic in result.Diagnostics)
@@ -90,13 +88,12 @@ public sealed partial class ScriptingViewModel : ObservableObject, IDisposable
 
         if (result.IsSuccess && result.Script is not null)
         {
-            _configuration.SetActiveScript(result.Script);
+            _configuration.SetCompiledScript(requestSource, responseSource, result.Script);
             IsCompilationSuccessful = true;
             CompilationStatus = "OK";
         }
         else
         {
-            _configuration.ClearActiveScript();
             IsCompilationSuccessful = false;
             CompilationStatus = "Failed";
         }
