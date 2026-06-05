@@ -163,6 +163,40 @@ public sealed class UserScriptingHandlerTests
     }
 
     /// <summary>
+    ///     Verifies that shared state written by a request-phase script is not visible to a
+    ///     subsequent response phase that runs under a different compiled script.
+    ///     When the active script is replaced the handler discards all per-flow state
+    ///     accumulated under the previous script so it cannot bleed into the new script.
+    /// </summary>
+    [Test]
+    public async Task ApplyResponseAsync_ScriptChangedBetweenPhases_SharedStateIsIsolatedToScript()
+    {
+        var configuration = new MutableScriptingConfiguration(isEnabled: true);
+        var scriptA = new StubUserScript(
+            "script-a",
+            onRequest: (request, state) => state["marker"] = "from-script-a");
+        configuration.SetActiveScript(scriptA);
+        var handler = new UserScriptingHandler(configuration);
+        var sourceRequest = BuildRequest("GET");
+        var sourceResponse = BuildResponse(200);
+
+        await handler.ApplyRequestAsync("flow-1", sourceRequest, CancellationToken.None);
+
+        var scriptB = new StubUserScript(
+            "script-b",
+            onResponse: (req, resp, state) =>
+            {
+                var found = state.TryGetValue("marker", out _);
+                resp.Headers.Set("X-Found", found ? "yes" : "no");
+            });
+        configuration.SetActiveScript(scriptB);
+
+        var outcome = await handler.ApplyResponseAsync("flow-1", sourceRequest, sourceResponse, CancellationToken.None);
+
+        await Assert.That(outcome.Value.Headers.Get("X-Found")).IsEqualTo("no");
+    }
+
+    /// <summary>
     ///     Verifies that a response-phase script mutation is projected back into a new response.
     /// </summary>
     [Test]
