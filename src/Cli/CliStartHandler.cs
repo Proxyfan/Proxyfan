@@ -66,9 +66,16 @@ public static class CliStartHandler
             return startExitCode.Value;
         }
 
-        await WriteListeningAsync(executionArguments, cancellationToken).ConfigureAwait(false);
-        await WaitForShutdownAsync(startOptions, cancellationToken).ConfigureAwait(false);
-        await ShutdownAsync(executionArguments, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await WriteListeningAsync(executionArguments, cancellationToken).ConfigureAwait(false);
+            await WaitForShutdownAsync(startOptions, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await ShutdownAsync(executionArguments, cancellationToken).ConfigureAwait(false);
+        }
+
         return 0;
     }
 
@@ -151,18 +158,24 @@ public static class CliStartHandler
     private static async Task ShutdownAsync(StartExecutionArguments arguments, CancellationToken cancellationToken)
     {
         _ = cancellationToken;
-        await arguments.ProxyServer.StopAsync(CancellationToken.None).ConfigureAwait(false);
-        var exportArguments = new CliStartExportArguments
+        try
         {
-            Host = arguments.Host,
-            IsJsonOutput = arguments.Command.IsJsonOutput,
-            StandardError = arguments.StandardError,
-            StandardOut = arguments.StandardOut,
-            StartOptions = arguments.StartOptions,
-        };
-        await ExportCapturedFlowsAsync(exportArguments, CancellationToken.None).ConfigureAwait(false);
-        await arguments.Host.StopAsync(CancellationToken.None).ConfigureAwait(false);
-        arguments.Host.Dispose();
+            await arguments.ProxyServer.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            var exportArguments = new CliStartExportArguments
+            {
+                Host = arguments.Host,
+                IsJsonOutput = arguments.Command.IsJsonOutput,
+                StandardError = arguments.StandardError,
+                StandardOut = arguments.StandardOut,
+                StartOptions = arguments.StartOptions,
+            };
+            await ExportCapturedFlowsAsync(exportArguments, CancellationToken.None).ConfigureAwait(false);
+        }
+        finally
+        {
+            await arguments.Host.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            arguments.Host.Dispose();
+        }
     }
 
     private static async Task<bool> TryStartHostAsync(IHost host, CancellationToken cancellationToken)
