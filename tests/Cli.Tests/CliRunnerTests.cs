@@ -55,7 +55,7 @@ public sealed class CliRunnerTests
     ///     the cancellation token fires before startup completes.
     /// </summary>
     [Test]
-    public async Task RunAsync_StartCommand_CancelledImmediately_ReturnsZero()
+    public async Task RunAsync_StartCommandCancelled_ReturnsZero()
     {
         var runner = new CliRunner();
         using var output = new StringWriter();
