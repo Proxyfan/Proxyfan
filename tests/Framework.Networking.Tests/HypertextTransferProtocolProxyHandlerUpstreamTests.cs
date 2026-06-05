@@ -169,7 +169,7 @@ public sealed class HypertextTransferProtocolProxyHandlerUpstreamTests
             registry.RegisterAsyncRequestPhaseRule(breakpointRule);
             registry.RegisterAsyncResponsePhaseRule(breakpointRule);
         }
-        var ruleEngine = new RuleEngine(registry);
+        var ruleEngine = new RuleEngine(registry, NullLogger<RuleEngine>.Instance);
         var dependencies = new HypertextTransferProtocolProxyHandlerDependencies
         {
             TrafficStore = new StubTrafficStore(),

@@ -370,7 +370,8 @@ public static class ServiceCollectionExtensions
         var scriptingRule = new ScriptingRule(scriptingHandler, logger);
         registry.RegisterAsyncRequestPhaseRule(scriptingRule);
         registry.RegisterAsyncResponsePhaseRule(scriptingRule);
-        return new RuleEngine(registry);
+        var engineLogger = provider.GetRequiredService<ILogger<RuleEngine>>();
+        return new RuleEngine(registry, engineLogger);
     }
 
     private static TransportLayerSecurityInterceptorHandlerDependencies BuildTransportLayerSecurityDependencies(IServiceProvider provider)

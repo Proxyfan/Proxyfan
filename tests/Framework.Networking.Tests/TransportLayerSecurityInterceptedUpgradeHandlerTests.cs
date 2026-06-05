@@ -433,7 +433,7 @@ public sealed class TransportLayerSecurityInterceptedUpgradeHandlerTests
                 var breakpointRule = new BreakpointRule(breakpointHandler);
                 registry.RegisterAsyncResponsePhaseRule(breakpointRule);
             }
-            effectiveRuleEngine = new RuleEngine(registry);
+            effectiveRuleEngine = new RuleEngine(registry, NullLogger<RuleEngine>.Instance);
         }
         return new TransportLayerSecurityInterceptedUpgradeHandlerDependencies
         {

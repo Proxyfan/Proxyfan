@@ -178,6 +178,48 @@ public sealed class RuleEngineTests
         await Assert.That(actions.Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    ///     Verifies that a throwing sync request-phase rule is caught, skipped, and later rules
+    ///     still execute so the engine never propagates the exception.
+    /// </summary>
+    [Test]
+    public async Task EvaluateRequest_ThrowingRule_IsSkippedAndLaterRulesStillRun()
+    {
+        var executed = new List<string>();
+        var throwingRule = new ThrowingRequestRule("throwing", priority: 0, executed: executed);
+        var laterRule = new RecordingRequestRule("later", priority: 1, action: null, executed: executed);
+        var engine = new RuleEngine(new IRequestPhaseRule[] { throwingRule, laterRule }, Enumerable.Empty<IResponsePhaseRule>());
+        var request = CreateRequest("https://example.com/");
+
+        var actions = engine.EvaluateRequest(request);
+
+        await Assert.That(actions.Count).IsEqualTo(0);
+        await Assert.That(executed).Contains("throwing");
+        await Assert.That(executed).Contains("later");
+    }
+
+    /// <summary>
+    ///     Verifies that a throwing sync response-phase rule is caught, skipped, and later rules
+    ///     still execute so the engine never propagates the exception.
+    /// </summary>
+    [Test]
+    public async Task EvaluateResponse_ThrowingRule_IsSkippedAndLaterRulesStillRun()
+    {
+        var executed = new List<string>();
+        var throwingRule = new ThrowingResponseRule("throwing", priority: 0, executed: executed);
+        var laterModified = CreateResponse(201);
+        var laterRule = new RecordingResponseRule(priority: 1, action: new ResponsePipelineAction.ModifyResponse(laterModified));
+        var engine = new RuleEngine(Enumerable.Empty<IRequestPhaseRule>(), new IResponsePhaseRule[] { throwingRule, laterRule });
+        var request = CreateRequest("https://example.com/");
+        var response = CreateResponse(200);
+
+        var actions = engine.EvaluateResponse(request, response);
+
+        await Assert.That(executed).Contains("throwing");
+        await Assert.That(actions.Count).IsEqualTo(1);
+        await Assert.That(actions[0]).IsTypeOf<ResponsePipelineAction.ModifyResponse>();
+    }
+
     private static HypertextTransferProtocolRequestData CreateRequest(string url)
     {
         var parameters = new HypertextTransferProtocolRequestDataParameters
@@ -276,6 +318,54 @@ public sealed class RuleEngineTests
         {
             LastSeenResponseStatus = response.StatusCode;
             return _action;
+        }
+    }
+
+    private sealed class ThrowingRequestRule : IRequestPhaseRule
+    {
+        private readonly List<string> _executed;
+        private readonly string _name;
+
+        public bool IsEnabled => true;
+
+        public int Priority { get; }
+
+        public ThrowingRequestRule(string name, int priority, List<string> executed)
+        {
+            _name = name;
+            Priority = priority;
+            _executed = executed;
+        }
+
+        public RequestPipelineAction? EvaluateRequest(HypertextTransferProtocolRequestData request)
+        {
+            _executed.Add(_name);
+            throw new InvalidOperationException("Simulated rule failure");
+        }
+    }
+
+    private sealed class ThrowingResponseRule : IResponsePhaseRule
+    {
+        private readonly List<string> _executed;
+        private readonly string _name;
+
+        public bool IsEnabled => true;
+
+        public int Priority { get; }
+
+        public ThrowingResponseRule(string name, int priority, List<string> executed)
+        {
+            _name = name;
+            Priority = priority;
+            _executed = executed;
+        }
+
+        public ResponsePipelineAction? EvaluateResponse(
+            HypertextTransferProtocolRequestData request,
+            HypertextTransferProtocolResponseData response)
+        {
+            _executed.Add(_name);
+            throw new InvalidOperationException("Simulated rule failure");
         }
     }
 }

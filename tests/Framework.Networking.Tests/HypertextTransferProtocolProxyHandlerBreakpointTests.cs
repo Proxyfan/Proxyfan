@@ -115,7 +115,7 @@ public sealed class HypertextTransferProtocolProxyHandlerBreakpointTests
             registry.RegisterAsyncRequestPhaseRule(breakpointRule);
             registry.RegisterAsyncResponsePhaseRule(breakpointRule);
         }
-        var ruleEngine = new RuleEngine(registry);
+        var ruleEngine = new RuleEngine(registry, NullLogger<RuleEngine>.Instance);
         var handler = new HypertextTransferProtocolProxyHandler(new HypertextTransferProtocolProxyHandlerDependencies
         {
             TrafficStore = trafficStore,

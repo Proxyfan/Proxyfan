@@ -1,5 +1,8 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain.Rules.Pipeline;
 using Proxyfan.Domain.Traffic;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +16,7 @@ namespace Proxyfan.Domain.Rules;
 /// </summary>
 public sealed class RuleEngine : IRuleEngine
 {
+    private readonly ILogger<RuleEngine> _logger;
     private readonly IRuleRegistry _registry;
 
     /// <summary>
@@ -21,9 +25,11 @@ public sealed class RuleEngine : IRuleEngine
     ///     immediately, including across UI-driven rule edits at runtime.
     /// </summary>
     /// <param name="registry">The rule registry that supplies request- and response-phase rules.</param>
-    public RuleEngine(IRuleRegistry registry)
+    /// <param name="logger">The logger used to surface non-fatal rule evaluation errors.</param>
+    public RuleEngine(IRuleRegistry registry, ILogger<RuleEngine> logger)
     {
         _registry = registry;
+        _logger = logger;
     }
 
     /// <summary>
@@ -49,6 +55,7 @@ public sealed class RuleEngine : IRuleEngine
         }
 
         _registry = registry;
+        _logger = NullLogger<RuleEngine>.Instance;
     }
 
     /// <inheritdoc />
@@ -127,7 +134,16 @@ public sealed class RuleEngine : IRuleEngine
                 continue;
             }
 
-            var action = await rule.EvaluateRequestAsync(currentRequest, flowId, cancellationToken).ConfigureAwait(false);
+            RequestPipelineAction? action;
+            try
+            {
+                action = await rule.EvaluateRequestAsync(currentRequest, flowId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Async request-phase rule {RuleType} threw; skipping rule", rule.GetType().Name);
+                continue;
+            }
 
             if (action is null)
             {
@@ -170,7 +186,16 @@ public sealed class RuleEngine : IRuleEngine
                 continue;
             }
 
-            var action = await rule.EvaluateResponseAsync(request, currentResponse, flowId, cancellationToken).ConfigureAwait(false);
+            ResponsePipelineAction? action;
+            try
+            {
+                action = await rule.EvaluateResponseAsync(request, currentResponse, flowId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Async response-phase rule {RuleType} threw; skipping rule", rule.GetType().Name);
+                continue;
+            }
 
             if (action is null)
             {
@@ -205,7 +230,16 @@ public sealed class RuleEngine : IRuleEngine
                 continue;
             }
 
-            var action = rule.EvaluateRequest(currentRequest);
+            RequestPipelineAction? action;
+            try
+            {
+                action = rule.EvaluateRequest(currentRequest);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Sync request-phase rule {RuleType} threw; skipping rule", rule.GetType().Name);
+                continue;
+            }
 
             if (action is null)
             {
@@ -246,7 +280,16 @@ public sealed class RuleEngine : IRuleEngine
                 continue;
             }
 
-            var action = rule.EvaluateResponse(request, currentResponse);
+            ResponsePipelineAction? action;
+            try
+            {
+                action = rule.EvaluateResponse(request, currentResponse);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Sync response-phase rule {RuleType} threw; skipping rule", rule.GetType().Name);
+                continue;
+            }
 
             if (action is null)
             {
