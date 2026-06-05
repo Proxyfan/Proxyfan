@@ -34,9 +34,9 @@ public sealed class ScriptableRequest
         var headers = new ScriptableHeaders();
         foreach (var header in source.Headers)
         {
-            if (header.Value.Length > 0)
+            foreach (var value in header.Value)
             {
-                headers.Set(header.Key, header.Value[0]);
+                headers.Add(header.Key, value);
             }
         }
 

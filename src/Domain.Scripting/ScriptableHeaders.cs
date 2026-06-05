@@ -10,7 +10,7 @@ namespace Proxyfan.Domain.Scripting;
 /// </summary>
 public sealed class ScriptableHeaders
 {
-    private readonly Dictionary<string, string> _headers;
+    private readonly Dictionary<string, string[]> _headers;
 
     /// <summary>
     ///     Gets the count of distinct header names.
@@ -22,8 +22,32 @@ public sealed class ScriptableHeaders
     /// </summary>
     public ScriptableHeaders()
     {
-        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
         _headers = headers;
+    }
+
+    /// <summary>
+    ///     Appends a value for the named header.
+    /// </summary>
+    /// <param name="name">The header name.</param>
+    /// <param name="value">The header value.</param>
+    public void Add(string name, string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (_headers.TryGetValue(name, out var values))
+        {
+            var updatedValues = new string[values.Length + 1];
+            Array.Copy(values, updatedValues, values.Length);
+            updatedValues[values.Length] = value;
+            _headers[name] = updatedValues;
+            return;
+        }
+
+        string[] addedValues =
+        [
+            value,
+        ];
+        _headers[name] = addedValues;
     }
 
     /// <summary>
@@ -32,7 +56,13 @@ public sealed class ScriptableHeaders
     /// <returns>An enumeration of name-value pairs.</returns>
     public IEnumerable<KeyValuePair<string, string>> Enumerate()
     {
-        return _headers;
+        foreach (var header in _headers)
+        {
+            foreach (var value in header.Value)
+            {
+                yield return new KeyValuePair<string, string>(header.Key, value);
+            }
+        }
     }
 
     /// <summary>
@@ -43,9 +73,9 @@ public sealed class ScriptableHeaders
     public string? Get(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (_headers.TryGetValue(name, out var value))
+        if (_headers.TryGetValue(name, out var values) && values.Length > 0)
         {
-            return value;
+            return values[0];
         }
 
         return null;
@@ -81,6 +111,10 @@ public sealed class ScriptableHeaders
     public void Set(string name, string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        _headers[name] = value;
+        string[] values =
+        [
+            value,
+        ];
+        _headers[name] = values;
     }
 }
