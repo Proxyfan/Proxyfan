@@ -371,6 +371,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         if (notifyArgs.Action != NotifyCollectionChangedAction.Add
             || notifyArgs.NewItems is null
             || notifyArgs.NewItems.Count == 0
+            || Flows.Count < notifyArgs.NewItems.Count
             || notifyArgs.NewStartingIndex != Flows.Count - notifyArgs.NewItems.Count)
         {
             return false;
@@ -384,6 +385,17 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             }
         }
 
+        return true;
+    }
+
+    private bool HasHandledEmptyResetVisibleFlowsChange(NotifyCollectionChangedEventArgs notifyArgs)
+    {
+        if (notifyArgs.Action != NotifyCollectionChangedAction.Reset || Flows.Count != 0)
+        {
+            return false;
+        }
+
+        VisibleFlows.Clear();
         return true;
     }
 
@@ -402,17 +414,6 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             }
         }
 
-        return true;
-    }
-
-    private bool HasHandledResetVisibleFlowsChange(NotifyCollectionChangedEventArgs notifyArgs)
-    {
-        if (notifyArgs.Action != NotifyCollectionChangedAction.Reset || Flows.Count != 0)
-        {
-            return false;
-        }
-
-        VisibleFlows.Clear();
         return true;
     }
 
@@ -480,7 +481,7 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (HasHandledResetVisibleFlowsChange(notifyArgs))
+        if (HasHandledEmptyResetVisibleFlowsChange(notifyArgs))
         {
             return;
         }

@@ -273,12 +273,16 @@ public sealed class TrafficListViewModelToggleCaptureAndFilterTests
     [Test]
     public async Task VisibleFlows_FilteredInsertAtStart_RebuildsToPreserveOrder()
     {
+        const int insertedSequenceNumber = 99;
+
         var bus = new StubBus();
         using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://beta.example.com/2"));
         bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/3"));
         viewModel.FilterText = "alpha";
-        var insertedFlow = new TrafficFlowViewModel(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/1"), 99);
+        var insertedFlow = new TrafficFlowViewModel(
+            CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/1"),
+            insertedSequenceNumber);
 
         var actions = new List<NotifyCollectionChangedAction>();
         viewModel.VisibleFlows.CollectionChanged += (_, eventArgs) => actions.Add(eventArgs.Action);
