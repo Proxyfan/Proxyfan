@@ -23,6 +23,7 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
     private readonly TrafficListViewModel _trafficListViewModel;
     private readonly IWebSocketStore _webSocketStore;
     private WebSocketFlow? _attachedFlow;
+    private int _attachmentGeneration;
     [ObservableProperty]
     private string _connectionStatusText;
     [ObservableProperty]
@@ -132,6 +133,7 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
     private void AttachFlow(WebSocketFlow flow)
     {
         _attachedFlow = flow;
+        _attachmentGeneration++;
         flow.MessageRecorded += OnMessageRecorded;
         flow.Closed += OnFlowClosed;
 
@@ -158,6 +160,7 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
         _attachedFlow.MessageRecorded -= OnMessageRecorded;
         _attachedFlow.Closed -= OnFlowClosed;
         _attachedFlow = null;
+        _attachmentGeneration++;
     }
 
     private bool HasMatchingFilter(WebSocketMessageViewModel viewModel)
@@ -213,16 +216,28 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
 
     private void OnFlowClosed()
     {
+        var capturedGeneration = _attachmentGeneration;
         _scheduler.Post(() =>
         {
+            if (_attachmentGeneration != capturedGeneration)
+            {
+                return;
+            }
+
             ConnectionStatusText = "WebSocket — closed";
         });
     }
 
     private void OnMessageRecorded(WebSocketMessage message)
     {
+        var capturedGeneration = _attachmentGeneration;
         _scheduler.Post(() =>
         {
+            if (_attachmentGeneration != capturedGeneration)
+            {
+                return;
+            }
+
             var viewModel = new WebSocketMessageViewModel(message);
             _allMessages.Add(viewModel);
             if (HasMatchingFilter(viewModel))

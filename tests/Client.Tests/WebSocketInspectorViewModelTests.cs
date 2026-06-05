@@ -4,6 +4,7 @@ using Proxyfan.Client.Traffic.ViewModels;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
+using Proxyfan.Presentation.Threading;
 using System;
 using System.Threading.Tasks;
 
@@ -145,6 +146,50 @@ public sealed class WebSocketInspectorViewModelTests
         firstWebSocket.RecordMessage(message);
 
         await Assert.That(harness.WebSocketInspector.Messages.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that delayed posted message callbacks from a previously selected flow
+    ///     do not append payload rows after the selection has changed.
+    /// </summary>
+    [Test]
+    public async Task RecordMessage_PostedBeforeSelectionChange_DoesNotAppendStaleMessage()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var secondFlowId = Guid.NewGuid();
+        var firstWebSocket = CreateWebSocketFlow(firstFlowId, harness.WebSocketStore);
+        CreateWebSocketFlow(secondFlowId, harness.WebSocketStore);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+        firstWebSocket.RecordMessage(CreateMessage(WebSocketDirection.Inbound, WebSocketOpcode.Text));
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+
+        scheduler.RunPending();
+
+        await Assert.That(harness.WebSocketInspector.Messages.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Verifies that delayed posted close callbacks from a previously selected flow do
+    ///     not overwrite the connection status of the currently selected flow.
+    /// </summary>
+    [Test]
+    public async Task FlowClosed_PostedBeforeSelectionChange_DoesNotOverwriteStatus()
+    {
+        var scheduler = new DeferredUserInterfaceScheduler();
+        using var harness = CreateHarness(scheduler);
+        var firstFlowId = Guid.NewGuid();
+        var secondFlowId = Guid.NewGuid();
+        var firstWebSocket = CreateWebSocketFlow(firstFlowId, harness.WebSocketStore);
+        CreateWebSocketFlow(secondFlowId, harness.WebSocketStore);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(firstFlowId);
+        firstWebSocket.MarkClosed(DateTimeOffset.UtcNow);
+        harness.TrafficListViewModel.SelectedFlow = CreateFlowViewModel(secondFlowId);
+
+        scheduler.RunPending();
+
+        await Assert.That(harness.WebSocketInspector.ConnectionStatusText).IsEqualTo("WebSocket — open");
     }
 
     /// <summary>
@@ -511,13 +556,18 @@ public sealed class WebSocketInspectorViewModelTests
 
     private static Harness CreateHarness()
     {
+        return CreateHarness(InlineUserInterfaceScheduler.Instance);
+    }
+
+    private static Harness CreateHarness(IUserInterfaceScheduler userInterfaceScheduler)
+    {
         var bus = new StubDomainEventBus();
-        var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        var trafficListViewModel = new TrafficListViewModel(bus, userInterfaceScheduler);
         var webSocketStore = new WebSocketStore();
         var webSocketInspector = new WebSocketInspectorViewModel(
             trafficListViewModel,
             webSocketStore,
-            InlineUserInterfaceScheduler.Instance);
+            userInterfaceScheduler);
         return new Harness(trafficListViewModel, webSocketStore, webSocketInspector);
     }
 
@@ -545,6 +595,30 @@ public sealed class WebSocketInspectorViewModelTests
         var webSocketFlow = new WebSocketFlow(underlying);
         store.Add(webSocketFlow);
         return webSocketFlow;
+    }
+
+    private sealed class DeferredUserInterfaceScheduler : IUserInterfaceScheduler
+    {
+        private readonly System.Collections.Generic.Queue<UserInterfaceWorkItem> _pending = new();
+
+        public bool HasAccess()
+        {
+            return false;
+        }
+
+        public void Post(UserInterfaceWorkItem action)
+        {
+            _pending.Enqueue(action);
+        }
+
+        public void RunPending()
+        {
+            while (_pending.Count > 0)
+            {
+                var action = _pending.Dequeue();
+                action();
+            }
+        }
     }
 
     private sealed class StubDomainEventBus : IDomainEventBus
