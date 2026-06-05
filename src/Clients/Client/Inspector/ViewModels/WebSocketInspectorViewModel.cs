@@ -130,16 +130,46 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
         UpdateForSelectedFlow();
     }
 
+    private void AddMessageIfMissing(WebSocketMessage message)
+    {
+        AddMessageIfMissing(message, null);
+    }
+
+    private void AddMessageIfMissing(
+        WebSocketMessage message,
+        HashSet<WebSocketMessage>? seededMessages)
+    {
+        if (seededMessages is not null && !seededMessages.Add(message))
+        {
+            return;
+        }
+
+        foreach (var existing in _allMessages)
+        {
+            if (ReferenceEquals(existing.Message, message))
+            {
+                return;
+            }
+        }
+
+        var viewModel = new WebSocketMessageViewModel(message);
+        _allMessages.Add(viewModel);
+    }
+
     private void AttachFlow(WebSocketFlow flow)
     {
+        var seededMessages = new HashSet<WebSocketMessage>(ReferenceEqualityComparer.Instance);
+        foreach (var message in flow.GetMessageSnapshot())
+        {
+            AddMessageIfMissing(message, seededMessages);
+        }
+
         _attachedFlow = flow;
         flow.MessageRecorded += OnMessageRecorded;
         flow.Closed += OnFlowClosed;
-
-        foreach (var message in flow.Messages)
+        foreach (var message in flow.GetMessageSnapshot())
         {
-            var viewModel = new WebSocketMessageViewModel(message);
-            _allMessages.Add(viewModel);
+            AddMessageIfMissing(message, seededMessages);
         }
 
         RebuildFilteredMessages();
@@ -237,8 +267,15 @@ public sealed partial class WebSocketInspectorViewModel : ObservableObject, IDis
                 return;
             }
 
-            var viewModel = new WebSocketMessageViewModel(message);
-            _allMessages.Add(viewModel);
+            var messageCount = _allMessages.Count;
+            AddMessageIfMissing(message);
+
+            if (_allMessages.Count == messageCount)
+            {
+                return;
+            }
+
+            var viewModel = _allMessages[messageCount];
             if (HasMatchingFilter(viewModel))
             {
                 _messages.Add(viewModel);
