@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +47,12 @@ public sealed class StubUserScript : IUserScript
         IDictionary<string, object?> sharedState,
         CancellationToken cancellationToken)
     {
-        _onRequest?.Invoke(request, sharedState);
+        if (_onRequest is null)
+        {
+            throw new InvalidOperationException("OnRequestAsync invoked on stub that was not configured for it.");
+        }
+
+        _onRequest.Invoke(request, sharedState);
         return Task.CompletedTask;
     }
 
@@ -57,7 +63,12 @@ public sealed class StubUserScript : IUserScript
         IDictionary<string, object?> sharedState,
         CancellationToken cancellationToken)
     {
-        _onResponse?.Invoke(request, response, sharedState);
+        if (_onResponse is null)
+        {
+            throw new InvalidOperationException("OnResponseAsync invoked on stub that was not configured for it.");
+        }
+
+        _onResponse.Invoke(request, response, sharedState);
         return Task.CompletedTask;
     }
 }
