@@ -457,14 +457,17 @@ public sealed class ReverseProxySettingsViewModelTests
             InlineUserInterfaceScheduler.Instance);
 
         await Assert.That(viewModel.TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.None);
-        await Assert.That(viewModel.TransportLayerSecurityModes.Count).IsEqualTo(3);
+        await Assert.That(viewModel.TransportLayerSecurityModes.Count).IsEqualTo(2);
+        await Assert.That(viewModel.TransportLayerSecurityModes).Contains(ReverseProxyTransportLayerSecurityMode.None);
+        await Assert.That(viewModel.TransportLayerSecurityModes).Contains(ReverseProxyTransportLayerSecurityMode.Passthrough);
+        await Assert.That(viewModel.TransportLayerSecurityModes).DoesNotContain(ReverseProxyTransportLayerSecurityMode.Terminate);
     }
 
     /// <summary>
-    ///     Adding a route with the editor TLS mode set to Terminate persists the choice onto the route.
+    ///     Adding a route with the editor TLS mode set to Terminate is rejected with a validation error.
     /// </summary>
     [Test]
-    public async Task AddRouteCommand_TerminateTls_RoutePersistsMode()
+    public async Task AddRouteCommand_TerminateTls_SetsValidationError()
     {
         var registry = new ReverseProxyRouteRegistry();
         var engine = new StubReverseProxyEngine();
@@ -479,8 +482,8 @@ public sealed class ReverseProxySettingsViewModelTests
 
         viewModel.AddRouteCommand.Execute(null);
 
-        await Assert.That(registry.Routes.Count).IsEqualTo(1);
-        await Assert.That(registry.Routes[0].TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.Terminate);
+        await Assert.That(registry.Routes.Count).IsEqualTo(0);
+        await Assert.That(viewModel.ValidationError).IsNotNull();
     }
 
     /// <summary>
@@ -546,7 +549,7 @@ public sealed class ReverseProxySettingsViewModelTests
             ListenPort = "9100",
             BackendHost = "api.example.com",
             BackendPort = "443",
-            TransportLayerSecurityMode = ReverseProxyTransportLayerSecurityMode.Terminate,
+            TransportLayerSecurityMode = ReverseProxyTransportLayerSecurityMode.Passthrough,
         };
         viewModel.AddRouteCommand.Execute(null);
         var existing = viewModel.Routes[0];
@@ -558,7 +561,7 @@ public sealed class ReverseProxySettingsViewModelTests
         await Assert.That(viewModel.ListenPort).IsEqualTo("9100");
         await Assert.That(viewModel.BackendHost).IsEqualTo("api.example.com");
         await Assert.That(viewModel.BackendPort).IsEqualTo("443");
-        await Assert.That(viewModel.TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.Terminate);
+        await Assert.That(viewModel.TransportLayerSecurityMode).IsEqualTo(ReverseProxyTransportLayerSecurityMode.Passthrough);
     }
 
     /// <summary>
