@@ -142,18 +142,18 @@ public sealed class ProxyServerTests
     }
 
     /// <summary>
-    ///     Verifies that changing <see cref="ProxyOptions" /> while stopped triggers a restart (which just starts).
+    ///     Verifies that changing <see cref="ProxyOptions" /> while stopped does not restart the proxy.
     /// </summary>
     [Test]
-    public async Task OptionsChange_WhenStopped_TriggersRestart()
+    public async Task OptionsChange_WhenStopped_DoesNotRestart()
     {
         await using var server = CreateServer();
 
-        var waitForStart = _eventBus.WaitForNextPublishAsync<ProxyStarted>(CancellationToken.None);
         _optionsMonitor!.RaiseChange(new ProxyOptions { Port = 9999, IsAutoStart = false });
-        await waitForStart;
 
-        await Assert.That(server.Status).IsEqualTo(ProxyStatus.Running);
+        await Assert.That(server.Status).IsEqualTo(ProxyStatus.Stopped);
+        await Assert.That(_listener.StartCallCount).IsEqualTo(0);
+        await Assert.That(_eventBus.PublishedOf<ProxyStarted>()).Count().IsEqualTo(0);
     }
 
     /// <summary>
