@@ -1,7 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Proxyfan.Domain.Certificates;
+using Proxyfan.Domain.Rules;
+using Proxyfan.Domain.Rules.Matching;
+using Proxyfan.Domain.Rules.Rules;
 using Proxyfan.Framework.Networking.Tests.Stubs;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -71,6 +75,115 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         await Assert.That(responseText).IsEqualTo("hello");
     }
 
+    /// <summary>
+    ///     Verifies that an intercepted HTTPS request blocked by the rule engine returns a synthetic
+    ///     403 response and does not forward HTTP bytes to the upstream server.
+    /// </summary>
+    [Test]
+    public async Task FullStack_InterceptHttpsRequest_WithBlockRule_Writes403AndSkipsUpstreamRequest()
+    {
+        using var upstreamCertificate = CreateSelfSignedServerCertificate("localhost");
+        using var upstreamListener = StartTlsUpstreamServer(upstreamCertificate, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello");
+        var upstreamEndPoint = (IPEndPoint)upstreamListener.Listener.LocalEndpoint;
+
+        var proxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
+        var trafficStore = new StubTrafficStore();
+        var eventBus = new StubDomainEventBus();
+        var matching = new MatchingRule("*", MatchingRuleKind.Wildcard);
+        var ruleEngine = new RuleEngine(new IRequestPhaseRule[] { new BlockListRule([matching], isEnabled: true, priority: 0) }, Array.Empty<IResponsePhaseRule>());
+        var handler = new TransportLayerSecurityInterceptorHandler(new TransportLayerSecurityInterceptorHandlerDependencies
+        {
+            Context = context,
+            EventBus = eventBus,
+            Logger = NullLogger<TransportLayerSecurityInterceptorHandler>.Instance,
+            RuleEngine = ruleEngine,
+            TrafficStore = trafficStore,
+        });
+
+        using var proxyListener = StartProxyListener(handler);
+        var proxyEndPoint = (IPEndPoint)proxyListener.Listener.LocalEndpoint;
+
+        using var httpClientHandler = new HttpClientHandler
+        {
+            Proxy = new WebProxy($"http://127.0.0.1:{proxyEndPoint.Port}"),
+            UseProxy = true,
+            ServerCertificateCustomValidationCallback = AcceptInterceptorLeafCertificate,
+        };
+        using var httpClient = new HttpClient(httpClientHandler);
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var response = await httpClient.GetAsync($"https://127.0.0.1:{upstreamEndPoint.Port}/blocked", cancellationSource.Token);
+        var upstreamRequestBytes = await upstreamListener.RequestByteCountTask;
+
+        await Assert.That((int)response.StatusCode).IsEqualTo(403);
+        await Assert.That(upstreamRequestBytes).IsEqualTo(0);
+        await Assert.That(trafficStore.Count).IsEqualTo(1);
+        await Assert.That(trafficStore.AddedFlows[0].Response!.StatusCode).IsEqualTo(403);
+    }
+
+    /// <summary>
+    ///     Verifies that an intercepted HTTPS Map Local rule serves the configured response and
+    ///     does not forward the decrypted HTTP request upstream.
+    /// </summary>
+    [Test]
+    public async Task FullStack_InterceptHttpsRequest_WithMapLocalRule_WritesLocalResponseWithoutUpstreamRequest()
+    {
+        using var upstreamCertificate = CreateSelfSignedServerCertificate("localhost");
+        using var upstreamListener = StartTlsUpstreamServer(upstreamCertificate, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello");
+        var upstreamEndPoint = (IPEndPoint)upstreamListener.Listener.LocalEndpoint;
+
+        var proxyingList = new ServerNameIndicationProxyingList(isEnabled: true);
+        var context = new TransportLayerSecurityInterceptionContext(new MutableCertificateAuthorityProvider(new StubCertificateGenerator()), proxyingList);
+        var trafficStore = new StubTrafficStore();
+        var eventBus = new StubDomainEventBus();
+        var matching = new MatchingRule("*", MatchingRuleKind.Wildcard);
+        var parameters = new MapLocalRuleParameters
+        {
+            Body = Encoding.UTF8.GetBytes("hello local"),
+            Headers =
+            [
+                new KeyValuePair<string, string>("Connection", "close"),
+                new KeyValuePair<string, string>("Content-Length", "11"),
+                new KeyValuePair<string, string>("Content-Type", "text/plain"),
+            ],
+            IsEnabled = true,
+            Priority = 0,
+            ReasonPhrase = "OK",
+            StatusCode = 200,
+        };
+        var ruleEngine = new RuleEngine(new IRequestPhaseRule[] { new MapLocalRule(matching, parameters) }, Array.Empty<IResponsePhaseRule>());
+        var handler = new TransportLayerSecurityInterceptorHandler(new TransportLayerSecurityInterceptorHandlerDependencies
+        {
+            Context = context,
+            EventBus = eventBus,
+            Logger = NullLogger<TransportLayerSecurityInterceptorHandler>.Instance,
+            RuleEngine = ruleEngine,
+            TrafficStore = trafficStore,
+        });
+
+        using var proxyListener = StartProxyListener(handler);
+        var proxyEndPoint = (IPEndPoint)proxyListener.Listener.LocalEndpoint;
+
+        using var httpClientHandler = new HttpClientHandler
+        {
+            Proxy = new WebProxy($"http://127.0.0.1:{proxyEndPoint.Port}"),
+            UseProxy = true,
+            ServerCertificateCustomValidationCallback = AcceptInterceptorLeafCertificate,
+        };
+        using var httpClient = new HttpClient(httpClientHandler);
+        using var cancellationSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var response = await httpClient.GetAsync($"https://127.0.0.1:{upstreamEndPoint.Port}/local", cancellationSource.Token);
+        var responseText = await response.Content.ReadAsStringAsync(cancellationSource.Token);
+        var upstreamRequestBytes = await upstreamListener.RequestByteCountTask;
+
+        await Assert.That((int)response.StatusCode).IsEqualTo(200);
+        await Assert.That(responseText).IsEqualTo("hello local");
+        await Assert.That(upstreamRequestBytes).IsEqualTo(0);
+        await Assert.That(trafficStore.Count).IsEqualTo(1);
+    }
+
     private static bool AcceptInterceptorLeafCertificate(
         HttpRequestMessage request,
         X509Certificate2? certificate,
@@ -113,7 +226,7 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
         return new UpstreamTlsListener(listener, serverTask);
     }
 
-    private static async Task UpstreamServerLoopAsync(TcpListener listener, X509Certificate2 serverCertificate, string responseText)
+    private static async Task<int> UpstreamServerLoopAsync(TcpListener listener, X509Certificate2 serverCertificate, string responseText)
     {
         try
         {
@@ -128,22 +241,30 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
             await sslStream.AuthenticateAsServerAsync(serverOptions).ConfigureAwait(false);
 
             var requestBuffer = new byte[4096];
-            await sslStream.ReadAsync(requestBuffer).ConfigureAwait(false);
+            var bytesRead = await sslStream.ReadAsync(requestBuffer).ConfigureAwait(false);
+            if (bytesRead == 0)
+            {
+                return 0;
+            }
             var responseBytes = Encoding.ASCII.GetBytes(responseText);
             await sslStream.WriteAsync(responseBytes).ConfigureAwait(false);
             await sslStream.FlushAsync().ConfigureAwait(false);
+            return bytesRead;
         }
         catch (SocketException)
         {
             // Expected when the listener is stopped.
+            return 0;
         }
         catch (ObjectDisposedException)
         {
             // Expected when the listener is disposed.
+            return 0;
         }
         catch (IOException)
         {
             // Expected on connection close.
+            return 0;
         }
     }
 
@@ -205,15 +326,17 @@ public sealed class TransportLayerSecurityInterceptorHandlerEndToEndTests
 
     private sealed class UpstreamTlsListener : IDisposable
     {
-        private readonly Task _serverTask;
+        private readonly Task<int> _serverTask;
 
-        public UpstreamTlsListener(TcpListener listener, Task serverTask)
+        public UpstreamTlsListener(TcpListener listener, Task<int> serverTask)
         {
             Listener = listener;
             _serverTask = serverTask;
         }
 
         public TcpListener Listener { get; }
+
+        public Task<int> RequestByteCountTask => _serverTask;
 
         public void Dispose()
         {
