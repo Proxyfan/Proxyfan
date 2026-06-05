@@ -20,7 +20,7 @@ public sealed class RoslynUserScriptSandboxTests
     [Test]
     public async Task RunAsync_ScriptExceedsTimeout_IsCancelled()
     {
-        var sandboxOptions = new ScriptSandboxOptions(timeoutSeconds: 1, memoryLimitBytes: 50L * 1024L * 1024L);
+        var sandboxOptions = new ScriptSandboxOptions(timeoutSeconds: 1, memoryLimitBytes: 50L * 1024L * 1024L, compilationTimeoutSeconds: 2);
         var compiler = new RoslynUserScriptCompiler(sandboxOptions);
         const string source = "await System.Threading.Tasks.Task.Delay(60_000);";
         var compilation = compiler.Compile("timeout-test", source, string.Empty);
@@ -41,7 +41,7 @@ public sealed class RoslynUserScriptSandboxTests
     [Test]
     public async Task RunAsync_ScriptAllocatesAboveBudget_UnloadsContext()
     {
-        var sandboxOptions = new ScriptSandboxOptions(timeoutSeconds: 5, memoryLimitBytes: 1024L);
+        var sandboxOptions = new ScriptSandboxOptions(timeoutSeconds: 5, memoryLimitBytes: 1024L, compilationTimeoutSeconds: 2);
         var compiler = new RoslynUserScriptCompiler(sandboxOptions);
         const string source = "var data = new byte[10 * 1024 * 1024];";
         var compilation = compiler.Compile("oom-test", source, string.Empty);
