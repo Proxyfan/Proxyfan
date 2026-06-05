@@ -96,6 +96,13 @@ function Test-IsEndToEndProject {
     return $content -match '<IsEndToEndTestProject>\s*true\s*</IsEndToEndTestProject>'
 }
 
+function Test-IsTestProject {
+    param([string]$CsprojPath)
+
+    $content = Get-Content $CsprojPath -Raw
+    return $content -match '<PackageReference\s+Include="TUnit"'
+}
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if ($Help) {
@@ -114,7 +121,8 @@ try {
     Write-Host '  Proxyfan Test Runner' -ForegroundColor Cyan
     Write-Host '========================================' -ForegroundColor Cyan
 
-    $AllTestProjects = Get-ChildItem -Path (Join-Path $RepoRoot 'tests') -Recurse -Filter '*.csproj'
+    $AllTestProjects = Get-ChildItem -Path (Join-Path $RepoRoot 'tests') -Recurse -Filter '*.csproj' |
+        Where-Object { Test-IsTestProject $_.FullName }
     $EndToEndProjects = $AllTestProjects | Where-Object { Test-IsEndToEndProject $_.FullName }
     if ($IncludeEndToEnd) {
         $ProjectsToRun = $AllTestProjects

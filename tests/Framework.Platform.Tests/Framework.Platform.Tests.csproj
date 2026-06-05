@@ -19,6 +19,7 @@
         <ProjectReference Include="..\..\src\Framework.Extensibility\Framework.Extensibility.csproj" />
         <ProjectReference Include="..\..\src\Framework.Networking\Framework.Networking.csproj" />
         <ProjectReference Include="..\..\src\Framework.Platform\Framework.Platform.csproj" />
+        <ProjectReference Include="..\Tests.Common\Tests.Common.csproj" />
     </ItemGroup>
 
 </Project>

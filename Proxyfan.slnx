@@ -28,6 +28,7 @@
   </Folder>
 
   <Folder Name="/Tests/">
+    <Project Path="tests/Tests.Common/Tests.Common.csproj" />
     <Project Path="tests/Domain.Tests/Domain.Tests.csproj" />
     <Project Path="tests/Domain.Proxy.Tests/Domain.Proxy.Tests.csproj" />
     <Project Path="tests/Domain.Traffic.Tests/Domain.Traffic.Tests.csproj" />
