@@ -47,7 +47,16 @@ public sealed class ScriptableProjectorTests
 
         var view = new ScriptableRequest(source);
 
-        await Assert.That(CountHeaderValues(view.Headers, "Set-Cookie")).IsEqualTo(2);
+        var valueCount = 0;
+        foreach (var header in view.Headers.Enumerate())
+        {
+            if (header.Key == "Set-Cookie")
+            {
+                valueCount++;
+            }
+        }
+
+        await Assert.That(valueCount).IsEqualTo(2);
     }
 
     /// <summary>
@@ -86,7 +95,16 @@ public sealed class ScriptableProjectorTests
 
         var view = new ScriptableResponse(source);
 
-        await Assert.That(CountHeaderValues(view.Headers, "Set-Cookie")).IsEqualTo(2);
+        var valueCount = 0;
+        foreach (var header in view.Headers.Enumerate())
+        {
+            if (header.Key == "Set-Cookie")
+            {
+                valueCount++;
+            }
+        }
+
+        await Assert.That(valueCount).IsEqualTo(2);
     }
 
     /// <summary>
@@ -335,19 +353,5 @@ public sealed class ScriptableProjectorTests
             Version = "HTTP/1.1",
         };
         return new HypertextTransferProtocolResponseData(parameters);
-    }
-
-    private static int CountHeaderValues(ScriptableHeaders headers, string name)
-    {
-        var count = 0;
-        foreach (var header in headers.Enumerate())
-        {
-            if (header.Key == name)
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 }

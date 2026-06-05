@@ -57,19 +57,19 @@ public sealed class ScriptableHeadersTests
         headers.Add("Set-Cookie", "a=1");
         headers.Add("Set-Cookie", "b=2");
 
-        var values = new List<string>();
+        var setCookieValues = new List<string>();
         foreach (var header in headers.Enumerate())
         {
             if (header.Key == "Set-Cookie")
             {
-                values.Add(header.Value);
+                setCookieValues.Add(header.Value);
             }
         }
 
         await Assert.That(headers.Get("Set-Cookie")).IsEqualTo("a=1");
-        await Assert.That(values.Count).IsEqualTo(2);
-        await Assert.That(values[0]).IsEqualTo("a=1");
-        await Assert.That(values[1]).IsEqualTo("b=2");
+        await Assert.That(setCookieValues.Count).IsEqualTo(2);
+        await Assert.That(setCookieValues[0]).IsEqualTo("a=1");
+        await Assert.That(setCookieValues[1]).IsEqualTo("b=2");
     }
 
     /// <summary>

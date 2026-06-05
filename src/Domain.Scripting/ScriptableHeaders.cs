@@ -10,7 +10,7 @@ namespace Proxyfan.Domain.Scripting;
 /// </summary>
 public sealed class ScriptableHeaders
 {
-    private readonly Dictionary<string, string[]> _headers;
+    private readonly Dictionary<string, List<string>> _headers;
 
     /// <summary>
     ///     Gets the count of distinct header names.
@@ -22,7 +22,7 @@ public sealed class ScriptableHeaders
     /// </summary>
     public ScriptableHeaders()
     {
-        var headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        var headers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         _headers = headers;
     }
 
@@ -34,16 +34,13 @@ public sealed class ScriptableHeaders
     public void Add(string name, string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (_headers.TryGetValue(name, out var values))
+        if (_headers.TryGetValue(name, out var existingValues))
         {
-            var updatedValues = new string[values.Length + 1];
-            Array.Copy(values, updatedValues, values.Length);
-            updatedValues[values.Length] = value;
-            _headers[name] = updatedValues;
+            existingValues.Add(value);
             return;
         }
 
-        string[] addedValues =
+        List<string> addedValues =
         [
             value,
         ];
@@ -73,7 +70,7 @@ public sealed class ScriptableHeaders
     public string? Get(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (_headers.TryGetValue(name, out var values) && values.Length > 0)
+        if (_headers.TryGetValue(name, out var values) && values.Count > 0)
         {
             return values[0];
         }
@@ -111,7 +108,7 @@ public sealed class ScriptableHeaders
     public void Set(string name, string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        string[] values =
+        List<string> values =
         [
             value,
         ];
