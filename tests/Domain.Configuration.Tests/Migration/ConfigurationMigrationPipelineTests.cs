@@ -34,7 +34,7 @@ public sealed class ConfigurationMigrationPipelineTests
     }
 
     /// <summary>
-    ///     When the source version already matches (or exceeds) the target the pipeline
+    ///     When the source version already matches the target the pipeline
     ///     returns a no-op result that still stamps the target version into the values.
     /// </summary>
     [Test]
@@ -56,6 +56,25 @@ public sealed class ConfigurationMigrationPipelineTests
         await Assert.That(result.Values["proxy.port"]).IsEqualTo("8080");
         await Assert.That(result.Values["version"]).IsEqualTo("2.0");
         await Assert.That(result.Actions.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     When the source version is newer than the running application's target, migration
+    ///     is rejected to avoid silently downgrading a future-version configuration.
+    /// </summary>
+    [Test]
+    public async Task Migrate_SourceHigherThanTarget_Throws()
+    {
+        var pipeline = new ConfigurationMigrationPipeline([]);
+        var source = new Dictionary<string, string>
+        {
+            ["proxy.port"] = "8080",
+            ["version"] = "3.0",
+        };
+
+        await Assert.That(() => pipeline.Migrate(source, new ConfigurationVersion(2, 0)))
+            .Throws<InvalidOperationException>();
+        await Assert.That(source["version"]).IsEqualTo("3.0");
     }
 
     /// <summary>
