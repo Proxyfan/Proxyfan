@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Threading;
 
 namespace Proxyfan.Domain.Traffic;
@@ -84,9 +83,18 @@ public sealed class RemoteProcedureCallFlow
     }
 
     /// <summary>
-    ///     Gets the chronological list of captured messages (request and response interleaved).
+    ///     Gets a point-in-time snapshot of captured messages (request and response interleaved).
     /// </summary>
-    public IReadOnlyList<RemoteProcedureCallCapturedMessage> Messages { get; }
+    public IReadOnlyList<RemoteProcedureCallCapturedMessage> Messages
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _messages];
+            }
+        }
+    }
 
     /// <summary>
     ///     Gets the gRPC method path (<c>/package.Service/Method</c>) derived from the
@@ -134,10 +142,7 @@ public sealed class RemoteProcedureCallFlow
 
         var gate = new Lock();
         _gate = gate;
-        var messages = new List<RemoteProcedureCallCapturedMessage>();
-        _messages = messages;
-        var readOnly = new ReadOnlyCollection<RemoteProcedureCallCapturedMessage>(messages);
-        Messages = readOnly;
+        _messages = [];
         Flow = flow;
         _closedAt = null;
         _droppedMessagesCount = 0;

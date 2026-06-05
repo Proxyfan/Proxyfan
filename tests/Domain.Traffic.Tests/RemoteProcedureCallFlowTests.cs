@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Domain.Traffic.Tests;
@@ -168,6 +169,36 @@ public sealed class RemoteProcedureCallFlowTests
         await Assert.That(observed.Count).IsEqualTo(2);
         await Assert.That(observed[0]).IsSameReferenceAs(first);
         await Assert.That(observed[1]).IsSameReferenceAs(second);
+    }
+
+    /// <summary>
+    ///     <see cref="RemoteProcedureCallFlow.Messages" /> returns a stable snapshot instead of a
+    ///     live view over the mutable backing store.
+    /// </summary>
+    [Test]
+    public async Task Messages_WhenNewMessageRecordedAfterSnapshot_PreviousSnapshotRemainsStable()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var rpcFlow = new RemoteProcedureCallFlow(flow);
+        var first = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Outbound,
+            false,
+            new byte[] { 0x01 },
+            DateTimeOffset.UtcNow);
+        var second = new RemoteProcedureCallCapturedMessage(
+            RemoteProcedureCallDirection.Inbound,
+            false,
+            new byte[] { 0x02 },
+            DateTimeOffset.UtcNow);
+
+        rpcFlow.RecordMessage(first);
+        IReadOnlyList<RemoteProcedureCallCapturedMessage> snapshot = rpcFlow.Messages;
+
+        rpcFlow.RecordMessage(second);
+
+        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(snapshot[0]).IsSameReferenceAs(first);
+        await Assert.That(rpcFlow.Messages.Count).IsEqualTo(2);
     }
 
     private static TrafficFlow CreateUnderlyingFlow(out Guid id)
