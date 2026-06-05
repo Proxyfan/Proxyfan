@@ -174,7 +174,7 @@ public sealed class RemoteProcedureCallFlow
 
         if (isFirstClose)
         {
-            Closed?.Invoke();
+            RaiseClosed();
         }
     }
 
@@ -192,7 +192,7 @@ public sealed class RemoteProcedureCallFlow
 
         if (messageRecorded)
         {
-            MessageRecorded?.Invoke(message);
+            RaiseMessageRecorded(message);
         }
     }
 
@@ -230,6 +230,58 @@ public sealed class RemoteProcedureCallFlow
     private int GetMessageSizeBytes(RemoteProcedureCallCapturedMessage message)
     {
         return message.Payload.Length;
+    }
+
+    private void RaiseClosed()
+    {
+        var handler = Closed;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handler.GetInvocationList())
+        {
+            if (subscriber is not RemoteProcedureCallFlowClosedHandler typedSubscriber)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedSubscriber();
+            }
+            catch (Exception ex)
+            {
+                _ = ex;
+            }
+        }
+    }
+
+    private void RaiseMessageRecorded(RemoteProcedureCallCapturedMessage message)
+    {
+        var handler = MessageRecorded;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handler.GetInvocationList())
+        {
+            if (subscriber is not RemoteProcedureCallFlowMessageRecordedHandler typedSubscriber)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedSubscriber(message);
+            }
+            catch (Exception ex)
+            {
+                _ = ex;
+            }
+        }
     }
 
     private sealed class MessageBuffer : IReadOnlyList<RemoteProcedureCallCapturedMessage>
