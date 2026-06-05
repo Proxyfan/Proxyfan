@@ -1,4 +1,5 @@
 using Proxyfan.Domain.Configuration.Migration;
+using System;
 using System.Collections.Generic;
 
 namespace Proxyfan.Domain.Configuration;
@@ -16,6 +17,16 @@ public sealed class MigratingConfigurationLoadResult
     ///     was missing or no migration occurred).
     /// </summary>
     public required string? BackupPath { get; init; }
+
+    /// <summary>
+    ///     Gets the <see cref="Exception" /> raised by a file-system operation during load
+    ///     (read, backup creation, or write), or <see langword="null" /> when no
+    ///     file-system error occurred. A non-<see langword="null" /> value means the
+    ///     configuration could not be fully loaded or persisted; callers should log the
+    ///     failure and treat the <see cref="Snapshot" /> as a best-effort or default
+    ///     result.
+    /// </summary>
+    public required Exception? IoFailure { get; init; }
 
     /// <summary>
     ///     Gets the raw trimmed text of any lines in the configuration file that could not

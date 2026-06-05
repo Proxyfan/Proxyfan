@@ -83,6 +83,7 @@ public static class AppStartupConfigurationMigrationRunner
         var result = new MigratingConfigurationLoadResult
         {
             BackupPath = null,
+            IoFailure = null,
             MalformedLines = null,
             PipelineResult = pipelineResult,
             Snapshot = snapshot,

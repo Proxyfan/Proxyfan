@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Proxyfan.Domain.Configuration;
 using Proxyfan.Domain.Configuration.Migration;
+using TUnit.Core.Exceptions;
 
 namespace Proxyfan.Domain.Configuration.Tests;
 
@@ -24,6 +25,7 @@ public sealed class FileConfigurationLoaderTests
         var result = loader.Load();
 
         await Assert.That(result.BackupPath).IsNull();
+        await Assert.That(result.IoFailure).IsNull();
         await Assert.That(result.MalformedLines).IsNull();
         await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
         await Assert.That(result.Snapshot.Get(ConfigurationMigrationConstants.VersionKey, string.Empty)).IsEqualTo("1.0");
@@ -45,6 +47,7 @@ public sealed class FileConfigurationLoaderTests
             var result = loader.Load();
 
             await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.IoFailure).IsNull();
             await Assert.That(result.MalformedLines).IsNotNull();
             await Assert.That(result.MalformedLines!.Count).IsEqualTo(0);
             await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
@@ -86,6 +89,7 @@ public sealed class FileConfigurationLoaderTests
 
             var result = loader.Load();
 
+            await Assert.That(result.IoFailure).IsNull();
             await Assert.That(result.MalformedLines).IsNotNull();
             await Assert.That(result.MalformedLines!.Count).IsEqualTo(0);
             await Assert.That(result.PipelineResult.IsMigrated).IsTrue();
@@ -162,6 +166,7 @@ public sealed class FileConfigurationLoaderTests
 
             var result = loader.Load();
 
+            await Assert.That(result.IoFailure).IsNull();
             await Assert.That(result.MalformedLines).IsNotNull();
             await Assert.That(result.MalformedLines!.Count).IsEqualTo(1);
             await Assert.That(result.MalformedLines![0]).IsEqualTo("THIS LINE IS MALFORMED");
@@ -174,6 +179,105 @@ public sealed class FileConfigurationLoaderTests
         {
             DeleteIfExists(path);
             DeleteIfExists(path + FileConfigurationLoader.BackupExtension);
+        }
+    }
+
+    /// <summary>
+    ///     When the configuration file cannot be read due to an IO error (simulated on Unix
+    ///     by removing all permissions), the loader returns an empty default snapshot and
+    ///     surfaces the exception via <see cref="MigratingConfigurationLoadResult.IoFailure" />
+    ///     rather than propagating it to the caller.
+    /// </summary>
+    [Test]
+    public async Task Load_ReadFailure_ReturnsDefaultSnapshotWithIoFailure()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            throw new SkipTestException("Removing Unix file permissions is not supported on Windows.");
+        }
+
+        var path = CreateTempPath();
+
+        try
+        {
+            File.WriteAllText(path, "version=1.0\nproxy.port=8080\n");
+            File.SetUnixFileMode(path, UnixFileMode.None);
+            var loader = new FileConfigurationLoader(path, BuildEmptyPipeline(), new ConfigurationVersion(1, 0));
+
+            var result = loader.Load();
+
+            await Assert.That(result.IoFailure).IsNotNull();
+            await Assert.That(result.IoFailure).IsTypeOf<UnauthorizedAccessException>();
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.MalformedLines).IsNull();
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+            await Assert.That(result.Snapshot.Get(ConfigurationMigrationConstants.VersionKey, string.Empty)).IsEqualTo("1.0");
+        }
+        finally
+        {
+            // Restore permissions so the file can be deleted.
+            if (File.Exists(path))
+            {
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+
+            DeleteIfExists(path);
+        }
+    }
+
+    /// <summary>
+    ///     When backup creation fails because the backup path is occupied by a directory,
+    ///     the loader returns the pre-migration snapshot and surfaces the exception via
+    ///     <see cref="MigratingConfigurationLoadResult.IoFailure" /> rather than propagating
+    ///     it to the caller.
+    /// </summary>
+    [Test]
+    public async Task Load_PersistFailure_ReturnsPreMigrationSnapshotWithIoFailure()
+    {
+        var path = CreateTempPath();
+        var backupPath = path + FileConfigurationLoader.BackupExtension;
+
+        try
+        {
+            File.WriteAllText(path, "version=1.0\nold.key=value\n");
+
+            // Block the backup path with a directory so File.Copy throws.
+            Directory.CreateDirectory(backupPath);
+
+            var operation = new ConfigurationRenameKeyOperation
+            {
+                NewKey = "new.key",
+                OldKey = "old.key",
+            };
+            var migrator = new ConfigurationMigrator
+            {
+                From = new ConfigurationVersion(1, 0),
+                Operations = [operation],
+                To = new ConfigurationVersion(1, 1),
+            };
+            var pipeline = new ConfigurationMigrationPipeline([migrator]);
+            var loader = new FileConfigurationLoader(path, pipeline, new ConfigurationVersion(1, 1));
+
+            var result = loader.Load();
+
+            await Assert.That(result.IoFailure).IsNotNull();
+            await Assert.That(result.BackupPath).IsNull();
+            await Assert.That(result.PipelineResult.IsMigrated).IsFalse();
+
+            // The snapshot must be the pre-migration values so the app can still run.
+            await Assert.That(result.Snapshot.HasKey("old.key")).IsTrue();
+            await Assert.That(result.Snapshot.Get("old.key", string.Empty)).IsEqualTo("value");
+
+            // The original file must not have been modified.
+            await Assert.That(File.ReadAllText(path).Contains("old.key=value")).IsTrue();
+        }
+        finally
+        {
+            DeleteIfExists(path);
+            if (Directory.Exists(backupPath))
+            {
+                Directory.Delete(backupPath);
+            }
         }
     }
 
