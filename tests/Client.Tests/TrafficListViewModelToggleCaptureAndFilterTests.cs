@@ -267,6 +267,32 @@ public sealed class TrafficListViewModelToggleCaptureAndFilterTests
     }
 
     /// <summary>
+    ///     Non-appended insertions must fall back to a rebuild so the filtered visible order
+    ///     stays aligned with the source collection.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_FilteredInsertAtStart_RebuildsToPreserveOrder()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://beta.example.com/2"));
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/3"));
+        viewModel.FilterText = "alpha";
+        var insertedFlow = new TrafficFlowViewModel(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/1"), 99);
+
+        var actions = new List<NotifyCollectionChangedAction>();
+        viewModel.VisibleFlows.CollectionChanged += (_, eventArgs) => actions.Add(eventArgs.Action);
+
+        viewModel.Flows.Insert(0, insertedFlow);
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(2);
+        await Assert.That(viewModel.VisibleFlows[0]).IsSameReferenceAs(insertedFlow);
+        await Assert.That(viewModel.VisibleFlows[1].Host).IsEqualTo("alpha.example.com");
+        await Assert.That(actions.Count).IsGreaterThan(0);
+        await Assert.That(actions[0]).IsEqualTo(NotifyCollectionChangedAction.Reset);
+    }
+
+    /// <summary>
     ///     Empty filter text means everything is visible.
     /// </summary>
     [Test]
