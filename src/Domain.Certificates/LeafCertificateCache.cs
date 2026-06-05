@@ -38,6 +38,7 @@ public sealed class LeafCertificateCache : ICertificateCache
     {
         lock (_syncRoot)
         {
+            DisposeEntryCertificates();
             _entries.Clear();
             _usageOrder.Clear();
         }
@@ -69,6 +70,7 @@ public sealed class LeafCertificateCache : ICertificateCache
             {
                 _entries.Remove(hostname);
                 _usageOrder.Remove(entry);
+                entry.Value.Value.Dispose();
             }
         }
     }
@@ -114,6 +116,17 @@ public sealed class LeafCertificateCache : ICertificateCache
         }
     }
 
+    private void DisposeEntryCertificates()
+    {
+        LinkedListNode<KeyValuePair<string, X509Certificate2>>? current = _usageOrder.First;
+
+        while (current is not null)
+        {
+            current.Value.Value.Dispose();
+            current = current.Next;
+        }
+    }
+
     private void MoveToFront(LinkedListNode<KeyValuePair<string, X509Certificate2>> node)
     {
         _usageOrder.Remove(node);
@@ -136,6 +149,7 @@ public sealed class LeafCertificateCache : ICertificateCache
 
         _entries.Remove(oldestEntry.Value.Key);
         _usageOrder.RemoveLast();
+        oldestEntry.Value.Value.Dispose();
     }
 
     /// <summary>
