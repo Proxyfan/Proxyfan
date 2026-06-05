@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Proxyfan.Domain.Certificates;
 
@@ -16,6 +17,7 @@ public sealed class ServerNameIndicationProxyingList
 
     private readonly HashSet<string> _excludedPatterns;
     private readonly HashSet<string> _includedPatterns;
+    private readonly Lock _syncRoot;
 
     /// <summary>
     ///     Gets the excluded host name patterns currently configured.
@@ -40,8 +42,10 @@ public sealed class ServerNameIndicationProxyingList
     {
         var excludedPatterns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var includedPatterns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var syncRoot = new Lock();
         _excludedPatterns = excludedPatterns;
         _includedPatterns = includedPatterns;
+        _syncRoot = syncRoot;
         IsEnabled = isEnabled;
     }
 
@@ -56,7 +60,13 @@ public sealed class ServerNameIndicationProxyingList
             throw new ArgumentException("Pattern must be provided.", nameof(pattern));
         }
 
-        if (_excludedPatterns.Add(pattern))
+        bool hasChanged;
+        lock (_syncRoot)
+        {
+            hasChanged = _excludedPatterns.Add(pattern);
+        }
+
+        if (hasChanged)
         {
             RaiseChanged();
         }
@@ -73,7 +83,13 @@ public sealed class ServerNameIndicationProxyingList
             throw new ArgumentException("Pattern must be provided.", nameof(pattern));
         }
 
-        if (_includedPatterns.Add(pattern))
+        bool hasChanged;
+        lock (_syncRoot)
+        {
+            hasChanged = _includedPatterns.Add(pattern);
+        }
+
+        if (hasChanged)
         {
             RaiseChanged();
         }
@@ -84,13 +100,24 @@ public sealed class ServerNameIndicationProxyingList
     /// </summary>
     public void Disable()
     {
-        if (!IsEnabled)
+        bool hasChanged;
+        lock (_syncRoot)
         {
-            return;
+            if (!IsEnabled)
+            {
+                hasChanged = false;
+            }
+            else
+            {
+                IsEnabled = false;
+                hasChanged = true;
+            }
         }
 
-        IsEnabled = false;
-        RaiseChanged();
+        if (hasChanged)
+        {
+            RaiseChanged();
+        }
     }
 
     /// <summary>
@@ -98,13 +125,24 @@ public sealed class ServerNameIndicationProxyingList
     /// </summary>
     public void Enable()
     {
-        if (IsEnabled)
+        bool hasChanged;
+        lock (_syncRoot)
         {
-            return;
+            if (IsEnabled)
+            {
+                hasChanged = false;
+            }
+            else
+            {
+                IsEnabled = true;
+                hasChanged = true;
+            }
         }
 
-        IsEnabled = true;
-        RaiseChanged();
+        if (hasChanged)
+        {
+            RaiseChanged();
+        }
     }
 
     /// <summary>
@@ -117,12 +155,27 @@ public sealed class ServerNameIndicationProxyingList
     /// </returns>
     public bool HasMatch(string hostname)
     {
-        if (!IsEnabled || string.IsNullOrWhiteSpace(hostname))
+        if (string.IsNullOrWhiteSpace(hostname))
         {
             return false;
         }
 
-        foreach (var pattern in _excludedPatterns)
+        bool isEnabled;
+        string[] excludedPatterns;
+        string[] includedPatterns;
+        lock (_syncRoot)
+        {
+            isEnabled = IsEnabled;
+            excludedPatterns = CopyPatterns(_excludedPatterns);
+            includedPatterns = CopyPatterns(_includedPatterns);
+        }
+
+        if (!isEnabled)
+        {
+            return false;
+        }
+
+        foreach (var pattern in excludedPatterns)
         {
             if (HasPatternMatch(hostname, pattern))
             {
@@ -130,7 +183,7 @@ public sealed class ServerNameIndicationProxyingList
             }
         }
 
-        foreach (var pattern in _includedPatterns)
+        foreach (var pattern in includedPatterns)
         {
             if (HasPatternMatch(hostname, pattern))
             {
@@ -152,7 +205,13 @@ public sealed class ServerNameIndicationProxyingList
             return;
         }
 
-        if (_excludedPatterns.Remove(pattern))
+        bool hasChanged;
+        lock (_syncRoot)
+        {
+            hasChanged = _excludedPatterns.Remove(pattern);
+        }
+
+        if (hasChanged)
         {
             RaiseChanged();
         }
@@ -169,10 +228,23 @@ public sealed class ServerNameIndicationProxyingList
             return;
         }
 
-        if (_includedPatterns.Remove(pattern))
+        bool hasChanged;
+        lock (_syncRoot)
+        {
+            hasChanged = _includedPatterns.Remove(pattern);
+        }
+
+        if (hasChanged)
         {
             RaiseChanged();
         }
+    }
+
+    private string[] CopyPatterns(HashSet<string> patterns)
+    {
+        var copiedPatterns = new string[patterns.Count];
+        patterns.CopyTo(copiedPatterns);
+        return copiedPatterns;
     }
 
     private bool HasPatternMatch(string hostname, string pattern)
