@@ -1,5 +1,6 @@
 ﻿using Proxyfan.Domain.Certificates;
 using Proxyfan.Domain.Certificates.Tests.Stubs;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,6 +26,46 @@ public sealed class MutableCertificateAuthorityProviderTests
 
         await Assert.That(first).IsSameReferenceAs(second);
         await Assert.That(generator.RootGenerationCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="MutableCertificateAuthorityProvider.GetAsync" /> retries
+    ///     generation after an initial cancelled task rather than caching the cancellation.
+    /// </summary>
+    [Test]
+    public async Task GetAsync_WhenFirstGenerationIsCanceled_RetriesOnNextCall()
+    {
+        var generator = new SequencedCertificateGenerator(
+            _ => Task.FromCanceled<CertificateAuthority>(new CancellationToken(canceled: true)),
+            cancellationToken => new CountingCertificateGenerator().GenerateRootCertificateAuthorityAsync(cancellationToken));
+        var provider = new MutableCertificateAuthorityProvider(generator);
+
+        await Assert.That(async () => await provider.GetAsync(CancellationToken.None).ConfigureAwait(false)).Throws<OperationCanceledException>();
+
+        var authority = await provider.GetAsync(CancellationToken.None).ConfigureAwait(false);
+
+        await Assert.That(authority).IsNotNull();
+        await Assert.That(generator.RootGenerationCount).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="MutableCertificateAuthorityProvider.GetAsync" /> retries
+    ///     generation after an initial faulted task rather than caching the failure.
+    /// </summary>
+    [Test]
+    public async Task GetAsync_WhenFirstGenerationFaults_RetriesOnNextCall()
+    {
+        var generator = new SequencedCertificateGenerator(
+            _ => Task.FromException<CertificateAuthority>(new InvalidOperationException("boom")),
+            cancellationToken => new CountingCertificateGenerator().GenerateRootCertificateAuthorityAsync(cancellationToken));
+        var provider = new MutableCertificateAuthorityProvider(generator);
+
+        await Assert.That(async () => await provider.GetAsync(CancellationToken.None).ConfigureAwait(false)).Throws<InvalidOperationException>();
+
+        var authority = await provider.GetAsync(CancellationToken.None).ConfigureAwait(false);
+
+        await Assert.That(authority).IsNotNull();
+        await Assert.That(generator.RootGenerationCount).IsEqualTo(2);
     }
 
     /// <summary>
