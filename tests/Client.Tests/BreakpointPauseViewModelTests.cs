@@ -94,6 +94,40 @@ public sealed class BreakpointPauseViewModelTests
         await Assert.That(decision.ModifiedResponse.Version).IsEqualTo("HTTP/1.1");
     }
 
+    [Test]
+    public async Task BuildRequestDecision_UnchangedBinaryBody_PreservesOriginalBytes()
+    {
+        var body = new byte[] { 0xFF, 0x00, 0x41, 0x10 };
+        var request = BuildRequest("POST", "https://example.com/upload", body, "application/octet-stream");
+        var pause = new BreakpointPause(Guid.NewGuid(), request);
+        var viewModel = new BreakpointPauseViewModel(pause);
+
+        var decision = viewModel.BuildRequestDecision();
+
+        await Assert.That(viewModel.BodyText).IsEqualTo(Convert.ToBase64String(body));
+        await Assert.That(decision.ModifiedRequest).IsNotNull();
+        await Assert.That(decision.ModifiedRequest!.Body.ToArray()).IsEquivalentTo(body);
+    }
+
+    [Test]
+    public async Task BuildResponseDecision_TextBodyWithCharset_EditUsesDeclaredEncoding()
+    {
+        var request = BuildRequest("GET", "https://example.com/", string.Empty);
+        var responseBody = new byte[] { 0x63, 0x61, 0x66, 0xE9 };
+        var response = BuildResponse(200, "OK", responseBody, "text/plain; charset=iso-8859-1");
+        var pause = new BreakpointPause(Guid.NewGuid(), request, response);
+        var viewModel = new BreakpointPauseViewModel(pause)
+        {
+            BodyText = "olé",
+        };
+
+        var decision = viewModel.BuildResponseDecision();
+
+        await Assert.That(decision.ModifiedResponse).IsNotNull();
+        await Assert.That(viewModel.BodyText).IsEqualTo("olé");
+        await Assert.That(decision.ModifiedResponse!.Body.ToArray()).IsEquivalentTo(new byte[] { 0x6F, 0x6C, 0xE9 });
+    }
+
     private static HypertextTransferProtocolRequestData BuildRequest(
         string method,
         string url,
@@ -118,6 +152,29 @@ public sealed class BreakpointPauseViewModelTests
         return new HypertextTransferProtocolRequestData(parameters);
     }
 
+    private static HypertextTransferProtocolRequestData BuildRequest(
+        string method,
+        string url,
+        byte[] body,
+        string? contentType = null)
+    {
+        var headers = HeaderCollection.Empty.Add("Host", new Uri(url).Host);
+        if (contentType is not null)
+        {
+            headers = headers.Add("Content-Type", contentType);
+        }
+
+        var parameters = new HypertextTransferProtocolRequestDataParameters
+        {
+            Body = body,
+            Headers = headers,
+            Method = method,
+            RequestUri = new Uri(url),
+            Version = "HTTP/1.1",
+        };
+        return new HypertextTransferProtocolRequestData(parameters);
+    }
+
     private static HypertextTransferProtocolResponseData BuildResponse(
         int statusCode,
         string reason,
@@ -134,6 +191,29 @@ public sealed class BreakpointPauseViewModelTests
         var parameters = new HypertextTransferProtocolResponseDataParameters
         {
             Body = Encoding.UTF8.GetBytes(body),
+            Headers = headers,
+            ReasonPhrase = reason,
+            StatusCode = statusCode,
+            Version = "HTTP/1.1",
+        };
+        return new HypertextTransferProtocolResponseData(parameters);
+    }
+
+    private static HypertextTransferProtocolResponseData BuildResponse(
+        int statusCode,
+        string reason,
+        byte[] body,
+        string? contentType = null)
+    {
+        var headers = HeaderCollection.Empty;
+        if (contentType is not null)
+        {
+            headers = headers.Add("Content-Type", contentType);
+        }
+
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = body,
             Headers = headers,
             ReasonPhrase = reason,
             StatusCode = statusCode,

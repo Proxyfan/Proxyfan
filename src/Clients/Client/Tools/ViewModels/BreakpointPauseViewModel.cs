@@ -13,8 +13,12 @@ namespace Proxyfan.Client.Tools.ViewModels;
 /// </summary>
 public sealed class BreakpointPauseViewModel
 {
+    private readonly BreakpointBodyEditorState _bodyEditorState;
+    private readonly byte[] _originalBody;
+
     /// <summary>
-    ///     Gets or sets the editable request body as a UTF-8 string.
+    ///     Gets or sets the editable body representation. Textual content is surfaced as text;
+    ///     binary content is surfaced as base64.
     /// </summary>
     public string BodyText { get; set; }
 
@@ -66,16 +70,20 @@ public sealed class BreakpointPauseViewModel
 
         if (pause.Phase == BreakpointPhase.Request)
         {
+            _originalBody = pause.Request.Body.ToArray();
+            _bodyEditorState = BreakpointMessageTextHelpers.CreateBodyEditorState(pause.Request.Body, pause.Request.Headers);
             HeadersText = BreakpointMessageTextHelpers.FormatHeaders(pause.Request.Headers);
-            BodyText = BreakpointMessageTextHelpers.DecodeBody(pause.Request.Body);
+            BodyText = _bodyEditorState.Text;
             StatusCode = 0;
             ReasonPhrase = string.Empty;
         }
         else
         {
             var response = pause.Response!;
+            _originalBody = response.Body.ToArray();
+            _bodyEditorState = BreakpointMessageTextHelpers.CreateBodyEditorState(response.Body, response.Headers);
             HeadersText = BreakpointMessageTextHelpers.FormatHeaders(response.Headers);
-            BodyText = BreakpointMessageTextHelpers.DecodeBody(response.Body);
+            BodyText = _bodyEditorState.Text;
             StatusCode = response.StatusCode;
             ReasonPhrase = response.ReasonPhrase;
         }
@@ -88,7 +96,7 @@ public sealed class BreakpointPauseViewModel
     public BreakpointDecision BuildRequestDecision()
     {
         var requestUri = new Uri(RequestUrl);
-        var body = BreakpointMessageTextHelpers.EncodeBody(BodyText);
+        var body = BuildBody();
         var headers = BreakpointMessageTextHelpers.ParseHeaders(HeadersText);
         var parameters = new HypertextTransferProtocolRequestDataParameters
         {
@@ -108,7 +116,7 @@ public sealed class BreakpointPauseViewModel
     /// <returns>A decision that resumes the pause with the edited response.</returns>
     public BreakpointDecision BuildResponseDecision()
     {
-        var body = BreakpointMessageTextHelpers.EncodeBody(BodyText);
+        var body = BuildBody();
         var headers = BreakpointMessageTextHelpers.ParseHeaders(HeadersText);
         var parameters = new HypertextTransferProtocolResponseDataParameters
         {
@@ -120,5 +128,10 @@ public sealed class BreakpointPauseViewModel
         };
         var data = new HypertextTransferProtocolResponseData(parameters);
         return BreakpointDecisions.ResumeResponse(data);
+    }
+
+    private byte[] BuildBody()
+    {
+        return _bodyEditorState.Encode(BodyText, _originalBody);
     }
 }
