@@ -21,14 +21,19 @@ public sealed class StubComposerRequestSender : IComposerRequestSender
     public List<HypertextTransferProtocolRequestData> CapturedRequests { get; } = [];
 
     /// <summary>
+    ///     Gets or sets the error that <see cref="SendAsync" /> returns as a failure result.
+    /// </summary>
+    public DomainError? ErrorToReturn { get; set; }
+
+    /// <summary>
     ///     Gets or sets an exception that <see cref="SendAsync" /> throws instead of returning.
     /// </summary>
     public Exception? ExceptionToThrow { get; set; }
 
     /// <summary>
-    ///     Gets or sets the error that <see cref="SendAsync" /> returns as a failure result.
+    ///     Gets or sets an optional response factory that can vary responses by request and call number.
     /// </summary>
-    public DomainError? ErrorToReturn { get; set; }
+    public Func<HypertextTransferProtocolRequestData, int, HypertextTransferProtocolResponseData>? ResponseFactory { get; set; }
 
     /// <summary>
     ///     Gets or sets the response that <see cref="SendAsync" /> returns.
@@ -58,6 +63,12 @@ public sealed class StubComposerRequestSender : IComposerRequestSender
         if (ErrorToReturn is not null)
         {
             return Task.FromResult(Result.Failure<HypertextTransferProtocolResponseData>(ErrorToReturn));
+        }
+
+        if (ResponseFactory is not null)
+        {
+            var invocationIndex = CapturedRequests.Count;
+            return Task.FromResult(Result.Success(ResponseFactory(request, invocationIndex)));
         }
 
         return Task.FromResult(Result.Success(ResponseToReturn));

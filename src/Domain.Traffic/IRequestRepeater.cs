@@ -18,8 +18,12 @@ public interface IRequestRepeater
     /// </summary>
     /// <param name="originalRequest">The request to replay.</param>
     /// <param name="cancellationToken">A token to cancel the replay.</param>
-    /// <returns>The flow identifier of the newly captured replay.</returns>
-    Task<Guid> RepeatAsync(
+    /// <returns>
+    ///     A success result containing the flow identifier of the newly captured replay,
+    ///     or a failure with a <see cref="RequestReplayError" /> describing cancellation
+    ///     or replay failure.
+    /// </returns>
+    Task<Result<Guid>> RepeatAsync(
         HypertextTransferProtocolRequestData originalRequest,
         CancellationToken cancellationToken);
 
@@ -32,8 +36,13 @@ public interface IRequestRepeater
     /// <param name="repeatCount">How many copies to send. Must be at least one.</param>
     /// <param name="delayBetweenRepeats">Delay between attempts. <see cref="TimeSpan.Zero" /> sends back-to-back.</param>
     /// <param name="cancellationToken">A token to cancel the replay.</param>
-    /// <returns>The number of replays that completed before cancellation or failure.</returns>
-    Task<int> RepeatAsync(
+    /// <returns>
+    ///     A success result containing the batch replay summary, or a failure with a
+    ///     <see cref="RequestReplayError" />. On failure, the error's
+    ///     <see cref="RequestReplayError.CompletedCount" /> reports how many replays
+    ///     completed before the failure or cancellation.
+    /// </returns>
+    Task<Result<RequestReplayBatchResult>> RepeatAsync(
         HypertextTransferProtocolRequestData originalRequest,
         int repeatCount,
         TimeSpan delayBetweenRepeats,

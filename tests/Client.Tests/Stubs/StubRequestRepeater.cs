@@ -1,4 +1,5 @@
 using Proxyfan.Domain.Traffic;
+using Proxyfan.Domain;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -23,22 +24,23 @@ public sealed class StubRequestRepeater : IRequestRepeater
     public List<(HypertextTransferProtocolRequestData Request, int Count, TimeSpan Delay)> MultiInvocations { get; } = [];
 
     /// <inheritdoc />
-    public Task<Guid> RepeatAsync(
+    public Task<Result<Guid>> RepeatAsync(
         HypertextTransferProtocolRequestData originalRequest,
         CancellationToken cancellationToken)
     {
         SingleInvocations.Add(originalRequest);
-        return Task.FromResult(Guid.NewGuid());
+        return Task.FromResult(Result.Success(Guid.NewGuid()));
     }
 
     /// <inheritdoc />
-    public Task<int> RepeatAsync(
+    public Task<Result<RequestReplayBatchResult>> RepeatAsync(
         HypertextTransferProtocolRequestData originalRequest,
         int repeatCount,
         TimeSpan delayBetweenRepeats,
         CancellationToken cancellationToken)
     {
         MultiInvocations.Add((originalRequest, repeatCount, delayBetweenRepeats));
-        return Task.FromResult(repeatCount);
+        var result = new RequestReplayBatchResult(repeatCount, repeatCount);
+        return Task.FromResult(Result.Success(result));
     }
 }

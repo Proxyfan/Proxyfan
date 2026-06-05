@@ -50,16 +50,23 @@ public sealed class RequestRepeater : IRequestRepeater
     }
 
     /// <inheritdoc />
-    public async Task<Guid> RepeatAsync(
+    public async Task<Result<Guid>> RepeatAsync(
         HypertextTransferProtocolRequestData originalRequest,
         CancellationToken cancellationToken)
     {
-        var flowId = await RepeatOnceAsync(originalRequest, cancellationToken).ConfigureAwait(false);
-        return flowId;
+        try
+        {
+            return await RepeatOnceAsync(originalRequest, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+        {
+            var error = BuildCancelledError(completedCount: 0, exception);
+            return Result.Failure<Guid>(error);
+        }
     }
 
     /// <inheritdoc />
-    public async Task<int> RepeatAsync(
+    public async Task<Result<RequestReplayBatchResult>> RepeatAsync(
         HypertextTransferProtocolRequestData originalRequest,
         int repeatCount,
         TimeSpan delayBetweenRepeats,
@@ -67,32 +74,123 @@ public sealed class RequestRepeater : IRequestRepeater
     {
         if (repeatCount < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(repeatCount), repeatCount, "Repeat count must be at least one.");
+            var error = BuildInvalidRepeatCountError(repeatCount);
+            return Result.Failure<RequestReplayBatchResult>(error);
         }
 
         if (delayBetweenRepeats < TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(delayBetweenRepeats), delayBetweenRepeats, "Delay must not be negative.");
+            var error = BuildInvalidDelayError(delayBetweenRepeats);
+            return Result.Failure<RequestReplayBatchResult>(error);
         }
 
         var completed = 0;
-        for (var iteration = 0; iteration < repeatCount; iteration++)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (iteration > 0 && delayBetweenRepeats > TimeSpan.Zero)
+            for (var iteration = 0; iteration < repeatCount; iteration++)
             {
-                await Task.Delay(delayBetweenRepeats, _timeProvider, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (iteration > 0 && delayBetweenRepeats > TimeSpan.Zero)
+                {
+                    await Task.Delay(delayBetweenRepeats, _timeProvider, cancellationToken).ConfigureAwait(false);
+                }
+
+                var iterationResult = await RepeatOnceAsync(originalRequest, cancellationToken).ConfigureAwait(false);
+                if (!iterationResult.IsSuccess)
+                {
+                    var replayError = BuildReplayErrorWithCompletedCount(iterationResult.Error!, completed);
+                    return Result.Failure<RequestReplayBatchResult>(replayError);
+                }
+
+                completed++;
             }
 
-            await RepeatOnceAsync(originalRequest, cancellationToken).ConfigureAwait(false);
-            completed++;
+            var batchResult = new RequestReplayBatchResult(completed, repeatCount);
+            return Result.Success(batchResult);
         }
-
-        return completed;
+        catch (OperationCanceledException exception)
+        {
+            var error = BuildCancelledError(completed, exception);
+            return Result.Failure<RequestReplayBatchResult>(error);
+        }
     }
 
-    private async Task<HypertextTransferProtocolResponseData?> DispatchUpstreamAsync(
+    private RequestReplayError BuildCancelledError(int completedCount, OperationCanceledException exception)
+    {
+        var message = "Request replay was cancelled.";
+        var error = new RequestReplayError(RequestReplayError.CancelledCode, message, completedCount, exception);
+        return error;
+    }
+
+    private RequestReplayError BuildDispatchFailedError(int completedCount, Exception exception)
+    {
+        var message = $"Failed to dispatch replay request: {exception.Message}";
+        var error = new RequestReplayError(RequestReplayError.DispatchFailedCode, message, completedCount, exception);
+        return error;
+    }
+
+    private RequestReplayError BuildInvalidDelayError(TimeSpan delayBetweenRepeats)
+    {
+        var message = $"Delay must not be negative. Received: {delayBetweenRepeats}.";
+        var error = new RequestReplayError(RequestReplayError.InvalidDelayCode, message, completedCount: 0);
+        return error;
+    }
+
+    private RequestReplayError BuildInvalidRepeatCountError(int repeatCount)
+    {
+        var message = $"Repeat count must be at least one. Received: {repeatCount}.";
+        var error = new RequestReplayError(RequestReplayError.InvalidRepeatCountCode, message, completedCount: 0);
+        return error;
+    }
+
+    private RequestReplayError BuildReplayErrorWithCompletedCount(DomainError error, int completedCount)
+    {
+        if (error is RequestReplayError replayError && replayError.CompletedCount == completedCount)
+        {
+            return replayError;
+        }
+
+        if (error is RequestReplayError existingReplayError)
+        {
+            if (existingReplayError.InnerException is not null)
+            {
+                return new RequestReplayError(
+                    existingReplayError.Code,
+                    existingReplayError.Message,
+                    completedCount,
+                    existingReplayError.InnerException);
+            }
+
+            return new RequestReplayError(
+                existingReplayError.Code,
+                existingReplayError.Message,
+                completedCount);
+        }
+
+        if (error.InnerException is not null)
+        {
+            return new RequestReplayError(error.Code, error.Message, completedCount, error.InnerException);
+        }
+
+        return new RequestReplayError(error.Code, error.Message, completedCount);
+    }
+
+    private Result<Guid> BuildSingleReplayFailureResult(TrafficFlow flow, DomainError error)
+    {
+        var replayError = BuildReplayErrorWithCompletedCount(error, completedCount: 0);
+        if (replayError.IsCancellation)
+        {
+            return Result.Failure<Guid>(replayError);
+        }
+
+        flow.Fail();
+        _trafficStore.Add(flow);
+        PublishFlowCompleted(flow);
+        return Result.Failure<Guid>(replayError);
+    }
+
+    private async Task<Result<HypertextTransferProtocolResponseData>> DispatchUpstreamAsync(
         HypertextTransferProtocolRequestData effectiveRequest,
         CancellationToken cancellationToken)
     {
@@ -101,18 +199,23 @@ public sealed class RequestRepeater : IRequestRepeater
             var responseData = await _sender.SendAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
             if (!responseData.IsSuccess)
             {
-                return null;
+                var fallbackException = new InvalidOperationException(responseData.Error?.Message ?? "Send failed.");
+                var innerException = responseData.Error?.InnerException ?? fallbackException;
+                var dispatchError = BuildDispatchFailedError(completedCount: 0, innerException);
+                return Result.Failure<HypertextTransferProtocolResponseData>(dispatchError);
             }
 
-            return responseData.Value;
+            return Result.Success(responseData.Value);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
-            throw;
+            var error = BuildCancelledError(completedCount: 0, exception);
+            return Result.Failure<HypertextTransferProtocolResponseData>(error);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            return null;
+            var error = BuildDispatchFailedError(completedCount: 0, exception);
+            return Result.Failure<HypertextTransferProtocolResponseData>(error);
         }
     }
 
@@ -134,7 +237,7 @@ public sealed class RequestRepeater : IRequestRepeater
         _eventBus.Publish(responseReceived);
     }
 
-    private async Task<Guid> RepeatOnceAsync(
+    private async Task<Result<Guid>> RepeatOnceAsync(
         HypertextTransferProtocolRequestData originalRequest,
         CancellationToken cancellationToken)
     {
@@ -162,15 +265,12 @@ public sealed class RequestRepeater : IRequestRepeater
         else
         {
             var dispatchResult = await DispatchUpstreamAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
-            if (dispatchResult is null)
+            if (!dispatchResult.IsSuccess)
             {
-                flow.Fail();
-                _trafficStore.Add(flow);
-                PublishFlowCompleted(flow);
-                return flow.Id;
+                return BuildSingleReplayFailureResult(flow, dispatchResult.Error!);
             }
 
-            responseData = dispatchResult;
+            responseData = dispatchResult.Value;
         }
 
         var responseActions = _ruleEngine.EvaluateResponse(effectiveRequest, responseData);
@@ -182,6 +282,6 @@ public sealed class RequestRepeater : IRequestRepeater
         _trafficStore.Add(flow);
         PublishFlowCompleted(flow);
 
-        return flow.Id;
+        return Result.Success(flow.Id);
     }
 }

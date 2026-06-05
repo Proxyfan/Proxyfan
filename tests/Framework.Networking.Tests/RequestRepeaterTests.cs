@@ -35,12 +35,13 @@ public sealed class RequestRepeaterTests
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
         var request = BuildRequest("GET", "https://example.com/data");
 
-        var flowId = await repeater.RepeatAsync(request, CancellationToken.None);
+        var result = await repeater.RepeatAsync(request, CancellationToken.None);
 
+        await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(sender.CapturedRequests.Count).IsEqualTo(1);
         await Assert.That(trafficStore.Count).IsEqualTo(1);
         var storedFlow = trafficStore.AddedFlows[0];
-        await Assert.That(storedFlow.Id).IsEqualTo(flowId);
+        await Assert.That(storedFlow.Id).IsEqualTo(result.Value);
         await Assert.That(storedFlow.Origin).IsEqualTo(TrafficFlowOrigin.Repeated);
         await Assert.That(storedFlow.Status).IsEqualTo(TrafficFlowStatus.Complete);
         await Assert.That(storedFlow.Request!.Method).IsEqualTo("GET");
@@ -115,9 +116,11 @@ public sealed class RequestRepeaterTests
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
         var request = BuildRequest("POST", "https://example.com/api");
 
-        var completed = await repeater.RepeatAsync(request, repeatCount: 3, TimeSpan.Zero, CancellationToken.None);
+        var result = await repeater.RepeatAsync(request, repeatCount: 3, TimeSpan.Zero, CancellationToken.None);
 
-        await Assert.That(completed).IsEqualTo(3);
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Value.CompletedCount).IsEqualTo(3);
+        await Assert.That(result.Value.RequestedCount).IsEqualTo(3);
         await Assert.That(sender.CapturedRequests.Count).IsEqualTo(3);
         await Assert.That(trafficStore.Count).IsEqualTo(3);
         await Assert.That(eventBus.PublishedOf<RequestReceived>().Count()).IsEqualTo(3);
@@ -146,12 +149,15 @@ public sealed class RequestRepeaterTests
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
         var request = BuildRequest("GET", "https://example.com/");
 
-        await repeater.RepeatAsync(request, CancellationToken.None);
+        var result = await repeater.RepeatAsync(request, CancellationToken.None);
 
         await Assert.That(trafficStore.Count).IsEqualTo(1);
         var storedFlow = trafficStore.AddedFlows[0];
         await Assert.That(storedFlow.Status).IsEqualTo(TrafficFlowStatus.Failed);
         await Assert.That(storedFlow.Response).IsNull();
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error).IsTypeOf<RequestReplayError>();
+        await Assert.That(result.Error!.Code).IsEqualTo(RequestReplayError.DispatchFailedCode);
         await Assert.That(responseRule.EvaluationCount).IsEqualTo(0);
         await Assert.That(eventBus.PublishedOf<ResponseReceived>().Any()).IsFalse();
         var completed = eventBus.PublishedOf<TrafficFlowCompleted>().Single();
@@ -162,7 +168,7 @@ public sealed class RequestRepeaterTests
     ///     Verifies that an invalid repeat count is rejected.
     /// </summary>
     [Test]
-    public async Task RepeatAsync_ZeroCount_ThrowsArgumentOutOfRange()
+    public async Task RepeatAsync_ZeroCount_ReturnsDomainValidationError()
     {
         var sender = new StubComposerRequestSender();
         var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
@@ -171,15 +177,18 @@ public sealed class RequestRepeaterTests
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
         var request = BuildRequest("GET", "https://example.com/");
 
-        await Assert.That(async () => await repeater.RepeatAsync(request, repeatCount: 0, TimeSpan.Zero, CancellationToken.None))
-            .Throws<ArgumentOutOfRangeException>();
+        var result = await repeater.RepeatAsync(request, repeatCount: 0, TimeSpan.Zero, CancellationToken.None);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error).IsTypeOf<RequestReplayError>();
+        await Assert.That(result.Error!.Code).IsEqualTo(RequestReplayError.InvalidRepeatCountCode);
     }
 
     /// <summary>
     ///     Verifies that a negative delay is rejected.
     /// </summary>
     [Test]
-    public async Task RepeatAsync_NegativeDelay_ThrowsArgumentOutOfRange()
+    public async Task RepeatAsync_NegativeDelay_ReturnsDomainValidationError()
     {
         var sender = new StubComposerRequestSender();
         var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
@@ -188,8 +197,11 @@ public sealed class RequestRepeaterTests
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
         var request = BuildRequest("GET", "https://example.com/");
 
-        await Assert.That(async () => await repeater.RepeatAsync(request, repeatCount: 1, TimeSpan.FromSeconds(-1), CancellationToken.None))
-            .Throws<ArgumentOutOfRangeException>();
+        var result = await repeater.RepeatAsync(request, repeatCount: 1, TimeSpan.FromSeconds(-1), CancellationToken.None);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error).IsTypeOf<RequestReplayError>();
+        await Assert.That(result.Error!.Code).IsEqualTo(RequestReplayError.InvalidDelayCode);
     }
 
     /// <summary>
@@ -206,10 +218,65 @@ public sealed class RequestRepeaterTests
         var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
         var request = BuildRequest("GET", "https://example.com/delay");
 
-        var completed = await repeater.RepeatAsync(request, repeatCount: 2, TimeSpan.FromMilliseconds(1), CancellationToken.None);
+        var result = await repeater.RepeatAsync(request, repeatCount: 2, TimeSpan.FromMilliseconds(1), CancellationToken.None);
 
-        await Assert.That(completed).IsEqualTo(2);
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Value.CompletedCount).IsEqualTo(2);
         await Assert.That(trafficStore.Count).IsEqualTo(2);
+    }
+
+    /// <summary>
+    ///     Verifies that cancellation is reported through a replay domain error rather than
+    ///     escaping as an exception.
+    /// </summary>
+    [Test]
+    public async Task RepeatAsync_CancelledToken_ReturnsCancellationError()
+    {
+        var sender = new StubComposerRequestSender
+        {
+            ExceptionToThrow = new OperationCanceledException("cancelled"),
+        };
+        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
+        var trafficStore = new StubTrafficStore();
+        var eventBus = new StubDomainEventBus();
+        var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
+        var request = BuildRequest("GET", "https://example.com/");
+        var result = await repeater.RepeatAsync(request, CancellationToken.None);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error).IsTypeOf<RequestReplayError>();
+        await Assert.That(result.Error!.Code).IsEqualTo(RequestReplayError.CancelledCode);
+    }
+
+    /// <summary>
+    ///     Verifies that the multi-repeat overload reports partial progress when a replay fails.
+    /// </summary>
+    [Test]
+    public async Task RepeatAsync_SecondIterationFails_ReturnsFailureWithCompletedCount()
+    {
+        var sender = new StubComposerRequestSender();
+        sender.ResponseFactory = (_, requestNumber) =>
+        {
+            if (requestNumber == 2)
+            {
+                throw new InvalidOperationException("second failed");
+            }
+
+            return BuildResponse(200, "OK");
+        };
+        var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
+        var trafficStore = new StubTrafficStore();
+        var eventBus = new StubDomainEventBus();
+        var repeater = new RequestRepeater(sender, ruleEngine, trafficStore, eventBus, TimeProvider.System);
+        var request = BuildRequest("GET", "https://example.com/");
+
+        var result = await repeater.RepeatAsync(request, repeatCount: 3, TimeSpan.Zero, CancellationToken.None);
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error).IsTypeOf<RequestReplayError>();
+        var replayError = (RequestReplayError)result.Error!;
+        await Assert.That(replayError.CompletedCount).IsEqualTo(1);
+        await Assert.That(replayError.Code).IsEqualTo(RequestReplayError.DispatchFailedCode);
     }
 
     private static HypertextTransferProtocolRequestData BuildRequest(string method, string url)
@@ -224,5 +291,19 @@ public sealed class RequestRepeaterTests
         };
         var request = new HypertextTransferProtocolRequestData(parameters);
         return request;
+    }
+
+    private static HypertextTransferProtocolResponseData BuildResponse(int statusCode, string reasonPhrase)
+    {
+        var parameters = new HypertextTransferProtocolResponseDataParameters
+        {
+            Body = ReadOnlyMemory<byte>.Empty,
+            Headers = HeaderCollection.Empty,
+            ReasonPhrase = reasonPhrase,
+            StatusCode = statusCode,
+            Version = "HTTP/1.1",
+        };
+        var response = new HypertextTransferProtocolResponseData(parameters);
+        return response;
     }
 }
