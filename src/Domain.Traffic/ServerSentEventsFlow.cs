@@ -171,7 +171,7 @@ public sealed class ServerSentEventsFlow
 
         if (isFirstClose)
         {
-            Closed?.Invoke();
+            RaiseClosed();
         }
     }
 
@@ -189,7 +189,7 @@ public sealed class ServerSentEventsFlow
 
         if (eventRecorded)
         {
-            EventRecorded?.Invoke(serverSentEvent);
+            RaiseEventRecorded(serverSentEvent);
         }
     }
 
@@ -244,6 +244,64 @@ public sealed class ServerSentEventsFlow
         }
 
         return byteCount;
+    }
+
+    private void RaiseClosed()
+    {
+        var handler = Closed;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handler.GetInvocationList())
+        {
+            if (subscriber is not ServerSentEventsFlowClosedHandler typedSubscriber)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedSubscriber();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "ServerSentEventsFlow observer failed during {0}: {1}",
+                    nameof(Closed),
+                    ex);
+            }
+        }
+    }
+
+    private void RaiseEventRecorded(ServerSentEvent serverSentEvent)
+    {
+        var handler = EventRecorded;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handler.GetInvocationList())
+        {
+            if (subscriber is not ServerSentEventsFlowEventRecordedHandler typedSubscriber)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedSubscriber(serverSentEvent);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "ServerSentEventsFlow observer failed during {0}: {1}",
+                    nameof(EventRecorded),
+                    ex);
+            }
+        }
     }
 
     private sealed class EventBuffer : IReadOnlyList<ServerSentEvent>

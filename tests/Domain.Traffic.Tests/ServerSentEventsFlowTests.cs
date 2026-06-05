@@ -234,6 +234,47 @@ public sealed class ServerSentEventsFlowTests
         await Assert.That(fireCount).IsEqualTo(1);
     }
 
+    /// <summary>
+    ///     A faulting <see cref="ServerSentEventsFlow.Closed" /> subscriber must not prevent
+    ///     subsequent subscribers from being notified and must not propagate the exception back
+    ///     into the <see cref="ServerSentEventsFlow.MarkClosed" /> call-site.
+    /// </summary>
+    [Test]
+    public async Task MarkClosed_FaultingSubscriber_DoesNotPropagateAndContinuesToNextSubscriber()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        var secondSubscriberFired = false;
+        sseFlow.Closed += () => throw new InvalidOperationException("observer fault");
+        sseFlow.Closed += () => secondSubscriberFired = true;
+
+        var act = () => sseFlow.MarkClosed(DateTimeOffset.UtcNow);
+
+        await Assert.That(act).ThrowsNothing();
+        await Assert.That(secondSubscriberFired).IsTrue();
+    }
+
+    /// <summary>
+    ///     A faulting <see cref="ServerSentEventsFlow.EventRecorded" /> subscriber must not
+    ///     prevent subsequent subscribers from being notified and must not propagate the exception
+    ///     back into the <see cref="ServerSentEventsFlow.RecordEvent" /> call-site.
+    /// </summary>
+    [Test]
+    public async Task RecordEvent_FaultingSubscriber_DoesNotPropagateAndContinuesToNextSubscriber()
+    {
+        var flow = CreateUnderlyingFlow(out _);
+        var sseFlow = new ServerSentEventsFlow(flow);
+        var secondSubscriberFired = false;
+        sseFlow.EventRecorded += _ => throw new InvalidOperationException("observer fault");
+        sseFlow.EventRecorded += _ => secondSubscriberFired = true;
+        var serverSentEvent = new ServerSentEvent("data", null, null, null, DateTimeOffset.UtcNow);
+
+        var act = () => sseFlow.RecordEvent(serverSentEvent);
+
+        await Assert.That(act).ThrowsNothing();
+        await Assert.That(secondSubscriberFired).IsTrue();
+    }
+
     private static TrafficFlow CreateUnderlyingFlow(out Guid id)
     {
         id = Guid.NewGuid();
