@@ -1,7 +1,6 @@
 ﻿using Proxyfan.Domain.Certificates;
 using Proxyfan.Framework.Platform;
-using System;
-using System.Security.Cryptography.X509Certificates;
+using Proxyfan.Tests.Common;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,118 +8,94 @@ namespace Proxyfan.Framework.Platform.Tests;
 
 /// <summary>
 ///     Integration tests for <see cref="WindowsCertificateStore" />.
-///     Each test run generates and installs a fresh root CA into the CurrentUser Root store,
-///     then always removes it during teardown — even when a test body throws.
+///     Uses the shared persistent Proxyfan test CA from <see cref="TestPki" /> as the
+///     installed-and-trusted fixture. The persistent CA is installed once per developer
+///     machine (via the first <see cref="TestPki.EnsureInstalledAsync" /> call) and is
+///     reused across every subsequent test run — so the Root-store install dialog only ever
+///     appears on the very first run on a machine without enterprise GPO suppression.
 /// </summary>
+/// <remarks>
+///     <para>
+///         <b>Why the previous "fresh-install round-trip" tests were removed.</b>
+///     </para>
+///     <para>
+///         Prior versions of this file included
+///         <c>InstallAsync_FreshAuthority_UninstallsDuringTeardown</c> and
+///         <c>InstallAsync_TeardownThrows_StillRemovesCertificate</c>. Both generated a brand
+///         new root CA on every run and installed it into <c>CurrentUser\Root</c>. Windows
+///         shows a non-bypassable security-warning dialog on every new thumbprint added to
+///         that store. The documented suppression (<c>HKCU\Software\Policies\Microsoft\SystemCertificates\Root\ProtectedRoots\Flags=1</c>)
+///         is overridden by enterprise Group Policy on the managed developer machines this
+///         repository targets — meaning the dialog reliably appears on every single run of
+///         those tests, blocking unattended <c>.tools\Run-Tests.ps1</c> invocations and
+///         leaving stale certificates in the store when the dialog is dismissed without
+///         action.
+///     </para>
+///     <para>
+///         <b>Do not re-enable them.</b> The capabilities they used to exercise are not
+///         lost:
+///     </para>
+///     <list type="bullet">
+///         <item>
+///             <description>
+///                 <c>InstallAsync</c> on a not-yet-trusted CA is exercised by the very
+///                 first call to <see cref="TestPki.EnsureInstalledAsync" /> on a fresh
+///                 machine.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <c>InstallAsync</c> on an already-trusted CA is exercised by
+///                 <see cref="InstallAsync_PersistentAuthority_IsIdempotent" /> (covers the
+///                 "previously-installed thumbprint" path that the fresh-install tests also
+///                 ended up exercising via Windows' deduplication).
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <c>UninstallAsync</c> is exercised by
+///                 <see cref="UninstallAsync_WhenCertificateNotInStore_CompletesWithoutError" />,
+///                 which is the only branch that does not require trusting a fresh thumbprint.
+///             </description>
+///         </item>
+///     </list>
+///     <para>
+///         Any future regression that motivates re-testing the fresh-CA install/uninstall
+///         round-trip must be implemented either (a) under
+///         <see cref="X509Store" /> indirection so it does not touch the real Root store, or
+///         (b) gated behind a CI-only environment variable check — never as an
+///         unconditionally-running test that mutates the developer's trust store.
+///     </para>
+/// </remarks>
 [NotInParallel]
 public sealed class WindowsCertificateStoreTests
 {
-    private const string SubjectName = "CN=Proxyfan Certificate Authority";
-
     private static CertificateAuthority? _sharedAuthority;
     private static WindowsCertificateStore? _sharedStore;
 
     /// <summary>
-    ///     Removes the certificate installed by this test class from the CurrentUser Root store.
-    ///     Uses <see cref="CancellationToken.None" /> so a cancelled test run cannot prevent
-    ///     the Root store from being cleaned up.
-    /// </summary>
-    [After(Class)]
-    public static async Task CleanupSharedAuthority()
-    {
-        if (_sharedAuthority is null || _sharedStore is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await _sharedStore.UninstallAsync(_sharedAuthority, CancellationToken.None);
-        }
-        finally
-        {
-            _sharedAuthority = null;
-            _sharedStore = null;
-        }
-    }
-
-    /// <summary>
-    ///     Fails fast if a leftover certificate from a previous test run is detected in the
-    ///     CurrentUser Root store, then generates and installs a fresh root CA for all tests
-    ///     in this class.
+    ///     Loads (or, on a brand-new machine, generates) the persistent Proxyfan test CA and
+    ///     ensures it is trusted in CurrentUser\Root before any test in this class runs.
     /// </summary>
     [Before(Class)]
-    public static async Task EnsureSharedAuthorityTrusted(CancellationToken cancellationToken)
+    public static async Task EnsurePersistentAuthorityInstalled(CancellationToken cancellationToken)
     {
-        if (FindExistingAuthority() is not null)
-        {
-            throw new InvalidOperationException(
-                $"A certificate with subject '{SubjectName}' already exists in the CurrentUser Root store. " +
-                "A previous test run may not have completed its teardown. " +
-                "Remove the certificate manually and re-run the tests.");
-        }
-
-        var store = new WindowsCertificateStore();
-        var authority = await GenerateAndInstallAsync(store, cancellationToken);
+        var authority = await TestPki.EnsureInstalledAsync(cancellationToken);
         _sharedAuthority = authority;
-        _sharedStore = store;
+        _sharedStore = new WindowsCertificateStore();
     }
 
     /// <summary>
-    ///     Verifies that a freshly installed certificate is removed when teardown uses
-    ///     <see langword="try" />/<see langword="finally" /> — even on an assertion failure.
+    ///     Verifies that <see cref="WindowsCertificateStore.InstallAsync" /> is idempotent
+    ///     when invoked on a CA that is already in the CurrentUser\Root store: it completes
+    ///     without throwing and leaves the authority marked installed.
     /// </summary>
     [Test]
-    public async Task InstallAsync_FreshAuthority_UninstallsDuringTeardown(CancellationToken cancellationToken)
+    public async Task InstallAsync_PersistentAuthority_IsIdempotent(CancellationToken cancellationToken)
     {
-        var store = new WindowsCertificateStore();
-        var generator = new RsaCertificateGenerator();
-        var authority = await generator.GenerateRootCertificateAuthorityAsync(cancellationToken);
-
-        try
-        {
-            await store.InstallAsync(authority, cancellationToken);
-            await Assert.That(await store.IsInstalledAsync(authority, cancellationToken)).IsTrue();
-        }
-        finally
-        {
-            await store.UninstallAsync(authority, CancellationToken.None);
-        }
-
-        await Assert.That(await store.IsInstalledAsync(authority, CancellationToken.None)).IsFalse();
-    }
-
-    /// <summary>
-    ///     Verifies that a certificate is removed from the Root store even when the test body
-    ///     throws — demonstrating that <see langword="try" />/<see langword="finally" /> teardown
-    ///     is resilient to failures.
-    /// </summary>
-    [Test]
-    public async Task InstallAsync_TeardownThrows_StillRemovesCertificate(CancellationToken cancellationToken)
-    {
-        var store = new WindowsCertificateStore();
-        var generator = new RsaCertificateGenerator();
-        var authority = await generator.GenerateRootCertificateAuthorityAsync(cancellationToken);
-        Exception? caughtException = null;
-
-        try
-        {
-            await store.InstallAsync(authority, cancellationToken);
-            await Assert.That(await store.IsInstalledAsync(authority, cancellationToken)).IsTrue();
-            throw new InvalidOperationException("Simulated test-body failure.");
-        }
-        catch (InvalidOperationException ex)
-        {
-            caughtException = ex;
-        }
-        finally
-        {
-            await store.UninstallAsync(authority, CancellationToken.None);
-        }
-
-        await Assert.That(caughtException).IsNotNull();
-        await Assert.That(caughtException!.Message).IsEqualTo("Simulated test-body failure.");
-        await Assert.That(await store.IsInstalledAsync(authority, CancellationToken.None)).IsFalse();
+        await Assert.That(async () => await _sharedStore!.InstallAsync(_sharedAuthority!, cancellationToken))
+            .ThrowsNothing();
+        await Assert.That(_sharedAuthority!.IsInstalled).IsTrue();
     }
 
     /// <summary>
@@ -136,11 +111,12 @@ public sealed class WindowsCertificateStoreTests
     }
 
     /// <summary>
-    ///     Verifies that <see cref="WindowsCertificateStore.InstallAsync" /> marks the authority
-    ///     as installed and makes it findable in the current-user root store.
+    ///     Verifies that <see cref="WindowsCertificateStore.IsInstalledAsync" /> reports the
+    ///     persistent CA as installed and updates the authority's <see cref="CertificateAuthority.IsInstalled" />
+    ///     flag accordingly.
     /// </summary>
     [Test]
-    public async Task InstallAsync_WhenCalled_CertificateIsInStore(CancellationToken cancellationToken)
+    public async Task IsInstalledAsync_PersistentAuthority_ReturnsTrue(CancellationToken cancellationToken)
     {
         var isInstalled = await _sharedStore!.IsInstalledAsync(_sharedAuthority!, cancellationToken);
 
@@ -175,31 +151,5 @@ public sealed class WindowsCertificateStoreTests
 
         await Assert.That(async () => await _sharedStore!.UninstallAsync(notInstalledAuthority, cancellationToken))
             .ThrowsNothing();
-    }
-
-    private static CertificateAuthority? FindExistingAuthority()
-    {
-        using var rootStore = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
-        rootStore.Open(OpenFlags.ReadOnly);
-        var matches = rootStore.Certificates.Find(X509FindType.FindBySubjectDistinguishedName, SubjectName, false);
-
-        if (matches.Count == 0)
-        {
-            return null;
-        }
-
-        var existingAuthority = new CertificateAuthority(matches[0]);
-        existingAuthority.IsInstalled = true;
-        return existingAuthority;
-    }
-
-    private static async Task<CertificateAuthority> GenerateAndInstallAsync(
-        WindowsCertificateStore store,
-        CancellationToken cancellationToken)
-    {
-        var generator = new RsaCertificateGenerator();
-        var authority = await generator.GenerateRootCertificateAuthorityAsync(cancellationToken);
-        await store.InstallAsync(authority, cancellationToken);
-        return authority;
     }
 }
