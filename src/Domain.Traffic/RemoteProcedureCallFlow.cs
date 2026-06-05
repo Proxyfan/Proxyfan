@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -25,7 +26,7 @@ public sealed class RemoteProcedureCallFlow
     private const int DefaultMessageCapacity = StreamingCaptureBudgets.WebSocketAndRemoteProcedureCallMessageCapacity;
     private readonly Lock _gate;
     private readonly int _messageCapacity;
-    private readonly List<RemoteProcedureCallCapturedMessage> _messages;
+    private readonly MessageBuffer _messages;
     private readonly StreamingCaptureBudget _streamingCaptureBudget;
     private DateTimeOffset? _closedAt;
     private int _droppedMessagesCount;
@@ -142,7 +143,8 @@ public sealed class RemoteProcedureCallFlow
 
         var gate = new Lock();
         _gate = gate;
-        _messages = [];
+        var messages = new MessageBuffer(messageCapacity);
+        _messages = messages;
         Flow = flow;
         _closedAt = null;
         _droppedMessagesCount = 0;
@@ -220,8 +222,7 @@ public sealed class RemoteProcedureCallFlow
             return;
         }
 
-        _messages.RemoveAt(0);
-        _messages.Add(message);
+        _messages.OverwriteOldest(message);
         _droppedMessagesCount++;
         messageRecorded = true;
     }
@@ -229,5 +230,70 @@ public sealed class RemoteProcedureCallFlow
     private int GetMessageSizeBytes(RemoteProcedureCallCapturedMessage message)
     {
         return message.Payload.Length;
+    }
+
+    private sealed class MessageBuffer : IReadOnlyList<RemoteProcedureCallCapturedMessage>
+    {
+        private readonly RemoteProcedureCallCapturedMessage[] _buffer;
+        private int _startIndex;
+
+        public MessageBuffer(int capacity)
+        {
+            var buffer = new RemoteProcedureCallCapturedMessage[capacity];
+            _buffer = buffer;
+            Count = 0;
+            _startIndex = 0;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public int Count { get; private set; }
+
+        public IEnumerator<RemoteProcedureCallCapturedMessage> GetEnumerator()
+        {
+            for (var index = 0; index < Count; index++)
+            {
+                yield return this[index];
+            }
+        }
+
+        public RemoteProcedureCallCapturedMessage this[int index] => _buffer[GetBufferIndex(index)];
+
+        public void Add(RemoteProcedureCallCapturedMessage message)
+        {
+            _buffer[GetWriteIndex()] = message;
+            Count++;
+        }
+
+        public void OverwriteOldest(RemoteProcedureCallCapturedMessage message)
+        {
+            _buffer[_startIndex] = message;
+            MoveToNextStartIndex();
+        }
+
+        private int GetBufferIndex(int index)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Count);
+
+            return (_startIndex + index) % _buffer.Length;
+        }
+
+        private int GetWriteIndex()
+        {
+            return (_startIndex + Count) % _buffer.Length;
+        }
+
+        private void MoveToNextStartIndex()
+        {
+            _startIndex++;
+            if (_startIndex == _buffer.Length)
+            {
+                _startIndex = 0;
+            }
+        }
     }
 }
