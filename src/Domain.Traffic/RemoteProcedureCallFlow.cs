@@ -253,7 +253,10 @@ public sealed class RemoteProcedureCallFlow
             }
             catch (Exception ex)
             {
-                _ = ex;
+                System.Diagnostics.Trace.TraceWarning(
+                    "RemoteProcedureCallFlow observer failed during {0}: {1}",
+                    nameof(Closed),
+                    ex);
             }
         }
     }
@@ -279,7 +282,10 @@ public sealed class RemoteProcedureCallFlow
             }
             catch (Exception ex)
             {
-                _ = ex;
+                System.Diagnostics.Trace.TraceWarning(
+                    "RemoteProcedureCallFlow observer failed during {0}: {1}",
+                    nameof(MessageRecorded),
+                    ex);
             }
         }
     }
