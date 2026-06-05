@@ -1,4 +1,5 @@
 ﻿using Proxyfan.Domain.Certificates;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,8 @@ namespace Proxyfan.Client.Tests.Stubs;
 internal sealed class StubCertificateStore : ICertificateStore
 {
     private readonly HashSet<string> _installedThumbprints;
+    public int? ThrowOnInstallCallNumber { get; set; }
+    public int? ThrowOnUninstallCallNumber { get; set; }
     public int InstallCallCount { get; private set; }
     public int UninstallCallCount { get; private set; }
     public int IsInstalledCallCount { get; private set; }
@@ -29,6 +32,11 @@ internal sealed class StubCertificateStore : ICertificateStore
     public Task InstallAsync(CertificateAuthority authority, CancellationToken cancellationToken)
     {
         InstallCallCount++;
+        if (ThrowOnInstallCallNumber == InstallCallCount)
+        {
+            throw new InvalidOperationException("Install failure");
+        }
+
         _installedThumbprints.Add(authority.Certificate.Thumbprint);
         return Task.CompletedTask;
     }
@@ -45,6 +53,11 @@ internal sealed class StubCertificateStore : ICertificateStore
     public Task UninstallAsync(CertificateAuthority authority, CancellationToken cancellationToken)
     {
         UninstallCallCount++;
+        if (ThrowOnUninstallCallNumber == UninstallCallCount)
+        {
+            throw new InvalidOperationException("Uninstall failure");
+        }
+
         _installedThumbprints.Remove(authority.Certificate.Thumbprint);
         return Task.CompletedTask;
     }

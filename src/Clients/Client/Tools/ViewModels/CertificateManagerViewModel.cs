@@ -190,20 +190,73 @@ public sealed partial class CertificateManagerViewModel : ObservableObject, IDis
         IsBusy = true;
         try
         {
+            var previousAuthority = await _authorityProvider.GetAsync(cancellationToken).ConfigureAwait(false);
             var wasInstalled = IsInstalled;
             var authority = await _authorityProvider.RegenerateAsync(cancellationToken).ConfigureAwait(false);
+            var previousUninstallFailed = false;
+            var newInstallFailed = false;
             if (wasInstalled)
             {
-                await _certificateStore.InstallAsync(authority, cancellationToken).ConfigureAwait(false);
+                previousUninstallFailed = await TryUninstallAsync(previousAuthority, cancellationToken).ConfigureAwait(false);
+                newInstallFailed = await TryInstallAsync(authority, cancellationToken).ConfigureAwait(false);
             }
 
             var installed = await _certificateStore.IsInstalledAsync(authority, cancellationToken).ConfigureAwait(false);
             ApplyAuthority(authority, installed);
-            StatusMessage = "Certificate regenerated.";
+            if (!wasInstalled || (!previousUninstallFailed && !newInstallFailed))
+            {
+                StatusMessage = "Certificate regenerated.";
+            }
+            else if (previousUninstallFailed && newInstallFailed)
+            {
+                StatusMessage = "Certificate regenerated, but removing the previous certificate and installing the new certificate in the Windows trust store failed.";
+            }
+            else if (previousUninstallFailed)
+            {
+                StatusMessage = "Certificate regenerated, but removing the previous certificate from the Windows trust store failed.";
+            }
+            else
+            {
+                StatusMessage = "Certificate regenerated, but installing the new certificate in the Windows trust store failed.";
+            }
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private async Task<bool> TryInstallAsync(CertificateAuthority authority, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _certificateStore.InstallAsync(authority, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private async Task<bool> TryUninstallAsync(CertificateAuthority authority, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _certificateStore.UninstallAsync(authority, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return true;
         }
     }
 

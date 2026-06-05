@@ -138,13 +138,52 @@ public sealed class CertificateManagerViewModelTests
     [Test]
     public async Task RegenerateCommand_PreviouslyInstalled_ReinstallsRotatedAuthority()
     {
-        var (viewModel, _, _, store) = Create();
+        var (viewModel, _, provider, store) = Create();
+        var originalAuthority = await provider.GetAsync(default).ConfigureAwait(false);
         await viewModel.InstallCommand.ExecuteAsync(null).ConfigureAwait(false);
 
         await viewModel.RegenerateCommand.ExecuteAsync(null).ConfigureAwait(false);
 
+        var rotatedAuthority = await provider.GetAsync(default).ConfigureAwait(false);
         await Assert.That(store.InstallCallCount).IsEqualTo(2);
+        await Assert.That(store.UninstallCallCount).IsEqualTo(1);
+        await Assert.That(await store.IsInstalledAsync(originalAuthority, default).ConfigureAwait(false)).IsFalse();
+        await Assert.That(await store.IsInstalledAsync(rotatedAuthority, default).ConfigureAwait(false)).IsTrue();
         await Assert.That(viewModel.IsInstalled).IsTrue();
+    }
+
+    /// <summary>
+    ///     Regeneration reports when removing the previous trusted root fails.
+    /// </summary>
+    [Test]
+    public async Task RegenerateCommand_PreviouslyInstalledAndUninstallFails_ReportsOldRemovalFailure()
+    {
+        var (viewModel, _, _, store) = Create();
+        await viewModel.InstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+        store.ThrowOnUninstallCallNumber = 1;
+
+        await viewModel.RegenerateCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(viewModel.IsInstalled).IsTrue();
+        await Assert.That(viewModel.StatusMessage).Contains("removing the previous certificate");
+        await Assert.That(viewModel.StatusMessage).Contains("failed");
+    }
+
+    /// <summary>
+    ///     Regeneration reports when installing the rotated root fails.
+    /// </summary>
+    [Test]
+    public async Task RegenerateCommand_PreviouslyInstalledAndInstallFails_ReportsNewInstallFailure()
+    {
+        var (viewModel, _, _, store) = Create();
+        await viewModel.InstallCommand.ExecuteAsync(null).ConfigureAwait(false);
+        store.ThrowOnInstallCallNumber = 2;
+
+        await viewModel.RegenerateCommand.ExecuteAsync(null).ConfigureAwait(false);
+
+        await Assert.That(viewModel.IsInstalled).IsFalse();
+        await Assert.That(viewModel.StatusMessage).Contains("installing the new certificate");
+        await Assert.That(viewModel.StatusMessage).Contains("failed");
     }
 
     /// <summary>
