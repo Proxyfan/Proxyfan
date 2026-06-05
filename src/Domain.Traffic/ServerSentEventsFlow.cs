@@ -293,21 +293,17 @@ public sealed class ServerSentEventsFlow
             ArgumentOutOfRangeException.ThrowIfNegative(index);
             ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Count);
 
-            return (_startIndex + index) % _buffer.Length;
+            return (int)(((long)_startIndex + index) % _buffer.Length);
         }
 
         private int GetWriteIndex()
         {
-            return (_startIndex + Count) % _buffer.Length;
+            return (int)(((long)_startIndex + Count) % _buffer.Length);
         }
 
         private void MoveToNextStartIndex()
         {
-            _startIndex++;
-            if (_startIndex == _buffer.Length)
-            {
-                _startIndex = 0;
-            }
+            _startIndex = (int)(((long)_startIndex + 1) % _buffer.Length);
         }
     }
 }
