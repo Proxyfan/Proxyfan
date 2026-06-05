@@ -97,7 +97,6 @@ public sealed partial class ReverseProxySettingsViewModel : ObservableObject, ID
         [
             ReverseProxyTransportLayerSecurityMode.None,
             ReverseProxyTransportLayerSecurityMode.Passthrough,
-            ReverseProxyTransportLayerSecurityMode.Terminate,
         ];
         Routes = [];
         ReloadRoutes();
@@ -174,6 +173,23 @@ public sealed partial class ReverseProxySettingsViewModel : ObservableObject, ID
 
         var forwardPort = _forwardProxyOptions.CurrentValue.Port;
         return listenPort == forwardPort;
+    }
+
+    private bool HasPortParseError(string raw, string label, out int value)
+    {
+        if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+        {
+            ValidationError = $"{label} port must be a number.";
+            return true;
+        }
+
+        if (value is < 1 or > 65535)
+        {
+            ValidationError = $"{label} port must be between 1 and 65535.";
+            return true;
+        }
+
+        return false;
     }
 
     private void OnEngineStatusChanged(string identifier, ReverseProxyRouteStatus status)
@@ -339,15 +355,8 @@ public sealed partial class ReverseProxySettingsViewModel : ObservableObject, ID
             return null;
         }
 
-        if (!int.TryParse(ListenPort, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedListenPort))
+        if (HasPortParseError(ListenPort, "Listen", out var parsedListenPort))
         {
-            ValidationError = "Listen port must be a number.";
-            return null;
-        }
-
-        if (parsedListenPort is < 1 or > 65535)
-        {
-            ValidationError = "Listen port must be between 1 and 65535.";
             return null;
         }
 
@@ -357,15 +366,14 @@ public sealed partial class ReverseProxySettingsViewModel : ObservableObject, ID
             return null;
         }
 
-        if (!int.TryParse(BackendPort, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedBackendPort))
+        if (HasPortParseError(BackendPort, "Backend", out var parsedBackendPort))
         {
-            ValidationError = "Backend port must be a number.";
             return null;
         }
 
-        if (parsedBackendPort is < 1 or > 65535)
+        if (TransportLayerSecurityMode == ReverseProxyTransportLayerSecurityMode.Terminate)
         {
-            ValidationError = "Backend port must be between 1 and 65535.";
+            ValidationError = "TLS termination is not yet supported. Use None or Passthrough.";
             return null;
         }
 
