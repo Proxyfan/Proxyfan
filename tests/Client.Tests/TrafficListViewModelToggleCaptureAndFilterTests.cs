@@ -5,6 +5,7 @@ using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Threading.Tasks;
 
 namespace Proxyfan.Client.Tests;
@@ -215,6 +216,84 @@ public sealed class TrafficListViewModelToggleCaptureAndFilterTests
         bus.PublishResponseReceived(CreateResponseEvent(flowId, 200));
 
         await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Appending a non-matching flow while the filter is unchanged must not rebuild the
+    ///     visible collection.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_FilteredAppendWithNonMatch_DoesNotRaiseCollectionChanged()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/1"));
+        viewModel.FilterText = "alpha";
+
+        var actions = new List<NotifyCollectionChangedAction>();
+        viewModel.VisibleFlows.CollectionChanged += (_, eventArgs) => actions.Add(eventArgs.Action);
+
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://beta.example.com/2"));
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.VisibleFlows[0].Host).IsEqualTo("alpha.example.com");
+        await Assert.That(actions.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    ///     Removing a visible flow while the filter is unchanged must surface a remove
+    ///     notification instead of rebuilding the collection.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_FilteredRemoveSelected_RaisesSingleRemoveNotification()
+    {
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/1"));
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/2"));
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://beta.example.com/3"));
+        viewModel.FilterText = "alpha";
+        viewModel.SelectedFlow = viewModel.VisibleFlows[0];
+
+        var actions = new List<NotifyCollectionChangedAction>();
+        viewModel.VisibleFlows.CollectionChanged += (_, eventArgs) => actions.Add(eventArgs.Action);
+
+        viewModel.RemoveSelectedCommand.Execute(parameter: null);
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(1);
+        await Assert.That(viewModel.VisibleFlows[0].Host).IsEqualTo("alpha.example.com");
+        await Assert.That(actions.Count).IsEqualTo(1);
+        await Assert.That(actions[0]).IsEqualTo(NotifyCollectionChangedAction.Remove);
+    }
+
+    /// <summary>
+    ///     Non-appended insertions must fall back to a rebuild so the filtered visible order
+    ///     stays aligned with the source collection.
+    /// </summary>
+    [Test]
+    public async Task VisibleFlows_FilteredInsertAtStart_RebuildsToPreserveOrder()
+    {
+        const int insertedSequenceNumber = 99;
+
+        var bus = new StubBus();
+        using var viewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://beta.example.com/2"));
+        bus.PublishRequestReceived(CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/3"));
+        viewModel.FilterText = "alpha";
+        var insertedFlow = new TrafficFlowViewModel(
+            CreateRequestEvent(Guid.NewGuid(), "GET", "https://alpha.example.com/1"),
+            insertedSequenceNumber);
+
+        var actions = new List<NotifyCollectionChangedAction>();
+        viewModel.VisibleFlows.CollectionChanged += (_, eventArgs) => actions.Add(eventArgs.Action);
+
+        viewModel.Flows.Insert(0, insertedFlow);
+
+        await Assert.That(viewModel.VisibleFlows.Count).IsEqualTo(2);
+        await Assert.That(viewModel.VisibleFlows[0]).IsSameReferenceAs(insertedFlow);
+        await Assert.That(viewModel.VisibleFlows[1].Host).IsEqualTo("alpha.example.com");
+        await Assert.That(actions.Count).IsGreaterThan(0);
+        await Assert.That(actions[0]).IsEqualTo(NotifyCollectionChangedAction.Reset);
     }
 
     /// <summary>

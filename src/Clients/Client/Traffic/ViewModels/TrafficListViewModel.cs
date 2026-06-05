@@ -366,6 +366,57 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
         await _clipboardService.SetTextAsync(url, cancellationToken).ConfigureAwait(false);
     }
 
+    private bool HasHandledAddedVisibleFlowsChange(NotifyCollectionChangedEventArgs notifyArgs)
+    {
+        if (notifyArgs.Action != NotifyCollectionChangedAction.Add
+            || notifyArgs.NewItems is null
+            || notifyArgs.NewItems.Count == 0
+            || Flows.Count < notifyArgs.NewItems.Count
+            || notifyArgs.NewStartingIndex != Flows.Count - notifyArgs.NewItems.Count)
+        {
+            return false;
+        }
+
+        foreach (var newItem in notifyArgs.NewItems)
+        {
+            if (newItem is TrafficFlowViewModel flow && HasFilterMatch(flow))
+            {
+                VisibleFlows.Add(flow);
+            }
+        }
+
+        return true;
+    }
+
+    private bool HasHandledEmptyResetVisibleFlowsChange(NotifyCollectionChangedEventArgs notifyArgs)
+    {
+        if (notifyArgs.Action != NotifyCollectionChangedAction.Reset || Flows.Count != 0)
+        {
+            return false;
+        }
+
+        VisibleFlows.Clear();
+        return true;
+    }
+
+    private bool HasHandledRemovedVisibleFlowsChange(NotifyCollectionChangedEventArgs notifyArgs)
+    {
+        if (notifyArgs.Action != NotifyCollectionChangedAction.Remove || notifyArgs.OldItems is null)
+        {
+            return false;
+        }
+
+        foreach (var oldItem in notifyArgs.OldItems)
+        {
+            if (oldItem is TrafficFlowViewModel flow)
+            {
+                VisibleFlows.Remove(flow);
+            }
+        }
+
+        return true;
+    }
+
     private bool HasHostFilterMatch(TrafficFlowViewModel flow)
     {
         if (string.IsNullOrWhiteSpace(HostFilter))
@@ -420,6 +471,21 @@ public sealed partial class TrafficListViewModel : ObservableObject, IDisposable
     private void OnFlowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs notifyArgs)
     {
         _coordinator.UpdateSourceHosts(Flows);
+        if (HasHandledAddedVisibleFlowsChange(notifyArgs))
+        {
+            return;
+        }
+
+        if (HasHandledRemovedVisibleFlowsChange(notifyArgs))
+        {
+            return;
+        }
+
+        if (HasHandledEmptyResetVisibleFlowsChange(notifyArgs))
+        {
+            return;
+        }
+
         RebuildVisibleFlowsOnUiThread();
     }
 
