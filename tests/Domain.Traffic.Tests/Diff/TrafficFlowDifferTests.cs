@@ -140,6 +140,38 @@ public sealed class TrafficFlowDifferTests
     }
 
     /// <summary>
+    ///     Verifies that text bodies with pathological line counts are summarized before diffing.
+    /// </summary>
+    [Test]
+    public async Task Diff_ResponseBodyWithTooManyLines_RendersAsSummary()
+    {
+        var bodyWithTooManyLines = BuildBodyWithLineCount(TrafficFlowDiffer.MaximumDiffableBodyLineCount + 1);
+        var normalBody = "tiny";
+        var flowOne = BuildFlow("GET", "https://example.com/one", 200, "OK", bodyWithTooManyLines);
+        var flowTwo = BuildFlow("GET", "https://example.com/one", 200, "OK", normalBody);
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await HasAnyNonEqual(diff.ResponseBody);
+        await HasAnyWithText(diff.ResponseBody, "too many lines");
+    }
+
+    /// <summary>
+    ///     Verifies that estimated diff work for two highly fragmented text bodies uses summary fallback.
+    /// </summary>
+    [Test]
+    public async Task Diff_ResponseBodiesWithLargeEstimatedWork_RendersAsSummary()
+    {
+        var lineCount = TrafficFlowDiffer.MaximumDiffableBodyLineCount / 2;
+        var flowOne = BuildFlow("GET", "https://example.com/one", 200, "OK", BuildBodyWithLineCount(lineCount));
+        var flowTwo = BuildFlow("GET", "https://example.com/one", 200, "OK", BuildBodyWithLineCount(lineCount));
+
+        var diff = TrafficFlowDiffer.Diff(flowOne, flowTwo);
+
+        await HasAnyWithText(diff.ResponseBody, "too many lines");
+    }
+
+    /// <summary>
     ///     Verifies that bytes in the 0x0E-0x1F control range are treated as binary.
     /// </summary>
     [Test]
@@ -293,6 +325,37 @@ public sealed class TrafficFlowDifferTests
         }
 
         await Assert.That(hasOnlyEqual).IsTrue();
+    }
+
+    private static async Task HasAnyWithText(System.Collections.Generic.IReadOnlyList<LineDiffSegment> segments, string expectedText)
+    {
+        var hasMatchingText = false;
+        for (var index = 0; index < segments.Count; index++)
+        {
+            if (segments[index].Text.Contains(expectedText, StringComparison.Ordinal))
+            {
+                hasMatchingText = true;
+                break;
+            }
+        }
+
+        await Assert.That(hasMatchingText).IsTrue();
+    }
+
+    private static string BuildBodyWithLineCount(int lineCount)
+    {
+        var builder = new StringBuilder();
+        for (var index = 0; index < lineCount; index++)
+        {
+            if (index > 0)
+            {
+                builder.Append('\n');
+            }
+
+            builder.Append('x');
+        }
+
+        return builder.ToString();
     }
 
     private static TrafficFlow BuildFlow(string method, string url, int status, string reason, string? bodyText)
