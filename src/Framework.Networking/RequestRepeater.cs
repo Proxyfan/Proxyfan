@@ -151,20 +151,20 @@ public sealed class RequestRepeater : IRequestRepeater
             return replayError;
         }
 
-        if (error is RequestReplayError replayErrorWithDifferentCount && replayErrorWithDifferentCount.InnerException is not null)
+        if (error is RequestReplayError existingReplayError)
         {
-            return new RequestReplayError(
-                replayErrorWithDifferentCount.Code,
-                replayErrorWithDifferentCount.Message,
-                completedCount,
-                replayErrorWithDifferentCount.InnerException);
-        }
+            if (existingReplayError.InnerException is not null)
+            {
+                return new RequestReplayError(
+                    existingReplayError.Code,
+                    existingReplayError.Message,
+                    completedCount,
+                    existingReplayError.InnerException);
+            }
 
-        if (error is RequestReplayError replayErrorWithDifferentCountWithoutException)
-        {
             return new RequestReplayError(
-                replayErrorWithDifferentCountWithoutException.Code,
-                replayErrorWithDifferentCountWithoutException.Message,
+                existingReplayError.Code,
+                existingReplayError.Message,
                 completedCount);
         }
 
@@ -199,8 +199,8 @@ public sealed class RequestRepeater : IRequestRepeater
             var responseData = await _sender.SendAsync(effectiveRequest, cancellationToken).ConfigureAwait(false);
             if (!responseData.IsSuccess)
             {
-                var innerException = responseData.Error?.InnerException
-                                     ?? new InvalidOperationException(responseData.Error?.Message ?? "Send failed.");
+                var fallbackException = new InvalidOperationException(responseData.Error?.Message ?? "Send failed.");
+                var innerException = responseData.Error?.InnerException ?? fallbackException;
                 var dispatchError = BuildDispatchFailedError(completedCount: 0, innerException);
                 return Result.Failure<HypertextTransferProtocolResponseData>(dispatchError);
             }

@@ -255,9 +255,15 @@ public sealed class RequestRepeaterTests
     public async Task RepeatAsync_SecondIterationFails_ReturnsFailureWithCompletedCount()
     {
         var sender = new StubComposerRequestSender();
-        sender.ResponseFactory = (_, requestNumber) => requestNumber == 2
-            ? throw new InvalidOperationException("second failed")
-            : BuildResponse(200, "OK");
+        sender.ResponseFactory = (_, requestNumber) =>
+        {
+            if (requestNumber == 2)
+            {
+                throw new InvalidOperationException("second failed");
+            }
+
+            return BuildResponse(200, "OK");
+        };
         var ruleEngine = new RuleEngine(Array.Empty<IRequestPhaseRule>(), Array.Empty<IResponsePhaseRule>());
         var trafficStore = new StubTrafficStore();
         var eventBus = new StubDomainEventBus();
