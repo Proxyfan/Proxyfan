@@ -1,6 +1,7 @@
 using Proxyfan.Client.Inspector.ViewModels;
 using Proxyfan.Client.Tests.Stubs;
 using Proxyfan.Client.Traffic.ViewModels;
+using Proxyfan.Client.Tools;
 using Proxyfan.Domain;
 using Proxyfan.Domain.Traffic;
 using Proxyfan.Domain.Traffic.Events;
@@ -390,11 +391,12 @@ public sealed class RemoteProcedureCallInspectorViewModelTests
         var bus = new StubDomainEventBus();
         var trafficListViewModel = new TrafficListViewModel(bus, InlineUserInterfaceScheduler.Instance);
         var store = new RemoteProcedureCallStore();
+        var schemaLibrary = new RemoteProcedureCallSchemaLibraryAdapter(library);
         var inspector = new RemoteProcedureCallInspectorViewModel(
             trafficListViewModel,
             store,
             InlineUserInterfaceScheduler.Instance,
-            library);
+            schemaLibrary);
         return new Harness(trafficListViewModel, store, inspector);
     }
 

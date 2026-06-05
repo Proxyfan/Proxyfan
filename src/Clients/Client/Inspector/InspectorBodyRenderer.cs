@@ -1,5 +1,5 @@
+using Proxyfan.Client.Tools;
 using Proxyfan.Domain.Traffic;
-using Proxyfan.Framework.Serialization;
 using System;
 using System.Globalization;
 using System.Text;
@@ -8,7 +8,7 @@ namespace Proxyfan.Client.Inspector;
 
 /// <summary>
 ///     Renders an HTTP message body for display in the Inspector. Applies
-///     <see cref="ContentEncodingDecoder" /> using the Content-Encoding header, decodes
+///     <see cref="InspectorSerializationFormatter" /> using the Content-Encoding header, decodes
 ///     bytes to text using the charset (or UTF-8), then dispatches to a content-specific
 ///     pretty-printer based on the media type. Binary content (including images) is
 ///     rendered as a hex dump prefixed with a metadata header.
@@ -26,9 +26,9 @@ public static class InspectorBodyRenderer
     /// <param name="body">The raw body bytes.</param>
     /// <param name="headers">The message headers (used for Content-Type and Content-Encoding).</param>
     /// <returns>The display text.</returns>
-    /// <exception cref="DecompressionLimitExceededException">
+    /// <exception cref="Proxyfan.Framework.Serialization.DecompressionLimitExceededException">
     ///     Thrown when the decompressed output exceeds the safety limits in
-    ///     <see cref="ContentEncodingDecoder" />.
+    ///     <see cref="InspectorSerializationFormatter" />.
     /// </exception>
     public static string Render(ReadOnlyMemory<byte> body, HeaderCollection headers)
     {
@@ -45,9 +45,9 @@ public static class InspectorBodyRenderer
     ///     full body is always decoded. Use only when the user has explicitly requested it.
     /// </param>
     /// <returns>The display text.</returns>
-    /// <exception cref="DecompressionLimitExceededException">
+    /// <exception cref="Proxyfan.Framework.Serialization.DecompressionLimitExceededException">
     ///     Thrown when <paramref name="forceDecodeBody" /> is <see langword="false" /> and the
-    ///     decompressed output exceeds the safety limits in <see cref="ContentEncodingDecoder" />.
+    ///     decompressed output exceeds the safety limits in <see cref="InspectorSerializationFormatter" />.
     /// </exception>
     public static string Render(ReadOnlyMemory<byte> body, HeaderCollection headers, bool forceDecodeBody)
     {
@@ -61,7 +61,7 @@ public static class InspectorBodyRenderer
 
         if (HasProtobufMediaType(contentType))
         {
-            return ProtobufPrettyPrinter.PrettyPrint(decoded);
+            return InspectorSerializationFormatter.PrettyPrintProtobuf(decoded);
         }
 
         if (HasImageMediaType(contentType))
@@ -78,7 +78,7 @@ public static class InspectorBodyRenderer
         {
             var charset = ResolveCharset(contentType);
             var formText = DecodeText(decoded, charset);
-            return FormUrlEncodedPrettyPrinter.PrettyPrint(formText);
+            return InspectorSerializationFormatter.PrettyPrintFormUrlEncoded(formText);
         }
 
         var resolvedCharset = ResolveCharset(contentType);
@@ -97,9 +97,9 @@ public static class InspectorBodyRenderer
 
         try
         {
-            var maxDecompressedBytes = forceDecodeBody ? long.MaxValue : ContentEncodingDecoder.DefaultMaxDecompressedBytes;
-            var maxDecompressionRatio = forceDecodeBody ? double.MaxValue : ContentEncodingDecoder.DefaultMaxDecompressionRatio;
-            return ContentEncodingDecoder.Decode(contentEncoding, body.ToArray(), maxDecompressedBytes, maxDecompressionRatio);
+            var maxDecompressedBytes = forceDecodeBody ? long.MaxValue : InspectorSerializationFormatter.DefaultMaxDecompressedBytes;
+            var maxDecompressionRatio = forceDecodeBody ? double.MaxValue : InspectorSerializationFormatter.DefaultMaxDecompressionRatio;
+            return InspectorSerializationFormatter.DecodeContentEncoding(contentEncoding, body.ToArray(), maxDecompressedBytes, maxDecompressionRatio);
         }
         catch (NotSupportedException)
         {
@@ -299,17 +299,17 @@ public static class InspectorBodyRenderer
 
         if (HasJsonMediaType(mediaType))
         {
-            return JsonPrettyPrinter.PrettyPrint(text);
+            return InspectorSerializationFormatter.PrettyPrintJson(text);
         }
 
         if (HasHypertextMarkupLanguageMediaType(mediaType))
         {
-            return XmlPrettyPrinter.PrettyPrint(text);
+            return InspectorSerializationFormatter.PrettyPrintXml(text);
         }
 
         if (HasXmlMediaType(mediaType))
         {
-            return XmlPrettyPrinter.PrettyPrint(text);
+            return InspectorSerializationFormatter.PrettyPrintXml(text);
         }
 
         return text;
@@ -323,7 +323,7 @@ public static class InspectorBodyRenderer
         builder.Append(", ");
         builder.Append(decoded.Length.ToString(CultureInfo.InvariantCulture));
         builder.AppendLine(" bytes]");
-        builder.Append(HexDumpFormatter.Format(decoded));
+        builder.Append(InspectorSerializationFormatter.FormatHexDump(decoded));
         return builder.ToString();
     }
 
@@ -335,7 +335,7 @@ public static class InspectorBodyRenderer
         builder.Append(", ");
         builder.Append(decoded.Length.ToString(CultureInfo.InvariantCulture));
         builder.AppendLine(" bytes]");
-        builder.Append(HexDumpFormatter.Format(decoded));
+        builder.Append(InspectorSerializationFormatter.FormatHexDump(decoded));
         return builder.ToString();
     }
 
